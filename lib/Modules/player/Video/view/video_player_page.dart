@@ -2,14 +2,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:video_player/video_player.dart' as vp;
 
 import 'package:flutter_listenfy/Modules/player/Video/controller/video_player_controller.dart';
 import '../../../../app/routes/app_routes.dart';
-import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
 
 class VideoPlayerPage extends StatefulWidget {
   const VideoPlayerPage({super.key});
@@ -26,7 +24,8 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   Timer? _speedTimer;
   double? _dragValue;
   String? _speedToast;
-  double _speedDragAccumulator = 0;
+  double _speedGestureOffset = 0;
+  bool _speedGestureConsumed = false;
   int _activePointers = 0;
   bool _pipRequested = false;
   final MethodChannel _pipChannel = const MethodChannel('listenfy/pip');
@@ -121,50 +120,48 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: AppGradientBackground(
-        child: SafeArea(
-          child: Obx(() {
-            final queue = controller.queue;
-            final idx = controller.currentIndex.value;
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Obx(() {
+          final queue = controller.queue;
+          final idx = controller.currentIndex.value;
 
-            final item = (queue.isNotEmpty && idx >= 0 && idx < queue.length)
-                ? queue[idx]
-                : null;
+          final item = (queue.isNotEmpty && idx >= 0 && idx < queue.length)
+              ? queue[idx]
+              : null;
 
-            if (item == null) {
-              return const Center(child: Text('No hay vídeo'));
-            }
+          if (item == null) {
+            return const Center(child: Text('No hay vídeo'));
+          }
 
-            return Stack(
-              children: [
-                Positioned.fill(child: _buildVideoArea(theme)),
-                if (_showControls)
-                  Positioned.fill(child: _buildControls(theme, item)),
-                if (_speedToast != null)
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.65),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        _speedToast!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
+          return Stack(
+            children: [
+              Positioned.fill(child: _buildVideoArea(theme)),
+              if (_showControls)
+                Positioned.fill(child: _buildControls(theme, item)),
+              if (_speedToast != null)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _speedToast!,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-              ],
-            );
-          }),
-        ),
+                ),
+            ],
+          );
+        }),
       ),
     );
   }
@@ -173,17 +170,26 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     return Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: (_) => _activePointers++,
-      onPointerUp: (_) => _activePointers = (_activePointers - 1).clamp(0, 10),
-      onPointerCancel: (_) => _activePointers = 0,
+      onPointerUp: (_) {
+        _activePointers = (_activePointers - 1).clamp(0, 10);
+        if (_activePointers < 2) _resetSpeedGesture();
+      },
+      onPointerCancel: (_) {
+        _activePointers = 0;
+        _resetSpeedGesture();
+      },
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _toggleControls,
-        onDoubleTap: _pauseOnDoubleTap,
+        onDoubleTap: _togglePlayOnDoubleTap,
+        onVerticalDragStart: (_) => _resetSpeedGesture(),
         onVerticalDragUpdate: (details) {
           if (_activePointers >= 2) {
             _onVerticalDragUpdate(details);
           }
         },
+        onVerticalDragEnd: (_) => _resetSpeedGesture(),
+        onVerticalDragCancel: _resetSpeedGesture,
         child: Obx(() {
           final _ = controller.state.value;
           final err = controller.error.value;
@@ -198,7 +204,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
           final vpCtrl = controller.playerController;
           if (vpCtrl == null || !vpCtrl.value.isInitialized) {
             return Container(
-              color: theme.colorScheme.surfaceVariant,
+              color: theme.colorScheme.surfaceContainerHighest,
               child: const Center(child: CircularProgressIndicator()),
             );
           }
@@ -206,7 +212,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
           final size = vpCtrl.value.size;
           if (size.width <= 0 || size.height <= 0) {
             return Container(
-              color: theme.colorScheme.surfaceVariant,
+              color: theme.colorScheme.surfaceContainerHighest,
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: const Center(
                 child: Text(
@@ -291,8 +297,9 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                         style: ElevatedButton.styleFrom(
                           shape: const CircleBorder(),
                           padding: EdgeInsets.zero,
-                          backgroundColor: theme.colorScheme.primary
-                              .withOpacity(0.25),
+                          backgroundColor: theme.colorScheme.primary.withValues(
+                            alpha: 0.25,
+                          ),
                           elevation: 0,
                         ),
                         child: Icon(
@@ -434,19 +441,23 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     });
   }
 
-  void _pauseOnDoubleTap() {
-    if (controller.isPlaying.value) {
-      controller.togglePlay();
-    }
+  void _togglePlayOnDoubleTap() {
+    controller.togglePlay();
     _showControlsTemp();
   }
 
   void _onVerticalDragUpdate(DragUpdateDetails details) {
-    _speedDragAccumulator += -details.delta.dy;
-    if (_speedDragAccumulator.abs() < 24) return;
-    final steps = (_speedDragAccumulator / 24).truncate();
-    _speedDragAccumulator -= steps * 24;
-    _adjustSpeed(steps * 0.1);
+    if (_speedGestureConsumed) return;
+    _speedGestureOffset += -details.delta.dy;
+    if (_speedGestureOffset.abs() < 24) return;
+    final step = _speedGestureOffset > 0 ? 0.1 : -0.1;
+    _adjustSpeed(step);
+    _speedGestureConsumed = true;
+  }
+
+  void _resetSpeedGesture() {
+    _speedGestureOffset = 0;
+    _speedGestureConsumed = false;
   }
 
   void _adjustSpeed(double delta) {
