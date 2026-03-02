@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -6,8 +7,38 @@ import 'package:get/get.dart';
 import '../controller/video_player_controller.dart';
 import '../../../../app/models/media_item.dart';
 
-class VideoQueuePage extends GetView<VideoPlayerController> {
+class VideoQueuePage extends StatefulWidget {
   const VideoQueuePage({super.key});
+
+  @override
+  State<VideoQueuePage> createState() => _VideoQueuePageState();
+}
+
+class _VideoQueuePageState extends State<VideoQueuePage>
+    with WidgetsBindingObserver {
+  late final VideoPlayerController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.find<VideoPlayerController>();
+    controller.isQueueOpen.value = true;
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    controller.isQueueOpen.value = false;
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      unawaited(controller.videoService.pause());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

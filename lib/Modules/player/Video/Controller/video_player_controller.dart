@@ -18,6 +18,7 @@ class VideoPlayerController extends GetxController {
 
   final RxList<MediaItem> queue = <MediaItem>[].obs;
   final RxInt currentIndex = 0.obs;
+  final RxBool isQueueOpen = false.obs;
   final Rxn<String> error = Rxn<String>();
   Worker? _positionWorker;
   Worker? _completedWorker;

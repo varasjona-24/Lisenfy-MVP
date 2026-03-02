@@ -66,13 +66,12 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
 
   void _bindPip() {
     if (!Platform.isAndroid) return;
-    _pipWorker = ever(controller.isPlaying, (playing) {
-      if (playing == true) {
-        _setPipEnabled(true);
-      } else {
-        _setPipEnabled(false);
-      }
+    _pipWorker = everAll([controller.isPlaying, controller.isQueueOpen], (_) {
+      final enabled =
+          controller.isPlaying.value && !controller.isQueueOpen.value;
+      _setPipEnabled(enabled);
     });
+    _setPipEnabled(controller.isPlaying.value && !controller.isQueueOpen.value);
   }
 
   Future<void> _setPipEnabled(bool enabled) async {
@@ -96,6 +95,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   Future<void> _enterPipIfNeeded() async {
     if (_pipRequested) return;
     if (!Platform.isAndroid) return;
+    if (controller.isQueueOpen.value) return;
     final vpCtrl = controller.playerController;
     if (vpCtrl == null || !vpCtrl.value.isInitialized) return;
     if (!controller.isPlaying.value) return;
@@ -541,10 +541,17 @@ class _LifecycleObserver with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState appState) {
     if (appState == AppLifecycleState.paused) {
+      if (state.controller.isQueueOpen.value) {
+        state._setPipEnabled(false);
+        unawaited(state.controller.videoService.pause());
+        return;
+      }
       state._enterPipIfNeeded();
     } else if (appState == AppLifecycleState.resumed) {
       state._pipRequested = false;
-      state._setPipEnabled(state.controller.isPlaying.value);
+      state._setPipEnabled(
+        state.controller.isPlaying.value && !state.controller.isQueueOpen.value,
+      );
     }
   }
 }
