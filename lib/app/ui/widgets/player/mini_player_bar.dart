@@ -41,9 +41,11 @@ class MiniPlayerBar extends StatelessWidget {
 
       final audioItem = audio.currentItem.value;
       final videoItem = video.currentItem.value;
-      final audioActive = audioItem != null &&
+      final audioActive =
+          audioItem != null &&
           (audio.state.value != PlaybackState.stopped || audio.keepLastItem);
-      final videoActive = videoItem != null &&
+      final videoActive =
+          videoItem != null &&
           (video.state.value != VideoPlaybackState.stopped ||
               video.keepLastItem);
 
@@ -56,17 +58,16 @@ class MiniPlayerBar extends StatelessWidget {
       if (item == null) {
         return const SizedBox.shrink();
       }
-      final isPlaying =
-          isVideo ? video.isPlaying.value : audio.isPlaying.value;
+      final isPlaying = isVideo ? video.isPlaying.value : audio.isPlaying.value;
 
       final canPrev = isVideo
           ? (videoCtrl != null && videoCtrl.currentIndex.value > 0)
           : (audioCtrl != null && audioCtrl.currentIndex.value > 0);
       final canNext = isVideo
           ? (videoCtrl != null &&
-              videoCtrl.currentIndex.value < videoCtrl.queue.length - 1)
+                videoCtrl.currentIndex.value < videoCtrl.queue.length - 1)
           : (audioCtrl != null &&
-              audioCtrl.currentIndex.value < audioCtrl.queue.length - 1);
+                audioCtrl.currentIndex.value < audioCtrl.queue.length - 1);
 
       return _MiniBar(
         item: item,
@@ -103,14 +104,14 @@ class MiniPlayerBar extends StatelessWidget {
           if (isVideo) {
             await video.stop();
             video.clearLastItem();
+            VideoPlayerController.clearPersistedQueueSnapshot();
           } else {
             await audio.stop();
             audio.clearLastItem();
           }
         },
         onOpen: () {
-          final route =
-              isVideo ? AppRoutes.videoPlayer : AppRoutes.audioPlayer;
+          final route = isVideo ? AppRoutes.videoPlayer : AppRoutes.audioPlayer;
           Get.toNamed(route);
         },
       );
@@ -149,7 +150,7 @@ class _MiniBar extends StatelessWidget {
     final scheme = theme.colorScheme;
     final thumb = item.effectiveThumbnail;
     final bg = Color.alphaBlend(
-      scheme.primary.withOpacity(0.18),
+      scheme.primary.withValues(alpha: 0.18),
       scheme.surface,
     );
 
@@ -164,12 +165,10 @@ class _MiniBar extends StatelessWidget {
             decoration: BoxDecoration(
               color: bg,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: scheme.primary.withOpacity(0.18),
-              ),
+              border: Border.all(color: scheme.primary.withValues(alpha: 0.18)),
               boxShadow: [
                 BoxShadow(
-                  color: scheme.shadow.withOpacity(0.12),
+                  color: scheme.shadow.withValues(alpha: 0.12),
                   blurRadius: 16,
                   offset: const Offset(0, 8),
                 ),
@@ -213,7 +212,9 @@ class _MiniBar extends StatelessWidget {
                   ),
                   IconButton(
                     icon: Icon(
-                      isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
                     ),
                     onPressed: onToggle,
                   ),
@@ -245,7 +246,7 @@ class _Thumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final bg = scheme.primary.withOpacity(0.12);
+    final bg = scheme.primary.withValues(alpha: 0.12);
 
     if (thumb != null && thumb!.isNotEmpty) {
       final provider = thumb!.startsWith('http')
@@ -253,12 +254,7 @@ class _Thumb extends StatelessWidget {
           : FileImage(File(thumb!)) as ImageProvider;
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image(
-          image: provider,
-          width: 46,
-          height: 46,
-          fit: BoxFit.cover,
-        ),
+        child: Image(image: provider, width: 46, height: 46, fit: BoxFit.cover),
       );
     }
 

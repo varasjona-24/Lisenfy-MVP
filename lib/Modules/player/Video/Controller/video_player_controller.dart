@@ -13,21 +13,58 @@ class VideoPlayerController extends GetxController {
   final PlaybackSettingsController _settings =
       Get.find<PlaybackSettingsController>();
   final GetStorage _storage = GetStorage();
-  final List<MediaItem> queue;
+  final List<MediaItem> _initialQueue;
   final int initialIndex;
 
+  final RxList<MediaItem> queue = <MediaItem>[].obs;
   final RxInt currentIndex = 0.obs;
   final Rxn<String> error = Rxn<String>();
+  Worker? _positionWorker;
+  Worker? _completedWorker;
+  Worker? _queueWorker;
+  Worker? _indexWorker;
 
-  static const _queueKey = 'video_queue_items';
-  static const _queueIndexKey = 'video_queue_index';
-  static const _resumePosKey = 'video_resume_positions';
+  static const queueStorageKey = 'video_queue_items';
+  static const queueIndexStorageKey = 'video_queue_index';
+  static const resumePosStorageKey = 'video_resume_positions';
 
   VideoPlayerController({
     required this.videoService,
-    required this.queue,
+    required List<MediaItem> queue,
     required this.initialIndex,
-  });
+  }) : _initialQueue = List<MediaItem>.from(queue);
+
+  static List<MediaItem> restorePersistedQueue({GetStorage? storage}) {
+    final box = storage ?? GetStorage();
+    final rawQueue = box.read<List>(queueStorageKey);
+    if (rawQueue == null || rawQueue.isEmpty) return <MediaItem>[];
+
+    try {
+      return rawQueue
+          .whereType<Map>()
+          .map((m) => MediaItem.fromJson(Map<String, dynamic>.from(m)))
+          .toList(growable: false);
+    } catch (_) {
+      clearPersistedQueueSnapshot(storage: box);
+      return <MediaItem>[];
+    }
+  }
+
+  static int restorePersistedIndex({
+    required int queueLength,
+    GetStorage? storage,
+  }) {
+    if (queueLength <= 0) return 0;
+    final box = storage ?? GetStorage();
+    final rawIndex = box.read<int>(queueIndexStorageKey) ?? 0;
+    return rawIndex.clamp(0, queueLength - 1).toInt();
+  }
+
+  static void clearPersistedQueueSnapshot({GetStorage? storage}) {
+    final box = storage ?? GetStorage();
+    box.remove(queueStorageKey);
+    box.remove(queueIndexStorageKey);
+  }
 
   // Delegación de streams al VideoService
   Rx<Duration> get position => videoService.position;
@@ -42,24 +79,28 @@ class VideoPlayerController extends GetxController {
   void onInit() {
     super.onInit();
 
+    queue.assignAll(_initialQueue);
     if (queue.isEmpty) {
       currentIndex.value = 0;
+      clearPersistedQueueSnapshot(storage: _storage);
     } else {
       final safeIndex = initialIndex.clamp(0, queue.length - 1).toInt();
       currentIndex.value = safeIndex;
       _persistQueue();
     }
 
-    debounce<Duration>(
+    _positionWorker = debounce<Duration>(
       position,
       (p) => _persistPosition(p),
       time: const Duration(seconds: 2),
     );
 
-    ever<int>(videoService.completedTick, (_) async {
+    _completedWorker = ever<int>(videoService.completedTick, (_) async {
       if (!_settings.autoPlayNext.value) return;
       await next();
     });
+    _queueWorker = ever<List<MediaItem>>(queue, (_) => _persistQueue());
+    _indexWorker = ever<int>(currentIndex, (_) => _persistQueue());
   }
 
   @override
@@ -146,13 +187,16 @@ class VideoPlayerController extends GetxController {
     }
 
     try {
-      print('▶️ Playing: ${item.title} (${variant.kind}/${variant.format})');
+      final sameTrackLoaded =
+          videoService.hasSourceLoaded &&
+          videoService.isSameVideo(item, variant);
       await videoService.play(item, variant);
-      await _resumeIfAny(item);
-      await _trackPlay(item);
+      if (!sameTrackLoaded) {
+        await _resumeIfAny(item);
+        await _trackPlay(item);
+      }
       error.value = null;
     } catch (e) {
-      print('❌ Error in _playItem: $e');
       error.value = 'Error al reproducir: $e';
     }
   }
@@ -208,15 +252,46 @@ class VideoPlayerController extends GetxController {
     await _playCurrent();
   }
 
+  Future<void> reorderQueue(int oldIndex, int newIndex) async {
+    if (oldIndex < 0 || oldIndex >= queue.length) return;
+    if (newIndex < 0 || newIndex > queue.length) return;
+
+    if (newIndex > oldIndex) newIndex -= 1;
+    if (oldIndex == newIndex) return;
+
+    final item = queue.removeAt(oldIndex);
+    queue.insert(newIndex, item);
+
+    if (currentIndex.value == oldIndex) {
+      currentIndex.value = newIndex;
+    } else if (oldIndex < newIndex &&
+        currentIndex.value > oldIndex &&
+        currentIndex.value <= newIndex) {
+      currentIndex.value -= 1;
+    } else if (oldIndex > newIndex &&
+        currentIndex.value >= newIndex &&
+        currentIndex.value < oldIndex) {
+      currentIndex.value += 1;
+    }
+
+    _persistQueue();
+  }
+
   /// Reintentar cargar el mismo vídeo
   Future<void> retry() async {
     await _playCurrent();
   }
 
   void _persistQueue() {
-    if (queue.isEmpty) return;
-    _storage.write(_queueKey, queue.map((e) => e.toJson()).toList());
-    _storage.write(_queueIndexKey, currentIndex.value);
+    if (queue.isEmpty) {
+      clearPersistedQueueSnapshot(storage: _storage);
+      return;
+    }
+    _storage.write(
+      queueStorageKey,
+      queue.map((e) => e.toJson()).toList(growable: false),
+    );
+    _storage.write(queueIndexStorageKey, currentIndex.value);
   }
 
   void _persistPosition(Duration p) {
@@ -224,7 +299,7 @@ class VideoPlayerController extends GetxController {
     if (item == null) return;
     final key = item.publicId.isNotEmpty ? item.publicId : item.id;
     if (key.trim().isNotEmpty) {
-      final map = _storage.read<Map>(_resumePosKey);
+      final map = _storage.read<Map>(resumePosStorageKey);
       final next = <String, dynamic>{};
       if (map != null) {
         for (final entry in map.entries) {
@@ -237,13 +312,13 @@ class VideoPlayerController extends GetxController {
       } else {
         next[key] = ms;
       }
-      _storage.write(_resumePosKey, next);
+      _storage.write(resumePosStorageKey, next);
     }
   }
 
   Future<void> _resumeIfAny(MediaItem item) async {
     final key = item.publicId.isNotEmpty ? item.publicId : item.id;
-    final map = _storage.read<Map>(_resumePosKey);
+    final map = _storage.read<Map>(resumePosStorageKey);
     if (map == null) return;
     final raw = map[key];
     if (raw is! int) return;
@@ -268,6 +343,12 @@ class VideoPlayerController extends GetxController {
 
   @override
   void onClose() {
+    _persistQueue();
+    _persistPosition(position.value);
+    _positionWorker?.dispose();
+    _completedWorker?.dispose();
+    _queueWorker?.dispose();
+    _indexWorker?.dispose();
     super.onClose();
   }
 }

@@ -26,32 +26,103 @@ class VideoQueuePage extends GetView<VideoPlayerController> {
           return const Center(child: Text('La cola está vacía'));
         }
 
-        return ListView.separated(
-          padding: const EdgeInsets.all(12),
-          itemCount: queue.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 6),
-          itemBuilder: (context, i) {
-            final it = queue[i];
-            final selected = i == idx;
-            return ListTile(
-              selected: selected,
-              leading: _thumb(theme: theme, item: it, selected: selected),
-              title: Text(
-                it.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        final totalSeconds = queue.fold<int>(
+          0,
+          (sum, item) => sum + (item.effectiveDurationSeconds ?? 0),
+        );
+
+        return Column(
+          children: [
+            _header(
+              theme: theme,
+              count: queue.length,
+              totalSeconds: totalSeconds,
+            ),
+            Expanded(
+              child: ReorderableListView.builder(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                itemCount: queue.length,
+                buildDefaultDragHandles: false,
+                onReorder: (oldIndex, newIndex) async {
+                  await controller.reorderQueue(oldIndex, newIndex);
+                },
+                itemBuilder: (context, i) {
+                  final it = queue[i];
+                  final selected = i == idx;
+                  final durText = _fmtDurationShort(
+                    it.effectiveDurationSeconds,
+                  );
+
+                  return ListTile(
+                    key: ObjectKey(it),
+                    selected: selected,
+                    contentPadding: const EdgeInsets.only(left: 8, right: 4),
+                    leading: _thumb(theme: theme, item: it, selected: selected),
+                    title: Text(
+                      it.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: it.subtitle.isNotEmpty ? Text(it.subtitle) : null,
+                    onTap: () async {
+                      await controller.playAt(i);
+                      Get.back();
+                    },
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (durText.isNotEmpty)
+                              Text(durText, style: theme.textTheme.bodySmall),
+                            if (selected) const Text('Reproduciendo'),
+                          ],
+                        ),
+                        const SizedBox(width: 4),
+                        ReorderableDragStartListener(
+                          index: i,
+                          child: Icon(
+                            Icons.drag_handle,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
-              subtitle:
-                  it.subtitle.isNotEmpty ? Text(it.subtitle) : null,
-              onTap: () async {
-                await controller.playAt(i);
-                Get.back();
-              },
-              trailing: selected ? const Text('Reproduciendo') : null,
-            );
-          },
+            ),
+          ],
         );
       }),
+    );
+  }
+
+  Widget _header({
+    required ThemeData theme,
+    required int count,
+    required int totalSeconds,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '$count videos • Total: ${_fmtDurationTotal(totalSeconds)}',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+          Text(
+            'Arrastra para mover',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -72,7 +143,7 @@ class VideoQueuePage extends GetView<VideoPlayerController> {
           width: 48,
           height: 48,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _thumbFallback(theme),
+          errorBuilder: (context, error, stackTrace) => _thumbFallback(theme),
         );
       } else {
         image = Image.file(
@@ -80,7 +151,7 @@ class VideoQueuePage extends GetView<VideoPlayerController> {
           width: 48,
           height: 48,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _thumbFallback(theme),
+          errorBuilder: (context, error, stackTrace) => _thumbFallback(theme),
         );
       }
     } else {
@@ -124,9 +195,27 @@ class VideoQueuePage extends GetView<VideoPlayerController> {
     return Container(
       width: 48,
       height: 48,
-      color: theme.colorScheme.surfaceVariant,
+      color: theme.colorScheme.surfaceContainerHighest,
       alignment: Alignment.center,
       child: Icon(Icons.videocam, color: theme.colorScheme.onSurfaceVariant),
     );
+  }
+
+  String _fmtDurationTotal(int seconds) {
+    if (seconds <= 0) return '0:00';
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    if (h > 0) {
+      return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    }
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  String _fmtDurationShort(int? seconds) {
+    if (seconds == null || seconds <= 0) return '';
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 }
