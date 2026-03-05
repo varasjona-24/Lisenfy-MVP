@@ -15,6 +15,7 @@ import 'package:flutter_listenfy/Modules/player/audio/view/audio_player_page.dar
 // Video
 import 'package:flutter_listenfy/Modules/player/Video/binding/video_player_binding.dart';
 import 'package:flutter_listenfy/Modules/player/Video/view/video_player_page.dart';
+import 'package:flutter_listenfy/Modules/player/Video/view/lyrics_entry_page.dart';
 
 // Sources
 import 'package:flutter_listenfy/Modules/sources/binding/sources_binding.dart';
@@ -100,6 +101,8 @@ abstract class AppPages {
       page: () => const VideoPlayerPage(),
       binding: VideoPlayerBinding(),
     ),
+    // Lyrics Entry
+    GetPage(name: AppRoutes.lyricsEntry, page: () => const LyricsEntryPage()),
 
     // Queues
     GetPage(name: AppRoutes.audioQueue, page: () => const QueuePage()),

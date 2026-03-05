@@ -353,7 +353,7 @@ class _WaveCoverState extends State<_WaveCover>
       return Container(
         key: ValueKey('${widget.displayMode.name}-${widget.item.id}'),
         width: 280,
-        height: 210,
+        height: 260,
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(

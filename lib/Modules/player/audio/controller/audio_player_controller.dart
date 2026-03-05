@@ -384,6 +384,10 @@ class AudioPlayerController extends GetxController {
     coverStyle.value = all[next];
   }
 
+  void setCoverStyle(CoverStyle style) {
+    coverStyle.value = style;
+  }
+
   Future<void> toggleShuffle() async {
     isShuffling.value = !isShuffling.value;
     await audioService.setShuffle(isShuffling.value);

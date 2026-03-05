@@ -40,6 +40,9 @@ class MediaItem {
 
   /// Duración base del media (si viene del backend/metadata)
   final int? durationSeconds;
+  final String? lyrics;
+  final String? lyricsLanguage;
+  final Map<String, String>? translations;
 
   const MediaItem({
     required this.id,
@@ -52,6 +55,9 @@ class MediaItem {
     this.thumbnail,
     this.thumbnailLocalPath,
     this.durationSeconds,
+    this.lyrics,
+    this.lyricsLanguage,
+    this.translations,
     this.isFavorite = false,
     this.playCount = 0,
     this.lastPlayedAt,
@@ -71,6 +77,9 @@ class MediaItem {
     List<MediaVariant>? variants,
     SourceOrigin? origin,
     int? durationSeconds,
+    String? lyrics,
+    String? lyricsLanguage,
+    Map<String, String>? translations,
     bool? isFavorite,
     int? playCount,
     int? lastPlayedAt,
@@ -86,6 +95,9 @@ class MediaItem {
       variants: variants ?? this.variants,
       origin: origin ?? this.origin,
       durationSeconds: durationSeconds ?? this.durationSeconds,
+      lyrics: lyrics ?? this.lyrics,
+      lyricsLanguage: lyricsLanguage ?? this.lyricsLanguage,
+      translations: translations ?? this.translations,
       isFavorite: isFavorite ?? this.isFavorite,
       playCount: playCount ?? this.playCount,
       lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
@@ -251,6 +263,13 @@ class MediaItem {
     final playCount = (json['playCount'] as num?)?.toInt() ?? 0;
     final lastPlayedAt = (json['lastPlayedAt'] as num?)?.toInt();
 
+    final lyrics = json['lyrics'] as String?;
+    final lyricsLanguage = json['lyricsLanguage'] as String?;
+    final translationsJson = json['translations'] as Map<String, dynamic>?;
+    final translations = translationsJson?.map(
+      (k, v) => MapEntry(k, v as String),
+    );
+
     return MediaItem(
       id: id,
       publicId: publicId,
@@ -262,6 +281,9 @@ class MediaItem {
       variants: variants,
       durationSeconds: durationSeconds,
       origin: origin,
+      lyrics: lyrics,
+      lyricsLanguage: lyricsLanguage,
+      translations: translations,
       isFavorite: isFavorite,
       playCount: playCount,
       lastPlayedAt: lastPlayedAt,
@@ -281,6 +303,9 @@ class MediaItem {
     'isFavorite': isFavorite,
     'playCount': playCount,
     'lastPlayedAt': lastPlayedAt,
+    'lyrics': lyrics,
+    'lyricsLanguage': lyricsLanguage,
+    'translations': translations,
     'variants': variants.map((v) => v.toJson()).toList(),
   };
 }

@@ -114,8 +114,24 @@ class MiniPlayerBar extends StatelessWidget {
           final route = isVideo ? AppRoutes.videoPlayer : AppRoutes.audioPlayer;
           Get.toNamed(route);
         },
+        onLyrics: () => _openLyricsSheet(context, item),
       );
     });
+  }
+
+  void _openLyricsSheet(BuildContext context, MediaItem item) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) {
+        return FractionallySizedBox(
+          heightFactor: 0.62,
+          child: _MiniLyricsSheet(item: item),
+        );
+      },
+    );
   }
 }
 
@@ -131,6 +147,7 @@ class _MiniBar extends StatelessWidget {
     required this.onNext,
     required this.onClose,
     required this.onOpen,
+    required this.onLyrics,
   });
 
   final MediaItem item;
@@ -143,6 +160,7 @@ class _MiniBar extends StatelessWidget {
   final VoidCallback? onNext;
   final VoidCallback onClose;
   final VoidCallback onOpen;
+  final VoidCallback onLyrics;
 
   @override
   Widget build(BuildContext context) {
@@ -223,6 +241,11 @@ class _MiniBar extends StatelessWidget {
                     onPressed: canNext ? onNext : null,
                   ),
                   IconButton(
+                    tooltip: 'Letras',
+                    icon: const Icon(Icons.lyrics_rounded),
+                    onPressed: onLyrics,
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.close_rounded),
                     onPressed: onClose,
                   ),
@@ -232,6 +255,139 @@ class _MiniBar extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MiniLyricsSheet extends StatefulWidget {
+  const _MiniLyricsSheet({required this.item});
+
+  final MediaItem item;
+
+  @override
+  State<_MiniLyricsSheet> createState() => _MiniLyricsSheetState();
+}
+
+class _MiniLyricsSheetState extends State<_MiniLyricsSheet> {
+  static const Map<String, String> _langLabels = <String, String>{
+    'es': 'Español',
+    'en': 'Inglés',
+    'pt': 'Portugués',
+    'fr': 'Francés',
+    'it': 'Italiano',
+    'de': 'Alemán',
+  };
+
+  late final Map<String, String> _byLang;
+  late String _selectedLang;
+
+  @override
+  void initState() {
+    super.initState();
+    _byLang = _buildLyricsMap(widget.item);
+    _selectedLang = _byLang.keys.isNotEmpty ? _byLang.keys.first : '';
+  }
+
+  Map<String, String> _buildLyricsMap(MediaItem item) {
+    final map = <String, String>{};
+
+    final main = (item.lyrics ?? '').trim();
+    final mainLang = (item.lyricsLanguage ?? 'es').trim().toLowerCase();
+    if (main.isNotEmpty) {
+      map[mainLang.isEmpty ? 'main' : mainLang] = main;
+    }
+
+    final translations = item.translations ?? const <String, String>{};
+    for (final entry in translations.entries) {
+      final key = entry.key.trim().toLowerCase();
+      final value = entry.value.trim();
+      if (key.isEmpty || value.isEmpty) continue;
+      if (map[key] == value) continue;
+      map[key] = value;
+    }
+
+    return map;
+  }
+
+  String _langLabel(String lang) => _langLabels[lang] ?? lang.toUpperCase();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final lyrics = _selectedLang.isEmpty ? '' : (_byLang[_selectedLang] ?? '');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.item.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            widget.item.displaySubtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (_byLang.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _byLang.keys
+                  .map(
+                    (lang) => ChoiceChip(
+                      label: Text(_langLabel(lang)),
+                      selected: _selectedLang == lang,
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedLang = lang;
+                        });
+                      },
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: _byLang.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Esta canción no tiene letras guardadas.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        child: SelectableText(
+                          lyrics,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

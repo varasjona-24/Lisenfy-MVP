@@ -296,6 +296,9 @@ class EditEntityController extends GetxController {
     required String subtitle,
     required bool thumbTouched,
     required String? localThumbPath,
+    required String lyrics,
+    required String lyricsLanguage,
+    required Map<String, String> translations,
   }) async {
     final trimmedTitle = title.trim();
     if (trimmedTitle.isEmpty) {
@@ -327,6 +330,9 @@ class EditEntityController extends GetxController {
       thumbnail: thumbRemoteUpdate,
       thumbnailLocalPath: thumbLocalUpdate,
       durationSeconds: latest.durationSeconds,
+      lyrics: lyrics.trim(),
+      lyricsLanguage: lyricsLanguage.trim().toLowerCase(),
+      translations: Map<String, String>.from(translations),
     );
 
     await _store.upsert(updated);

@@ -86,11 +86,50 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                           style: theme.textTheme.titleSmall,
                         ),
                       ),
-                      IconButton(
+                      PopupMenuButton<CoverStyle>(
                         tooltip:
                             'Visualizador: ${_coverStyleLabel(coverStyle)}',
                         icon: Icon(_coverStyleIcon(coverStyle)),
-                        onPressed: controller.toggleCoverStyle,
+                        onSelected: controller.setCoverStyle,
+                        itemBuilder: (context) {
+                          return CoverStyle.values
+                              .map((style) {
+                                final selected = style == coverStyle;
+                                return PopupMenuItem<CoverStyle>(
+                                  value: style,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _coverStyleIcon(style),
+                                        size: 18,
+                                        color: selected
+                                            ? theme.colorScheme.primary
+                                            : null,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          _coverStyleLabel(style),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: selected
+                                              ? theme.textTheme.bodyMedium
+                                                    ?.copyWith(
+                                                      color: theme
+                                                          .colorScheme
+                                                          .primary,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    )
+                                              : theme.textTheme.bodyMedium,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              })
+                              .toList(growable: false);
+                        },
                       ),
                       IconButton(
                         tooltip: 'Ver cola',

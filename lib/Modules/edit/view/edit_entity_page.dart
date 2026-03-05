@@ -6,9 +6,11 @@ import 'package:get/get.dart';
 
 import '../../../app/models/audio_cleanup.dart';
 import '../../../app/models/media_item.dart';
+import '../../../app/routes/app_routes.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/controllers/navigation_controller.dart';
+import '../../player/Video/view/lyrics_entry_page.dart';
 import '../../artists/controller/artists_controller.dart';
 import '../../playlists/domain/playlist.dart';
 import '../../sources/domain/source_theme_topic.dart';
@@ -564,6 +566,9 @@ class _EditEntityPageState extends State<EditEntityPage> {
             subtitle: _subtitleCtrl.text,
             thumbTouched: _thumbTouched,
             localThumbPath: _localThumbPath,
+            lyrics: _media?.lyrics ?? '',
+            lyricsLanguage: _media?.lyricsLanguage ?? 'es',
+            translations: _media?.translations ?? const <String, String>{},
           )
         : (_args.type == EditEntityType.artist
               ? await _controller.saveArtist(
@@ -598,6 +603,55 @@ class _EditEntityPageState extends State<EditEntityPage> {
     if (ok && mounted) {
       Get.back(result: true);
     }
+  }
+
+  String _lyricsSummaryLabel() {
+    final lyrics = _media?.lyrics?.trim() ?? '';
+    final hasLyrics = lyrics.isNotEmpty;
+    final translationsCount = _media?.translations?.length ?? 0;
+    final lang = (_media?.lyricsLanguage ?? '').trim().toUpperCase();
+
+    if (!hasLyrics && translationsCount == 0) {
+      return 'Sin letras guardadas';
+    }
+
+    final base = hasLyrics
+        ? 'Letra principal ${lang.isEmpty ? '' : '($lang)'}'
+        : 'Sin letra principal';
+
+    if (translationsCount <= 0) return base.trim();
+    return '$base - $translationsCount traducciones';
+  }
+
+  Future<void> _openLyricsEditor() async {
+    if (!_isMedia || _media == null) return;
+    final item = _media!;
+
+    final result = await Get.toNamed(
+      AppRoutes.lyricsEntry,
+      arguments: LyricsEntryArgs(
+        title: _titleCtrl.text.trim().isNotEmpty
+            ? _titleCtrl.text.trim()
+            : item.title,
+        artist: _subtitleCtrl.text.trim().isNotEmpty
+            ? _subtitleCtrl.text.trim()
+            : item.subtitle,
+        lyrics: item.lyrics,
+        lyricsLanguage: item.lyricsLanguage,
+        translations: item.translations,
+      ),
+    );
+
+    if (!mounted || result == null) return;
+    if (result is! LyricsEntryResult) return;
+
+    setState(() {
+      _mediaDraft = item.copyWith(
+        lyrics: result.lyrics.trim(),
+        lyricsLanguage: result.lyricsLanguage.trim().toLowerCase(),
+        translations: Map<String, String>.from(result.translations),
+      );
+    });
   }
 
   Widget _buildThumbnail(BuildContext context) {
@@ -1039,6 +1093,27 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         'Detecta silencios mayores a 4 segundos y te permite elegir cuales recortar.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Divider(color: theme.colorScheme.outlineVariant),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.tonalIcon(
+                          onPressed: _openLyricsEditor,
+                          icon: const Icon(Icons.lyrics_rounded),
+                          label: const Text('Editar letras'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          _lyricsSummaryLabel(),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ],
