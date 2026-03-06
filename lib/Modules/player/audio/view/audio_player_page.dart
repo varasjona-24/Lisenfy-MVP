@@ -7,6 +7,7 @@ import '../widgets/cover_art.dart';
 import '../widgets/playback_controls.dart';
 import '../widgets/progress_bar.dart';
 import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
+import '../../../../app/ui/widgets/player/player_lyrics_sheet.dart';
 import '../../../../app/services/spatial_audio_service.dart';
 
 class AudioPlayerPage extends StatefulWidget {
@@ -130,6 +131,11 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                               })
                               .toList(growable: false);
                         },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.lyrics_rounded),
+                        onPressed: () =>
+                            openPlayerLyricsSheet(item, heightFactor: 0.72),
                       ),
                       IconButton(
                         tooltip: 'Ver cola',

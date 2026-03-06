@@ -43,10 +43,17 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
   static const Map<String, String> _languageLabels = {
     'es': 'Español',
     'en': 'Inglés',
+    'ja': 'Japonés',
+    'ko': 'Coreano',
     'pt': 'Portugués',
     'fr': 'Francés',
     'it': 'Italiano',
     'de': 'Alemán',
+  };
+
+  static const Map<String, String> _extraTranslationLabels = {
+    'ja-romaji': 'Japonés (Romaji)',
+    'ko-romaja': 'Coreano (Romaja)',
   };
 
   final TextEditingController _titleController = TextEditingController();
@@ -60,6 +67,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
   bool _loading = false;
   String _lyricsLang = 'es';
   String _targetLang = 'en';
+  String _activePreviewKey = 'en';
 
   Future<void> _searchLyrics() async {
     final query = "${_titleController.text} ${_artistController.text}".trim();
@@ -76,21 +84,22 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
       LyricsSearchDialog(initialQuery: query),
     );
     if (result != null && mounted) {
-      setState(() => _loading = true);
-      final fetched = await LyricsService.fetchLyricsFromUrl(result);
-      if (mounted) {
-        if (fetched != null && fetched.trim().isNotEmpty) {
-          _lyricsController.text = fetched;
-        } else {
-          Get.snackbar(
-            'Letras',
-            'No se pudo extraer texto util desde esa pagina.',
-            snackPosition: SnackPosition.BOTTOM,
-          );
-        }
-        setState(() => _loading = false);
-      }
+      if (result.trim().isEmpty) return;
+      final normalized = _normalizeSelectedLyrics(result);
+      setState(() {
+        // Se pega exactamente lo seleccionado por el usuario.
+        _lyricsController.text = normalized;
+      });
     }
+  }
+
+  String _normalizeSelectedLyrics(String value) {
+    var out = value;
+    out = out.replaceAll('\r\n', '\n');
+    out = out.replaceAll(r'\r\n', '\n');
+    out = out.replaceAll(r'\n', '\n');
+    out = out.replaceAll(r'\t', '\t');
+    return out;
   }
 
   Future<void> _translateLyrics() async {
@@ -105,16 +114,27 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     }
 
     setState(() => _loading = true);
-    final translated = await LyricsService.translateLyrics(
+    final translated = await LyricsService.translateLyricsDetailed(
       _lyricsController.text,
       _targetLang,
       sourceLang: _lyricsLang,
     );
     if (mounted) {
-      if (translated != null && translated.trim().isNotEmpty) {
-        final clean = translated.trim();
+      final translatedText = translated?.translated.trim() ?? '';
+      if (translatedText.isNotEmpty) {
+        final clean = translatedText;
         _translationPreviewController.text = clean;
         _translations[_targetLang] = clean;
+        _activePreviewKey = _targetLang;
+        final romanizedKey = _romanizationKeyForLang(_targetLang);
+        final romanizedText = translated?.romanized?.trim() ?? '';
+        if (romanizedKey != null) {
+          if (romanizedText.isNotEmpty) {
+            _translations[romanizedKey] = romanizedText;
+          } else {
+            _translations.remove(romanizedKey);
+          }
+        }
       } else {
         Get.snackbar(
           'Traduccion',
@@ -172,6 +192,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
       _lyricsLang = rawMainLang;
     }
     _targetLang = _lyricsLang == 'es' ? 'en' : 'es';
+    _activePreviewKey = _targetLang;
 
     final initialTranslations = entryArgs.translations ?? const {};
     for (final entry in initialTranslations.entries) {
@@ -180,7 +201,8 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
       if (key.isEmpty || value.isEmpty) continue;
       _translations[key] = value;
     }
-    _translationPreviewController.text = _translations[_targetLang] ?? '';
+    _translationPreviewController.text = _translations[_activePreviewKey] ?? '';
+    _ensureLanguageStateSanity();
   }
 
   List<DropdownMenuItem<String>> _languageItems() {
@@ -199,17 +221,51 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
       _lyricsController.text = preview;
       _lyricsLang = _targetLang;
       _targetLang = _lyricsLang == 'es' ? 'en' : 'es';
-      _translationPreviewController.text = _translations[_targetLang] ?? '';
+      _activePreviewKey = _targetLang;
+      _translationPreviewController.text =
+          _translations[_activePreviewKey] ?? '';
     });
   }
 
   void _removeTranslation(String lang) {
     setState(() {
-      _translations.remove(lang);
-      if (_targetLang == lang) {
-        _translationPreviewController.text = '';
+      final key = lang.trim().toLowerCase();
+      _translations.remove(key);
+      if (key == 'ja' || key == 'ko') {
+        final romanizedKey = _romanizationKeyForLang(key);
+        if (romanizedKey != null) {
+          _translations.remove(romanizedKey);
+        }
+      }
+      if (_activePreviewKey == key) {
+        _activePreviewKey = _targetLang;
+        _translationPreviewController.text =
+            _translations[_activePreviewKey] ?? '';
       }
     });
+  }
+
+  void _ensureLanguageStateSanity() {
+    if (!_languageLabels.containsKey(_targetLang)) {
+      _targetLang = _lyricsLang == 'es' ? 'en' : 'es';
+    }
+    if (_activePreviewKey.trim().isEmpty) {
+      _activePreviewKey = _targetLang;
+    }
+  }
+
+  String? _romanizationKeyForLang(String lang) {
+    final key = lang.trim().toLowerCase();
+    if (key == 'ja') return 'ja-romaji';
+    if (key == 'ko') return 'ko-romaja';
+    return null;
+  }
+
+  String _translationLabel(String key) {
+    final normalized = key.trim().toLowerCase();
+    return _extraTranslationLabels[normalized] ??
+        _languageLabels[normalized] ??
+        key;
   }
 
   void _save() {
@@ -247,6 +303,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
 
   @override
   Widget build(BuildContext context) {
+    _ensureLanguageStateSanity();
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Letras')),
@@ -309,8 +366,9 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
                       if (val == null) return;
                       setState(() {
                         _targetLang = val;
+                        _activePreviewKey = val;
                         _translationPreviewController.text =
-                            _translations[_targetLang] ?? '';
+                            _translations[_activePreviewKey] ?? '';
                       });
                     },
                   ),
@@ -333,10 +391,12 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
               ),
               onChanged: (val) {
                 final text = val.trim();
+                final key = _activePreviewKey.trim().toLowerCase();
+                if (key.isEmpty) return;
                 if (text.isEmpty) {
-                  _translations.remove(_targetLang);
+                  _translations.remove(key);
                 } else {
-                  _translations[_targetLang] = text;
+                  _translations[key] = text;
                 }
               },
             ),
@@ -347,11 +407,15 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
               children: _translations.entries
                   .map(
                     (entry) => InputChip(
-                      label: Text(_languageLabels[entry.key] ?? entry.key),
-                      selected: entry.key == _targetLang,
+                      label: Text(_translationLabel(entry.key)),
+                      selected: entry.key == _activePreviewKey,
                       onPressed: () {
                         setState(() {
-                          _targetLang = entry.key;
+                          final key = entry.key.trim().toLowerCase();
+                          _activePreviewKey = key;
+                          if (_languageLabels.containsKey(key)) {
+                            _targetLang = key;
+                          }
                           _translationPreviewController.text = entry.value;
                         });
                       },

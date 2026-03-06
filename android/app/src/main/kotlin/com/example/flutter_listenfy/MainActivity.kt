@@ -1088,8 +1088,8 @@ class MainActivity : AudioServiceActivity() {
         for (i in 0 until count) {
             val prev = audioVisualizerLastBars[i]
             val target = raw[i]
-            val attack = 0.52
-            val release = 0.20
+            val attack = 0.58
+            val release = 0.34
             val alpha = if (target >= prev) attack else release
             val smoothed = (prev + (target - prev) * alpha).coerceIn(0.0, 1.0)
             audioVisualizerLastBars[i] = smoothed
@@ -1166,8 +1166,8 @@ class MainActivity : AudioServiceActivity() {
         for (i in 0 until count) {
             val prev = audioVisualizerLastBars[i]
             val target = raw[i]
-            val attack = 0.56
-            val release = 0.14
+            val attack = 0.62
+            val release = 0.26
             val alpha = if (target >= prev) attack else release
             envelope[i] = (prev + (target - prev) * alpha).coerceIn(0.0, 1.0)
         }
@@ -1190,7 +1190,7 @@ class MainActivity : AudioServiceActivity() {
     private fun emitAudioVisualizerBars(bars: List<Double>) {
         if (bars.isEmpty()) return
         val now = SystemClock.uptimeMillis()
-        if (now - audioVisualizerLastEmitAtMs < 30L) return
+        if (now - audioVisualizerLastEmitAtMs < 20L) return
         audioVisualizerLastEmitAtMs = now
 
         val payload = mapOf(
