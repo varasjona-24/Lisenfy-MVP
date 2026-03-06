@@ -7,6 +7,7 @@ import '../widgets/cover_art.dart';
 import '../widgets/playback_controls.dart';
 import '../widgets/progress_bar.dart';
 import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
+import '../../../../app/ui/widgets/player/player_karaoke_sheet.dart';
 import '../../../../app/ui/widgets/player/player_lyrics_sheet.dart';
 import '../../../../app/services/spatial_audio_service.dart';
 
@@ -136,6 +137,11 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                         icon: const Icon(Icons.lyrics_rounded),
                         onPressed: () =>
                             openPlayerLyricsSheet(item, heightFactor: 0.72),
+                      ),
+                      IconButton(
+                        tooltip: 'Modo karaoke',
+                        icon: const Icon(Icons.mic_rounded),
+                        onPressed: () => openPlayerKaraokeSheet(item),
                       ),
                       IconButton(
                         tooltip: 'Ver cola',

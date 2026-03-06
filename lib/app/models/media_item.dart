@@ -6,6 +6,27 @@ enum MediaSource { local, youtube }
 
 enum MediaVariantKind { audio, video }
 
+class TimedLyricCue {
+  final String text;
+  final int startMs;
+  final int? endMs;
+
+  const TimedLyricCue({required this.text, required this.startMs, this.endMs});
+
+  factory TimedLyricCue.fromJson(Map<String, dynamic> json) {
+    final text = (json['text'] as String? ?? '').trim();
+    final startMs = _parseMilliseconds(json['startMs']);
+    final endMs = _parseNullableMilliseconds(json['endMs']);
+    return TimedLyricCue(text: text, startMs: startMs, endMs: endMs);
+  }
+
+  Map<String, dynamic> toJson() => {
+    'text': text,
+    'startMs': startMs,
+    'endMs': endMs,
+  };
+}
+
 // ============================================================================
 // MediaItem
 // ============================================================================
@@ -43,6 +64,7 @@ class MediaItem {
   final String? lyrics;
   final String? lyricsLanguage;
   final Map<String, String>? translations;
+  final Map<String, List<TimedLyricCue>>? timedLyrics;
 
   const MediaItem({
     required this.id,
@@ -58,6 +80,7 @@ class MediaItem {
     this.lyrics,
     this.lyricsLanguage,
     this.translations,
+    this.timedLyrics,
     this.isFavorite = false,
     this.playCount = 0,
     this.lastPlayedAt,
@@ -80,6 +103,7 @@ class MediaItem {
     String? lyrics,
     String? lyricsLanguage,
     Map<String, String>? translations,
+    Map<String, List<TimedLyricCue>>? timedLyrics,
     bool? isFavorite,
     int? playCount,
     int? lastPlayedAt,
@@ -98,6 +122,7 @@ class MediaItem {
       lyrics: lyrics ?? this.lyrics,
       lyricsLanguage: lyricsLanguage ?? this.lyricsLanguage,
       translations: translations ?? this.translations,
+      timedLyrics: timedLyrics ?? this.timedLyrics,
       isFavorite: isFavorite ?? this.isFavorite,
       playCount: playCount ?? this.playCount,
       lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
@@ -269,6 +294,7 @@ class MediaItem {
     final translations = translationsJson?.map(
       (k, v) => MapEntry(k, v as String),
     );
+    final timedLyrics = _parseTimedLyricsMap(json['timedLyrics']);
 
     return MediaItem(
       id: id,
@@ -284,6 +310,7 @@ class MediaItem {
       lyrics: lyrics,
       lyricsLanguage: lyricsLanguage,
       translations: translations,
+      timedLyrics: timedLyrics,
       isFavorite: isFavorite,
       playCount: playCount,
       lastPlayedAt: lastPlayedAt,
@@ -306,8 +333,63 @@ class MediaItem {
     'lyrics': lyrics,
     'lyricsLanguage': lyricsLanguage,
     'translations': translations,
+    'timedLyrics': _timedLyricsToJson(timedLyrics),
     'variants': variants.map((v) => v.toJson()).toList(),
   };
+}
+
+int _parseMilliseconds(dynamic raw) {
+  if (raw is num) return raw.toInt().clamp(0, 1 << 31).toInt();
+  if (raw is String) {
+    final value = int.tryParse(raw.trim());
+    if (value != null) return value.clamp(0, 1 << 31).toInt();
+  }
+  return 0;
+}
+
+int? _parseNullableMilliseconds(dynamic raw) {
+  if (raw == null) return null;
+  return _parseMilliseconds(raw);
+}
+
+Map<String, List<TimedLyricCue>>? _parseTimedLyricsMap(dynamic raw) {
+  if (raw is! Map) return null;
+  final out = <String, List<TimedLyricCue>>{};
+  for (final entry in raw.entries) {
+    final lang = entry.key.toString().trim().toLowerCase();
+    if (lang.isEmpty) continue;
+    final cuesRaw = entry.value;
+    if (cuesRaw is! List) continue;
+
+    final cues = <TimedLyricCue>[];
+    for (final cueRaw in cuesRaw) {
+      if (cueRaw is! Map) continue;
+      final cue = TimedLyricCue.fromJson(Map<String, dynamic>.from(cueRaw));
+      if (cue.text.trim().isEmpty) continue;
+      if (cue.startMs < 0) continue;
+      cues.add(cue);
+    }
+
+    if (cues.isEmpty) continue;
+    cues.sort((a, b) => a.startMs.compareTo(b.startMs));
+    out[lang] = cues;
+  }
+  return out.isEmpty ? null : out;
+}
+
+Map<String, dynamic>? _timedLyricsToJson(
+  Map<String, List<TimedLyricCue>>? timedLyrics,
+) {
+  if (timedLyrics == null || timedLyrics.isEmpty) return null;
+  final out = <String, dynamic>{};
+  for (final entry in timedLyrics.entries) {
+    final lang = entry.key.trim().toLowerCase();
+    if (lang.isEmpty) continue;
+    final cues = entry.value;
+    if (cues.isEmpty) continue;
+    out[lang] = cues.map((cue) => cue.toJson()).toList(growable: false);
+  }
+  return out.isEmpty ? null : out;
 }
 
 SourceOrigin _parseOrigin(Map<String, dynamic> json) {

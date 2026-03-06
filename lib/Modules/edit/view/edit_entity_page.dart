@@ -12,6 +12,7 @@ import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/controllers/navigation_controller.dart';
 import '../../player/Video/view/lyrics_entry_page.dart';
 import '../../artists/controller/artists_controller.dart';
+import '../../artists/domain/artist_profile.dart';
 import '../../playlists/domain/playlist.dart';
 import '../../sources/domain/source_theme_topic.dart';
 import '../../sources/domain/source_theme_topic_playlist.dart';
@@ -29,6 +30,7 @@ class EditEntityPage extends StatefulWidget {
 
 class _EditEntityPageState extends State<EditEntityPage> {
   final EditEntityController _controller = Get.find<EditEntityController>();
+  final ArtistsController _artistsController = Get.find<ArtistsController>();
 
   late final EditEntityArgs _args;
   late final TextEditingController _titleCtrl;
@@ -43,6 +45,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
   int? _colorValue;
   bool _audioCleanupBusy = false;
   MediaItem? _mediaDraft;
+  ArtistProfileKind _artistKind = ArtistProfileKind.singer;
+  final Set<String> _artistMemberKeys = <String>{};
 
   MediaItem? get _media => _mediaDraft;
   ArtistGroup? get _artist => _args.artist;
@@ -83,6 +87,10 @@ class _EditEntityPageState extends State<EditEntityPage> {
       _localThumbPath = artist.thumbnailLocalPath;
       _remoteThumbUrl = artist.thumbnail;
       _colorValue = null;
+      _artistKind = artist.kind;
+      _artistMemberKeys
+        ..clear()
+        ..addAll(artist.memberKeys);
     } else {
       if (_args.type == EditEntityType.playlist) {
         final playlist = _playlist!;
@@ -569,11 +577,15 @@ class _EditEntityPageState extends State<EditEntityPage> {
             lyrics: _media?.lyrics ?? '',
             lyricsLanguage: _media?.lyricsLanguage ?? 'es',
             translations: _media?.translations ?? const <String, String>{},
+            timedLyrics:
+                _media?.timedLyrics ?? const <String, List<TimedLyricCue>>{},
           )
         : (_args.type == EditEntityType.artist
               ? await _controller.saveArtist(
                   artist: _artist!,
                   name: _titleCtrl.text,
+                  kind: _artistKind,
+                  memberKeys: _artistMemberKeys.toList(growable: false),
                   thumbTouched: _thumbTouched,
                   localThumbPath: _localThumbPath,
                 )
@@ -639,6 +651,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
         lyrics: item.lyrics,
         lyricsLanguage: item.lyricsLanguage,
         translations: item.translations,
+        timedLyrics: item.timedLyrics,
       ),
     );
 
@@ -650,6 +663,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
         lyrics: result.lyrics.trim(),
         lyricsLanguage: result.lyricsLanguage.trim().toLowerCase(),
         translations: Map<String, String>.from(result.translations),
+        timedLyrics: Map<String, List<TimedLyricCue>>.from(result.timedLyrics),
       );
     });
   }
@@ -779,6 +793,127 @@ class _EditEntityPageState extends State<EditEntityPage> {
                     ],
                   ],
                 ),
+        ),
+      ],
+    );
+  }
+
+  List<ArtistGroup> _artistMemberCandidates() {
+    final currentKey = _artist?.key ?? '';
+    final typedKey = ArtistCreditParser.normalizeKey(_titleCtrl.text);
+    final selfKeys = <String>{
+      ArtistCreditParser.normalizeKey(currentKey),
+      typedKey,
+    };
+
+    final list = _artistsController.artists
+        .where((artist) => !selfKeys.contains(artist.key))
+        .toList(growable: false);
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return list;
+  }
+
+  Widget _artistClassificationSection(ThemeData theme) {
+    if (!_isArtist) return const SizedBox.shrink();
+    final candidates = _artistMemberCandidates();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Text(
+          'Tipo de artista',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          elevation: 0,
+          color: theme.colorScheme.surfaceContainer,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<ArtistProfileKind>(
+                  initialValue: _artistKind,
+                  decoration: const InputDecoration(
+                    labelText: 'Clasificacion',
+                    prefixIcon: Icon(Icons.category_rounded),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: ArtistProfileKind.singer,
+                      child: Text('Cantante'),
+                    ),
+                    DropdownMenuItem(
+                      value: ArtistProfileKind.band,
+                      child: Text('Banda'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _artistKind = value;
+                      if (_artistKind != ArtistProfileKind.band) {
+                        _artistMemberKeys.clear();
+                      }
+                    });
+                  },
+                ),
+                if (_artistKind == ArtistProfileKind.band) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Integrantes',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Selecciona los cantantes/artistas que pertenecen a esta banda.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (candidates.isEmpty)
+                    Text(
+                      'No hay artistas disponibles para agregar.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: candidates
+                          .map(
+                            (entry) => FilterChip(
+                              label: Text(entry.name),
+                              selected: _artistMemberKeys.contains(entry.key),
+                              onSelected: (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    _artistMemberKeys.add(entry.key);
+                                  } else {
+                                    _artistMemberKeys.remove(entry.key);
+                                  }
+                                });
+                              },
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                ],
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -955,6 +1090,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                 ),
               ),
             ),
+            _artistClassificationSection(theme),
             const SizedBox(height: 12),
             Text(
               (_isTopic || _isTopicPlaylist) ? 'Portada y color' : 'Portada',

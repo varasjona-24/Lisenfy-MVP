@@ -11,6 +11,7 @@ import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/routes/app_routes.dart';
 import 'package:flutter_listenfy/Modules/home/controller/home_controller.dart';
 import '../controller/artists_controller.dart';
+import '../domain/artist_profile.dart';
 import '../../edit/controller/edit_entity_controller.dart';
 import 'widgets/artist_avatar.dart';
 
@@ -24,7 +25,7 @@ class ArtistsPage extends GetView<ArtistsController> {
     final isDark = theme.brightness == Brightness.dark;
 
     final barBg = Color.alphaBlend(
-      scheme.primary.withOpacity(isDark ? 0.24 : 0.28),
+      scheme.primary.withValues(alpha: isDark ? 0.24 : 0.28),
       scheme.surface,
     );
 
@@ -78,7 +79,9 @@ class ArtistsPage extends GetView<ArtistsController> {
                     color: barBg,
                     border: Border(
                       top: BorderSide(
-                        color: scheme.primary.withOpacity(isDark ? 0.22 : 0.18),
+                        color: scheme.primary.withValues(
+                          alpha: isDark ? 0.22 : 0.18,
+                        ),
                         width: 56,
                       ),
                     ),
@@ -151,7 +154,7 @@ class ArtistsPage extends GetView<ArtistsController> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: list.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (context, index) => const SizedBox(width: 12),
               itemBuilder: (context, i) {
                 final artist = list[i];
                 return _ArtistCoverCard(artist: artist);
@@ -203,21 +206,66 @@ class ArtistsPage extends GetView<ArtistsController> {
         );
       }
 
+      final bands = list
+          .where((artist) => artist.kind == ArtistProfileKind.band)
+          .toList(growable: false);
+      final singers = list
+          .where((artist) => artist.kind != ArtistProfileKind.band)
+          .toList(growable: false);
+
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final artist in list)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _ArtistCard(
-                artist: artist,
-                onOpen: () =>
-                    Get.toNamed(AppRoutes.artistDetail, arguments: artist.key),
-                onEdit: () => Get.toNamed(
-                  AppRoutes.editEntity,
-                  arguments: EditEntityArgs.artist(artist),
-                ),
+          if (bands.isNotEmpty) ...[
+            Text(
+              'Bandas',
+              style: Get.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
               ),
             ),
+            const SizedBox(height: 8),
+            for (final artist in bands) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _ArtistCard(
+                  artist: artist,
+                  onOpen: () => Get.toNamed(
+                    AppRoutes.artistDetail,
+                    arguments: artist.key,
+                  ),
+                  onEdit: () => Get.toNamed(
+                    AppRoutes.editEntity,
+                    arguments: EditEntityArgs.artist(artist),
+                  ),
+                ),
+              ),
+            ],
+          ],
+          if (singers.isNotEmpty) ...[
+            if (bands.isNotEmpty) const SizedBox(height: 8),
+            Text(
+              'Cantantes',
+              style: Get.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (final artist in singers)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _ArtistCard(
+                  artist: artist,
+                  onOpen: () => Get.toNamed(
+                    AppRoutes.artistDetail,
+                    arguments: artist.key,
+                  ),
+                  onEdit: () => Get.toNamed(
+                    AppRoutes.editEntity,
+                    arguments: EditEntityArgs.artist(artist),
+                  ),
+                ),
+              ),
+          ],
         ],
       );
     });
@@ -336,7 +384,9 @@ class _ArtistCard extends StatelessWidget {
       child: ListTile(
         leading: ArtistAvatar(thumb: thumb, radius: 24),
         title: Text(artist.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text('${artist.count} canciones'),
+        subtitle: Text(
+          '${artist.kind == ArtistProfileKind.band ? 'Banda' : 'Cantante'} · ${artist.count} canciones',
+        ),
         trailing: IconButton(
           icon: const Icon(Icons.edit_rounded),
           onPressed: onEdit,
@@ -393,6 +443,14 @@ class _ArtistCoverCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              artist.kind == ArtistProfileKind.band ? 'Banda' : 'Cantante',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
             ),
           ],

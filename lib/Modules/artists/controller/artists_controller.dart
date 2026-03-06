@@ -19,6 +19,8 @@ class ArtistGroup {
   final int count;
   final String? thumbnail;
   final String? thumbnailLocalPath;
+  final ArtistProfileKind kind;
+  final List<String> memberKeys;
   final List<MediaItem> items;
 
   ArtistGroup({
@@ -26,16 +28,15 @@ class ArtistGroup {
     required this.name,
     required this.count,
     required this.items,
+    required this.kind,
+    this.memberKeys = const <String>[],
     this.thumbnail,
     this.thumbnailLocalPath,
   });
 }
 
 class _ArtistBucket {
-  _ArtistBucket({
-    required this.key,
-    required this.name,
-  });
+  _ArtistBucket({required this.key, required this.name});
 
   final String key;
   String name;
@@ -55,6 +56,23 @@ class ArtistsController extends GetxController {
   final Rx<ArtistSort> sort = ArtistSort.name.obs;
   final RxBool sortAscending = true.obs;
 
+  List<String> _normalizeMemberKeysForOwner({
+    required String ownerKey,
+    required List<String> members,
+  }) {
+    final owner = ArtistCreditParser.normalizeKey(ownerKey);
+    final out = <String>[];
+    final seen = <String>{};
+    for (final raw in members) {
+      final key = ArtistCreditParser.normalizeKey(raw);
+      if (key.isEmpty || key == 'unknown') continue;
+      if (key == owner) continue;
+      if (!seen.add(key)) continue;
+      out.add(key);
+    }
+    return out;
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -66,15 +84,21 @@ class ArtistsController extends GetxController {
     try {
       final items = (await _repo.getLibrary())
           .where(
-            (item) => item.variants.any(
-              (v) => v.kind == MediaVariantKind.audio,
-            ),
+            (item) =>
+                item.variants.any((v) => v.kind == MediaVariantKind.audio),
           )
           .toList();
       final profiles = await _artistStore.readAll();
-      final profilesByKey = {
-        for (final p in profiles) p.key: p,
-      };
+      final profilesByKey = {for (final p in profiles) p.key: p};
+      final memberKeysReferencedByBands = <String>{};
+      for (final profile in profiles) {
+        if (profile.kind != ArtistProfileKind.band) continue;
+        for (final member in profile.memberKeys) {
+          final key = ArtistCreditParser.normalizeKey(member);
+          if (key.isEmpty || key == 'unknown') continue;
+          memberKeysReferencedByBands.add(key);
+        }
+      }
 
       final Map<String, _ArtistBucket> grouped = {};
       for (final item in items) {
@@ -85,10 +109,7 @@ class ArtistsController extends GetxController {
           final key = ArtistCreditParser.normalizeKey(item.subtitle);
           final bucket = grouped.putIfAbsent(
             key,
-            () => _ArtistBucket(
-              key: key,
-              name: 'Artista desconocido',
-            ),
+            () => _ArtistBucket(key: key, name: 'Artista desconocido'),
           );
           bucket.items.add(item);
           bucket.fallbackThumb ??= item.effectiveThumbnail;
@@ -99,15 +120,32 @@ class ArtistsController extends GetxController {
           final key = ArtistCreditParser.normalizeKey(artistName);
           final bucket = grouped.putIfAbsent(
             key,
-            () => _ArtistBucket(
-              key: key,
-              name: artistName,
-            ),
+            () => _ArtistBucket(key: key, name: artistName),
           );
           bucket.name = bucket.name.trim().isEmpty ? artistName : bucket.name;
           bucket.items.add(item);
           bucket.fallbackThumb ??= item.effectiveThumbnail;
         }
+      }
+
+      for (final profile in profiles) {
+        final key = profile.key.trim();
+        if (key.isEmpty) continue;
+        final hasSongs = grouped.containsKey(key);
+        final shouldIncludeWithoutSongs =
+            profile.kind == ArtistProfileKind.band ||
+            memberKeysReferencedByBands.contains(key);
+        if (!hasSongs && !shouldIncludeWithoutSongs) continue;
+
+        grouped.putIfAbsent(
+          key,
+          () => _ArtistBucket(
+            key: key,
+            name: profile.displayName.trim().isEmpty
+                ? 'Artista desconocido'
+                : profile.displayName.trim(),
+          ),
+        );
       }
 
       final list = <ArtistGroup>[];
@@ -128,6 +166,11 @@ class ArtistsController extends GetxController {
             name: displayName,
             count: itemsForArtist.length,
             items: itemsForArtist,
+            kind: profile?.kind ?? ArtistProfileKind.singer,
+            memberKeys: _normalizeMemberKeysForOwner(
+              ownerKey: key,
+              members: profile?.memberKeys ?? const <String>[],
+            ),
             thumbnail: profile?.thumbnail ?? bucket.fallbackThumb,
             thumbnailLocalPath: profile?.thumbnailLocalPath,
           ),
@@ -146,9 +189,7 @@ class ArtistsController extends GetxController {
   List<ArtistGroup> get filtered {
     final q = query.value.trim().toLowerCase();
     if (q.isEmpty) return artists.toList();
-    return artists
-        .where((a) => a.name.toLowerCase().contains(q))
-        .toList();
+    return artists.where((a) => a.name.toLowerCase().contains(q)).toList();
   }
 
   void setQuery(String value) {
@@ -188,32 +229,39 @@ class ArtistsController extends GetxController {
   }
 
   void _refreshRecentArtists(List<ArtistGroup> source) {
-    final recent = source
-        .map(
-          (artist) => MapEntry(
-            artist,
-            artist.items
-                .map((e) => e.lastPlayedAt ?? 0)
-                .fold<int>(0, (a, b) => a > b ? a : b),
-          ),
-        )
-        .where((entry) => entry.value > 0)
-        .toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final recent =
+        source
+            .map(
+              (artist) => MapEntry(
+                artist,
+                artist.items
+                    .map((e) => e.lastPlayedAt ?? 0)
+                    .fold<int>(0, (a, b) => a > b ? a : b),
+              ),
+            )
+            .where((entry) => entry.value > 0)
+            .toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
 
-    recentArtists.assignAll(
-      recent.map((e) => e.key).take(8),
-    );
+    recentArtists.assignAll(recent.map((e) => e.key).take(8));
   }
 
   Future<void> updateArtist({
     required String key,
     required String newName,
+    required ArtistProfileKind kind,
+    required List<String> memberKeys,
     String? thumbnail,
     String? thumbnailLocalPath,
   }) async {
     final normalizedCurrentKey = ArtistCreditParser.normalizeKey(key);
     final normalizedNewKey = ArtistCreditParser.normalizeKey(newName);
+    final normalizedMembers = kind == ArtistProfileKind.band
+        ? _normalizeMemberKeysForOwner(
+            ownerKey: normalizedNewKey,
+            members: memberKeys,
+          )
+        : const <String>[];
 
     if (normalizedCurrentKey != normalizedNewKey) {
       await _artistStore.remove(normalizedCurrentKey);
@@ -221,9 +269,13 @@ class ArtistsController extends GetxController {
 
     final profile = ArtistProfile(
       key: normalizedNewKey,
-      displayName: newName.trim().isEmpty ? 'Artista desconocido' : newName.trim(),
+      displayName: newName.trim().isEmpty
+          ? 'Artista desconocido'
+          : newName.trim(),
       thumbnail: thumbnail,
       thumbnailLocalPath: thumbnailLocalPath,
+      kind: kind,
+      memberKeys: normalizedMembers,
     );
     await _artistStore.upsert(profile);
 
@@ -242,6 +294,30 @@ class ArtistsController extends GetxController {
       await _store.upsert(item.copyWith(subtitle: nextArtistField));
     }
 
+    final allProfiles = await _artistStore.readAll();
+    for (final existing in allProfiles) {
+      if (existing.key == profile.key) continue;
+
+      final remapped = existing.memberKeys
+          .map(
+            (member) =>
+                ArtistCreditParser.normalizeKey(member) == normalizedCurrentKey
+                ? normalizedNewKey
+                : member,
+          )
+          .toList(growable: false);
+
+      final normalized = existing.kind == ArtistProfileKind.band
+          ? _normalizeMemberKeysForOwner(
+              ownerKey: existing.key,
+              members: remapped,
+            )
+          : const <String>[];
+
+      if (listEquals(existing.memberKeys, normalized)) continue;
+      await _artistStore.upsert(existing.copyWith(memberKeys: normalized));
+    }
+
     await load();
   }
 
@@ -256,6 +332,24 @@ class ArtistsController extends GetxController {
       await _store.remove(item.id);
     }
     await _artistStore.remove(artist.key);
+
+    final allProfiles = await _artistStore.readAll();
+    for (final existing in allProfiles) {
+      if (existing.kind != ArtistProfileKind.band) continue;
+      final nextMembers = _normalizeMemberKeysForOwner(
+        ownerKey: existing.key,
+        members: existing.memberKeys
+            .where(
+              (k) =>
+                  ArtistCreditParser.normalizeKey(k) !=
+                  ArtistCreditParser.normalizeKey(artist.key),
+            )
+            .toList(),
+      );
+      if (listEquals(existing.memberKeys, nextMembers)) continue;
+      await _artistStore.upsert(existing.copyWith(memberKeys: nextMembers));
+    }
+
     await load();
   }
 

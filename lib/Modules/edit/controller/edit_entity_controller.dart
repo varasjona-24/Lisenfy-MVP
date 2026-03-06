@@ -11,6 +11,7 @@ import '../../../app/models/audio_cleanup.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/services/audio_cleanup_service.dart';
 import '../../artists/controller/artists_controller.dart';
+import '../../artists/domain/artist_profile.dart';
 import '../../downloads/controller/downloads_controller.dart';
 import '../../home/controller/home_controller.dart';
 import '../../playlists/controller/playlists_controller.dart';
@@ -299,6 +300,7 @@ class EditEntityController extends GetxController {
     required String lyrics,
     required String lyricsLanguage,
     required Map<String, String> translations,
+    required Map<String, List<TimedLyricCue>> timedLyrics,
   }) async {
     final trimmedTitle = title.trim();
     if (trimmedTitle.isEmpty) {
@@ -333,6 +335,7 @@ class EditEntityController extends GetxController {
       lyrics: lyrics.trim(),
       lyricsLanguage: lyricsLanguage.trim().toLowerCase(),
       translations: Map<String, String>.from(translations),
+      timedLyrics: Map<String, List<TimedLyricCue>>.from(timedLyrics),
     );
 
     await _store.upsert(updated);
@@ -344,6 +347,8 @@ class EditEntityController extends GetxController {
   Future<bool> saveArtist({
     required ArtistGroup artist,
     required String name,
+    required ArtistProfileKind kind,
+    required List<String> memberKeys,
     required bool thumbTouched,
     required String? localThumbPath,
   }) async {
@@ -374,6 +379,8 @@ class EditEntityController extends GetxController {
     await _artists.updateArtist(
       key: artist.key,
       newName: trimmed,
+      kind: kind,
+      memberKeys: memberKeys,
       thumbnail: nextThumb,
       thumbnailLocalPath: nextLocal,
     );
