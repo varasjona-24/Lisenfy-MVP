@@ -11,7 +11,6 @@ import '../models/media_item.dart';
 enum KaraokeRemoteSessionStatus {
   separating,
   readyToRecord,
-  mixing,
   completed,
   failed,
   canceled,
@@ -25,7 +24,6 @@ class KaraokeRemoteSession {
     required this.progress,
     required this.message,
     this.instrumentalUrl,
-    this.mixUrl,
     this.separatorModel,
     this.error,
   });
@@ -35,13 +33,13 @@ class KaraokeRemoteSession {
   final double progress;
   final String message;
   final String? instrumentalUrl;
-  final String? mixUrl;
   final String? separatorModel;
   final String? error;
 
   bool get isReadyToRecord =>
       status == KaraokeRemoteSessionStatus.readyToRecord;
-  bool get isMixed => status == KaraokeRemoteSessionStatus.completed;
+  bool get isSeparationCompleted =>
+      status == KaraokeRemoteSessionStatus.completed;
   bool get isFailed => status == KaraokeRemoteSessionStatus.failed;
 }
 
@@ -215,7 +213,7 @@ class KaraokeRemotePipelineService {
         ),
       );
 
-      if (current.isReadyToRecord || current.isMixed) {
+      if (current.isReadyToRecord || current.isSeparationCompleted) {
         return current;
       }
       if (current.isFailed ||
@@ -257,123 +255,6 @@ class KaraokeRemotePipelineService {
     final file = File(outputPath);
     if (!file.existsSync() || file.lengthSync() <= 0) {
       throw Exception('No se pudo descargar instrumental remoto.');
-    }
-    return outputPath;
-  }
-
-  Future<KaraokeRemoteSession> uploadVoiceAndMix({
-    required String sessionId,
-    required String voicePath,
-    required double voiceGain,
-    required double instrumentalGain,
-  }) async {
-    final id = sessionId.trim();
-    if (id.isEmpty) throw Exception('sessionId inválido.');
-
-    final normalized = voicePath.replaceFirst('file://', '').trim();
-    if (normalized.isEmpty) {
-      throw Exception('No hay archivo de voz para subir al backend.');
-    }
-    final file = File(normalized);
-    if (!file.existsSync()) {
-      throw Exception('No se encontró grabación de voz: $normalized');
-    }
-
-    final bytes = await file.readAsBytes();
-    if (bytes.isEmpty) {
-      throw Exception('La grabación de voz está vacía.');
-    }
-
-    final query = <String, String>{
-      'filename': p.basename(normalized),
-      'voiceGain': voiceGain.clamp(0.0, 2.5).toStringAsFixed(3),
-      'instrumentalGain': instrumentalGain.clamp(0.0, 2.5).toStringAsFixed(3),
-    };
-
-    try {
-      final response = await _client.post(
-        '/karaoke/sessions/$id/voice?${_queryString(query)}',
-        data: bytes,
-        options: dio.Options(
-          contentType: 'application/octet-stream',
-          sendTimeout: const Duration(minutes: 2),
-          receiveTimeout: const Duration(minutes: 4),
-        ),
-      );
-
-      final body = _asMap(response.data);
-      final sessionMap = _asMap(body?['session']) ?? body;
-      final session = _parseSession(sessionMap);
-      if (session == null) {
-        throw Exception('Respuesta inválida al subir voz para mezcla.');
-      }
-      return session;
-    } on dio.DioException catch (e) {
-      throw Exception(_friendlyDioError(e, action: 'subir voz'));
-    }
-  }
-
-  Future<KaraokeRemoteSession> waitUntilMixed({
-    required String sessionId,
-    Duration timeout = const Duration(minutes: 5),
-    Duration pollEvery = const Duration(seconds: 2),
-    void Function(KaraokeRemoteProgress progress)? onProgress,
-  }) async {
-    final start = DateTime.now();
-    while (true) {
-      if (DateTime.now().difference(start) > timeout) {
-        throw Exception('Timeout esperando mezcla final de karaoke.');
-      }
-
-      final current = await getSession(sessionId);
-      onProgress?.call(
-        KaraokeRemoteProgress(
-          progress: current.progress,
-          message: current.message,
-          status: current.status,
-        ),
-      );
-
-      if (current.isMixed) return current;
-      if (current.isFailed ||
-          current.status == KaraokeRemoteSessionStatus.canceled) {
-        final reason = current.error?.trim();
-        throw Exception(
-          reason != null && reason.isNotEmpty
-              ? reason
-              : 'La mezcla final falló en backend.',
-        );
-      }
-
-      await Future<void>.delayed(pollEvery);
-    }
-  }
-
-  Future<String> downloadMixToLocal({
-    required KaraokeRemoteSession session,
-    required MediaItem item,
-  }) async {
-    final url = session.mixUrl?.trim() ?? '';
-    if (url.isEmpty) {
-      throw Exception('La sesión aún no tiene mezcla final.');
-    }
-
-    final dir = await _ensureCacheDir();
-    final outputPath = p.join(
-      dir.path,
-      '${_safeName(item.title)}_${session.id}_mix.wav',
-    );
-
-    await _downloadWithRetry(
-      url: url,
-      outputPath: outputPath,
-      action: 'descargar mezcla final',
-      maxAttempts: 3,
-      retryDelay: const Duration(seconds: 2),
-    );
-    final file = File(outputPath);
-    if (!file.existsSync() || file.lengthSync() <= 0) {
-      throw Exception('No se pudo descargar la mezcla final.');
     }
     return outputPath;
   }
@@ -455,9 +336,8 @@ class KaraokeRemotePipelineService {
         'Separando instrumental en backend...',
       KaraokeRemoteSessionStatus.readyToRecord =>
         'Instrumental listo para grabar.',
-      KaraokeRemoteSessionStatus.mixing =>
-        'Mezclando voz con instrumental en backend...',
-      KaraokeRemoteSessionStatus.completed => 'Mezcla final completada.',
+      KaraokeRemoteSessionStatus.completed =>
+        'Separación instrumental completada.',
       KaraokeRemoteSessionStatus.failed => 'Proceso fallido en backend.',
       KaraokeRemoteSessionStatus.canceled => 'Proceso cancelado.',
       KaraokeRemoteSessionStatus.unknown => 'Procesando...',
@@ -473,7 +353,6 @@ class KaraokeRemotePipelineService {
       instrumentalUrl: _stringOf(
         resultMap?['instrumentalUrl'] ?? map['instrumentalUrl'],
       ).ifEmptyNull(),
-      mixUrl: _stringOf(resultMap?['mixUrl'] ?? map['mixUrl']).ifEmptyNull(),
     );
   }
 
@@ -482,7 +361,6 @@ class KaraokeRemotePipelineService {
     return switch (value) {
       'separating' => KaraokeRemoteSessionStatus.separating,
       'ready_to_record' => KaraokeRemoteSessionStatus.readyToRecord,
-      'mixing' => KaraokeRemoteSessionStatus.mixing,
       'completed' => KaraokeRemoteSessionStatus.completed,
       'failed' => KaraokeRemoteSessionStatus.failed,
       'canceled' || 'cancelled' => KaraokeRemoteSessionStatus.canceled,
@@ -564,21 +442,15 @@ class KaraokeRemotePipelineService {
 
     if (status == 404) {
       if (action == 'crear sesión') {
-        return 'Backend sin endpoint de karaoke remoto (404). Actualiza el backend con /karaoke/sessions.';
+        return 'Backend sin endpoint remoto (404). Actualiza el backend con /karaoke/sessions.';
       }
       if (action == 'consultar sesión') {
         return 'Sesión remota no encontrada (404). El backend pudo reiniciarse o la sesión expiró.';
       }
-      if (action == 'subir voz') {
-        return 'No se pudo subir voz: sesión remota no encontrada (404).';
-      }
       if (action == 'descargar instrumental') {
         return 'El backend aún no expone el instrumental (404). Reintenta en unos segundos.';
       }
-      if (action == 'descargar mezcla final') {
-        return 'El backend aún no expone la mezcla final (404). Reintenta cuando termine el proceso.';
-      }
-      return 'Recurso de karaoke no encontrado (404).';
+      return 'Recurso remoto no encontrado (404).';
     }
 
     if (status != null) {
