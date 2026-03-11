@@ -107,7 +107,8 @@ class AudioService extends GetxService {
     _restoreLastItem();
 
     _player.playerStateStream.listen((ps) {
-      final loading = ps.processingState == ProcessingState.loading ||
+      final loading =
+          ps.processingState == ProcessingState.loading ||
           ps.processingState == ProcessingState.buffering;
       isLoading.value = loading;
       isPlaying.value = ps.playing;
@@ -186,8 +187,7 @@ class AudioService extends GetxService {
 
   bool isSameTrack(MediaItem item, MediaVariant variant) {
     return currentItem.value?.id == item.id &&
-        currentVariant.value?.kind == variant.kind &&
-        currentVariant.value?.format == variant.format;
+        currentVariant.value?.sameIdentityAs(variant) == true;
   }
 
   Future<void> play(
@@ -199,7 +199,8 @@ class AudioService extends GetxService {
     bool forceReload = false,
   }) async {
     final incomingQueue = queue;
-    if (hasSourceLoaded &&
+    if (!forceReload &&
+        hasSourceLoaded &&
         _queueItems.isNotEmpty &&
         incomingQueue != null &&
         incomingQueue.isNotEmpty &&
@@ -247,7 +248,9 @@ class AudioService extends GetxService {
       final sources = <AudioSource>[];
       for (var i = 0; i < _queueItems.length; i++) {
         sources.add(
-          AudioSource.uri(_resolvePlayableUri(_queueItems[i], _queueVariants[i])),
+          AudioSource.uri(
+            _resolvePlayableUri(_queueItems[i], _queueVariants[i]),
+          ),
         );
       }
       await _player.setAudioSources(sources, initialIndex: _activeIndex);
@@ -292,7 +295,9 @@ class AudioService extends GetxService {
     if (fileId.isEmpty || format.isEmpty) {
       throw Exception('No hay URL remota disponible para reproducir.');
     }
-    return Uri.parse('${ApiConfig.baseUrl}/api/v1/media/file/$fileId/$kind/$format');
+    return Uri.parse(
+      '${ApiConfig.baseUrl}/api/v1/media/file/$fileId/$kind/$format',
+    );
   }
 
   Future<void> toggle() async {
@@ -397,10 +402,7 @@ class AudioService extends GetxService {
     _storage.write(_crossfadeSecondsKey, safe);
   }
 
-  Future<void> _transitionToIndex(
-    int target, {
-    required bool autoPlay,
-  }) async {
+  Future<void> _transitionToIndex(int target, {required bool autoPlay}) async {
     final wasPlaying = _player.playing;
     final shouldFade = wasPlaying && crossfadeSeconds.value > 0;
     if (shouldFade) {
@@ -428,10 +430,7 @@ class AudioService extends GetxService {
     }
   }
 
-  Future<void> _seekToIndex(
-    int target, {
-    required bool autoPlay,
-  }) async {
+  Future<void> _seekToIndex(int target, {required bool autoPlay}) async {
     final wasPlaying = _player.playing;
     await _player.seek(Duration.zero, index: target);
     _activeIndex = target;
@@ -589,7 +588,9 @@ class AudioService extends GetxService {
     if (rawItem == null) return;
 
     try {
-      currentItem.value = MediaItem.fromJson(Map<String, dynamic>.from(rawItem));
+      currentItem.value = MediaItem.fromJson(
+        Map<String, dynamic>.from(rawItem),
+      );
       final rawVariant = _storage.read<Map>(_lastVariantKey);
       if (rawVariant != null) {
         currentVariant.value = MediaVariant.fromJson(
@@ -629,7 +630,8 @@ class AudioService extends GetxService {
         restoredVariants.add(variant);
       }
 
-      if (restoredItems.isEmpty || restoredItems.length != restoredVariants.length) {
+      if (restoredItems.isEmpty ||
+          restoredItems.length != restoredVariants.length) {
         _clearSessionSnapshot();
         return false;
       }
@@ -642,13 +644,17 @@ class AudioService extends GetxService {
       final rawIndex = _storage.read<int>(_sessionIndexKey) ?? 0;
       _activeIndex = rawIndex.clamp(0, _queueItems.length - 1).toInt();
       final rawPositionMs = _storage.read<int>(_sessionPositionMsKey) ?? 0;
-      final initialPos = Duration(milliseconds: rawPositionMs.clamp(0, 86400000));
+      final initialPos = Duration(
+        milliseconds: rawPositionMs.clamp(0, 86400000),
+      );
       final wasPlaying = _storage.read<bool>(_sessionWasPlayingKey) ?? false;
 
       final sources = <AudioSource>[];
       for (var i = 0; i < _queueItems.length; i++) {
         sources.add(
-          AudioSource.uri(_resolvePlayableUri(_queueItems[i], _queueVariants[i])),
+          AudioSource.uri(
+            _resolvePlayableUri(_queueItems[i], _queueVariants[i]),
+          ),
         );
       }
 
@@ -778,8 +784,9 @@ class AudioService extends GetxService {
     if (Get.isRegistered<ThemeController>()) {
       barColor = Get.find<ThemeController>().palette.value.primary;
     }
-    final logoColor =
-        barColor.computeLuminance() > 0.55 ? Colors.black : Colors.white;
+    final logoColor = barColor.computeLuminance() > 0.55
+        ? Colors.black
+        : Colors.white;
 
     try {
       await _widgetChannel.invokeMethod('updateWidget', {
@@ -798,7 +805,8 @@ class AudioService extends GetxService {
     final idx = currentQueueIndex;
     if (idx < 0 || idx >= _queueItems.length) return null;
     final q = _queueItems[idx];
-    final same = q.id == current.id ||
+    final same =
+        q.id == current.id ||
         (q.publicId.trim().isNotEmpty &&
             q.publicId.trim() == current.publicId.trim());
     if (!same) return null;
@@ -826,9 +834,8 @@ class AudioService extends GetxService {
     final outVariants = <MediaVariant>[];
     var start = 0;
 
-    final useExplicit = queueIndex != null &&
-        queueIndex >= 0 &&
-        queueIndex < source.length;
+    final useExplicit =
+        queueIndex != null && queueIndex >= 0 && queueIndex < source.length;
 
     for (var i = 0; i < source.length; i++) {
       final qItem = source[i];
@@ -868,6 +875,11 @@ class AudioService extends GetxService {
     if (_sameItem(queueItem, selectedItem)) return selectedVariant;
 
     for (final v in queueItem.variants) {
+      if (v.kind == MediaVariantKind.audio && !v.isInstrumental && v.isValid) {
+        return v;
+      }
+    }
+    for (final v in queueItem.variants) {
       if (v.kind == MediaVariantKind.audio && v.isValid) return v;
     }
     return null;
@@ -896,7 +908,7 @@ class AudioService extends GetxService {
     for (var i = 0; i < _linearItems.length; i++) {
       final it = _linearItems[i];
       final v = _linearVariants[i];
-      if (it.id == item.id && v.kind == variant.kind && v.format == variant.format) {
+      if (it.id == item.id && v.sameIdentityAs(variant)) {
         return i;
       }
       final pid = item.publicId.trim();

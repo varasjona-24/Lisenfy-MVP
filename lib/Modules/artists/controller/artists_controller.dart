@@ -61,6 +61,8 @@ class ArtistsController extends GetxController {
   final RxString query = ''.obs;
   final Rx<ArtistSort> sort = ArtistSort.name.obs;
   final RxBool sortAscending = true.obs;
+  final RxBool bandsMinimized = false.obs;
+  final RxBool singersMinimized = false.obs;
 
   String? _normalizeCountryCode(String? raw) {
     final value = (raw ?? '').trim().toUpperCase();
@@ -230,6 +232,14 @@ class ArtistsController extends GetxController {
     sortAscending.value = value;
     artists.assignAll(_applySort(artists));
     _refreshRecentArtists(artists);
+  }
+
+  void toggleBandsMinimized() {
+    bandsMinimized.value = !bandsMinimized.value;
+  }
+
+  void toggleSingersMinimized() {
+    singersMinimized.value = !singersMinimized.value;
   }
 
   List<ArtistGroup> _applySort(List<ArtistGroup> input) {

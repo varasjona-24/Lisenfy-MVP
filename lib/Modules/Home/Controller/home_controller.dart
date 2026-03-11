@@ -7,6 +7,10 @@ import '../../../app/data/local/local_library_store.dart';
 import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
+import '../../../app/utils/artist_credit_parser.dart';
+import '../../../app/utils/country_catalog.dart';
+import '../../artists/data/artist_store.dart';
+import '../../artists/domain/artist_profile.dart';
 import '../domain/recommendation_models.dart';
 import '../service/local_recommendation_service.dart';
 
@@ -31,6 +35,9 @@ class HomeController extends GetxController {
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
   final LocalRecommendationService _recommendationService =
       Get.find<LocalRecommendationService>();
+  final ArtistStore? _artistStore = Get.isRegistered<ArtistStore>()
+      ? Get.find<ArtistStore>()
+      : null;
 
   final Rx<HomeMode> mode = HomeMode.audio.obs;
   final RxBool isLoading = false.obs;
@@ -60,6 +67,9 @@ class HomeController extends GetxController {
   static const int _recommendedFullLimit = 80;
   static const int _collectionMinItems = 15;
   static const int _collectionMaxCount = 4;
+  bool _hasArtistLocaleMetadata = false;
+  Map<String, _ArtistLocaleEntry> _artistLocaleByKey =
+      const <String, _ArtistLocaleEntry>{};
 
   @override
   void onInit() {
@@ -205,6 +215,8 @@ class HomeController extends GetxController {
 
     isRecommendationsLoading.value = true;
     try {
+      _artistLocaleByKey = await _loadArtistLocaleMap();
+      _hasArtistLocaleMetadata = _artistLocaleByKey.isNotEmpty;
       final set = await _recommendationService.refreshManually(
         mode: recommendationMode,
       );
@@ -360,6 +372,8 @@ class HomeController extends GetxController {
 
     isRecommendationsLoading.value = true;
     try {
+      _artistLocaleByKey = await _loadArtistLocaleMap();
+      _hasArtistLocaleMetadata = _artistLocaleByKey.isNotEmpty;
       final set = await _recommendationService.getOrBuildForDay(
         mode: _currentRecommendationMode(),
       );
@@ -370,6 +384,108 @@ class HomeController extends GetxController {
       _syncRecommendationRefreshAvailability();
       isRecommendationsLoading.value = false;
     }
+  }
+
+  Future<Map<String, _ArtistLocaleEntry>> _loadArtistLocaleMap() async {
+    final store = _artistStore;
+    if (store == null) return const <String, _ArtistLocaleEntry>{};
+
+    List<ArtistProfile> profiles;
+    try {
+      profiles = await store.readAll();
+    } catch (_) {
+      return const <String, _ArtistLocaleEntry>{};
+    }
+
+    final out = <String, _ArtistLocaleEntry>{};
+    for (final profile in profiles) {
+      final key = ArtistCreditParser.normalizeKey(profile.key);
+      if (key.isEmpty || key == 'unknown') continue;
+
+      final countryName = (profile.country ?? '').trim().isNotEmpty
+          ? profile.country!.trim()
+          : CountryCatalog.countryNameFromCode(profile.countryCode);
+      final regionKey = _resolveRegionKeyForProfile(profile, countryName);
+      final hasLocale =
+          (countryName ?? '').isNotEmpty && (regionKey ?? '').isNotEmpty;
+      if (!hasLocale) continue;
+
+      out[key] = _ArtistLocaleEntry(
+        countryName: countryName?.trim().isEmpty == true ? null : countryName,
+        regionKey: regionKey?.trim().isEmpty == true ? null : regionKey,
+      );
+    }
+    return out;
+  }
+
+  String? _resolveRegionKeyForProfile(ArtistProfile profile, String? country) {
+    if (profile.mainRegion != ArtistMainRegion.none) {
+      return profile.mainRegion.key;
+    }
+
+    final byCode = CountryCatalog.regionKeyFromCode(profile.countryCode);
+    if ((byCode ?? '').isNotEmpty) return byCode;
+
+    final byName = CountryCatalog.findByName(country)?.regionKey;
+    if ((byName ?? '').isNotEmpty) return byName;
+
+    return null;
+  }
+
+  _ItemLocaleSignal? _resolveItemLocaleSignal(MediaItem item) {
+    if (_artistLocaleByKey.isEmpty) return null;
+
+    final parsed = ArtistCreditParser.parse(item.displaySubtitle);
+    for (final artistName in parsed.allArtists) {
+      final key = ArtistCreditParser.normalizeKey(artistName);
+      final locale = _artistLocaleByKey[key];
+      if (locale == null) continue;
+      final countryName = (locale.countryName ?? '').trim();
+      if (countryName.isEmpty) continue;
+      final regionKey = (locale.regionKey ?? '').trim();
+      if (regionKey.isEmpty) continue;
+      return _ItemLocaleSignal(regionKey: regionKey, countryName: countryName);
+    }
+
+    final fallback = ArtistCreditParser.normalizeKey(item.displaySubtitle);
+    final locale = _artistLocaleByKey[fallback];
+    if (locale == null) return null;
+    final countryName = (locale.countryName ?? '').trim();
+    if (countryName.isEmpty) return null;
+    final regionKey = (locale.regionKey ?? '').trim();
+    if (regionKey.isEmpty) return null;
+    return _ItemLocaleSignal(regionKey: regionKey, countryName: countryName);
+  }
+
+  String _regionMixLabel(String regionKey) {
+    switch (regionKey.trim().toLowerCase()) {
+      case 'latino':
+        return 'latino';
+      case 'asiatico':
+        return 'asiatico';
+      case 'anglo':
+        return 'anglo';
+      case 'europeo':
+        return 'euro';
+      case 'africano':
+        return 'africano';
+      case 'medio_oriente':
+        return 'medio oriente';
+      case 'oceania':
+        return 'oceania';
+      case 'global':
+        return 'global';
+      default:
+        return regionKey;
+    }
+  }
+
+  String? _regionalReasonForItem(MediaItem item) {
+    final signal = _resolveItemLocaleSignal(item);
+    if (signal == null) return null;
+    final country = (signal.countryName ?? '').trim();
+    if (country.isEmpty) return null;
+    return 'Porque escuchaste musica de $country';
   }
 
   void _applyRecommendationSet(RecommendationDailySet set) {
@@ -421,10 +537,26 @@ class HomeController extends GetxController {
 
     fullRecommended.assignAll(resolved.take(_recommendedFullLimit));
     recommended.assignAll(resolved.take(_recommendedPreviewLimit));
-    recommendationReasonsById.assignAll(reasons);
-    recommendationCollections.assignAll(
-      _buildRecommendationCollections(resolvedEntries),
+    final collections = _buildRecommendationCollections(
+      resolvedEntries,
+      dateKey: set.dateKey,
+      recommendationMode: set.mode,
+      manualRefreshCount: set.manualRefreshCount,
     );
+    for (final collection in collections) {
+      if (!collection.id.startsWith('regional-')) continue;
+      for (final item in collection.items) {
+        final reason = _regionalReasonForItem(item);
+        if ((reason ?? '').trim().isEmpty) continue;
+        reasons[item.id] = reason!;
+        final pid = item.publicId.trim();
+        if (pid.isNotEmpty) {
+          reasons['p:$pid'] = reason;
+        }
+      }
+    }
+    recommendationReasonsById.assignAll(reasons);
+    recommendationCollections.assignAll(collections);
   }
 
   void _syncRecommendationRefreshAvailability() {
@@ -449,8 +581,11 @@ class HomeController extends GetxController {
   }
 
   List<RecommendationCollection> _buildRecommendationCollections(
-    List<_ResolvedRecommendation> entries,
-  ) {
+    List<_ResolvedRecommendation> entries, {
+    required String dateKey,
+    required RecommendationMode recommendationMode,
+    required int manualRefreshCount,
+  }) {
     if (entries.isEmpty) return const <RecommendationCollection>[];
 
     final now = DateTime.now();
@@ -500,6 +635,51 @@ class HomeController extends GetxController {
         : max(1, (entries.length / targetCollections).ceil());
     final used = <String>{};
     final collections = <RecommendationCollection>[];
+
+    if (_hasArtistLocaleMetadata) {
+      final byRegion = <String, List<_ResolvedRecommendation>>{};
+      for (final entry in entries) {
+        final signal = _resolveItemLocaleSignal(entry.item);
+        if (signal == null) continue;
+        byRegion.putIfAbsent(
+          signal.regionKey,
+          () => <_ResolvedRecommendation>[],
+        );
+        byRegion[signal.regionKey]!.add(entry);
+      }
+
+      final orderedRegions = byRegion.entries.toList(growable: false)
+        ..sort((a, b) => b.value.length.compareTo(a.value.length));
+
+      if (orderedRegions.isNotEmpty && collections.length < targetCollections) {
+        final bucket = _pickRegionalBucket(
+          orderedRegions,
+          dateKey: dateKey,
+          recommendationMode: recommendationMode,
+          manualRefreshCount: manualRefreshCount,
+        );
+        final availableInBucket = bucket.value
+            .where((entry) => !used.contains(_itemStableKey(entry.item)))
+            .toList(growable: false);
+
+        final picks = availableInBucket.take(perCollectionTarget).toList();
+        if (picks.isNotEmpty) {
+          for (final pick in picks) {
+            used.add(_itemStableKey(pick.item));
+          }
+
+          final regionLabel = _regionMixLabel(bucket.key);
+          collections.add(
+            RecommendationCollection(
+              id: 'regional-${bucket.key}-1',
+              title: 'Mix regional $regionLabel',
+              subtitle: 'Solo canciones de la region $regionLabel',
+              items: picks.map((e) => e.item).toList(growable: false),
+            ),
+          );
+        }
+      }
+    }
 
     List<_ResolvedRecommendation> available() => entries.where((entry) {
       return !used.contains(_itemStableKey(entry.item));
@@ -584,6 +764,38 @@ class HomeController extends GetxController {
     }
 
     return collections.take(_collectionMaxCount).toList(growable: false);
+  }
+
+  MapEntry<String, List<_ResolvedRecommendation>> _pickRegionalBucket(
+    List<MapEntry<String, List<_ResolvedRecommendation>>> orderedRegions, {
+    required String dateKey,
+    required RecommendationMode recommendationMode,
+    required int manualRefreshCount,
+  }) {
+    if (orderedRegions.length <= 1) return orderedRegions.first;
+
+    final rotationWindow = min(orderedRegions.length, 3);
+    final dayOrdinal = _dayOrdinalFromDateKey(dateKey);
+    final modeOffset = recommendationMode == RecommendationMode.audio ? 0 : 1;
+    final offset = dayOrdinal + modeOffset + manualRefreshCount;
+    final index = offset % rotationWindow;
+    return orderedRegions[index];
+  }
+
+  int _dayOrdinalFromDateKey(String dateKey) {
+    final parts = dateKey.split('-');
+    if (parts.length == 3) {
+      final year = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final day = int.tryParse(parts[2]);
+      if (year != null && month != null && day != null) {
+        final date = DateTime(year, month, day);
+        return date.millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
+      }
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return today.millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
   }
 
   _MomentTemplate _momentTemplate(int hour) {
@@ -716,4 +928,18 @@ class _MomentTemplate {
   final String id;
   final String title;
   final String subtitle;
+}
+
+class _ArtistLocaleEntry {
+  const _ArtistLocaleEntry({this.countryName, this.regionKey});
+
+  final String? countryName;
+  final String? regionKey;
+}
+
+class _ItemLocaleSignal {
+  const _ItemLocaleSignal({required this.regionKey, this.countryName});
+
+  final String regionKey;
+  final String? countryName;
 }

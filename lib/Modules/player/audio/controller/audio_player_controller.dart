@@ -192,11 +192,74 @@ class AudioPlayerController extends GetxController {
     return queue[idx];
   }
 
-  MediaVariant? _resolveAudioVariant(MediaItem item) {
+  bool _sameItemKey(MediaItem a, MediaItem b) {
+    if (a.id == b.id) return true;
+    final ap = a.publicId.trim();
+    final bp = b.publicId.trim();
+    return ap.isNotEmpty && bp.isNotEmpty && ap == bp;
+  }
+
+  MediaVariant? resolveNormalAudioVariant(
+    MediaItem item, {
+    bool localOnly = false,
+  }) {
+    MediaVariant? fallback;
     for (final v in item.variants) {
-      if (v.kind == MediaVariantKind.audio && v.isValid) return v;
+      if (v.kind != MediaVariantKind.audio || !v.isValid) continue;
+      if (localOnly && (v.localPath?.trim().isEmpty ?? true)) continue;
+      if (!v.isInstrumental) return v;
+      fallback ??= v;
+    }
+    return fallback;
+  }
+
+  MediaVariant? resolveInstrumentalAudioVariant(
+    MediaItem item, {
+    bool localOnly = false,
+  }) {
+    for (final v in item.variants) {
+      if (v.kind != MediaVariantKind.audio || !v.isValid) continue;
+      if (!v.isInstrumental) continue;
+      if (localOnly && (v.localPath?.trim().isEmpty ?? true)) continue;
+      return v;
     }
     return null;
+  }
+
+  void updateQueueItem(MediaItem updatedItem) {
+    final idx = queue.indexWhere((e) => _sameItemKey(e, updatedItem));
+    if (idx < 0) return;
+    queue[idx] = updatedItem;
+    queue.refresh();
+  }
+
+  Future<void> playItemWithVariant({
+    required MediaItem item,
+    required MediaVariant variant,
+  }) async {
+    final idx = queue.indexWhere((e) => _sameItemKey(e, item));
+    if (idx >= 0) {
+      queue[idx] = item;
+      queue.refresh();
+      currentIndex.value = idx;
+    } else if (queue.isEmpty) {
+      queue.assignAll([item]);
+      currentIndex.value = 0;
+    }
+
+    await audioService.play(
+      item,
+      variant,
+      autoPlay: true,
+      queue: queue.toList(),
+      queueIndex: currentIndex.value,
+      forceReload: true,
+    );
+    _syncFromService();
+  }
+
+  MediaVariant? _resolveAudioVariant(MediaItem item) {
+    return resolveNormalAudioVariant(item);
   }
 
   Future<void> _playCurrent({bool forceReload = false}) async {

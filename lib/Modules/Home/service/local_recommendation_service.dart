@@ -33,6 +33,7 @@ class LocalRecommendationService {
 
   RecommendationState? _stateCache;
   static const int _dailySetTargetSize = 80;
+  static const int _manualRefreshDailyLimit = 2;
 
   static Future<List<ArtistProfile>> _emptyArtistProfileLoader() async {
     return const <ArtistProfile>[];
@@ -83,7 +84,7 @@ class LocalRecommendationService {
 
     final current = state.dailySets[key];
     final currentCount = current?.manualRefreshCount ?? 0;
-    if (currentCount >= 1 && current != null) {
+    if (currentCount >= _manualRefreshDailyLimit && current != null) {
       return current;
     }
 
@@ -112,7 +113,7 @@ class LocalRecommendationService {
     if (state == null) return true;
     final key = _dailySetKey(dateKey: _dateKey(_now()), mode: mode);
     final set = state.dailySets[key];
-    return (set?.manualRefreshCount ?? 0) < 1;
+    return (set?.manualRefreshCount ?? 0) < _manualRefreshDailyLimit;
   }
 
   String? nextRefreshHint({required RecommendationMode mode}) {

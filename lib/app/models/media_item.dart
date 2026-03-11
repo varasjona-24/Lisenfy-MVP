@@ -171,8 +171,19 @@ class MediaItem {
   bool get hasVideoLocal =>
       variants.any((v) => v.kind == MediaVariantKind.video && _hasLocal(v));
 
-  MediaVariant? get localAudioVariant => variants.firstWhereOrNull(
-    (v) => v.kind == MediaVariantKind.audio && _hasLocal(v),
+  MediaVariant? get localAudioVariant {
+    final normal = variants.firstWhereOrNull(
+      (v) =>
+          v.kind == MediaVariantKind.audio && !v.isInstrumental && _hasLocal(v),
+    );
+    if (normal != null) return normal;
+    return variants.firstWhereOrNull(
+      (v) => v.kind == MediaVariantKind.audio && _hasLocal(v),
+    );
+  }
+
+  MediaVariant? get localInstrumentalVariant => variants.firstWhereOrNull(
+    (v) => v.kind == MediaVariantKind.audio && v.isInstrumental && _hasLocal(v),
   );
 
   MediaVariant? get localVideoVariant => variants.firstWhereOrNull(
@@ -510,6 +521,7 @@ class MediaVariant {
   final int createdAt;
   final int? size;
   final int? durationSeconds;
+  final String? role;
 
   const MediaVariant({
     required this.kind,
@@ -519,6 +531,7 @@ class MediaVariant {
     this.localPath,
     this.size,
     this.durationSeconds,
+    this.role,
   });
 
   // ============================
@@ -540,6 +553,9 @@ class MediaVariant {
     final format = (json['format'] as String?)?.trim() ?? '';
     final createdAt = (json['createdAt'] as num?)?.toInt() ?? 0;
     final size = (json['size'] as num?)?.toInt();
+    final role = _normalizeRole(
+      (json['role'] as String?) ?? (json['variantRole'] as String?),
+    );
 
     final rawDur =
         json['durationSeconds'] ??
@@ -558,6 +574,7 @@ class MediaVariant {
       createdAt: createdAt,
       size: size,
       durationSeconds: durationSeconds,
+      role: role,
     );
   }
 
@@ -569,12 +586,50 @@ class MediaVariant {
     'createdAt': createdAt,
     'size': size,
     'durationSeconds': durationSeconds,
+    'role': role,
   };
 
   // ============================
   // ✅ VALIDACIÓN / HELPERS
   // ============================
   bool get isValid => fileName.isNotEmpty && format.isNotEmpty;
+
+  String get roleKey {
+    final normalized = _normalizeRole(role);
+    if (normalized != null) return normalized;
+
+    final lowerFile = fileName.toLowerCase();
+    final lowerPath = (localPath ?? '').toLowerCase();
+    final looksInstrumental =
+        lowerFile.contains('_inst') ||
+        lowerFile.contains('instrumental') ||
+        lowerPath.contains('_inst') ||
+        lowerPath.contains('/instrumental');
+    return looksInstrumental ? 'instrumental' : 'main';
+  }
+
+  bool get isInstrumental =>
+      kind == MediaVariantKind.audio && roleKey == 'instrumental';
+
+  bool sameSlotAs(MediaVariant other) {
+    return kind == other.kind &&
+        format.toLowerCase().trim() == other.format.toLowerCase().trim() &&
+        roleKey == other.roleKey;
+  }
+
+  bool sameIdentityAs(MediaVariant other) {
+    if (!sameSlotAs(other)) return false;
+
+    final aLocal = localPath?.trim() ?? '';
+    final bLocal = other.localPath?.trim() ?? '';
+    if (aLocal.isNotEmpty && bLocal.isNotEmpty) return aLocal == bLocal;
+
+    final aFile = fileName.trim().toLowerCase();
+    final bFile = other.fileName.trim().toLowerCase();
+    if (aFile.isNotEmpty && bFile.isNotEmpty) return aFile == bFile;
+
+    return true;
+  }
 
   /// Path local “limpio”
   String? get playablePath {
@@ -593,5 +648,15 @@ class MediaVariant {
     if (f.startsWith('http://') || f.startsWith('https://')) return f;
 
     return '';
+  }
+
+  static String? _normalizeRole(String? raw) {
+    final value = raw?.trim().toLowerCase() ?? '';
+    if (value.isEmpty) return null;
+    if (value == 'instrumental' || value == 'inst') return 'instrumental';
+    if (value == 'main' || value == 'normal' || value == 'original') {
+      return 'main';
+    }
+    return value;
   }
 }

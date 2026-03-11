@@ -73,7 +73,7 @@ void main() {
       expect(_entryIds(dayOne), isNot(equals(_entryIds(dayTwo))));
     });
 
-    test('bloquea el segundo refresh manual del mismo dia', () async {
+    test('bloquea el tercer refresh manual del mismo dia', () async {
       final now = DateTime(2026, 3, 6, 12, 0);
       final items = List.generate(
         35,
@@ -106,14 +106,23 @@ void main() {
       expect(firstRefresh.manualRefreshCount, 1);
       expect(
         service.canManualRefreshToday(mode: RecommendationMode.audio),
-        isFalse,
+        isTrue,
       );
 
       final secondRefresh = await service.refreshManually(
         mode: RecommendationMode.audio,
       );
-      expect(secondRefresh.manualRefreshCount, 1);
-      expect(_entryIds(secondRefresh), _entryIds(firstRefresh));
+      expect(secondRefresh.manualRefreshCount, 2);
+      expect(
+        service.canManualRefreshToday(mode: RecommendationMode.audio),
+        isFalse,
+      );
+
+      final thirdRefresh = await service.refreshManually(
+        mode: RecommendationMode.audio,
+      );
+      expect(thirdRefresh.manualRefreshCount, 2);
+      expect(_entryIds(thirdRefresh), _entryIds(secondRefresh));
     });
 
     test('respeta filtro por modo audio/video', () async {

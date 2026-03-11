@@ -7,14 +7,26 @@ import 'package:get/get.dart';
 import '../../../data/local/local_library_store.dart';
 import '../../../models/media_item.dart';
 import '../../../services/audio_service.dart';
+import '../../../services/karaoke_flow_coordinator_service.dart';
 
-void openPlayerKaraokeSheet(MediaItem item, {double heightFactor = 0.92}) {
+void openPlayerKaraokeSheet(
+  MediaItem item, {
+  double heightFactor = 0.92,
+  String? topActionLabel,
+  Future<void> Function()? onTopAction,
+  bool showFlowStatus = false,
+}) {
   if (Get.isBottomSheetOpen ?? false) return;
 
   Get.bottomSheet<void>(
     FractionallySizedBox(
       heightFactor: heightFactor,
-      child: PlayerKaraokeSheet(item: item),
+      child: PlayerKaraokeSheet(
+        item: item,
+        topActionLabel: topActionLabel,
+        onTopAction: onTopAction,
+        showFlowStatus: showFlowStatus,
+      ),
     ),
     isScrollControlled: true,
     useRootNavigator: true,
@@ -25,9 +37,18 @@ void openPlayerKaraokeSheet(MediaItem item, {double heightFactor = 0.92}) {
 }
 
 class PlayerKaraokeSheet extends StatefulWidget {
-  const PlayerKaraokeSheet({super.key, required this.item});
+  const PlayerKaraokeSheet({
+    super.key,
+    required this.item,
+    this.topActionLabel,
+    this.onTopAction,
+    this.showFlowStatus = false,
+  });
 
   final MediaItem item;
+  final String? topActionLabel;
+  final Future<void> Function()? onTopAction;
+  final bool showFlowStatus;
 
   @override
   State<PlayerKaraokeSheet> createState() => _PlayerKaraokeSheetState();
@@ -35,6 +56,10 @@ class PlayerKaraokeSheet extends StatefulWidget {
 
 class _PlayerKaraokeSheetState extends State<PlayerKaraokeSheet> {
   static const String _musicalBreakSymbol = '♪';
+  static const int _fallbackLeadInMs = 420;
+  static const int _fallbackTailMs = 280;
+  static const int _fallbackMinLineMs = 780;
+  static const int _fallbackMinBreakMs = 560;
 
   static const Map<String, String> _langLabels = <String, String>{
     'es': 'Español',
@@ -60,8 +85,8 @@ class _PlayerKaraokeSheetState extends State<PlayerKaraokeSheet> {
 
   List<String> _lines = const <String>[];
   List<TimedLyricCue> _timedCues = const <TimedLyricCue>[];
-  List<int> _cumulativeWeights = const <int>[];
-  int _totalWeight = 0;
+  List<TimedLyricCue> _estimatedCues = const <TimedLyricCue>[];
+  int _estimatedForDurationMs = -1;
   int _activeLine = 0;
 
   Duration _position = Duration.zero;
@@ -241,8 +266,8 @@ class _PlayerKaraokeSheetState extends State<PlayerKaraokeSheet> {
       _selectedLang = '';
       _lines = const <String>[];
       _timedCues = const <TimedLyricCue>[];
-      _cumulativeWeights = const <int>[];
-      _totalWeight = 0;
+      _estimatedCues = const <TimedLyricCue>[];
+      _estimatedForDurationMs = -1;
       _activeLine = 0;
       return;
     }
@@ -262,8 +287,8 @@ class _PlayerKaraokeSheetState extends State<PlayerKaraokeSheet> {
       final mergedTimed = _mergeTimedCuesWithBreaks(timed, rawLines);
       _timedCues = mergedTimed.isEmpty ? timed : mergedTimed;
       _lines = _timedCues.map((cue) => cue.text).toList(growable: false);
-      _cumulativeWeights = const <int>[];
-      _totalWeight = 0;
+      _estimatedCues = const <TimedLyricCue>[];
+      _estimatedForDurationMs = -1;
       _activeLine = 0;
       _lineKeys
         ..clear()
@@ -280,26 +305,14 @@ class _PlayerKaraokeSheetState extends State<PlayerKaraokeSheet> {
     final raw = _selectedLang.isEmpty ? '' : (_byLang[_selectedLang] ?? '');
     final lines = _normalizeLyricLinesWithBreaks(raw);
     _lines = lines;
+    _estimatedCues = const <TimedLyricCue>[];
+    _estimatedForDurationMs = -1;
 
     if (lines.isEmpty) {
-      _cumulativeWeights = const <int>[];
-      _totalWeight = 0;
       _activeLine = 0;
       _lineKeys.clear();
       return;
     }
-
-    final cumulative = <int>[];
-    var sum = 0;
-    for (final line in lines) {
-      final weight = line == _musicalBreakSymbol
-          ? 28
-          : line.runes.length.clamp(10, 90);
-      sum += weight;
-      cumulative.add(sum);
-    }
-    _cumulativeWeights = cumulative;
-    _totalWeight = sum;
     _lineKeys
       ..clear()
       ..addEntries(
@@ -309,6 +322,133 @@ class _PlayerKaraokeSheetState extends State<PlayerKaraokeSheet> {
       );
 
     _syncActiveLine(scrollToLine: false);
+  }
+
+  int _safeDurationMs() =>
+      _duration.inMilliseconds > 0 ? _duration.inMilliseconds : 0;
+
+  int _lineWordCount(String text) {
+    return RegExp(r'\S+').allMatches(text).length;
+  }
+
+  int _linePunctuationCount(String text) {
+    return RegExp(r'[,:;.!?…]').allMatches(text).length;
+  }
+
+  double _lineWeight(String line) {
+    if (_isBreakLine(line)) return 1.55;
+    final trimmed = line.trim();
+    if (trimmed.isEmpty) return 1.0;
+
+    final words = _lineWordCount(trimmed);
+    final chars = trimmed.runes.length;
+    final punctuation = _linePunctuationCount(trimmed);
+    final hasCjk = RegExp(
+      r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7a3]',
+    ).hasMatch(trimmed);
+    final languageFactor = hasCjk ? 1.2 : 1.0;
+
+    final base =
+        (words * 1.15) +
+        ((chars / 14.0) * languageFactor) +
+        (punctuation * 0.4);
+    return base.clamp(1.0, 14.0);
+  }
+
+  List<TimedLyricCue> _estimateCuesFromLines(
+    List<String> lines,
+    int durationMs,
+  ) {
+    if (lines.isEmpty || durationMs <= 0) return const <TimedLyricCue>[];
+
+    final safeDuration = math.max(1, durationMs);
+    final leadIn = math.min(_fallbackLeadInMs, safeDuration ~/ 8);
+    final tail = math.min(_fallbackTailMs, safeDuration ~/ 10);
+    final usable = math.max(1, safeDuration - leadIn - tail);
+
+    final minDurations = lines
+        .map(
+          (line) =>
+              _isBreakLine(line) ? _fallbackMinBreakMs : _fallbackMinLineMs,
+        )
+        .toList(growable: false);
+    final minSum = minDurations.fold<int>(0, (sum, ms) => sum + ms);
+    final minScale = minSum > usable ? (usable / minSum) : 1.0;
+
+    final scaledMinimums = minDurations
+        .map((ms) => math.max(160, (ms * minScale).round()))
+        .toList(growable: false);
+    final allocatedMin = scaledMinimums.fold<int>(0, (sum, ms) => sum + ms);
+    final remaining = math.max(0, usable - allocatedMin);
+
+    final weights = lines.map(_lineWeight).toList(growable: false);
+    final weightSum = weights.fold<double>(0, (sum, w) => sum + w);
+
+    final dynamicDurations = <int>[];
+    for (int i = 0; i < lines.length; i++) {
+      final extra = weightSum <= 0
+          ? 0
+          : ((weights[i] / weightSum) * remaining).round();
+      dynamicDurations.add(scaledMinimums[i] + extra);
+    }
+
+    var consumed = dynamicDurations.fold<int>(0, (sum, ms) => sum + ms);
+    final drift = usable - consumed;
+    if (drift != 0 && dynamicDurations.isNotEmpty) {
+      dynamicDurations[dynamicDurations.length - 1] += drift;
+      consumed = dynamicDurations.fold<int>(0, (sum, ms) => sum + ms);
+      if (consumed <= 0) return const <TimedLyricCue>[];
+    }
+
+    final cues = <TimedLyricCue>[];
+    var cursor = leadIn;
+    final maxMs = safeDuration - 1;
+    for (int i = 0; i < lines.length; i++) {
+      if (cursor > maxMs) break;
+      final segment = math.max(120, dynamicDurations[i]);
+      final isLast = i == lines.length - 1;
+      final start = cursor.clamp(0, maxMs);
+      final end = isLast
+          ? maxMs
+          : math.min(maxMs, math.max(start, start + segment - 1));
+      cues.add(TimedLyricCue(text: lines[i], startMs: start, endMs: end));
+      cursor = end + 1;
+    }
+
+    return cues;
+  }
+
+  void _ensureEstimatedCues() {
+    if (_timedCues.isNotEmpty || _lines.isEmpty) {
+      _estimatedCues = const <TimedLyricCue>[];
+      _estimatedForDurationMs = -1;
+      return;
+    }
+
+    final durationMs = _safeDurationMs();
+    if (durationMs <= 0) return;
+    if (_estimatedForDurationMs == durationMs && _estimatedCues.isNotEmpty) {
+      return;
+    }
+
+    _estimatedCues = _estimateCuesFromLines(_lines, durationMs);
+    _estimatedForDurationMs = durationMs;
+  }
+
+  int _activeLineFromCues(List<TimedLyricCue> cues, int posMs) {
+    if (cues.isEmpty) return 0;
+    if (posMs <= cues.first.startMs) return 0;
+
+    for (int i = 0; i < cues.length; i++) {
+      final cue = cues[i];
+      final nextCue = i + 1 < cues.length ? cues[i + 1] : null;
+      final start = cue.startMs;
+      final inferredEnd = nextCue != null ? nextCue.startMs - 1 : null;
+      int end = cue.endMs ?? inferredEnd ?? start + 4200;
+      if (end < start) end = start;
+      if (posMs >= start && posMs <= end) return i;
+    }
+    return cues.length - 1;
   }
 
   Future<void> _resolveLatestItem() async {
@@ -372,35 +512,14 @@ class _PlayerKaraokeSheetState extends State<PlayerKaraokeSheet> {
 
   int _computeActiveLine() {
     if (_timedCues.isNotEmpty) {
-      final posMs = _position.inMilliseconds;
-      if (posMs <= _timedCues.first.startMs) return 0;
-
-      for (int i = 0; i < _timedCues.length; i++) {
-        final cue = _timedCues[i];
-        final nextCue = i + 1 < _timedCues.length ? _timedCues[i + 1] : null;
-        final start = cue.startMs;
-        final inferredEnd = nextCue != null ? nextCue.startMs - 1 : null;
-        int end = cue.endMs ?? inferredEnd ?? start + 4500;
-        if (end < start) end = start;
-        if (posMs >= start && posMs <= end) return i;
-      }
-      return _timedCues.length - 1;
+      return _activeLineFromCues(_timedCues, _position.inMilliseconds);
     }
 
-    if (_lines.isEmpty || _totalWeight <= 0) return 0;
-    if (_duration <= Duration.zero) return 0;
-
-    final totalMs = _duration.inMilliseconds;
-    final posMs = _position.inMilliseconds.clamp(0, totalMs);
-    final progress = (totalMs <= 0) ? 0.0 : (posMs / totalMs);
-    final targetWeight = (progress * _totalWeight)
-        .clamp(0.0, _totalWeight.toDouble())
-        .toInt();
-
-    for (int i = 0; i < _cumulativeWeights.length; i++) {
-      if (targetWeight <= _cumulativeWeights[i]) return i;
+    _ensureEstimatedCues();
+    if (_estimatedCues.isNotEmpty) {
+      return _activeLineFromCues(_estimatedCues, _position.inMilliseconds);
     }
-    return _lines.length - 1;
+    return _lines.isEmpty ? 0 : _lines.length - 1;
   }
 
   void _syncActiveLine({bool scrollToLine = true}) {
@@ -465,6 +584,14 @@ class _PlayerKaraokeSheetState extends State<PlayerKaraokeSheet> {
                 ),
               ),
               const SizedBox(width: 8),
+              if (widget.onTopAction != null)
+                TextButton.icon(
+                  onPressed: () async {
+                    await widget.onTopAction?.call();
+                  },
+                  icon: const Icon(Icons.close_rounded),
+                  label: Text(widget.topActionLabel ?? 'Cancelar'),
+                ),
               IconButton(
                 tooltip: 'Cerrar',
                 icon: const Icon(Icons.close_rounded),
@@ -472,6 +599,37 @@ class _PlayerKaraokeSheetState extends State<PlayerKaraokeSheet> {
               ),
             ],
           ),
+          if (widget.showFlowStatus &&
+              Get.isRegistered<KaraokeFlowCoordinatorService>()) ...[
+            const SizedBox(height: 8),
+            Obx(() {
+              final flow =
+                  Get.find<KaraokeFlowCoordinatorService>().activeFlow.value;
+              if (flow == null) return const SizedBox.shrink();
+              final message = flow.error?.trim().isNotEmpty == true
+                  ? flow.error!.trim()
+                  : flow.message;
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: color.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: color.outlineVariant),
+                ),
+                child: Text(
+                  message,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: color.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            }),
+          ],
           const SizedBox(height: 8),
           if (langKeys.isNotEmpty)
             SingleChildScrollView(

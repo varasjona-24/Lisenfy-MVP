@@ -23,6 +23,10 @@ import 'app/services/audio_service.dart';
 import 'app/services/app_audio_handler.dart';
 import 'app/services/spatial_audio_service.dart';
 import 'app/services/video_service.dart';
+import 'app/services/karaoke_separation_agent.dart';
+import 'app/services/karaoke_remote_pipeline_service.dart';
+import 'app/services/karaoke_flow_coordinator_service.dart';
+import 'app/services/karaoke_recording_service.dart';
 import 'Modules/settings/controller/settings_controller.dart';
 import 'Modules/settings/controller/playback_settings_controller.dart';
 import 'Modules/settings/controller/sleep_timer_controller.dart';
@@ -89,6 +93,26 @@ Future<void> main() async {
 
   // 📦 GetStorage (shared)
   Get.put<GetStorage>(GetStorage(), permanent: true);
+
+  // 🤖 Agente cliente de separación IA (karaoke)
+  Get.put(
+    KaraokeSeparationAgent(
+      client: Get.find<DioClient>(),
+      storage: Get.find<GetStorage>(),
+    ),
+    permanent: true,
+  );
+  Get.put(
+    KaraokeRemotePipelineService(client: Get.find<DioClient>()),
+    permanent: true,
+  );
+  Get.put(
+    KaraokeFlowCoordinatorService(
+      recordingService: KaraokeRecordingService(),
+      remoteService: Get.find<KaraokeRemotePipelineService>(),
+    ),
+    permanent: true,
+  );
 
   // 💾 Local storage
   Get.put(LocalLibraryStore(Get.find<GetStorage>()), permanent: true);

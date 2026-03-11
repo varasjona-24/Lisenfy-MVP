@@ -233,54 +233,56 @@ class ArtistsPage extends GetView<ArtistsController> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (bands.isNotEmpty) ...[
-            Text(
-              'Bandas',
-              style: Get.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+            _ArtistSectionHeader(
+              title: 'Bandas',
+              count: bands.length,
+              minimized: controller.bandsMinimized.value,
+              onToggle: controller.toggleBandsMinimized,
             ),
             const SizedBox(height: 8),
-            for (final artist in bands) ...[
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ArtistCard(
-                  artist: artist,
-                  onOpen: () => Get.toNamed(
-                    AppRoutes.artistDetail,
-                    arguments: artist.key,
-                  ),
-                  onEdit: () => Get.toNamed(
-                    AppRoutes.editEntity,
-                    arguments: EditEntityArgs.artist(artist),
+            if (!controller.bandsMinimized.value)
+              for (final artist in bands) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ArtistCard(
+                    artist: artist,
+                    onOpen: () => Get.toNamed(
+                      AppRoutes.artistDetail,
+                      arguments: artist.key,
+                    ),
+                    onEdit: () => Get.toNamed(
+                      AppRoutes.editEntity,
+                      arguments: EditEntityArgs.artist(artist),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
           ],
           if (singers.isNotEmpty) ...[
             if (bands.isNotEmpty) const SizedBox(height: 8),
-            Text(
-              'Cantantes',
-              style: Get.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+            _ArtistSectionHeader(
+              title: 'Cantantes',
+              count: singers.length,
+              minimized: controller.singersMinimized.value,
+              onToggle: controller.toggleSingersMinimized,
             ),
             const SizedBox(height: 8),
-            for (final artist in singers)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ArtistCard(
-                  artist: artist,
-                  onOpen: () => Get.toNamed(
-                    AppRoutes.artistDetail,
-                    arguments: artist.key,
-                  ),
-                  onEdit: () => Get.toNamed(
-                    AppRoutes.editEntity,
-                    arguments: EditEntityArgs.artist(artist),
+            if (!controller.singersMinimized.value)
+              for (final artist in singers)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ArtistCard(
+                    artist: artist,
+                    onOpen: () => Get.toNamed(
+                      AppRoutes.artistDetail,
+                      arguments: artist.key,
+                    ),
+                    onEdit: () => Get.toNamed(
+                      AppRoutes.editEntity,
+                      arguments: EditEntityArgs.artist(artist),
+                    ),
                   ),
                 ),
-              ),
           ],
         ],
       );
@@ -371,6 +373,51 @@ class ArtistsPage extends GetView<ArtistsController> {
           );
         });
       },
+    );
+  }
+}
+
+class _ArtistSectionHeader extends StatelessWidget {
+  const _ArtistSectionHeader({
+    required this.title,
+    required this.count,
+    required this.minimized,
+    required this.onToggle,
+  });
+
+  final String title;
+  final int count;
+  final bool minimized;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '$title ($count)',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        TextButton.icon(
+          onPressed: onToggle,
+          icon: Icon(
+            minimized ? Icons.expand_more_rounded : Icons.expand_less_rounded,
+            size: 18,
+          ),
+          label: Text(minimized ? 'Mostrar' : 'Minimizar'),
+          style: TextButton.styleFrom(
+            foregroundColor: scheme.primary,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+      ],
     );
   }
 }

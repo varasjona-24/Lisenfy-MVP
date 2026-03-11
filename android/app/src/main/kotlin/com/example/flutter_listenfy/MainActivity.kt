@@ -50,6 +50,7 @@ class MainActivity : AudioServiceActivity() {
     private val openalChannel = "listenfy/openal"
     private val audioCleanupChannel = "listenfy/audio_cleanup"
     private val audioWaveformChannel = "listenfy/audio_waveform"
+    private val karaokeRecorderChannel = "listenfy/karaoke_recorder"
     private val audioVisualizerChannel = "listenfy/audio_visualizer"
     private val audioVisualizerEventsChannel = "listenfy/audio_visualizer/events"
     private val pipChannel = "listenfy/pip"
@@ -73,6 +74,7 @@ class MainActivity : AudioServiceActivity() {
     private var audioVisualizerLastBars: DoubleArray = DoubleArray(0)
     private var audioVisualizerLastEmitAtMs: Long = 0L
     private val uiHandler = Handler(Looper.getMainLooper())
+    private val karaokeRecorderEngine by lazy { KaraokeRecorderEngine(applicationContext) }
 
     private data class SilenceSegment(
         val startMs: Int,
@@ -542,6 +544,93 @@ class MainActivity : AudioServiceActivity() {
                 }
             }
 
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, karaokeRecorderChannel)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isRecording" -> {
+                        result.success(karaokeRecorderEngine.isRecording())
+                    }
+                    "startSession" -> {
+                        val sourcePath = call.argument<String>("sourcePath")?.trim().orEmpty()
+                        if (sourcePath.isBlank()) {
+                            result.error("NO_PATH", "sourcePath required", null)
+                            return@setMethodCallHandler
+                        }
+                        val instrumentalPath = call.argument<String>("instrumentalPath")
+                            ?.trim()
+                            ?.ifBlank { null }
+
+                        val instrumentalGain = numberAsDouble(
+                            call.argument<Any>("instrumentalGain"),
+                            1.0
+                        ).coerceIn(0.10, 1.80)
+
+                        Thread {
+                            try {
+                                val payload = karaokeRecorderEngine.startSession(
+                                    sourcePathRaw = sourcePath,
+                                    instrumentalGainRaw = instrumentalGain,
+                                    instrumentalPathOverrideRaw = instrumentalPath
+                                )
+                                runOnUiThread { result.success(payload) }
+                            } catch (e: Throwable) {
+                                runOnUiThread {
+                                    result.error(
+                                        "KARAOKE_START_FAIL",
+                                        e.message ?: "No se pudo iniciar karaoke.",
+                                        null
+                                    )
+                                }
+                            }
+                        }.start()
+                    }
+                    "stopSession" -> {
+                        val exportMixed = call.argument<Boolean>("exportMixed") ?: true
+                        val voiceGain = numberAsDouble(call.argument<Any>("voiceGain"), 1.0)
+                            .coerceIn(0.0, 2.0)
+                        val instrumentalGain =
+                            numberAsDouble(call.argument<Any>("instrumentalGain"), 0.8)
+                                .coerceIn(0.0, 2.0)
+
+                        Thread {
+                            try {
+                                val payload = karaokeRecorderEngine.stopSession(
+                                    exportMixed = exportMixed,
+                                    voiceGainRaw = voiceGain,
+                                    instrumentalGainRaw = instrumentalGain
+                                )
+                                runOnUiThread { result.success(payload) }
+                            } catch (e: Throwable) {
+                                runOnUiThread {
+                                    result.error(
+                                        "KARAOKE_STOP_FAIL",
+                                        e.message ?: "No se pudo detener karaoke.",
+                                        null
+                                    )
+                                }
+                            }
+                        }.start()
+                    }
+                    "cancelSession" -> {
+                        Thread {
+                            try {
+                                val canceled = karaokeRecorderEngine.cancelSession()
+                                runOnUiThread { result.success(canceled) }
+                            } catch (e: Throwable) {
+                                runOnUiThread {
+                                    result.error(
+                                        "KARAOKE_CANCEL_FAIL",
+                                        e.message ?: "No se pudo cancelar karaoke.",
+                                        null
+                                    )
+                                }
+                            }
+                        }.start()
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, audioWaveformChannel)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -628,6 +717,7 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun onDestroy() {
+        karaokeRecorderEngine.release()
         detachAudioVisualizer()
         releaseSpatial()
         super.onDestroy()

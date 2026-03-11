@@ -83,6 +83,9 @@ class BackupRestoreController extends GetxController {
   Future<void> confirmExportLibrary() async {
     if (isExporting.value || isImporting.value) return;
 
+    final includeInstrumentals = await _showExportOptionsDialog();
+    if (includeInstrumentals == null) return;
+
     _showBusyDialog(
       title: 'Preparando respaldo',
       message: 'Calculando tamaño estimado del backup completo...',
@@ -92,7 +95,9 @@ class BackupRestoreController extends GetxController {
 
     _BackupEstimate estimate;
     try {
-      estimate = await _estimateFullBackup();
+      estimate = await _estimateFullBackup(
+        includeInstrumentalVariants: includeInstrumentals,
+      );
     } catch (e) {
       await _closeProgressDialog();
       Get.snackbar(
@@ -115,6 +120,9 @@ class BackupRestoreController extends GetxController {
       icon: Icons.archive_rounded,
       accent: Colors.orange,
       notes: [
+        includeInstrumentals
+            ? 'Se incluirán también variantes instrumentales.'
+            : 'No se incluirán variantes instrumentales en este backup.',
         'Tamaño estimado: ~$estimateLabel (contenido detectado: $contentLabel).',
         'Archivos incluidos en la estimación: ${estimate.includedFiles}.',
         if (estimate.missingFiles > 0)
@@ -126,7 +134,7 @@ class BackupRestoreController extends GetxController {
     );
 
     if (confirmed == true) {
-      await exportLibrary();
+      await exportLibrary(includeInstrumentalVariants: includeInstrumentals);
     }
   }
 
@@ -172,6 +180,48 @@ class BackupRestoreController extends GetxController {
 
       await importLibrary(zipPath: foundPath);
     }
+  }
+
+  Future<bool?> _showExportOptionsDialog() async {
+    var includeInstrumentals = true;
+    return Get.dialog<bool>(
+      StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Opciones de respaldo'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CheckboxListTile(
+                  value: includeInstrumentals,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Incluir variantes instrumentales'),
+                  subtitle: const Text(
+                    'Si se desactiva, se respaldan solo variantes normales.',
+                  ),
+                  onChanged: (value) {
+                    setStateDialog(() {
+                      includeInstrumentals = value ?? true;
+                    });
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Get.back<bool?>(),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Get.back(result: includeInstrumentals),
+                child: const Text('Continuar'),
+              ),
+            ],
+          );
+        },
+      ),
+      barrierDismissible: true,
+    );
   }
 
   void _showProgressDialog(String title) {
@@ -795,7 +845,7 @@ class BackupRestoreController extends GetxController {
   // ============================
   // 📤 EXPORTAR
   // ============================
-  Future<void> exportLibrary() async {
+  Future<void> exportLibrary({bool includeInstrumentalVariants = true}) async {
     if (isExporting.value || isImporting.value) return;
 
     try {
@@ -871,6 +921,9 @@ class BackupRestoreController extends GetxController {
         for (final raw in variants) {
           if (raw is! Map) continue;
           final v = Map<String, dynamic>.from(raw);
+          if (!includeInstrumentalVariants && _isInstrumentalVariantMap(v)) {
+            continue;
+          }
           final localPath = (v['localPath'] as String?)?.trim();
           if (localPath != null && localPath.isNotEmpty) {
             final rel = await copyToBackup(localPath);
@@ -939,6 +992,9 @@ class BackupRestoreController extends GetxController {
       final manifest = <String, dynamic>{
         'version': 1,
         'createdAt': DateTime.now().toIso8601String(),
+        'backupOptions': <String, dynamic>{
+          'includeInstrumentalVariants': includeInstrumentalVariants,
+        },
         'items': itemsJson,
         'playlists': playlistsJson,
         'artists': artistsJson,
@@ -1265,7 +1321,9 @@ class BackupRestoreController extends GetxController {
   // ============================
   // 🧰 HELPERS
   // ============================
-  Future<_BackupEstimate> _estimateFullBackup() async {
+  Future<_BackupEstimate> _estimateFullBackup({
+    required bool includeInstrumentalVariants,
+  }) async {
     final libraryStore = Get.find<LocalLibraryStore>();
     final playlistStore = Get.find<PlaylistStore>();
     final artistStore = Get.find<ArtistStore>();
@@ -1289,6 +1347,9 @@ class BackupRestoreController extends GetxController {
     for (final item in items) {
       addPath(item.thumbnailLocalPath);
       for (final v in item.variants) {
+        if (!includeInstrumentalVariants && v.isInstrumental) {
+          continue;
+        }
         addPath(v.localPath);
       }
     }
@@ -1345,6 +1406,21 @@ class BackupRestoreController extends GetxController {
       includedFiles: includedFiles,
       missingFiles: missingFiles,
     );
+  }
+
+  bool _isInstrumentalVariantMap(Map<String, dynamic> variantJson) {
+    final role = (variantJson['role'] as String?)?.trim().toLowerCase() ?? '';
+    if (role == 'instrumental' || role == 'inst') {
+      return true;
+    }
+    final fileName =
+        (variantJson['fileName'] as String?)?.trim().toLowerCase() ?? '';
+    final localPath =
+        (variantJson['localPath'] as String?)?.trim().toLowerCase() ?? '';
+    return fileName.contains('_inst') ||
+        fileName.contains('instrumental') ||
+        localPath.contains('_inst') ||
+        localPath.contains('/instrumental');
   }
 
   String _formatBytes(int bytes) {

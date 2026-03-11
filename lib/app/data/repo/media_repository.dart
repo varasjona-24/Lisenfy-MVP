@@ -349,11 +349,7 @@ class MediaRepository {
     while (true) {
       try {
         // Requiere que tengas _client.download(...) en DioClient
-        await _client.download(
-          path,
-          savePath,
-          onProgress: onProgress,
-        );
+        await _client.download(path, savePath, onProgress: onProgress);
         return true;
       } catch (e) {
         attempts++;
@@ -540,12 +536,7 @@ class MediaRepository {
 
       // merge variants: reemplaza si existe misma kind+format, si no añade
       final merged = [...existing.variants];
-      final i = merged.indexWhere(
-        (v) =>
-            v.kind == variant.kind &&
-            v.format.toLowerCase().trim() ==
-                variant.format.toLowerCase().trim(),
-      );
+      final i = merged.indexWhere((v) => v.sameSlotAs(variant));
 
       if (i >= 0) {
         merged[i] = variant;
@@ -644,12 +635,7 @@ class MediaRepository {
       source: source,
       thumbnailLocalPath: thumbnailLocalPath ?? base.thumbnailLocalPath,
       variants: [
-        ...((base.variants).where(
-          (v) =>
-              !(v.kind == variant.kind &&
-                  v.format.toLowerCase().trim() ==
-                      variant.format.toLowerCase().trim()),
-        )),
+        ...((base.variants).where((v) => !v.sameSlotAs(variant))),
         variant,
       ],
     );
