@@ -1,24 +1,18 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:path/path.dart' as p;
 
 import '../../../../Modules/player/audio/controller/audio_player_controller.dart';
 import '../../../data/local/local_library_store.dart';
 import '../../../models/media_item.dart';
 import '../../../services/audio_service.dart';
-import '../../../services/karaoke_remote_pipeline_service.dart';
+import '../../../services/instrumental_generation_service.dart';
 
-void openPlayerInstrumentalSheet(MediaItem item, {double heightFactor = 0.68}) {
+void openPlayerInstrumentalSheet(MediaItem item) {
   if (Get.isBottomSheetOpen ?? false) return;
 
   Get.bottomSheet<void>(
-    FractionallySizedBox(
-      heightFactor: heightFactor,
-      child: PlayerInstrumentalSheet(item: item),
-    ),
-    isScrollControlled: true,
+    PlayerInstrumentalSheet(item: item),
+    isScrollControlled: false,
     useRootNavigator: true,
     ignoreSafeArea: false,
     isDismissible: true,
@@ -40,21 +34,36 @@ class _PlayerInstrumentalSheetState extends State<PlayerInstrumentalSheet> {
   final LocalLibraryStore _library = Get.find<LocalLibraryStore>();
   final AudioPlayerController _player = Get.find<AudioPlayerController>();
   final AudioService _audio = Get.find<AudioService>();
-  final KaraokeRemotePipelineService _remote =
-      Get.find<KaraokeRemotePipelineService>();
+  final InstrumentalGenerationService _generation =
+      Get.find<InstrumentalGenerationService>();
 
   late MediaItem _item;
-  bool _busy = false;
-  double _progress = 0;
-  String _message = 'Listo.';
-  String? _error;
-  String? _separatorModel;
+  bool _switching = false;
+  String _localMessage = 'Listo.';
+  String? _manualError;
+  Worker? _taskWorker;
+  int _lastSyncedCompletedAt = 0;
 
   @override
   void initState() {
     super.initState();
     _item = widget.item;
     _refreshFromStore();
+    _taskWorker = ever(_generation.tasks, (_) {
+      final snapshot = _generation.stateFor(_item);
+      if (snapshot == null) return;
+      if (snapshot.stage == InstrumentalTaskStage.completed &&
+          snapshot.updatedAt != _lastSyncedCompletedAt) {
+        _lastSyncedCompletedAt = snapshot.updatedAt;
+        _refreshFromStore();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _taskWorker?.dispose();
+    super.dispose();
   }
 
   MediaVariant? get _normalLocal =>
@@ -85,173 +94,6 @@ class _PlayerInstrumentalSheetState extends State<PlayerInstrumentalSheet> {
     });
   }
 
-  Future<void> _switchToNormal() async {
-    final variant = _normalLocal;
-    if (variant == null) {
-      setState(() {
-        _error = 'No hay versión normal local para reproducir.';
-      });
-      return;
-    }
-    await _player.playItemWithVariant(item: _item, variant: variant);
-    if (!mounted) return;
-    setState(() {
-      _error = null;
-      _message = 'Reproduciendo versión normal.';
-    });
-  }
-
-  Future<void> _switchToInstrumental() async {
-    final variant = _instrumentalLocal;
-    if (variant == null) {
-      await _generateInstrumental();
-      return;
-    }
-    await _player.playItemWithVariant(item: _item, variant: variant);
-    if (!mounted) return;
-    setState(() {
-      _error = null;
-      _message = 'Reproduciendo versión instrumental.';
-    });
-  }
-
-  Future<void> _generateInstrumental() async {
-    if (_busy) return;
-    final sourceVariant = _normalLocal;
-    final sourcePath = sourceVariant?.localPath?.trim() ?? '';
-    if (sourcePath.isEmpty) {
-      setState(() {
-        _error =
-            'Esta función requiere la versión normal de audio descargada localmente.';
-      });
-      return;
-    }
-
-    setState(() {
-      _busy = true;
-      _error = null;
-      _progress = 0.03;
-      _separatorModel = null;
-      _message = 'Validando conexión con backend...';
-    });
-
-    try {
-      final reachable = await _remote.isBackendReachable();
-      if (!reachable) {
-        throw Exception(
-          'Sin conexión al servidor. El modo instrumental requiere internet.',
-        );
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _progress = 0.08;
-        _message = 'Subiendo audio fuente al servidor...';
-      });
-
-      final created = await _remote.createSessionFromSource(
-        item: _item,
-        sourcePath: sourcePath,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _progress = 0.14;
-        _message = 'Separando voces e instrumental en backend...';
-      });
-
-      final ready = await _remote.waitUntilReady(
-        sessionId: created.id,
-        onProgress: (progress) {
-          if (!mounted) return;
-          setState(() {
-            _progress = (0.14 + progress.progress * 0.72).clamp(0.14, 0.9);
-            _message = progress.message;
-          });
-        },
-      );
-
-      final downloadedPath = await _remote.downloadInstrumentalToLocal(
-        session: ready,
-        item: _item,
-      );
-
-      final variant = await _buildInstrumentalVariant(
-        downloadedPath: downloadedPath,
-        sourceVariant: sourceVariant!,
-      );
-      final updated = _mergeInstrumentalVariant(_item, variant);
-      await _library.upsert(updated);
-
-      _player.updateQueueItem(updated);
-
-      if (!mounted) return;
-      setState(() {
-        _item = updated;
-        _progress = 1.0;
-        _separatorModel = ready.separatorModel;
-        _message = 'Instrumental guardado y asociado a la canción.';
-      });
-
-      await _switchToInstrumental();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _busy = false;
-        });
-      }
-    }
-  }
-
-  Future<MediaVariant> _buildInstrumentalVariant({
-    required String downloadedPath,
-    required MediaVariant sourceVariant,
-  }) async {
-    final normalized = downloadedPath.replaceFirst('file://', '').trim();
-    final file = File(normalized);
-    final length = file.existsSync() ? await file.length() : null;
-    final ext = p
-        .extension(normalized)
-        .replaceFirst('.', '')
-        .trim()
-        .toLowerCase();
-    final format = ext.isEmpty
-        ? (sourceVariant.format.trim().isEmpty
-              ? 'wav'
-              : sourceVariant.format.trim())
-        : ext;
-
-    return MediaVariant(
-      kind: MediaVariantKind.audio,
-      format: format,
-      fileName: p.basename(normalized),
-      localPath: normalized,
-      createdAt: DateTime.now().millisecondsSinceEpoch,
-      size: length,
-      durationSeconds: sourceVariant.durationSeconds ?? _item.durationSeconds,
-      role: 'instrumental',
-    );
-  }
-
-  MediaItem _mergeInstrumentalVariant(
-    MediaItem item,
-    MediaVariant instrumental,
-  ) {
-    final preserved = item.variants
-        .where((v) {
-          if (v.kind != MediaVariantKind.audio) return true;
-          return !v.isInstrumental;
-        })
-        .toList(growable: true);
-    preserved.add(instrumental);
-    return item.copyWith(variants: preserved);
-  }
-
   bool _isCurrentTrackInstrumental() {
     final currentItem = _audio.currentItem.value;
     final currentVariant = _audio.currentVariant.value;
@@ -260,139 +102,315 @@ class _PlayerInstrumentalSheetState extends State<PlayerInstrumentalSheet> {
     return currentVariant.isInstrumental;
   }
 
+  Future<void> _switchToNormal() async {
+    final variant = _normalLocal;
+    if (variant == null) {
+      setState(() {
+        _manualError = 'No hay versión normal local para reproducir.';
+      });
+      return;
+    }
+    await _player.playItemWithVariant(item: _item, variant: variant);
+    if (!mounted) return;
+    setState(() {
+      _manualError = null;
+      _localMessage = 'Modo normal activo.';
+    });
+  }
+
+  Future<void> _switchToInstrumental() async {
+    final variant = _instrumentalLocal;
+    if (variant == null) {
+      setState(() {
+        _manualError = 'Aún no tienes instrumental descargado.';
+      });
+      return;
+    }
+    await _player.playItemWithVariant(item: _item, variant: variant);
+    if (!mounted) return;
+    setState(() {
+      _manualError = null;
+      _localMessage = 'Modo instrumental activo.';
+    });
+  }
+
+  Future<void> _setInstrumentalMode(bool enabled) async {
+    if (_switching || _generation.isRunningFor(_item)) return;
+    setState(() {
+      _switching = true;
+      _manualError = null;
+    });
+
+    try {
+      if (enabled) {
+        if (_instrumentalLocal == null) {
+          await _generateInstrumental(autoSwitch: true, forceRegenerate: false);
+          return;
+        }
+        await _switchToInstrumental();
+        return;
+      }
+      await _switchToNormal();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _switching = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _generateInstrumental({
+    required bool autoSwitch,
+    required bool forceRegenerate,
+  }) async {
+    if (_generation.isRunningFor(_item)) return;
+
+    final sourcePath =
+        _normalLocal?.localPath?.replaceFirst('file://', '').trim() ?? '';
+    if (sourcePath.isEmpty) {
+      setState(() {
+        _manualError =
+            'Esta función requiere la versión normal de audio descargada localmente.';
+      });
+      return;
+    }
+
+    setState(() {
+      _manualError = null;
+      _localMessage = forceRegenerate
+          ? 'Regenerando instrumental...'
+          : 'Iniciando descarga instrumental...';
+    });
+
+    final updated = await _generation.generateForItem(
+      item: _item,
+      sourcePath: sourcePath,
+      forceRegenerate: forceRegenerate,
+    );
+
+    await _refreshFromStore();
+    if (!mounted) return;
+
+    if (updated != null) {
+      setState(() {
+        _item = updated;
+      });
+    }
+
+    if (autoSwitch && _instrumentalLocal != null) {
+      await _switchToInstrumental();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final normal = _normalLocal;
-    final instrumental = _instrumentalLocal;
 
     return Material(
       color: theme.scaffoldBackgroundColor,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Modo instrumental',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
+      child: Obx(() {
+        final snapshot = _generation.stateFor(_item);
+        final running = snapshot != null && !snapshot.isTerminal;
+        final hasInstrumental = _instrumentalLocal != null;
+        final message = snapshot?.message ?? _localMessage;
+        final progress = snapshot != null ? snapshot.progress : 0.0;
+        final separatorModel = snapshot?.separatorModel;
+        final isInstrumental = _isCurrentTrackInstrumental();
+        final taskError = snapshot?.stage == InstrumentalTaskStage.failed
+            ? (snapshot?.error?.trim().isNotEmpty ?? false)
+                  ? snapshot!.error!.trim()
+                  : snapshot?.message
+            : null;
+        final shownError = _manualError ?? taskError;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Modo instrumental',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _item.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 10),
-            LinearProgressIndicator(
-              value: (_busy || _progress > 0) ? _progress.clamp(0.0, 1.0) : 0,
-              minHeight: 6,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _message,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            if (_separatorModel != null &&
-                _separatorModel!.trim().isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(
-                'Motor: $_separatorModel',
+                _item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 10),
+              LinearProgressIndicator(
+                value: (running || progress > 0)
+                    ? progress.clamp(0.0, 1.0)
+                    : 0.0,
+                minHeight: 6,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            ],
-            const SizedBox(height: 14),
-            Expanded(
-              child: ListView(
-                children: [
-                  Obx(() {
-                    final playingInstrumental = _isCurrentTrackInstrumental();
-                    return Text(
-                      playingInstrumental
-                          ? 'Reproduciendo: instrumental'
-                          : 'Reproduciendo: normal',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: playingInstrumental
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurface,
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+              if (separatorModel != null &&
+                  separatorModel.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Motor: $separatorModel',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              if (hasInstrumental) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.45,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
                     children: [
-                      FilledButton.icon(
-                        onPressed: _busy || normal == null
-                            ? null
-                            : _switchToNormal,
-                        icon: const Icon(Icons.music_note_rounded),
-                        label: const Text('Versión normal'),
-                      ),
-                      FilledButton.tonalIcon(
-                        onPressed: _busy
-                            ? null
-                            : (instrumental != null
-                                  ? _switchToInstrumental
-                                  : _generateInstrumental),
-                        icon: const Icon(Icons.graphic_eq_rounded),
-                        label: Text(
-                          instrumental != null
-                              ? 'Versión instrumental'
-                              : 'Descargar instrumental',
+                      Expanded(
+                        child: _InstrumentalModePill(
+                          active: !isInstrumental,
+                          icon: Icons.record_voice_over_rounded,
+                          label: 'Voz',
                         ),
                       ),
-                      OutlinedButton.icon(
-                        onPressed: _busy || normal == null
+                      const SizedBox(width: 10),
+                      Switch.adaptive(
+                        value: isInstrumental,
+                        onChanged: (_switching || running)
                             ? null
-                            : _generateInstrumental,
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Regenerar'),
+                            : (value) {
+                                _setInstrumentalMode(value);
+                              },
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _InstrumentalModePill(
+                          active: isInstrumental,
+                          icon: Icons.music_note_rounded,
+                          label: 'Instrumental',
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  if (normal != null)
-                    Text(
-                      'Normal: ${normal.localPath ?? '-'}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  if (instrumental != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Instrumental: ${instrumental.localPath ?? '-'}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                  if (_error != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      _error!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.error,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ],
+                  ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.tonalIcon(
+                    onPressed: (_switching || running)
+                        ? null
+                        : () => _generateInstrumental(
+                            autoSwitch: false,
+                            forceRegenerate: true,
+                          ),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Regenerar instrumental'),
+                  ),
+                ),
+              ] else ...[
+                FilledButton.icon(
+                  onPressed: (_switching || running)
+                      ? null
+                      : () => _generateInstrumental(
+                          autoSwitch: false,
+                          forceRegenerate: false,
+                        ),
+                  icon: const Icon(Icons.download_rounded),
+                  label: const Text('Descargar instrumental'),
+                ),
+              ],
+              const SizedBox(height: 10),
+              if (shownError != null && shownError.trim().isNotEmpty) ...[
+                Text(
+                  shownError,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _InstrumentalModePill extends StatelessWidget {
+  const _InstrumentalModePill({
+    required this.active,
+    required this.icon,
+    required this.label,
+  });
+
+  final bool active;
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: active
+            ? scheme.primary.withValues(alpha: 0.16)
+            : scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: active
+              ? scheme.primary.withValues(alpha: 0.5)
+              : scheme.outline.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: active ? scheme.primary : scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: active ? scheme.primary : scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

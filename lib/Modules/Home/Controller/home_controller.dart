@@ -83,7 +83,12 @@ class HomeController extends GetxController {
       final items = await _repo.getLibrary();
       _allItems.assignAll(items);
       _splitHomeSections(_allItems);
-      await _loadRecommendationsForCurrentMode();
+      if (mode.value == HomeMode.audio) {
+        await _loadRecommendationsForCurrentMode();
+      } else {
+        _clearRecommendations();
+        _syncRecommendationRefreshAvailability();
+      }
     } catch (e) {
       print('Error loading home: $e');
     } finally {
@@ -196,10 +201,21 @@ class HomeController extends GetxController {
   void toggleMode() {
     mode.value = mode.value == HomeMode.audio ? HomeMode.video : HomeMode.audio;
     _splitHomeSections(_allItems);
-    _loadRecommendationsForCurrentMode();
+    if (mode.value == HomeMode.audio) {
+      _loadRecommendationsForCurrentMode();
+    } else {
+      _clearRecommendations();
+      _syncRecommendationRefreshAvailability();
+    }
   }
 
   Future<void> refreshRecommendations() async {
+    if (mode.value == HomeMode.video) {
+      _clearRecommendations();
+      _syncRecommendationRefreshAvailability();
+      return;
+    }
+
     final recommendationMode = _currentRecommendationMode();
     if (!_recommendationService.canManualRefreshToday(
       mode: recommendationMode,
@@ -361,11 +377,14 @@ class HomeController extends GetxController {
   List<MediaItem> get allItems => List<MediaItem>.from(_allItems);
 
   Future<void> _loadRecommendationsForCurrentMode() async {
+    if (mode.value == HomeMode.video) {
+      _clearRecommendations();
+      _syncRecommendationRefreshAvailability();
+      return;
+    }
+
     if (_allItems.isEmpty) {
-      recommended.clear();
-      fullRecommended.clear();
-      recommendationReasonsById.clear();
-      recommendationCollections.clear();
+      _clearRecommendations();
       _syncRecommendationRefreshAvailability();
       return;
     }
@@ -560,12 +579,25 @@ class HomeController extends GetxController {
   }
 
   void _syncRecommendationRefreshAvailability() {
-    final mode = _currentRecommendationMode();
+    if (mode.value == HomeMode.video) {
+      canRecommendationRefresh.value = false;
+      recommendationRefreshHint.value = null;
+      return;
+    }
+
+    final recommendationMode = _currentRecommendationMode();
     canRecommendationRefresh.value = _recommendationService
-        .canManualRefreshToday(mode: mode);
+        .canManualRefreshToday(mode: recommendationMode);
     recommendationRefreshHint.value = _recommendationService.nextRefreshHint(
-      mode: mode,
+      mode: recommendationMode,
     );
+  }
+
+  void _clearRecommendations() {
+    recommended.clear();
+    fullRecommended.clear();
+    recommendationReasonsById.clear();
+    recommendationCollections.clear();
   }
 
   RecommendationMode _currentRecommendationMode() {

@@ -403,6 +403,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     Get.snackbar('Cola', 'Abre el reproductor para usar esta opción');
   }
 
+  // ignore: unused_element
   Future<void> _renamePlaylist(BuildContext context, Playlist playlist) async {
     String name = playlist.name;
     final ok = await showDialog<bool>(
@@ -432,6 +433,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     }
   }
 
+  // ignore: unused_element
   Future<void> _changeCover(BuildContext context, Playlist playlist) async {
     final repo = Get.find<MediaRepository>();
     final urlCtrl = TextEditingController(text: playlist.coverUrl ?? '');

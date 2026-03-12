@@ -139,12 +139,13 @@ class HomePage extends GetView<HomeController> {
                                 ],
 
                                 // ---- Para ti hoy ----
-                                if (controller
-                                        .recommendationCollections
-                                        .isNotEmpty ||
-                                    controller
-                                        .isRecommendationsLoading
-                                        .value) ...[
+                                if (mode == HomeMode.audio &&
+                                    (controller
+                                            .recommendationCollections
+                                            .isNotEmpty ||
+                                        controller
+                                            .isRecommendationsLoading
+                                            .value)) ...[
                                   _SectionHeader(
                                     title: 'Para ti hoy',
                                     onTap: () => Get.toNamed(
