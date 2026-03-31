@@ -34,6 +34,9 @@ import 'Modules/settings/controller/playback_settings_controller.dart';
 import 'Modules/settings/controller/sleep_timer_controller.dart';
 import 'Modules/settings/controller/equalizer_controller.dart';
 import 'Modules/downloads/controller/downloads_controller.dart';
+import 'Modules/downloads/data/repositories/downloads_repository_impl.dart';
+import 'Modules/downloads/domain/contracts/downloads_repository.dart';
+import 'Modules/downloads/domain/usecases/load_download_items_usecase.dart';
 import 'Modules/downloads/service/download_task_service.dart';
 import 'Modules/sources/data/source_theme_topic_store.dart';
 import 'Modules/sources/data/source_theme_topic_playlist_store.dart';
@@ -147,8 +150,29 @@ Future<void> main() async {
   // 🚚 Runtime global de imports/descargas
   Get.put(DownloadTaskService(), permanent: true);
 
+  if (!Get.isRegistered<DownloadsRepository>()) {
+    Get.lazyPut<DownloadsRepository>(
+      () =>
+          DownloadsRepositoryImpl(mediaRepository: Get.find<MediaRepository>()),
+      fenix: true,
+    );
+  }
+
+  if (!Get.isRegistered<LoadDownloadItemsUseCase>()) {
+    Get.lazyPut<LoadDownloadItemsUseCase>(
+      () =>
+          LoadDownloadItemsUseCase(repository: Get.find<DownloadsRepository>()),
+      fenix: true,
+    );
+  }
+
   // 📥 Imports/Downloads global (share intent listener)
-  Get.put(DownloadsController(), permanent: true);
+  Get.put(
+    DownloadsController(
+      loadDownloadItemsUseCase: Get.find<LoadDownloadItemsUseCase>(),
+    ),
+    permanent: true,
+  );
   Get.put(DeepLinkService(), permanent: true);
 
   // 🎚️ Reaplicar ecualizador cuando AudioService ya existe (no bloquear arranque)

@@ -23,9 +23,9 @@ import 'package:listenfy/Modules/sources/view/sources_page.dart';
 
 // Downloads
 import 'package:listenfy/Modules/downloads/binding/downloads_binding.dart';
-import 'package:listenfy/Modules/downloads/view/downloads_page.dart';
+import 'package:listenfy/Modules/downloads/presentation/views/downloads_page.dart';
 import 'package:listenfy/Modules/downloads/binding/download_history_binding.dart';
-import 'package:listenfy/Modules/downloads/view/download_history_page.dart';
+import 'package:listenfy/Modules/downloads/presentation/views/download_history_page.dart';
 
 // History
 import 'package:listenfy/Modules/history/binding/history_binding.dart';

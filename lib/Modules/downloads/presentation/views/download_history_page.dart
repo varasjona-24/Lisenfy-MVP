@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:listenfy/Modules/history/controller/history_controller.dart';
-import 'package:listenfy/Modules/home/controller/home_controller.dart';
-import 'package:listenfy/app/controllers/media_actions_controller.dart';
-import 'package:listenfy/app/ui/themes/app_spacing.dart';
-import 'package:listenfy/app/ui/widgets/layout/app_gradient_background.dart';
-import 'package:listenfy/app/ui/widgets/media/media_history_group_section.dart';
+
+import '../../../../app/controllers/media_actions_controller.dart';
+import '../../../../app/ui/themes/app_spacing.dart';
+import '../../../../app/ui/widgets/branding/listenfy_logo.dart';
+import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
+import '../../../../app/ui/widgets/media/media_history_group_section.dart';
+import '../../../home/controller/home_controller.dart';
+import '../../controller/download_history_controller.dart';
+import '../widgets/download_history_filter_row.dart';
+import '../widgets/download_history_search_field.dart';
 
 // ============================
-// 🧭 PAGE: HISTORIAL
+// 🧭 PAGE: HISTORIAL DE IMPORTS
 // ============================
-class HistoryPage extends GetView<HistoryController> {
-  const HistoryPage({super.key});
+class DownloadHistoryPage extends GetView<DownloadHistoryController> {
+  const DownloadHistoryPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +27,7 @@ class HistoryPage extends GetView<HistoryController> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Historial'),
+        title: ListenfyLogo(size: 28, color: scheme.primary),
         backgroundColor: scheme.surface,
         surfaceTintColor: scheme.surface,
         foregroundColor: scheme.onSurface,
@@ -37,11 +41,10 @@ class HistoryPage extends GetView<HistoryController> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Estado vacío del historial.
           if (vm.groups.isEmpty) {
             return Center(
               child: Text(
-                'Aún no hay historial.',
+                'Aún no hay imports.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -61,14 +64,28 @@ class HistoryPage extends GetView<HistoryController> {
               itemCount: vm.groups.length + 1,
               itemBuilder: (context, index) {
                 if (index == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                    child: Text(
-                      'Historial',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                        child: Text(
+                          'Historial de imports',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ),
-                    ),
+                      DownloadHistoryFilterRow(
+                        selected: vm.filter,
+                        onSelect: controller.setFilter,
+                      ),
+                      const SizedBox(height: 10),
+                      DownloadHistorySearchField(
+                        onChanged: controller.setQuery,
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                   );
                 }
 
@@ -87,7 +104,7 @@ class HistoryPage extends GetView<HistoryController> {
                     onChanged: controller.loadHistory,
                   ),
                   timeBuilder: controller.formatTime,
-                  fallbackIcon: Icons.music_note_rounded,
+                  fallbackIcon: Icons.cloud_download_rounded,
                 );
               },
             ),

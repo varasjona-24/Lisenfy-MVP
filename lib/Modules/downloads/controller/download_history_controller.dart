@@ -1,28 +1,29 @@
 import 'package:get/get.dart';
+import 'package:listenfy/Modules/downloads/domain/entities/download_day_group.dart';
+import 'package:listenfy/Modules/downloads/domain/entities/download_history_filter.dart';
+import 'package:listenfy/Modules/downloads/domain/usecases/load_download_history_items_usecase.dart';
+import 'package:listenfy/Modules/downloads/state/download_history_state.dart';
+import 'package:listenfy/app/core/presentation/getx_state_controller.dart';
+import 'package:listenfy/app/core/presentation/view_status.dart';
 
-import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
 import '../../home/controller/home_controller.dart';
 
 // ============================
 // 📅 BLOC: HISTORIAL DE IMPORTS
 // ============================
-class DownloadHistoryController extends GetxController {
-  // ============================
-  // 🔌 DEPENDENCIAS
-  // ============================
-  final MediaRepository _repo = Get.find<MediaRepository>();
-  late final HomeController _home;
+class DownloadHistoryController
+    extends GetxStateController<DownloadHistoryState> {
+  DownloadHistoryController({
+    required LoadDownloadHistoryItemsUseCase loadHistoryItemsUseCase,
+    HomeController? homeController,
+  }) : _loadHistoryItemsUseCase = loadHistoryItemsUseCase,
+       _homeController = homeController,
+       super(DownloadHistoryState.initial());
 
-  // ============================
-  // 🧭 ESTADO
-  // ============================
-  final RxBool isLoading = false.obs;
-  final RxList<MediaItem> items = <MediaItem>[].obs;
-  final RxList<MediaItem> filteredItems = <MediaItem>[].obs;
-  final RxList<DownloadDayGroup> groups = <DownloadDayGroup>[].obs;
-  final RxString query = ''.obs;
-  final Rx<DownloadHistoryFilter> filter = DownloadHistoryFilter.audio.obs;
+  final LoadDownloadHistoryItemsUseCase _loadHistoryItemsUseCase;
+  final HomeController? _homeController;
+  Worker? _homeWorker;
 
   // ============================
   // 🚀 INIT
@@ -30,71 +31,116 @@ class DownloadHistoryController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _home = Get.find<HomeController>();
-    _syncFilterWithHome();
-    ever<HomeMode>(_home.mode, (_) => _syncFilterWithHome());
+    final home = _homeController;
+    if (home != null) {
+      _syncFilterWithHome();
+      _homeWorker = ever<HomeMode>(home.mode, (_) {
+        _syncFilterWithHome();
+      });
+    }
     loadHistory();
+  }
+
+  @override
+  void onClose() {
+    _homeWorker?.dispose();
+    super.onClose();
   }
 
   // ============================
   // 📥 LOAD
   // ============================
   Future<void> loadHistory() async {
+    emit(state.value.copyWith(status: ViewStatus.loading, clearError: true));
+
     try {
-      isLoading.value = true;
+      final downloaded = await _loadHistoryItemsUseCase();
+      final projected = _project(
+        allItems: downloaded,
+        filter: state.value.filter,
+        query: state.value.query,
+      );
 
-      final library = await _repo.getLibrary();
-      final downloaded = library
-          .where((e) => e.isOfflineStored)
-          .toList()
-        ..sort(
-          (a, b) => _latestVariantCreatedAt(b)
-              .compareTo(_latestVariantCreatedAt(a)),
-        );
-
-      items.assignAll(downloaded);
-      _applyFilter();
-    } finally {
-      isLoading.value = false;
+      emit(
+        state.value.copyWith(
+          status: ViewStatus.success,
+          allItems: downloaded,
+          filteredItems: projected.filteredItems,
+          groups: projected.groups,
+          clearError: true,
+        ),
+      );
+    } catch (error) {
+      emit(
+        state.value.copyWith(
+          status: ViewStatus.failure,
+          errorMessage: error.toString(),
+        ),
+      );
     }
   }
 
   // ============================
   // 🧩 HELPERS
   // ============================
-  void _applyFilter() {
-    final filtered = _filterItems(items);
-
-    filteredItems.assignAll(filtered);
-    groups.assignAll(_groupByDay(filtered));
-  }
-
   void setFilter(DownloadHistoryFilter next) {
-    if (filter.value == next) return;
-    filter.value = next;
-    _applyFilter();
+    if (state.value.filter == next) return;
+    final projected = _project(
+      allItems: state.value.allItems,
+      filter: next,
+      query: state.value.query,
+    );
+    emit(
+      state.value.copyWith(
+        filter: next,
+        filteredItems: projected.filteredItems,
+        groups: projected.groups,
+      ),
+    );
   }
 
   void setQuery(String value) {
-    if (query.value == value) return;
-    query.value = value;
-    _applyFilter();
+    if (state.value.query == value) return;
+    final projected = _project(
+      allItems: state.value.allItems,
+      filter: state.value.filter,
+      query: value,
+    );
+    emit(
+      state.value.copyWith(
+        query: value,
+        filteredItems: projected.filteredItems,
+        groups: projected.groups,
+      ),
+    );
   }
 
   void _syncFilterWithHome() {
-    final desired = _home.mode.value == HomeMode.audio
+    final home = _homeController;
+    if (home == null) return;
+    final desired = home.mode.value == HomeMode.audio
         ? DownloadHistoryFilter.audio
         : DownloadHistoryFilter.video;
-    if (filter.value != desired) {
-      filter.value = desired;
-      _applyFilter();
-    }
+    setFilter(desired);
   }
 
-  List<MediaItem> _filterItems(List<MediaItem> list) {
-    final isAudio = filter.value == DownloadHistoryFilter.audio;
-    final q = query.value.trim().toLowerCase();
+  _HistoryProjection _project({
+    required List<MediaItem> allItems,
+    required DownloadHistoryFilter filter,
+    required String query,
+  }) {
+    final filtered = _filterItems(allItems, filter, query);
+    final groups = _groupByDay(filtered);
+    return _HistoryProjection(filteredItems: filtered, groups: groups);
+  }
 
+  List<MediaItem> _filterItems(
+    List<MediaItem> list,
+    DownloadHistoryFilter filter,
+    String query,
+  ) {
+    final isAudio = filter == DownloadHistoryFilter.audio;
+    final q = query.trim().toLowerCase();
     return list.where((item) {
       final matchesKind = isAudio ? item.hasAudioLocal : item.hasVideoLocal;
       if (!matchesKind) return false;
@@ -115,8 +161,7 @@ class DownloadHistoryController extends GetxController {
       bucket.putIfAbsent(key, () => []).add(item);
     }
 
-    final keys = bucket.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
+    final keys = bucket.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return keys.map((k) {
       final date = _parseDayKey(k);
@@ -179,19 +224,9 @@ class DownloadHistoryController extends GetxController {
   }
 }
 
-// ============================
-// 🧩 MODELO: GRUPO POR DÍA
-// ============================
-class DownloadDayGroup {
-  DownloadDayGroup({
-    required this.date,
-    required this.label,
-    required this.items,
-  });
+class _HistoryProjection {
+  const _HistoryProjection({required this.filteredItems, required this.groups});
 
-  final DateTime date;
-  final String label;
-  final List<MediaItem> items;
+  final List<MediaItem> filteredItems;
+  final List<DownloadDayGroup> groups;
 }
-
-enum DownloadHistoryFilter { audio, video }

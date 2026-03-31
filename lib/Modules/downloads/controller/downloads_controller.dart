@@ -13,20 +13,28 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../../app/core/presentation/getx_state_controller.dart';
+import '../../../app/core/presentation/view_status.dart';
 import '../../../app/data/local/local_library_store.dart';
-import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/services/local_media_metadata_service.dart';
+import '../domain/usecases/load_download_items_usecase.dart';
 import '../service/download_task_service.dart';
+import '../state/downloads_state.dart';
 
 import '../../sources/domain/source_origin.dart';
 
-class DownloadsController extends GetxController {
+class DownloadsController extends GetxStateController<DownloadsState> {
+  DownloadsController({
+    required LoadDownloadItemsUseCase loadDownloadItemsUseCase,
+  }) : _loadDownloadItemsUseCase = loadDownloadItemsUseCase,
+       super(DownloadsState.initial());
+
   // ============================
   // 🔌 DEPENDENCIAS
   // ============================
-  final MediaRepository _repo = Get.find<MediaRepository>();
+  final LoadDownloadItemsUseCase _loadDownloadItemsUseCase;
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
   final DownloadTaskService _downloadTask = Get.find<DownloadTaskService>();
   final LocalMediaMetadataService _metadata =
@@ -35,12 +43,13 @@ class DownloadsController extends GetxController {
   // ============================
   // 🧭 ESTADO UI
   // ============================
-  final RxList<MediaItem> downloads = <MediaItem>[].obs;
-  final RxBool isLoading = false.obs;
   final RxBool customTabOpening = false.obs;
   RxBool get isDownloading => _downloadTask.isDownloading;
   RxDouble get downloadProgress => _downloadTask.downloadProgress;
   RxString get downloadStatus => _downloadTask.downloadStatus;
+
+  bool get isLoading => state.value.status.isLoading;
+  List<MediaItem> get downloads => state.value.items;
 
   // 📁 Archivos locales para importar
   final RxList<MediaItem> localFilesForImport = <MediaItem>[].obs;
@@ -278,30 +287,25 @@ class DownloadsController extends GetxController {
   // 📥 CARGA DE DESCARGAS
   // ============================
   Future<void> load() async {
-    isLoading.value = true;
+    emit(state.value.copyWith(status: ViewStatus.loading, clearError: true));
 
     try {
-      final all = await _repo.getLibrary();
-
-      final list = all.where((item) {
-        return item.variants.any((v) {
-          final pth = (v.localPath ?? '').trim();
-          return pth.isNotEmpty;
-        });
-      }).toList();
-
-      // Ordenar por fecha más reciente
-      list.sort((a, b) {
-        final aTime = a.variants.firstOrNull?.createdAt ?? 0;
-        final bTime = b.variants.firstOrNull?.createdAt ?? 0;
-        return bTime.compareTo(aTime);
-      });
-
-      downloads.assignAll(list);
+      final list = await _loadDownloadItemsUseCase();
+      emit(
+        state.value.copyWith(
+          status: ViewStatus.success,
+          items: list,
+          clearError: true,
+        ),
+      );
     } catch (e) {
       debugPrint('Error loading downloads: $e');
-    } finally {
-      isLoading.value = false;
+      emit(
+        state.value.copyWith(
+          status: ViewStatus.failure,
+          errorMessage: e.toString(),
+        ),
+      );
     }
   }
 
@@ -312,7 +316,7 @@ class DownloadsController extends GetxController {
   // ▶️ REPRODUCIR
   // ============================
   void play(MediaItem item) {
-    final queue = List<MediaItem>.from(downloads);
+    final queue = List<MediaItem>.from(state.value.items);
     final idx = queue.indexWhere((e) => e.id == item.id);
 
     Get.toNamed(
