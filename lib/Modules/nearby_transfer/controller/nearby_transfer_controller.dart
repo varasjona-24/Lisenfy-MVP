@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -30,6 +31,8 @@ class NearbyTransferController extends GetxController {
   static const String _serviceId = 'com.listenfy.nearby.transfer';
   static const String _schema = 'listenfy.nearby.transfer.v1';
   static const String _inviteHandshakeSchema = 'listenfy.nearby.invite.v1';
+  static const String _inviteEventHello = 'hello';
+  static const String _inviteEventImported = 'imported';
 
   final Rxn<MediaItem> selectedItem = Rxn<MediaItem>();
 
@@ -44,8 +47,10 @@ class NearbyTransferController extends GetxController {
   final Map<int, _IncomingNearbyDescriptor> _descriptorByPayloadId =
       <int, _IncomingNearbyDescriptor>{};
   final Map<int, Payload> _filePayloadById = <int, Payload>{};
+  final Set<int> _filePayloadIds = <int>{};
   final Set<int> _completedPayloadIds = <int>{};
   final Set<int> _importedPayloadIds = <int>{};
+  final Set<int> _importRetryInFlight = <int>{};
 
   late final String _nickName;
   String? _outgoingInviteSessionId;
@@ -54,6 +59,9 @@ class NearbyTransferController extends GetxController {
   bool _autoConnectInProgress = false;
   final Set<String> _inviteHandshakeSent = <String>{};
   final Set<String> _autoSentBySessionEndpoint = <String>{};
+  final Set<String> _autoSendingBySessionEndpoint = <String>{};
+
+  bool get isAutoInviteSenderMode => _outgoingInviteSessionId != null;
 
   @override
   void onInit() {
@@ -141,8 +149,7 @@ class NearbyTransferController extends GetxController {
             NearbyTransferPeer(endpointId: id, name: endpointName),
           );
 
-          if (_expectedSenderName != null &&
-              endpointName == _expectedSenderName &&
+          if (_expectedInviteSessionId != null &&
               !_autoConnectInProgress &&
               connectedPeers.every((e) => e.endpointId != id)) {
             _autoConnectInProgress = true;
@@ -188,6 +195,7 @@ class NearbyTransferController extends GetxController {
     _autoConnectInProgress = false;
     _inviteHandshakeSent.clear();
     _autoSentBySessionEndpoint.clear();
+    _autoSendingBySessionEndpoint.clear();
     statusText.value = 'Transferencia detenida.';
   }
 
@@ -215,6 +223,7 @@ class NearbyTransferController extends GetxController {
     final sessionId = _createInviteSessionId(item, variant);
     _outgoingInviteSessionId = sessionId;
     _autoSentBySessionEndpoint.clear();
+    _autoSendingBySessionEndpoint.clear();
     _inviteHandshakeSent.clear();
 
     await startAdvertisingMode();
@@ -253,29 +262,29 @@ class NearbyTransferController extends GetxController {
     }
   }
 
-  Future<void> sendSelectedItemToPeer(String endpointId) async {
+  Future<bool> sendSelectedItemToPeer(String endpointId) async {
     final item = selectedItem.value;
     if (item == null) {
       Get.snackbar('Transferir', 'No hay canción seleccionada.');
-      return;
+      return false;
     }
 
     final variant = _pickShareVariant(item);
     if (variant == null) {
       Get.snackbar('Transferir', 'No hay archivo local para enviar.');
-      return;
+      return false;
     }
 
     final sourcePath = variant.localPath?.trim() ?? '';
     if (sourcePath.isEmpty) {
       Get.snackbar('Transferir', 'No hay ruta local del archivo.');
-      return;
+      return false;
     }
 
     final sourceFile = File(sourcePath);
     if (!await sourceFile.exists()) {
       Get.snackbar('Transferir', 'El archivo ya no existe.');
-      return;
+      return false;
     }
 
     try {
@@ -283,6 +292,10 @@ class NearbyTransferController extends GetxController {
         endpointId,
         sourceFile.path,
       );
+      debugPrint(
+        '[NearbyTransfer] sendFilePayload ok endpoint=$endpointId payloadId=$payloadId file=${sourceFile.path}',
+      );
+      _filePayloadIds.add(payloadId);
       transferProgress[payloadId] = 0;
 
       final descriptor = await _OutgoingNearbyDescriptor.fromItem(
@@ -297,9 +310,11 @@ class NearbyTransferController extends GetxController {
       await _nearby.sendBytesPayload(endpointId, descriptorBytes);
 
       statusText.value = 'Enviando "${item.title}"...';
+      return true;
     } catch (e) {
       statusText.value = 'Error al enviar: $e';
       Get.snackbar('Transferir', 'No se pudo enviar la canción.');
+      return false;
     }
   }
 
@@ -346,7 +361,12 @@ class NearbyTransferController extends GetxController {
             'Conectado con ${_endpointNames[endpointId] ?? endpointId}.';
         final expectedSession = _expectedInviteSessionId;
         if (expectedSession != null && expectedSession.isNotEmpty) {
-          _sendInviteHandshake(endpointId, expectedSession);
+          unawaited(stopDiscoveryMode());
+          _sendInviteHandshake(
+            endpointId,
+            expectedSession,
+            event: _inviteEventHello,
+          );
         }
         break;
       case Status.REJECTED:
@@ -364,25 +384,47 @@ class NearbyTransferController extends GetxController {
 
   void _onDisconnected(String endpointId) {
     connectedPeers.removeWhere((e) => e.endpointId == endpointId);
+    _autoSendingBySessionEndpoint.removeWhere(
+      (key) => key.endsWith('|$endpointId'),
+    );
+    _autoSentBySessionEndpoint.removeWhere(
+      (key) => key.endsWith('|$endpointId'),
+    );
     statusText.value =
         'Desconectado: ${_endpointNames[endpointId] ?? endpointId}.';
   }
 
   Future<void> _onPayloadReceived(String endpointId, Payload payload) async {
     if (payload.type == PayloadType.BYTES) {
-      if (_handleInviteHandshakeBytes(payload.bytes, endpointId)) {
+      if (await _handleInviteHandshakeBytes(payload.bytes, endpointId)) {
         return;
       }
       final descriptor = _handleDescriptorBytes(payload.bytes);
       if (descriptor != null) {
-        await _tryImportReceivedPayload(descriptor.payloadId, endpointId);
+        debugPrint(
+          '[NearbyTransfer] descriptor received endpoint=$endpointId payloadId=${descriptor.payloadId} file=${descriptor.fileName}',
+        );
+        statusText.value = 'Metadata recibida. Esperando archivo...';
+        if (_completedPayloadIds.contains(descriptor.payloadId)) {
+          await _scheduleImportRetry(descriptor.payloadId, endpointId);
+        } else {
+          await _tryImportReceivedPayload(descriptor.payloadId, endpointId);
+        }
       }
       return;
     }
 
     if (payload.type == PayloadType.FILE) {
+      debugPrint(
+        '[NearbyTransfer] file payload received endpoint=$endpointId payloadId=${payload.id} uri=${payload.uri} filePath=${payload.filePath}',
+      );
+      _filePayloadIds.add(payload.id);
       _filePayloadById[payload.id] = payload;
-      await _tryImportReceivedPayload(payload.id, endpointId);
+      if (_completedPayloadIds.contains(payload.id)) {
+        await _scheduleImportRetry(payload.id, endpointId);
+      } else {
+        await _tryImportReceivedPayload(payload.id, endpointId);
+      }
     }
   }
 
@@ -407,8 +449,25 @@ class NearbyTransferController extends GetxController {
     String endpointId,
     PayloadTransferUpdate update,
   ) async {
+    debugPrint(
+      '[NearbyTransfer] update endpoint=$endpointId payloadId=${update.id} status=${update.status.name} bytes=${update.bytesTransferred}/${update.totalBytes}',
+    );
+    final isFilePayload = _filePayloadIds.contains(update.id);
+
     if (update.totalBytes > 0) {
-      transferProgress[update.id] = update.bytesTransferred / update.totalBytes;
+      if (isFilePayload) {
+        transferProgress[update.id] =
+            update.bytesTransferred / update.totalBytes;
+      }
+      if (update.bytesTransferred >= update.totalBytes) {
+        _completedPayloadIds.add(update.id);
+        if (isFilePayload) {
+          transferProgress[update.id] = 1;
+        }
+        if (_isIncomingPayload(update.id)) {
+          await _scheduleImportRetry(update.id, endpointId);
+        }
+      }
     }
 
     switch (update.status) {
@@ -416,18 +475,88 @@ class NearbyTransferController extends GetxController {
         return;
       case PayloadStatus.SUCCESS:
         _completedPayloadIds.add(update.id);
-        await _tryImportReceivedPayload(update.id, endpointId);
+        if (isFilePayload) {
+          transferProgress[update.id] = 1;
+        }
+        if (_isIncomingPayload(update.id)) {
+          await _scheduleImportRetry(update.id, endpointId);
+        } else {
+          statusText.value = 'Archivo enviado. Esperando confirmación...';
+        }
+        if (isFilePayload) {
+          Future<void>.delayed(const Duration(seconds: 3), () {
+            transferProgress.remove(update.id);
+          });
+        }
         return;
       case PayloadStatus.FAILURE:
       case PayloadStatus.CANCELED:
-        statusText.value = 'Transferencia cancelada/fallida.';
+        if (isFilePayload) {
+          transferProgress.remove(update.id);
+        }
+        _filePayloadById.remove(update.id);
+        _descriptorByPayloadId.remove(update.id);
+        statusText.value = 'Transferencia fallida/cancelada (payload ${update.id}).';
         return;
       case PayloadStatus.NONE:
         return;
     }
   }
 
-  bool _handleInviteHandshakeBytes(Uint8List? bytes, String endpointId) {
+  bool _isIncomingPayload(int payloadId) =>
+      _descriptorByPayloadId.containsKey(payloadId) ||
+      _filePayloadById.containsKey(payloadId);
+
+  Future<void> _scheduleImportRetry(int payloadId, String endpointId) async {
+    if (_importedPayloadIds.contains(payloadId)) return;
+    if (_importRetryInFlight.contains(payloadId)) return;
+
+    _importRetryInFlight.add(payloadId);
+    try {
+      const maxAttempts = 12;
+      for (var i = 0; i < maxAttempts; i++) {
+        final done = await _tryImportReceivedPayload(payloadId, endpointId);
+        if (done) return;
+        await Future<void>.delayed(const Duration(milliseconds: 800));
+      }
+
+      if (_completedPayloadIds.contains(payloadId) &&
+          !_importedPayloadIds.contains(payloadId)) {
+        transferProgress.remove(payloadId);
+        final hasDescriptor = _descriptorByPayloadId.containsKey(payloadId);
+        final hasFilePayload = _filePayloadById.containsKey(payloadId);
+        debugPrint(
+          '[NearbyTransfer] import timeout payloadId=$payloadId hasDescriptor=$hasDescriptor hasFilePayload=$hasFilePayload',
+        );
+        if (hasDescriptor && !hasFilePayload) {
+          statusText.value =
+              'Metadata llegó, pero no llegó el archivo (payload $payloadId).';
+          final expected = _expectedInviteSessionId;
+          if (expected != null && expected.isNotEmpty) {
+            await _sendInviteHandshake(
+              endpointId,
+              expected,
+              event: _inviteEventHello,
+              force: true,
+            );
+          }
+        } else if (!hasDescriptor && hasFilePayload) {
+          statusText.value =
+              'Archivo llegó, pero falta metadata para importar (payload $payloadId).';
+        } else {
+          statusText.value =
+              'No se pudo finalizar importación del payload $payloadId.';
+        }
+      }
+    } finally {
+      _importRetryInFlight.remove(payloadId);
+    }
+  }
+
+  Future<bool> _handleInviteHandshakeBytes(
+    Uint8List? bytes,
+    String endpointId,
+  ) async {
     if (bytes == null || bytes.isEmpty) return false;
     try {
       final decoded = jsonDecode(utf8.decode(bytes));
@@ -437,21 +566,46 @@ class NearbyTransferController extends GetxController {
       if (schema != _inviteHandshakeSchema) return false;
 
       final sessionId = (map['sessionId'] as String?)?.trim() ?? '';
+      final event = ((map['event'] as String?) ?? _inviteEventHello)
+          .trim()
+          .toLowerCase();
       if (sessionId.isEmpty) return false;
 
       final expected = _expectedInviteSessionId;
       if (expected != null && expected == sessionId) {
+        if (event == _inviteEventImported) {
+          statusText.value = 'Receptor confirmó importación completa.';
+          return true;
+        }
         statusText.value = 'Sesión validada. Recibiendo archivo...';
         return true;
       }
 
       final outgoing = _outgoingInviteSessionId;
       if (outgoing != null && outgoing == sessionId) {
+        if (event == _inviteEventImported) {
+          statusText.value = 'Transferencia completada en receptor.';
+          _outgoingInviteSessionId = null;
+          unawaited(stopAdvertisingMode());
+          return true;
+        }
+
         final dedupeKey = '$sessionId|$endpointId';
-        if (_autoSentBySessionEndpoint.contains(dedupeKey)) return true;
-        _autoSentBySessionEndpoint.add(dedupeKey);
+        if (_autoSentBySessionEndpoint.contains(dedupeKey)) {
+          statusText.value = 'Receptor ya validado. Esperando confirmación...';
+          return true;
+        }
+        if (_autoSendingBySessionEndpoint.contains(dedupeKey)) return true;
+
+        _autoSendingBySessionEndpoint.add(dedupeKey);
         statusText.value = 'Receptor validado. Enviando canción...';
-        sendSelectedItemToPeer(endpointId);
+        final sent = await sendSelectedItemToPeer(endpointId);
+        _autoSendingBySessionEndpoint.remove(dedupeKey);
+        if (sent) {
+          _autoSentBySessionEndpoint.add(dedupeKey);
+        } else {
+          statusText.value = 'Falló envío automático. Reintentando al reconectar.';
+        }
         return true;
       }
     } catch (_) {
@@ -460,14 +614,23 @@ class NearbyTransferController extends GetxController {
     return false;
   }
 
-  Future<void> _sendInviteHandshake(String endpointId, String sessionId) async {
-    final dedupeKey = '$sessionId|$endpointId';
-    if (_inviteHandshakeSent.contains(dedupeKey)) return;
+  Future<void> _sendInviteHandshake(
+    String endpointId,
+    String sessionId, {
+    String event = _inviteEventHello,
+    bool force = false,
+  }) async {
+    final dedupeKey = '$sessionId|$endpointId|$event';
+    if (!force && _inviteHandshakeSent.contains(dedupeKey)) return;
+    if (force) {
+      _inviteHandshakeSent.remove(dedupeKey);
+    }
     _inviteHandshakeSent.add(dedupeKey);
     try {
       final payload = <String, dynamic>{
         'schema': _inviteHandshakeSchema,
         'sessionId': sessionId,
+        'event': event,
         'from': _nickName,
         'ts': DateTime.now().millisecondsSinceEpoch,
       };
@@ -488,27 +651,27 @@ class NearbyTransferController extends GetxController {
     return sha1.convert(utf8.encode(seed)).toString().substring(0, 16);
   }
 
-  Future<void> _tryImportReceivedPayload(
+  Future<bool> _tryImportReceivedPayload(
     int payloadId,
     String endpointId,
   ) async {
-    if (_importedPayloadIds.contains(payloadId)) return;
-    if (!_completedPayloadIds.contains(payloadId)) return;
+    if (_importedPayloadIds.contains(payloadId)) return true;
+    if (!_completedPayloadIds.contains(payloadId)) return false;
 
     final descriptor = _descriptorByPayloadId[payloadId];
     final payload = _filePayloadById[payloadId];
-    if (descriptor == null || payload == null) return;
+    if (descriptor == null || payload == null) return false;
 
     final destination = await _buildDestinationPath(
       payloadId,
       descriptor.fileName,
     );
-    if (destination == null) return;
+    if (destination == null) return false;
 
     final copied = await _copyNearbyPayloadTo(destination, payload);
     if (!copied) {
       statusText.value = 'No se pudo guardar el archivo recibido.';
-      return;
+      return false;
     }
 
     final importedItem = await _buildImportedItemFromDescriptor(
@@ -517,7 +680,7 @@ class NearbyTransferController extends GetxController {
     );
     if (importedItem == null) {
       statusText.value = 'No se pudo importar archivo recibido.';
-      return;
+      return false;
     }
 
     await _store.upsert(importedItem);
@@ -529,11 +692,22 @@ class NearbyTransferController extends GetxController {
     transferProgress[payloadId] = 1;
     statusText.value =
         'Canción recibida de ${_endpointNames[endpointId] ?? endpointId}.';
+
+    final expectedSession = _expectedInviteSessionId;
+    if (expectedSession != null && expectedSession.isNotEmpty) {
+      await _sendInviteHandshake(
+        endpointId,
+        expectedSession,
+        event: _inviteEventImported,
+      );
+    }
+
     Get.snackbar(
       'Transferencia completa',
       'Se importó "${importedItem.title}".',
       snackPosition: SnackPosition.BOTTOM,
     );
+    return true;
   }
 
   Future<MediaItem?> _buildImportedItemFromDescriptor({
@@ -634,8 +808,12 @@ class NearbyTransferController extends GetxController {
   ) async {
     try {
       if (payload.uri != null && payload.uri!.trim().isNotEmpty) {
-        await _nearby.copyFileAndDeleteOriginal(payload.uri!, destinationPath);
-        return true;
+        final ok = await _nearby.copyFileAndDeleteOriginal(
+          payload.uri!,
+          destinationPath,
+        );
+        if (!ok) return false;
+        return _hasValidFile(destinationPath);
       }
 
       // ignore: deprecated_member_use
@@ -644,11 +822,22 @@ class NearbyTransferController extends GetxController {
         final source = File(fp);
         if (await source.exists()) {
           await source.copy(destinationPath);
-          return true;
+          return _hasValidFile(destinationPath);
         }
       }
     } catch (_) {}
     return false;
+  }
+
+  bool _hasValidFile(String path) {
+    try {
+      final file = File(path);
+      if (!file.existsSync()) return false;
+      final stat = file.statSync();
+      return stat.size > 0;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<String?> _saveIncomingCover({
@@ -944,8 +1133,13 @@ class _IncomingNearbyDescriptor {
     if (schema != NearbyTransferController._schema) return null;
 
     final payloadIdRaw = json['payloadId'];
-    final payloadId = payloadIdRaw is num ? payloadIdRaw.toInt() : null;
-    if (payloadId == null || payloadId < 0) return null;
+    int? payloadId;
+    if (payloadIdRaw is num) {
+      payloadId = payloadIdRaw.toInt();
+    } else if (payloadIdRaw is String) {
+      payloadId = int.tryParse(payloadIdRaw.trim());
+    }
+    if (payloadId == null) return null;
 
     final fileName = (json['fileName'] as String?)?.trim() ?? '';
     if (fileName.isEmpty) return null;

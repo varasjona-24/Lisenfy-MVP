@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
+import '../../../../app/routes/app_routes.dart';
+import '../../../../app/utils/listenfy_deep_link.dart';
 import '../../controller/downloads_controller.dart';
 import '../../../../app/ui/themes/app_spacing.dart';
 import '../../../../app/models/media_item.dart';
+import '../../../nearby_transfer/view/nearby_qr_scanner_page.dart';
 import '../imports_webview_page.dart';
 
 /// Widget tipo "pill" con opciones de descargas
@@ -72,6 +75,14 @@ class DownloadsPill extends GetView<DownloadsController> {
                     title: 'Importar desde archivo local',
                     subtitle: 'Selecciona archivos de tu almacenamiento',
                     onTap: () => _pickLocalFiles(context),
+                  ),
+                  Divider(height: 1, color: scheme.outlineVariant),
+                  _importActionTile(
+                    context: context,
+                    icon: Icons.qr_code_scanner_rounded,
+                    title: 'Escanear QR Listenfy',
+                    subtitle: 'Recibir canción desde otro Listenfy',
+                    onTap: () => _scanListenfyQr(),
                   ),
                   Divider(height: 1, color: scheme.outlineVariant),
                   _importActionTile(
@@ -211,6 +222,38 @@ class DownloadsPill extends GetView<DownloadsController> {
   Future<void> _pickLocalFiles(BuildContext context) async {
     if (context.mounted) {
       showLocalImportDialog(context, controller);
+    }
+  }
+
+  Future<void> _scanListenfyQr() async {
+    final raw = await Get.to<String>(() => const NearbyQrScannerPage());
+    if (raw == null || raw.trim().isEmpty) return;
+
+    final target = ListenfyDeepLink.parseRaw(raw);
+    switch (target) {
+      case ListenfyDeepLinkTarget.nearbyInvite:
+        Get.toNamed(
+          AppRoutes.nearbyTransfer,
+          arguments: {'inviteUri': raw},
+        );
+        return;
+      case ListenfyDeepLinkTarget.nearbyTransfer:
+        Get.toNamed(AppRoutes.nearbyTransfer);
+        return;
+      case ListenfyDeepLinkTarget.openLocalImport:
+        Get.snackbar(
+          'QR Listenfy',
+          'Listo. Ya estás en la sección de importación.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      case ListenfyDeepLinkTarget.unknown:
+        Get.snackbar(
+          'QR no válido',
+          'Ese código no corresponde a una acción de Listenfy.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
     }
   }
 

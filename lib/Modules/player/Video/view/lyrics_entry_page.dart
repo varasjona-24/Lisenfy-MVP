@@ -641,6 +641,53 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     );
   }
 
+  Widget _buildSectionPanel({
+    required ThemeData theme,
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+
   Widget _buildKaraokeSyncCard(ThemeData theme) {
     final lines = _primaryLyricsLines();
     final cues = _currentLangTimedCues();
@@ -649,112 +696,91 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     final currentMs = _playbackPosition.inMilliseconds;
     final durationMs = _playbackDuration.inMilliseconds;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.mic_rounded, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Sincronizacion karaoke',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+    return _buildSectionPanel(
+      theme: theme,
+      icon: Icons.mic_rounded,
+      title: 'Sincronizacion karaoke',
+      subtitle: canSync
+          ? 'Marca cada linea mientras suena la cancion.'
+          : 'Abre y reproduce la cancion en el player para sincronizar.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: canSync ? _togglePlayback : null,
+                icon: Icon(
+                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              canSync
-                  ? 'Marca cada linea mientras suena la cancion.'
-                  : 'Abre y reproduce la cancion en el player para sincronizar.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                label: Text(isPlaying ? 'Pausar' : 'Reproducir'),
               ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: canSync ? _togglePlayback : null,
-                  icon: Icon(
-                    isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  ),
-                  label: Text(isPlaying ? 'Pausar' : 'Reproducir'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: canSync ? _seekBackTwoSeconds : null,
-                  icon: const Icon(Icons.replay_10_rounded),
-                  label: const Text('-2s'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: canSync ? _seekToStart : null,
-                  icon: const Icon(Icons.first_page_rounded),
-                  label: const Text('Inicio'),
-                ),
-                FilledButton.icon(
-                  onPressed: canSync ? _markNextCue : null,
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('Marcar linea'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: cues.isEmpty ? null : _undoLastCue,
-                  icon: const Icon(Icons.undo_rounded),
-                  label: const Text('Deshacer'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: cues.isEmpty ? null : _clearCurrentLanguageTiming,
-                  icon: const Icon(Icons.delete_outline_rounded),
-                  label: const Text('Limpiar'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Tiempo: ${_formatMs(currentMs)}'
-              '${durationMs > 0 ? ' / ${_formatMs(durationMs)}' : ''}',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Idioma ${_lyricsLang.toUpperCase()}: ${cues.length}/${lines.length} lineas/pausas sincronizadas',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              OutlinedButton.icon(
+                onPressed: canSync ? _seekBackTwoSeconds : null,
+                icon: const Icon(Icons.replay_10_rounded),
+                label: const Text('-2s'),
               ),
-            ),
-            if (cues.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              ...cues
-                  .take(10)
-                  .map(
-                    (cue) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Text(
-                        '${_formatMs(cue.startMs)}  ${cue.text}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ),
-                  ),
-              if (cues.length > 10)
-                Text(
-                  '+${cues.length - 10} lineas mas',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+              OutlinedButton.icon(
+                onPressed: canSync ? _seekToStart : null,
+                icon: const Icon(Icons.first_page_rounded),
+                label: const Text('Inicio'),
+              ),
+              FilledButton.icon(
+                onPressed: canSync ? _markNextCue : null,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Marcar linea'),
+              ),
+              OutlinedButton.icon(
+                onPressed: cues.isEmpty ? null : _undoLastCue,
+                icon: const Icon(Icons.undo_rounded),
+                label: const Text('Deshacer'),
+              ),
+              OutlinedButton.icon(
+                onPressed: cues.isEmpty ? null : _clearCurrentLanguageTiming,
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: const Text('Limpiar'),
+              ),
             ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Tiempo: ${_formatMs(currentMs)}'
+            '${durationMs > 0 ? ' / ${_formatMs(durationMs)}' : ''}',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Idioma ${_lyricsLang.toUpperCase()}: ${cues.length}/${lines.length} lineas/pausas sincronizadas',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (cues.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...cues
+                .take(10)
+                .map(
+                  (cue) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      '${_formatMs(cue.startMs)}  ${cue.text}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                ),
+            if (cues.length > 10)
+              Text(
+                '+${cues.length - 10} lineas mas',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -763,141 +789,209 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
   Widget build(BuildContext context) {
     _ensureLanguageStateSanity();
     final theme = Theme.of(context);
+    final primaryLines = _primaryLyricsLines();
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Letras')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      appBar: AppBar(
+        title: const Text('Editor de letras'),
+        centerTitle: true,
+      ),
+      body: SafeArea(
         child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           children: [
-            TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(labelText: 'Titulo'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _artistController,
-              decoration: const InputDecoration(labelText: 'Artista'),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.tonalIcon(
-              onPressed: _loading ? null : _searchLyrics,
-              icon: const Icon(Icons.search),
-              label: const Text('Buscar letras en web'),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Idioma de letra principal',
-              style: theme.textTheme.labelLarge,
-            ),
-            const SizedBox(height: 6),
-            _languageDropdown(
-              value: _lyricsLang,
-              onChanged: (val) {
-                if (val == null) return;
-                setState(() {
-                  _lyricsLang = val;
-                  if (_targetLang == _lyricsLang) {
-                    _targetLang = _lyricsLang == 'es' ? 'en' : 'es';
-                  }
-                });
-              },
+            _buildSectionPanel(
+              theme: theme,
+              icon: Icons.music_note_rounded,
+              title: 'Datos de la cancion',
+              subtitle: 'Busca letras en web o editalas manualmente.',
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(labelText: 'Titulo'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _artistController,
+                    decoration: const InputDecoration(labelText: 'Artista'),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      onPressed: _loading ? null : _searchLyrics,
+                      icon: const Icon(Icons.search),
+                      label: const Text('Buscar letras en web'),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _lyricsController,
-              minLines: 8,
-              maxLines: 14,
-              decoration: const InputDecoration(
-                labelText: 'Letra principal',
-                alignLabelWithHint: true,
-                border: OutlineInputBorder(),
+            _buildSectionPanel(
+              theme: theme,
+              icon: Icons.article_outlined,
+              title: 'Letra principal',
+              subtitle:
+                  '${primaryLines.length} lineas detectadas en el idioma principal.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Idioma',
+                    style: theme.textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 6),
+                  _languageDropdown(
+                    value: _lyricsLang,
+                    onChanged: (val) {
+                      if (val == null) return;
+                      setState(() {
+                        _lyricsLang = val;
+                        if (_targetLang == _lyricsLang) {
+                          _targetLang = _lyricsLang == 'es' ? 'en' : 'es';
+                        }
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _lyricsController,
+                    minLines: 8,
+                    maxLines: 14,
+                    decoration: const InputDecoration(
+                      labelText: 'Letra principal',
+                      alignLabelWithHint: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
             _buildKaraokeSyncCard(theme),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _languageDropdown(
-                    value: _targetLang,
+            _buildSectionPanel(
+              theme: theme,
+              icon: Icons.translate_rounded,
+              title: 'Traducciones',
+              subtitle:
+                  'Genera, edita y guarda variantes de letra por idioma.',
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _languageDropdown(
+                          value: _targetLang,
+                          onChanged: (val) {
+                            if (val == null) return;
+                            setState(() {
+                              _targetLang = val;
+                              _activePreviewKey = val;
+                              _translationPreviewController.text =
+                                  _translations[_activePreviewKey] ?? '';
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: _loading ? null : _translateLyrics,
+                        child: const Text('Traducir'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _translationPreviewController,
+                    maxLines: 5,
+                    minLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Vista previa de traduccion',
+                      border: OutlineInputBorder(),
+                    ),
                     onChanged: (val) {
-                      if (val == null) return;
-                      setState(() {
-                        _targetLang = val;
-                        _activePreviewKey = val;
-                        _translationPreviewController.text =
-                            _translations[_activePreviewKey] ?? '';
-                      });
+                      final text = val.trim();
+                      final key = _activePreviewKey.trim().toLowerCase();
+                      if (key.isEmpty) return;
+                      if (text.isEmpty) {
+                        _translations.remove(key);
+                      } else {
+                        _translations[key] = text;
+                      }
                     },
                   ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _loading ? null : _translateLyrics,
-                  child: const Text('Traducir'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _translationPreviewController,
-              maxLines: 4,
-              minLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Vista previa de traduccion',
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (val) {
-                final text = val.trim();
-                final key = _activePreviewKey.trim().toLowerCase();
-                if (key.isEmpty) return;
-                if (text.isEmpty) {
-                  _translations.remove(key);
-                } else {
-                  _translations[key] = text;
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _translations.entries
-                  .map(
-                    (entry) => InputChip(
-                      label: Text(_translationLabel(entry.key)),
-                      selected: entry.key == _activePreviewKey,
-                      onPressed: () {
-                        setState(() {
-                          final key = entry.key.trim().toLowerCase();
-                          _activePreviewKey = key;
-                          if (_languageLabels.containsKey(key)) {
-                            _targetLang = key;
-                          }
-                          _translationPreviewController.text = entry.value;
-                        });
-                      },
-                      onDeleted: () => _removeTranslation(entry.key),
+                  const SizedBox(height: 10),
+                  if (_translations.isEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Aun no hay traducciones guardadas.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ),
-                  )
-                  .toList(growable: false),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _applyPreviewAsPrimaryLyrics,
-                    child: const Text('Usar traduccion como principal'),
+                  if (_translations.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _translations.entries
+                          .map(
+                            (entry) => InputChip(
+                              label: Text(_translationLabel(entry.key)),
+                              selected: entry.key == _activePreviewKey,
+                              onPressed: () {
+                                setState(() {
+                                  final key = entry.key.trim().toLowerCase();
+                                  _activePreviewKey = key;
+                                  if (_languageLabels.containsKey(key)) {
+                                    _targetLang = key;
+                                  }
+                                  _translationPreviewController.text =
+                                      entry.value;
+                                });
+                              },
+                              onDeleted: () => _removeTranslation(entry.key),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _applyPreviewAsPrimaryLyrics,
+                      icon: const Icon(Icons.swap_horiz_rounded),
+                      label: const Text('Usar traduccion como principal'),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            if (_loading) const LinearProgressIndicator(),
-            const SizedBox(height: 8),
-            FilledButton(onPressed: _save, child: const Text('Guardar')),
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_loading) ...[
+              const LinearProgressIndicator(),
+              const SizedBox(height: 10),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.save_rounded),
+                label: const Text('Guardar cambios'),
+              ),
+            ),
           ],
         ),
       ),
