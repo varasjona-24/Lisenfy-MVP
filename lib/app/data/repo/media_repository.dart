@@ -9,8 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import '../../models/media_item.dart';
 import '../local/local_library_store.dart';
 import '../network/dio_client.dart';
-import 'package:flutter_listenfy/Modules/sources/domain/source_origin.dart';
-import 'package:flutter_listenfy/Modules/sources/domain/detect_source_origin.dart';
+import 'package:listenfy/Modules/sources/domain/source_origin.dart';
+import 'package:listenfy/Modules/sources/domain/detect_source_origin.dart';
 
 class MediaRepository {
   // ============================

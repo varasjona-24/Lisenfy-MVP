@@ -1,4 +1,4 @@
-package com.example.flutter_listenfy
+package com.example.listenfy
 
 import android.media.MediaCodec
 import android.media.MediaExtractor

@@ -1,4 +1,4 @@
-package com.example.flutter_listenfy
+package com.example.listenfy
 
 import android.graphics.Bitmap
 import android.bluetooth.BluetoothAdapter
@@ -27,7 +27,7 @@ import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
-import com.example.flutter_listenfy.widget.PlayerWidgetProvider
+import com.example.listenfy.widget.PlayerWidgetProvider
 import android.content.Intent
 import java.io.ByteArrayOutputStream
 import java.io.File

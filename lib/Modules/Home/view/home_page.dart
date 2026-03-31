@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import 'package:flutter_listenfy/Modules/home/controller/home_controller.dart';
+import 'package:listenfy/Modules/home/controller/home_controller.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';

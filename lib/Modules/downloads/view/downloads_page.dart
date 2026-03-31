@@ -9,7 +9,7 @@ import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import 'widgets/downloads_pill.dart';
-import 'package:flutter_listenfy/Modules/home/controller/home_controller.dart';
+import 'package:listenfy/Modules/home/controller/home_controller.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/controllers/media_actions_controller.dart';
 

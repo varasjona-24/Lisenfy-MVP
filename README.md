@@ -1,6 +1,6 @@
-# flutter_listenfy
+# listenfy
 
-A new Flutter project.
+Aplicación Flutter de reproducción y gestión multimedia.
 
 ## Getting Started
 

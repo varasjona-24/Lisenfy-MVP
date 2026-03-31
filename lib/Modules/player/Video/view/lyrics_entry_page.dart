@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:flutter_listenfy/app/ui/widgets/dialogs/lyrics_search_dialog.dart';
+import 'package:listenfy/app/ui/widgets/dialogs/lyrics_search_dialog.dart';
 
-import 'package:flutter_listenfy/app/models/media_item.dart';
-import 'package:flutter_listenfy/app/services/audio_service.dart';
-import 'package:flutter_listenfy/app/services/lyrics_service.dart';
+import 'package:listenfy/app/models/media_item.dart';
+import 'package:listenfy/app/services/audio_service.dart';
+import 'package:listenfy/app/services/lyrics_service.dart';
 
 class LyricsEntryArgs {
   final String title;

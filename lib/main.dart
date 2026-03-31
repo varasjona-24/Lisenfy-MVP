@@ -72,7 +72,7 @@ Future<void> main() async {
   final handler = await aud.AudioService.init(
     builder: () => AppAudioHandler(appAudio),
     config: const aud.AudioServiceConfig(
-      androidNotificationChannelId: 'com.example.flutter_listenfy.audio',
+      androidNotificationChannelId: 'com.example.listenfy.audio',
       androidNotificationChannelName: 'Reproducción',
       androidNotificationChannelDescription: 'Controles de reproducción',
       androidNotificationOngoing: true,

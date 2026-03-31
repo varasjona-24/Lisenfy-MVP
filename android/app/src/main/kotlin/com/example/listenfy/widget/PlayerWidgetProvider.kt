@@ -1,4 +1,4 @@
-package com.example.flutter_listenfy.widget
+package com.example.listenfy.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -13,8 +13,8 @@ import android.widget.RemoteViews
 import androidx.media.session.MediaButtonReceiver
 import androidx.palette.graphics.Palette
 import android.support.v4.media.session.PlaybackStateCompat
-import com.example.flutter_listenfy.MainActivity
-import com.example.flutter_listenfy.R
+import com.example.listenfy.MainActivity
+import com.example.listenfy.R
 import android.view.View
 import java.io.File
 import kotlin.math.pow
@@ -196,7 +196,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val ACTION_WIDGET_UPDATE =
-            "com.example.flutter_listenfy.ACTION_WIDGET_UPDATE"
+            "com.example.listenfy.ACTION_WIDGET_UPDATE"
 
         const val PREFS = "player_widget"
         const val KEY_TITLE = "title"

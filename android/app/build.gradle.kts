@@ -15,7 +15,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.flutter_listenfy"
+    namespace = "com.example.listenfy"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -30,7 +30,7 @@ android {
 
     defaultConfig {
         // Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.flutter_listenfy"
+        applicationId = "com.example.listenfy"
 
         // Flutter defaults
         minSdk = flutter.minSdkVersion
