@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:listenfy/Modules/history/presentation/controller/history_controller.dart';
+import 'package:listenfy/Modules/history/controller/history_controller.dart';
 import 'package:listenfy/Modules/home/controller/home_controller.dart';
 import 'package:listenfy/app/controllers/media_actions_controller.dart';
 import 'package:listenfy/app/models/media_item.dart';

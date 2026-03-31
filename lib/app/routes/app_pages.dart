@@ -29,7 +29,7 @@ import 'package:listenfy/Modules/downloads/view/download_history_page.dart';
 
 // History
 import 'package:listenfy/Modules/history/binding/history_binding.dart';
-import 'package:listenfy/Modules/history/view/history_page.dart';
+import 'package:listenfy/Modules/history/presentation/views/history_page.dart';
 
 // Artists
 import 'package:listenfy/Modules/artists/binding/artists_binding.dart';

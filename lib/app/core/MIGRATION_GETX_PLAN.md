@@ -21,8 +21,7 @@
 - [ ] Crear `domain/contracts`.
 - [ ] Mover lógica de negocio a `domain/usecases`.
 - [ ] Implementar `data/repositories`.
-- [ ] Crear `presentation/state` (inmutable + `copyWith`).
+- [ ] Crear `state` (inmutable + `copyWith`).
 - [ ] Refactor de `controller` para depender de `usecases`.
 - [ ] Mantener wrapper legacy temporal (`export`) si aplica.
 - [ ] Validar rutas/bindings y ciclo de vida en GetX.
-
