@@ -9,6 +9,9 @@ import 'package:listenfy/app/models/media_item.dart';
 import 'package:listenfy/app/ui/themes/app_spacing.dart';
 import 'package:listenfy/app/ui/widgets/layout/app_gradient_background.dart';
 
+// ============================
+// 🧭 PAGE: HISTORIAL
+// ============================
 class HistoryPage extends GetView<HistoryController> {
   const HistoryPage({super.key});
 
@@ -36,6 +39,7 @@ class HistoryPage extends GetView<HistoryController> {
             return const Center(child: CircularProgressIndicator());
           }
 
+          // Estado vacío del historial.
           if (vm.groups.isEmpty) {
             return Center(
               child: Text(
@@ -95,6 +99,9 @@ class HistoryPage extends GetView<HistoryController> {
   }
 }
 
+// ============================
+// 🗂️ SECCIÓN DE DÍA
+// ============================
 class _HistoryGroupSection extends StatelessWidget {
   const _HistoryGroupSection({
     required this.label,
@@ -145,6 +152,9 @@ class _HistoryGroupSection extends StatelessWidget {
   }
 }
 
+// ============================
+// 🎵 TILE DE ITEM
+// ============================
 class _HistoryItemTile extends StatelessWidget {
   const _HistoryItemTile({
     required this.item,
@@ -219,6 +229,9 @@ class _HistoryItemTile extends StatelessWidget {
   }
 }
 
+// ============================
+// 🖼️ MINIATURA
+// ============================
 class _Thumb extends StatelessWidget {
   const _Thumb({this.path, this.url});
 
@@ -251,4 +264,3 @@ class _Thumb extends StatelessWidget {
     );
   }
 }
-

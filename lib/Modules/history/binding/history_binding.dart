@@ -6,9 +6,15 @@ import 'package:listenfy/Modules/history/domain/usecases/load_history_items_usec
 import 'package:listenfy/Modules/home/controller/home_controller.dart';
 import 'package:listenfy/app/data/repo/media_repository.dart';
 
+// ============================
+// 🧷 BINDING: HISTORIAL
+// ============================
 class HistoryBinding extends Bindings {
   @override
   void dependencies() {
+    // ----------------------------
+    // 📦 Domain/Data wiring
+    // ----------------------------
     if (!Get.isRegistered<HistoryRepository>()) {
       Get.lazyPut<HistoryRepository>(
         () => HistoryRepositoryImpl(mediaRepository: Get.find<MediaRepository>()),
@@ -23,6 +29,9 @@ class HistoryBinding extends Bindings {
       );
     }
 
+    // ----------------------------
+    // 🎛️ Presentation controller
+    // ----------------------------
     if (!Get.isRegistered<HistoryController>()) {
       Get.put(
         HistoryController(

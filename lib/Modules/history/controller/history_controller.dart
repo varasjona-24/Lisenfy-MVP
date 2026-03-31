@@ -8,6 +8,9 @@ import 'package:listenfy/app/core/presentation/getx_state_controller.dart';
 import 'package:listenfy/app/core/presentation/view_status.dart';
 import 'package:listenfy/app/models/media_item.dart';
 
+// ============================
+// 🎛️ CONTROLLER: HISTORIAL
+// ============================
 class HistoryController extends GetxStateController<HistoryState> {
   HistoryController({
     required LoadHistoryItemsUseCase loadHistoryItemsUseCase,
@@ -20,6 +23,9 @@ class HistoryController extends GetxStateController<HistoryState> {
   final HomeController? _homeController;
   Worker? _homeWorker;
 
+  // ============================
+  // 🔁 LIFECYCLE
+  // ============================
   @override
   void onInit() {
     super.onInit();
@@ -38,6 +44,9 @@ class HistoryController extends GetxStateController<HistoryState> {
     super.onClose();
   }
 
+  // ============================
+  // 📥 LOAD
+  // ============================
   Future<void> loadHistory() async {
     emit(
       state.value.copyWith(
@@ -70,6 +79,9 @@ class HistoryController extends GetxStateController<HistoryState> {
     }
   }
 
+  // ============================
+  // 🎚️ FILTROS
+  // ============================
   void setFilter(HistoryKindFilter next) {
     if (state.value.filter == next) return;
     final nextFiltered = _filterItems(state.value.allItems, next);
@@ -83,6 +95,7 @@ class HistoryController extends GetxStateController<HistoryState> {
     );
   }
 
+  // Sincroniza el filtro de historial con el modo actual del Home.
   void _syncFilterWithHome() {
     final home = _homeController;
     if (home == null) return;
@@ -92,6 +105,9 @@ class HistoryController extends GetxStateController<HistoryState> {
     setFilter(desired);
   }
 
+  // ============================
+  // 🧩 HELPERS DE TRANSFORMACIÓN
+  // ============================
   List<MediaItem> _filterItems(
     List<MediaItem> list,
     HistoryKindFilter kind,
@@ -102,6 +118,7 @@ class HistoryController extends GetxStateController<HistoryState> {
     }).toList(growable: false);
   }
 
+  // Agrupa elementos por fecha (día) para la UI.
   List<HistoryDayGroup> _groupByDay(List<MediaItem> list) {
     final bucket = <String, List<MediaItem>>{};
 
@@ -126,6 +143,7 @@ class HistoryController extends GetxStateController<HistoryState> {
         .toList(growable: false);
   }
 
+  // Formato de clave estable para bucket por día.
   String _dayKey(DateTime dt) {
     final y = dt.year.toString().padLeft(4, '0');
     final m = dt.month.toString().padLeft(2, '0');
@@ -142,6 +160,7 @@ class HistoryController extends GetxStateController<HistoryState> {
     return DateTime(y, m, d);
   }
 
+  // Etiqueta amigable para encabezados del historial.
   String _dayLabel(DateTime date) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -157,6 +176,7 @@ class HistoryController extends GetxStateController<HistoryState> {
     return '$d/$m/$y';
   }
 
+  // Hora en formato HH:mm para cada item.
   String formatTime(MediaItem item) {
     final ts = item.lastPlayedAt ?? 0;
     if (ts <= 0) return '';

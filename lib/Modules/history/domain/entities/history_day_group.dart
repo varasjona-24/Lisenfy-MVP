@@ -1,5 +1,6 @@
 import 'package:listenfy/app/models/media_item.dart';
 
+/// Entidad de dominio para renderizar el historial agrupado por día.
 class HistoryDayGroup {
   const HistoryDayGroup({
     required this.date,
@@ -11,4 +12,3 @@ class HistoryDayGroup {
   final String label;
   final List<MediaItem> items;
 }
-

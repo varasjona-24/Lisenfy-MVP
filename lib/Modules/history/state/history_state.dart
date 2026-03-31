@@ -3,6 +3,10 @@ import 'package:listenfy/Modules/history/domain/entities/history_kind_filter.dar
 import 'package:listenfy/app/core/presentation/view_status.dart';
 import 'package:listenfy/app/models/media_item.dart';
 
+// ============================
+// 🧭 STATE: HISTORIAL
+// ============================
+// Estado inmutable para la pantalla de historial.
 class HistoryState {
   const HistoryState({
     required this.status,
@@ -13,6 +17,7 @@ class HistoryState {
     this.errorMessage,
   });
 
+  // Estado inicial del módulo.
   factory HistoryState.initial() {
     return const HistoryState(
       status: ViewStatus.idle,
@@ -31,6 +36,7 @@ class HistoryState {
   final HistoryKindFilter filter;
   final String? errorMessage;
 
+  // Actualiza campos de forma declarativa.
   HistoryState copyWith({
     ViewStatus? status,
     List<MediaItem>? allItems,
@@ -50,4 +56,3 @@ class HistoryState {
     );
   }
 }
-
