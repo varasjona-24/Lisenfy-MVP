@@ -59,6 +59,8 @@ import 'package:listenfy/Modules/sources/view/source_theme_topic_page.dart';
 import 'package:listenfy/Modules/sources/view/source_theme_topic_playlist_page.dart';
 import 'package:listenfy/Modules/nearby_transfer/binding/nearby_transfer_binding.dart';
 import 'package:listenfy/Modules/nearby_transfer/view/nearby_transfer_page.dart';
+import 'package:listenfy/Modules/local_connect/binding/local_connect_binding.dart';
+import 'package:listenfy/Modules/local_connect/presentation/views/local_connect_page.dart';
 
 abstract class AppPages {
   static final routes = <GetPage>[
@@ -233,6 +235,11 @@ abstract class AppPages {
       name: AppRoutes.nearbyTransfer,
       page: () => const NearbyTransferPage(),
       binding: NearbyTransferBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.localConnect,
+      page: () => const LocalConnectPage(),
+      binding: LocalConnectBinding(),
     ),
 
     // Video Player

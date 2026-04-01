@@ -78,6 +78,8 @@ class AudioService extends GetxService {
   Stream<Duration?> get durationStream => _player.durationStream;
   Stream<ProcessingState> get processingStateStream =>
       _player.processingStateStream;
+  Duration get currentPosition => _player.position;
+  Duration? get currentDuration => _player.duration;
 
   bool get hasSourceLoaded => _player.processingState != ProcessingState.idle;
   List<MediaItem> get queueItems => List<MediaItem>.from(_queueItems);

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:app_settings/app_settings.dart';
 
+import '../../../../app/routes/app_routes.dart';
 import '../../controller/settings_controller.dart';
 import '../../controller/playback_settings_controller.dart';
 import '../../controller/backup_restore_controller.dart';
@@ -47,7 +48,7 @@ class DataSection extends StatelessWidget {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.dividerColor.withOpacity(.12)),
+            side: BorderSide(color: theme.dividerColor.withValues(alpha: .12)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -77,7 +78,19 @@ class DataSection extends StatelessWidget {
                 }),
 
                 const SizedBox(height: 12),
-                Divider(color: theme.dividerColor.withOpacity(.12)),
+                Divider(color: theme.dividerColor.withValues(alpha: .12)),
+                const SizedBox(height: 12),
+
+                InfoTile(
+                  icon: Icons.laptop_chromebook_rounded,
+                  title: 'Listenfy Local Connect',
+                  subtitle:
+                      'Abre una sesión web local para reproducir en tu computadora.',
+                  trailing: TextButton(
+                    onPressed: () => Get.toNamed(AppRoutes.localConnect),
+                    child: const Text('Abrir'),
+                  ),
+                ),
                 const SizedBox(height: 12),
 
                 // Actions
@@ -97,10 +110,10 @@ class DataSection extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(.08),
+                      color: theme.colorScheme.primary.withValues(alpha: .08),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: theme.colorScheme.primary.withOpacity(.25),
+                        color: theme.colorScheme.primary.withValues(alpha: .25),
                       ),
                     ),
                     child: Row(
@@ -146,10 +159,10 @@ class DataSection extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(.08),
+                    color: Colors.amber.withValues(alpha: .08),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.amber.withOpacity(.25),
+                      color: Colors.amber.withValues(alpha: .25),
                     ),
                   ),
                   child: Row(
@@ -239,7 +252,7 @@ class DataSection extends StatelessWidget {
                 }),
 
                 const SizedBox(height: 12),
-                Divider(color: theme.dividerColor.withOpacity(.12)),
+                Divider(color: theme.dividerColor.withValues(alpha: .12)),
                 const SizedBox(height: 12),
 
                 const SectionHeader(
