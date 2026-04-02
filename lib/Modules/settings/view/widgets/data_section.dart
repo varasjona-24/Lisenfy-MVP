@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:app_settings/app_settings.dart';
 
-import '../../../../app/routes/app_routes.dart';
 import '../../controller/settings_controller.dart';
 import '../../controller/playback_settings_controller.dart';
 import '../../controller/backup_restore_controller.dart';
@@ -79,18 +78,6 @@ class DataSection extends StatelessWidget {
 
                 const SizedBox(height: 12),
                 Divider(color: theme.dividerColor.withValues(alpha: .12)),
-                const SizedBox(height: 12),
-
-                InfoTile(
-                  icon: Icons.laptop_chromebook_rounded,
-                  title: 'Listenfy Local Connect',
-                  subtitle:
-                      'Abre una sesión web local para reproducir en tu computadora.',
-                  trailing: TextButton(
-                    onPressed: () => Get.toNamed(AppRoutes.localConnect),
-                    child: const Text('Abrir'),
-                  ),
-                ),
                 const SizedBox(height: 12),
 
                 // Actions

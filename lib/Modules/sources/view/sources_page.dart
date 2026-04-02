@@ -22,19 +22,16 @@ class SourcesPage extends GetView<SourcesController> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-
-    final barBg = Color.alphaBlend(
-      scheme.primary.withOpacity(isDark ? 0.24 : 0.28),
-      scheme.surface,
-    );
 
     final HomeController home = Get.find<HomeController>();
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBody: true,
-      appBar: AppTopBar(title: ListenfyLogo(size: 28, color: scheme.primary)),
+      appBar: AppTopBar(
+        title: ListenfyLogo(size: 28, color: scheme.primary),
+        showLocalConnectAction: false,
+      ),
       body: AppGradientBackground(
         child: Stack(
           children: [
@@ -68,12 +65,7 @@ class SourcesPage extends GetView<SourcesController> {
               ),
             ),
 
-            _bottomNav(
-              barBg: barBg,
-              scheme: scheme,
-              isDark: isDark,
-              home: home,
-            ),
+            _bottomNav(home: home),
           ],
         ),
       ),
@@ -127,51 +119,32 @@ class SourcesPage extends GetView<SourcesController> {
     ];
   }
 
-  Widget _bottomNav({
-    required Color barBg,
-    required ColorScheme scheme,
-    required bool isDark,
-    required HomeController home,
-  }) {
+  Widget _bottomNav({required HomeController home}) {
     return Positioned(
       left: 0,
       right: 0,
       bottom: 0,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: barBg,
-          border: Border(
-            top: BorderSide(
-              color: scheme.primary.withOpacity(isDark ? 0.22 : 0.18),
-              width: 56,
-            ),
-          ),
-        ),
-        child: SafeArea(
-          top: false,
-          child: AppBottomNav(
-            currentIndex: 4,
-            onTap: (index) {
-              switch (index) {
-                case 0:
-                  home.enterHome();
-                  break;
-                case 1:
-                  home.goToPlaylists();
-                  break;
-                case 2:
-                  home.goToArtists();
-                  break;
-                case 3:
-                  home.goToDownloads();
-                  break;
-                case 4:
-                  home.goToSources();
-                  break;
-              }
-            },
-          ),
-        ),
+      child: AppBottomNav(
+        currentIndex: 4,
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              home.enterHome();
+              break;
+            case 1:
+              home.goToPlaylists();
+              break;
+            case 2:
+              home.goToArtists();
+              break;
+            case 3:
+              home.goToDownloads();
+              break;
+            case 4:
+              home.goToSources();
+              break;
+          }
+        },
       ),
     );
   }
@@ -211,15 +184,22 @@ class _ThemeCardState extends State<_ThemeCard> {
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context);
+    final themeData = Theme.of(context);
     final theme = widget.theme;
     final textColor = Colors.white;
-    final subColor = Colors.white.withOpacity(0.85);
-    final scale = _isPressed ? 0.96 : (_isHovered ? 1.02 : 1.0);
+    final subtitleColor = Colors.white.withValues(alpha: 0.84);
+    final cardScale = _isPressed ? 0.985 : (_isHovered ? 1.01 : 1.0);
+    final mediaTag = theme.onlyOffline
+        ? 'Audio y video'
+        : theme.forceKind?.name == 'video'
+        ? 'Video'
+        : theme.forceKind?.name == 'audio'
+        ? 'Audio'
+        : 'Mixto';
 
     return AnimatedScale(
-      scale: scale,
-      duration: const Duration(milliseconds: 200),
+      scale: cardScale,
+      duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
       child: GestureDetector(
         onTapDown: (_) => setState(() => _isPressed = true),
@@ -232,7 +212,7 @@ class _ThemeCardState extends State<_ThemeCard> {
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(22),
             child: Material(
               color: Colors.transparent,
               child: Container(
@@ -243,23 +223,27 @@ class _ThemeCardState extends State<_ThemeCard> {
                     colors: theme.colors,
                     stops: const [0.1, 0.9],
                   ),
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.14),
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: theme.colors.last.withOpacity(0.4),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
+                      color: theme.colors.last.withValues(
+                        alpha: _isHovered ? 0.42 : 0.30,
+                      ),
+                      blurRadius: _isHovered ? 22 : 16,
+                      offset: const Offset(0, 8),
                     ),
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      color: Colors.black.withValues(alpha: 0.22),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
                 child: Stack(
                   children: [
-                    // Subtle glass overlay
                     Positioned.fill(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
@@ -267,17 +251,29 @@ class _ThemeCardState extends State<_ThemeCard> {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              Colors.white.withOpacity(0.15),
+                              Colors.white.withValues(alpha: 0.14),
                               Colors.transparent,
                             ],
                           ),
                         ),
                       ),
                     ),
+                    Positioned(
+                      right: -36,
+                      top: -24,
+                      child: Container(
+                        width: 128,
+                        height: 128,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.08),
+                        ),
+                      ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.lg,
-                        vertical: 20,
+                        vertical: 16,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,44 +281,73 @@ class _ThemeCardState extends State<_ThemeCard> {
                           Row(
                             children: [
                               Container(
-                                width: 48,
-                                height: 48,
+                                width: 46,
+                                height: 46,
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(16),
+                                  color: Colors.white.withValues(alpha: 0.20),
+                                  borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
-                                    color: Colors.white.withOpacity(0.3),
-                                    width: 1.5,
+                                    color: Colors.white.withValues(alpha: 0.28),
                                   ),
                                 ),
                                 child: Icon(
                                   theme.icon,
                                   color: textColor,
-                                  size: 24,
+                                  size: 23,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  theme.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: themeData.textTheme.titleLarge
+                                      ?.copyWith(
+                                        color: textColor,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.3,
+                                      ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Colors.white,
+                                  size: 20,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            theme.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: t.textTheme.titleLarge?.copyWith(
-                              color: textColor,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 10),
                           Text(
                             theme.subtitle,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: t.textTheme.bodyMedium?.copyWith(
-                              color: subColor,
-                              height: 1.3,
+                            style: themeData.textTheme.bodyMedium?.copyWith(
+                              color: subtitleColor,
+                              height: 1.24,
                             ),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _ThemeMetaPill(
+                                icon: theme.onlyOffline
+                                    ? Icons.download_done_rounded
+                                    : Icons.play_circle_rounded,
+                                label: mediaTag,
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -333,6 +358,39 @@ class _ThemeCardState extends State<_ThemeCard> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ThemeMetaPill extends StatelessWidget {
+  const _ThemeMetaPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white.withValues(alpha: 0.92)),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.95),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

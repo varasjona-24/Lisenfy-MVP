@@ -23,13 +23,7 @@ class DownloadsPage extends GetView<DownloadsController> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
     final actions = Get.find<MediaActionsController>();
-
-    final barBg = Color.alphaBlend(
-      scheme.primary.withValues(alpha: isDark ? 0.24 : 0.28),
-      scheme.surface,
-    );
 
     final home = Get.find<HomeController>();
     final argUrl = (Get.arguments is Map)
@@ -166,43 +160,27 @@ class DownloadsPage extends GetView<DownloadsController> {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: barBg,
-                    border: Border(
-                      top: BorderSide(
-                        color: scheme.primary.withValues(
-                          alpha: isDark ? 0.22 : 0.18,
-                        ),
-                        width: 56,
-                      ),
-                    ),
-                  ),
-                  child: SafeArea(
-                    top: false,
-                    child: AppBottomNav(
-                      currentIndex: 3,
-                      onTap: (index) {
-                        switch (index) {
-                          case 0:
-                            home.enterHome();
-                            break;
-                          case 1:
-                            home.goToPlaylists();
-                            break;
-                          case 2:
-                            home.goToArtists();
-                            break;
-                          case 3:
-                            home.goToDownloads();
-                            break;
-                          case 4:
-                            home.goToSources();
-                            break;
-                        }
-                      },
-                    ),
-                  ),
+                child: AppBottomNav(
+                  currentIndex: 3,
+                  onTap: (index) {
+                    switch (index) {
+                      case 0:
+                        home.enterHome();
+                        break;
+                      case 1:
+                        home.goToPlaylists();
+                        break;
+                      case 2:
+                        home.goToArtists();
+                        break;
+                      case 3:
+                        home.goToDownloads();
+                        break;
+                      case 4:
+                        home.goToSources();
+                        break;
+                    }
+                  },
                 ),
               ),
             ],

@@ -8,6 +8,10 @@ class LocalLibraryStore {
   static const _key = 'local_library_items';
 
   Future<List<MediaItem>> readAll() async {
+    return readAllSync();
+  }
+
+  List<MediaItem> readAllSync() {
     final raw = _box.read<List>(_key) ?? <dynamic>[];
     return raw
         .whereType<Map>()

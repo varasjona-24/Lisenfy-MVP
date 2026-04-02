@@ -3,11 +3,16 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/models/media_item.dart';
+import '../../../app/routes/app_routes.dart';
 import '../../../app/services/audio_service.dart';
+import '../../../app/data/local/local_library_store.dart';
+import '../../artists/data/artist_store.dart';
 import '../data/server/local_connect_pairing_manager.dart';
 import '../data/server/local_connect_playback_sync.dart';
 import '../data/web/local_connect_web_page.dart';
@@ -18,10 +23,16 @@ class LocalConnectServerService extends GetxService {
     : _pairingManager = LocalConnectPairingManager(tokenTtl: tokenTtl);
 
   final AudioService _audioService = Get.find<AudioService>();
+  final LocalLibraryStore _localLibraryStore = Get.find<LocalLibraryStore>();
+  final ArtistStore _artistStore = Get.isRegistered<ArtistStore>()
+      ? Get.find<ArtistStore>()
+      : ArtistStore(Get.find<GetStorage>());
   final LocalConnectPairingManager _pairingManager;
 
   late final LocalConnectPlaybackSync _playbackSync = LocalConnectPlaybackSync(
     audioService: _audioService,
+    artistStore: _artistStore,
+    localLibraryStore: _localLibraryStore,
   );
 
   HttpServer? _httpServer;
@@ -41,11 +52,23 @@ class LocalConnectServerService extends GetxService {
       <LocalConnectPairingRequest>[].obs;
   final RxList<LocalConnectClientSession> sessions =
       <LocalConnectClientSession>[].obs;
+  Worker? _pendingNotificationWorker;
+  String? _lastNotifiedRequestId;
 
   @override
   void onInit() {
     super.onInit();
     _refreshState();
+    _pendingNotificationWorker = ever<List<LocalConnectPairingRequest>>(
+      pendingRequests,
+      _onPendingRequestsChanged,
+    );
+  }
+
+  @override
+  void onClose() {
+    _pendingNotificationWorker?.dispose();
+    super.onClose();
   }
 
   Future<void> start() async {
@@ -69,7 +92,7 @@ class LocalConnectServerService extends GetxService {
       _lastQueueSignature = _playbackSync.queueSignature();
 
       _playbackTicker?.cancel();
-      _playbackTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      _playbackTicker = Timer.periodic(const Duration(milliseconds: 450), (_) {
         _pairingManager.cleanupExpired();
         _refreshState();
         _tickPlaybackSync();
@@ -193,6 +216,9 @@ class LocalConnectServerService extends GetxService {
         case 'GET /cover/item':
           await _handleAuthorizedRequest(request, _handleItemCover);
           return;
+        case 'GET /cover/artist':
+          await _handleAuthorizedRequest(request, _handleArtistCover);
+          return;
         case 'POST /api/control/toggle':
           await _handleAuthorizedRequest(request, _handleToggleControl);
           return;
@@ -207,6 +233,9 @@ class LocalConnectServerService extends GetxService {
           return;
         case 'POST /api/control/volume':
           await _handleAuthorizedRequest(request, _handleVolumeControl);
+          return;
+        case 'POST /api/control/shuffle':
+          await _handleAuthorizedRequest(request, _handleShuffleControl);
           return;
         case 'POST /api/control/play-item':
           await _handleAuthorizedRequest(request, _handlePlayItemControl);
@@ -454,6 +483,19 @@ class LocalConnectServerService extends GetxService {
     await _writeJson(request.response, <String, dynamic>{'ok': true});
   }
 
+  Future<void> _handleShuffleControl(HttpRequest request) async {
+    final body = await _readJsonBody(request);
+    final rawEnabled = body['enabled'];
+    final enabled = rawEnabled is bool
+        ? rawEnabled
+        : !_audioService.shuffleEnabled;
+    await _audioService.setShuffle(enabled);
+    await _writeJson(request.response, <String, dynamic>{
+      'ok': true,
+      'shuffleEnabled': _audioService.shuffleEnabled,
+    });
+  }
+
   Future<void> _handlePlayItemControl(HttpRequest request) async {
     final body = await _readJsonBody(request);
     final itemId = (body['itemId'] as String?)?.trim() ?? '';
@@ -478,11 +520,9 @@ class LocalConnectServerService extends GetxService {
     }
 
     if (targetIndex == null) {
-      await _writeJson(
-        request.response,
-        <String, dynamic>{'error': 'queue_item_not_found'},
-        statusCode: HttpStatus.badRequest,
-      );
+      await _writeJson(request.response, <String, dynamic>{
+        'error': 'queue_item_not_found',
+      }, statusCode: HttpStatus.badRequest);
       return;
     }
 
@@ -523,6 +563,48 @@ class LocalConnectServerService extends GetxService {
     await _serveCoverForItem(request, item);
   }
 
+  Future<void> _handleArtistCover(HttpRequest request) async {
+    final artistKey = request.uri.queryParameters['artistKey']?.trim() ?? '';
+    if (artistKey.isEmpty) {
+      await _writeJson(request.response, <String, dynamic>{
+        'error': 'artist_key_required',
+      }, statusCode: HttpStatus.badRequest);
+      return;
+    }
+
+    final profile = _artistStore.getByKeySync(artistKey);
+    if (profile == null) {
+      await _writeJson(request.response, <String, dynamic>{
+        'error': 'artist_not_found',
+      }, statusCode: HttpStatus.notFound);
+      return;
+    }
+
+    final local = profile.thumbnailLocalPath?.trim();
+    if (local != null && local.isNotEmpty) {
+      final file = File(local);
+      if (await file.exists()) {
+        await _serveBinaryFile(request, file);
+        return;
+      }
+    }
+
+    final remote = profile.thumbnail?.trim();
+    if (remote != null && remote.isNotEmpty) {
+      request.response.statusCode = HttpStatus.temporaryRedirect;
+      request.response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
+      request.response.headers.set(HttpHeaders.pragmaHeader, 'no-cache');
+      request.response.headers.set(HttpHeaders.expiresHeader, '0');
+      request.response.headers.set(HttpHeaders.locationHeader, remote);
+      await request.response.close();
+      return;
+    }
+
+    await _writeJson(request.response, <String, dynamic>{
+      'error': 'artist_cover_unavailable',
+    }, statusCode: HttpStatus.notFound);
+  }
+
   Future<void> _serveCoverForItem(HttpRequest request, MediaItem? item) async {
     if (item == null) {
       await _writeJson(request.response, <String, dynamic>{
@@ -543,6 +625,9 @@ class LocalConnectServerService extends GetxService {
     final remote = item.thumbnail?.trim();
     if (remote != null && remote.isNotEmpty) {
       request.response.statusCode = HttpStatus.temporaryRedirect;
+      request.response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
+      request.response.headers.set(HttpHeaders.pragmaHeader, 'no-cache');
+      request.response.headers.set(HttpHeaders.expiresHeader, '0');
       request.response.headers.set(HttpHeaders.locationHeader, remote);
       await request.response.close();
       return;
@@ -625,6 +710,9 @@ class LocalConnectServerService extends GetxService {
 
   Future<void> _serveBinaryFile(HttpRequest request, File file) async {
     request.response.statusCode = HttpStatus.ok;
+    request.response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
+    request.response.headers.set(HttpHeaders.pragmaHeader, 'no-cache');
+    request.response.headers.set(HttpHeaders.expiresHeader, '0');
     request.response.headers.set(
       HttpHeaders.contentTypeHeader,
       _contentTypeFor(file.path),
@@ -885,6 +973,39 @@ class LocalConnectServerService extends GetxService {
   void _refreshState() {
     pendingRequests.assignAll(_pairingManager.pendingRequests);
     sessions.assignAll(_pairingManager.sessions);
+  }
+
+  void _onPendingRequestsChanged(List<LocalConnectPairingRequest> requests) {
+    if (requests.isEmpty) return;
+
+    final newest = requests.first;
+    if (_lastNotifiedRequestId == newest.id) return;
+    _lastNotifiedRequestId = newest.id;
+
+    if (Get.currentRoute == AppRoutes.localConnect) return;
+
+    final clientLabel = newest.clientName.trim().isEmpty
+        ? 'cliente web'
+        : newest.clientName.trim();
+    final truncatedLabel = clientLabel.length > 42
+        ? '${clientLabel.substring(0, 42)}...'
+        : clientLabel;
+
+    Get.snackbar(
+      'Listenfy Connect',
+      'Nueva solicitud de emparejamiento: $truncatedLabel',
+      snackPosition: SnackPosition.TOP,
+      duration: const Duration(seconds: 7),
+      margin: const EdgeInsets.all(12),
+      mainButton: TextButton(
+        onPressed: () {
+          if (Get.currentRoute != AppRoutes.localConnect) {
+            Get.toNamed(AppRoutes.localConnect);
+          }
+        },
+        child: const Text('Revisar'),
+      ),
+    );
   }
 
   void _log(String message) {

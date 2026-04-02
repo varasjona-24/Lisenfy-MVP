@@ -1,5 +1,6 @@
 import 'package:get_storage/get_storage.dart';
 
+import '../../../app/utils/artist_credit_parser.dart';
 import '../domain/artist_profile.dart';
 
 class ArtistStore {
@@ -9,6 +10,10 @@ class ArtistStore {
   static const _key = 'artist_profiles';
 
   Future<List<ArtistProfile>> readAll() async {
+    return readAllSync();
+  }
+
+  List<ArtistProfile> readAllSync() {
     final raw = _box.read<List>(_key) ?? <dynamic>[];
     return raw
         .whereType<Map>()
@@ -17,9 +22,17 @@ class ArtistStore {
   }
 
   Future<ArtistProfile?> getByKey(String key) async {
-    final list = await readAll();
+    return getByKeySync(key);
+  }
+
+  ArtistProfile? getByKeySync(String key) {
+    final target = ArtistCreditParser.normalizeKey(key);
+    if (target.isEmpty || target == 'unknown') return null;
+    final list = readAllSync();
     for (final profile in list) {
-      if (profile.key == key) return profile;
+      if (ArtistCreditParser.normalizeKey(profile.key) == target) {
+        return profile;
+      }
     }
     return null;
   }

@@ -84,7 +84,6 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
 
     final HomeController home = Get.find<HomeController>();
     SourceTheme? themeMeta;
@@ -96,11 +95,6 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
         }
       }
     }
-
-    final barBg = Color.alphaBlend(
-      scheme.primary.withOpacity(isDark ? 0.24 : 0.28),
-      scheme.surface,
-    );
 
     return Obx(() {
       final homeMode = home.mode.value;
@@ -118,6 +112,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
               ? ListenfyLogo(size: 28, color: scheme.primary)
               : Text(widget.title),
           onToggleMode: widget.forceKind == null ? home.toggleMode : null,
+          showLocalConnectAction: false,
           mode: displayMode == HomeMode.audio
               ? AppMediaMode.audio
               : AppMediaMode.video,
@@ -147,11 +142,11 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                               : list.where(hasVideo).toList());
 
                     return RefreshIndicator(
-                        onRefresh: () async {
-                          await _sources.refreshAll();
-                          await _load(displayMode);
-                          if (mounted) setState(() {});
-                        },
+                      onRefresh: () async {
+                        await _sources.refreshAll();
+                        await _load(displayMode);
+                        if (mounted) setState(() {});
+                      },
                       child: ScrollConfiguration(
                         behavior: const _NoGlowScrollBehavior(),
                         child: SingleChildScrollView(
@@ -216,41 +211,27 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: barBg,
-                    border: Border(
-                      top: BorderSide(
-                        color: scheme.primary.withOpacity(isDark ? 0.22 : 0.18),
-                        width: 56,
-                      ),
-                    ),
-                  ),
-                  child: SafeArea(
-                    top: false,
-                    child: AppBottomNav(
-                      currentIndex: 4,
-                      onTap: (index) {
-                        switch (index) {
-                          case 0:
-                            home.enterHome();
-                            break;
-                          case 1:
-                            home.goToPlaylists();
-                            break;
-                          case 2:
-                            home.goToArtists();
-                            break;
-                          case 3:
-                            home.goToDownloads();
-                            break;
-                          case 4:
-                            home.goToSources();
-                            break;
-                        }
-                      },
-                    ),
-                  ),
+                child: AppBottomNav(
+                  currentIndex: 4,
+                  onTap: (index) {
+                    switch (index) {
+                      case 0:
+                        home.enterHome();
+                        break;
+                      case 1:
+                        home.goToPlaylists();
+                        break;
+                      case 2:
+                        home.goToArtists();
+                        break;
+                      case 3:
+                        home.goToDownloads();
+                        break;
+                      case 4:
+                        home.goToSources();
+                        break;
+                    }
+                  },
                 ),
               ),
             ],

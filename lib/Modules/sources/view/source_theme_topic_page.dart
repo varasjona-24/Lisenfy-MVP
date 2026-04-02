@@ -71,7 +71,11 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
 
       return Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppTopBar(title: Text(topic.title), onToggleMode: null),
+        appBar: AppTopBar(
+          title: Text(topic.title),
+          onToggleMode: null,
+          showLocalConnectAction: false,
+        ),
         body: AppGradientBackground(
           child: RefreshIndicator(
             onRefresh: () async {

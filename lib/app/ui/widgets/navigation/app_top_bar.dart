@@ -10,6 +10,8 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onSearch;
   final Widget? leading;
   final VoidCallback? onToggleMode; // ✅ optional
+  final VoidCallback? onLocalConnect;
+  final bool showLocalConnectAction;
   final AppMediaMode mode;
 
   const AppTopBar({
@@ -18,6 +20,8 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.onSearch,
     this.leading,
     this.onToggleMode, // ✅ no required
+    this.onLocalConnect,
+    this.showLocalConnectAction = true,
     this.mode = AppMediaMode.audio, // ✅ default
   });
 
@@ -44,26 +48,27 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
         if (onSearch != null)
           IconButton(icon: const Icon(Icons.search), onPressed: onSearch),
 
-        if (onToggleMode != null) ...[
+        if (onToggleMode != null)
           IconButton(
             icon: Icon(
-              Icons.music_note,
-              color: mode == AppMediaMode.audio
-                  ? scheme.primary
-                  : scheme.onSurface.withOpacity(0.50),
+              mode == AppMediaMode.audio
+                  ? Icons.music_note_rounded
+                  : Icons.play_circle_rounded,
+              color: scheme.primary,
             ),
+            tooltip: mode == AppMediaMode.audio
+                ? 'Modo Audio (tocar para Video)'
+                : 'Modo Video (tocar para Audio)',
             onPressed: onToggleMode,
           ),
+
+        if (showLocalConnectAction)
           IconButton(
-            icon: Icon(
-              Icons.play_arrow,
-              color: mode == AppMediaMode.video
-                  ? scheme.primary
-                  : scheme.onSurface.withOpacity(0.50),
-            ),
-            onPressed: onToggleMode,
+            icon: const Icon(Icons.cast_connected_rounded),
+            tooltip: 'Listenfy Local Connect',
+            onPressed:
+                onLocalConnect ?? () => Get.toNamed(AppRoutes.localConnect),
           ),
-        ],
 
         IconButton(
           icon: const Icon(Icons.settings),

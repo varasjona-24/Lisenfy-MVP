@@ -71,7 +71,11 @@ class _SourceThemeTopicPlaylistPageState
 
       return Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppTopBar(title: Text(playlist.name), onToggleMode: null),
+        appBar: AppTopBar(
+          title: Text(playlist.name),
+          onToggleMode: null,
+          showLocalConnectAction: false,
+        ),
         body: AppGradientBackground(
           child: RefreshIndicator(
             onRefresh: () async {
