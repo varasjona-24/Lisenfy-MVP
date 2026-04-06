@@ -18,6 +18,9 @@ class SectionListPage extends StatefulWidget {
     required this.onItemLongPress,
     this.onShuffle,
     this.itemHintBuilder,
+    this.onInterested,
+    this.onHideTrack,
+    this.onHideArtist,
   });
 
   final String title;
@@ -26,12 +29,73 @@ class SectionListPage extends StatefulWidget {
   final FutureOr<void> Function(MediaItem item, int index) onItemLongPress;
   final void Function(List<MediaItem> queue)? onShuffle;
   final String? Function(MediaItem item, int index)? itemHintBuilder;
+  final FutureOr<void> Function(MediaItem item, int index)? onInterested;
+  final FutureOr<void> Function(MediaItem item, int index)? onHideTrack;
+  final FutureOr<void> Function(MediaItem item, int index)? onHideArtist;
 
   @override
   State<SectionListPage> createState() => _SectionListPageState();
 }
 
 class _SectionListPageState extends State<SectionListPage> {
+  late List<MediaItem> _items;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = List<MediaItem>.from(widget.items);
+  }
+
+  @override
+  void didUpdateWidget(covariant SectionListPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.items, widget.items)) {
+      _items = List<MediaItem>.from(widget.items);
+    }
+  }
+
+  bool get _hasFeedbackActions =>
+      widget.onInterested != null ||
+      widget.onHideTrack != null ||
+      widget.onHideArtist != null;
+
+  Future<void> _handleInterested(MediaItem item, int index) async {
+    await widget.onInterested?.call(item, index);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _handleHideTrack(MediaItem item, int index) async {
+    await widget.onHideTrack?.call(item, index);
+    if (!mounted) return;
+    setState(() {
+      _items.removeWhere((entry) => entry.id == item.id);
+    });
+  }
+
+  Future<void> _handleHideArtist(MediaItem item, int index) async {
+    await widget.onHideArtist?.call(item, index);
+    if (!mounted) return;
+    final artistKey = _artistKeyFromItem(item);
+    setState(() {
+      _items.removeWhere((entry) => _artistKeyFromItem(entry) == artistKey);
+    });
+  }
+
+  String _artistKeyFromItem(MediaItem item) {
+    final raw = item.displaySubtitle.trim();
+    if (raw.isEmpty) return item.title.trim().toLowerCase();
+    final normalized = raw
+        .split('·')
+        .first
+        .split(',')
+        .first
+        .split(' - ')
+        .first
+        .trim()
+        .toLowerCase();
+    return normalized.isEmpty ? item.title.trim().toLowerCase() : normalized;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -54,7 +118,7 @@ class _SectionListPageState extends State<SectionListPage> {
             AppSpacing.md,
             AppSpacing.lg,
           ),
-          itemCount: widget.items.length + 1,
+          itemCount: _items.length + 1,
           separatorBuilder: (_, __) => const SizedBox(height: 8),
           itemBuilder: (context, index) {
             if (index == 0) {
@@ -88,7 +152,7 @@ class _SectionListPageState extends State<SectionListPage> {
               );
             }
 
-            final item = widget.items[index - 1];
+            final item = _items[index - 1];
             return _MediaRow(
               item: item,
               hintText: widget.itemHintBuilder?.call(item, index - 1),
@@ -100,6 +164,16 @@ class _SectionListPageState extends State<SectionListPage> {
                 await widget.onItemLongPress(item, index - 1);
                 if (mounted) setState(() {});
               },
+              showFeedbackActions: _hasFeedbackActions,
+              onInterested: widget.onInterested == null
+                  ? null
+                  : () => _handleInterested(item, index - 1),
+              onHideTrack: widget.onHideTrack == null
+                  ? null
+                  : () => _handleHideTrack(item, index - 1),
+              onHideArtist: widget.onHideArtist == null
+                  ? null
+                  : () => _handleHideArtist(item, index - 1),
             );
           },
         ),
@@ -114,12 +188,20 @@ class _MediaRow extends StatelessWidget {
     required this.hintText,
     required this.onTap,
     required this.onLongPress,
+    required this.showFeedbackActions,
+    this.onInterested,
+    this.onHideTrack,
+    this.onHideArtist,
   });
 
   final MediaItem item;
   final String? hintText;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final bool showFeedbackActions;
+  final FutureOr<void> Function()? onInterested;
+  final FutureOr<void> Function()? onHideTrack;
+  final FutureOr<void> Function()? onHideArtist;
 
   @override
   Widget build(BuildContext context) {
@@ -177,6 +259,75 @@ class _MediaRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
+            if (showFeedbackActions)
+              PopupMenuButton<_FeedbackAction>(
+                tooltip: 'Feedback',
+                icon: Icon(
+                  Icons.more_vert_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                onSelected: (value) async {
+                  switch (value) {
+                    case _FeedbackAction.interested:
+                      await onInterested?.call();
+                      break;
+                    case _FeedbackAction.hideTrack:
+                      await onHideTrack?.call();
+                      break;
+                    case _FeedbackAction.hideArtist:
+                      await onHideArtist?.call();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: _FeedbackAction.interested,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.thumb_up_alt_outlined,
+                          size: 18,
+                          color: scheme.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        const Text('Me interesa'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _FeedbackAction.hideTrack,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.visibility_off_outlined,
+                          size: 18,
+                          color: scheme.error,
+                        ),
+                        const SizedBox(width: 10),
+                        const Text('Ocultar canción'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _FeedbackAction.hideArtist,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.person_off_outlined,
+                          size: 18,
+                          color: scheme.tertiary,
+                        ),
+                        const SizedBox(width: 10),
+                        const Text('Ocultar artista'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            if (showFeedbackActions) const SizedBox(width: 4),
             Container(
               width: 34,
               height: 34,
@@ -192,6 +343,8 @@ class _MediaRow extends StatelessWidget {
     );
   }
 }
+
+enum _FeedbackAction { interested, hideTrack, hideArtist }
 
 class _Thumb extends StatelessWidget {
   const _Thumb({required this.thumb});

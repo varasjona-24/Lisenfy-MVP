@@ -28,8 +28,10 @@ import '../../../Modules/sources/domain/source_theme_topic.dart';
 import '../../../Modules/sources/domain/source_theme_topic_playlist.dart';
 import '../../../Modules/downloads/controller/downloads_controller.dart';
 import '../../../Modules/home/controller/home_controller.dart';
-import '../../../Modules/home/data/recommendation_store.dart';
-import '../../../Modules/home/service/local_recommendation_service.dart';
+import '../../../Modules/recommendations/data/recommendation_store.dart';
+import '../../../Modules/recommendations/data/recommendation_feedback_store.dart';
+import '../../../Modules/recommendations/application/recommendation_feedback_service.dart';
+import '../../../Modules/recommendations/domain/contracts/recommendation_engine.dart';
 
 // Función top-level para poder ejecutarse en un Isolate (hilo separado)
 // NOTA: Se pasa la ROTA del archivo (String) y no los bytes (List<int>)
@@ -988,6 +990,11 @@ class BackupRestoreController extends GetxController {
         recommendationPayload = await Get.find<RecommendationStore>()
             .exportBackupPayload();
       }
+      Map<String, dynamic> recommendationFeedbackPayload = const {};
+      if (Get.isRegistered<RecommendationFeedbackStore>()) {
+        recommendationFeedbackPayload =
+            await Get.find<RecommendationFeedbackStore>().exportBackupPayload();
+      }
 
       final manifest = <String, dynamic>{
         'version': 1,
@@ -1002,6 +1009,7 @@ class BackupRestoreController extends GetxController {
         'sourceThemeTopics': topicsJson,
         'sourceThemeTopicPlaylists': topicPlaylistsJson,
         ...recommendationPayload,
+        ...recommendationFeedbackPayload,
       };
 
       final manifestFile = File(p.join(tempDir.path, 'manifest.json'));
@@ -1266,8 +1274,16 @@ class BackupRestoreController extends GetxController {
 
       if (Get.isRegistered<RecommendationStore>()) {
         await Get.find<RecommendationStore>().restoreBackupPayload(manifest);
-        if (Get.isRegistered<LocalRecommendationService>()) {
-          await Get.find<LocalRecommendationService>().reloadFromStore();
+        if (Get.isRegistered<RecommendationEngine>()) {
+          await Get.find<RecommendationEngine>().reloadFromStore();
+        }
+      }
+      if (Get.isRegistered<RecommendationFeedbackStore>()) {
+        await Get.find<RecommendationFeedbackStore>().restoreBackupPayload(
+          manifest,
+        );
+        if (Get.isRegistered<RecommendationFeedbackService>()) {
+          await Get.find<RecommendationFeedbackService>().reloadFromStore();
         }
       }
 

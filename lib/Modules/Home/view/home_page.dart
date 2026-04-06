@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:listenfy/Modules/home/controller/home_controller.dart';
+import 'package:listenfy/Modules/recommendations/domain/recommendation_collection.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
@@ -167,6 +168,12 @@ class HomePage extends GetView<HomeController> {
                                               item,
                                               onChanged: controller.loadHome,
                                             ),
+                                        'onInterested': controller
+                                            .markRecommendationInterested,
+                                        'onHideTrack':
+                                            controller.hideRecommendationTrack,
+                                        'onHideArtist':
+                                            controller.hideRecommendationArtist,
                                         'onShuffle': (queue) => controller
                                             .openMedia(queue.first, 0, queue),
                                       },
@@ -220,6 +227,12 @@ class HomePage extends GetView<HomeController> {
                                                   onChanged:
                                                       controller.loadHome,
                                                 ),
+                                            'onInterested': controller
+                                                .markRecommendationInterested,
+                                            'onHideTrack': controller
+                                                .hideRecommendationTrack,
+                                            'onHideArtist': controller
+                                                .hideRecommendationArtist,
                                             'onShuffle': (queue) =>
                                                 controller.openMedia(
                                                   queue.first,

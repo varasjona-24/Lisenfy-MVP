@@ -38,10 +38,14 @@ import 'Modules/downloads/data/repositories/downloads_repository_impl.dart';
 import 'Modules/downloads/domain/contracts/downloads_repository.dart';
 import 'Modules/downloads/domain/usecases/load_download_items_usecase.dart';
 import 'Modules/downloads/service/download_task_service.dart';
+import 'Modules/artists/data/artist_store.dart';
 import 'Modules/sources/data/source_theme_topic_store.dart';
 import 'Modules/sources/data/source_theme_topic_playlist_store.dart';
-import 'Modules/home/data/recommendation_store.dart';
-import 'Modules/home/service/local_recommendation_service.dart';
+import 'Modules/recommendations/data/recommendation_store.dart';
+import 'Modules/recommendations/data/recommendation_feedback_store.dart';
+import 'Modules/recommendations/application/local_recommendation_service.dart';
+import 'Modules/recommendations/application/recommendation_feedback_service.dart';
+import 'Modules/recommendations/domain/contracts/recommendation_engine.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -107,6 +111,9 @@ Future<void> main() async {
 
   // 💾 Local storage
   Get.put(LocalLibraryStore(Get.find<GetStorage>()), permanent: true);
+  if (!Get.isRegistered<ArtistStore>()) {
+    Get.put(ArtistStore(Get.find<GetStorage>()), permanent: true);
+  }
   Get.put(InstrumentalGenerationService(), permanent: true);
   Get.put(Spatial8dGenerationService(), permanent: true);
   if (!Get.isRegistered<SourceThemeTopicStore>()) {
@@ -127,25 +134,33 @@ Future<void> main() async {
 
   // 🧠 Recomendaciones locales (MVP diario)
   Get.put(RecommendationStore(Get.find<GetStorage>()), permanent: true);
+  Get.put(RecommendationFeedbackStore(Get.find<GetStorage>()), permanent: true);
   Get.put(
-    LocalRecommendationService(
-      store: Get.find<RecommendationStore>(),
-      libraryLoader: () => Get.find<MediaRepository>().getLibrary(),
-      topicLoader: () async {
-        if (!Get.isRegistered<SourceThemeTopicStore>()) {
-          return const [];
-        }
-        return Get.find<SourceThemeTopicStore>().readAll();
-      },
-      topicPlaylistLoader: () async {
-        if (!Get.isRegistered<SourceThemeTopicPlaylistStore>()) {
-          return const [];
-        }
-        return Get.find<SourceThemeTopicPlaylistStore>().readAll();
-      },
+    RecommendationFeedbackService(
+      store: Get.find<RecommendationFeedbackStore>(),
     ),
     permanent: true,
   );
+  final recommendationService = LocalRecommendationService(
+    store: Get.find<RecommendationStore>(),
+    feedbackService: Get.find<RecommendationFeedbackService>(),
+    libraryLoader: () => Get.find<MediaRepository>().getLibrary(),
+    artistProfileLoader: () => Get.find<ArtistStore>().readAll(),
+    topicLoader: () async {
+      if (!Get.isRegistered<SourceThemeTopicStore>()) {
+        return const [];
+      }
+      return Get.find<SourceThemeTopicStore>().readAll();
+    },
+    topicPlaylistLoader: () async {
+      if (!Get.isRegistered<SourceThemeTopicPlaylistStore>()) {
+        return const [];
+      }
+      return Get.find<SourceThemeTopicPlaylistStore>().readAll();
+    },
+  );
+  Get.put<LocalRecommendationService>(recommendationService, permanent: true);
+  Get.put<RecommendationEngine>(recommendationService, permanent: true);
 
   // 🚚 Runtime global de imports/descargas
   Get.put(DownloadTaskService(), permanent: true);
