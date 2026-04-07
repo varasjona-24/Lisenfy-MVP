@@ -61,6 +61,8 @@ import 'package:listenfy/Modules/nearby_transfer/binding/nearby_transfer_binding
 import 'package:listenfy/Modules/nearby_transfer/view/nearby_transfer_page.dart';
 import 'package:listenfy/Modules/local_connect/binding/local_connect_binding.dart';
 import 'package:listenfy/Modules/local_connect/presentation/views/local_connect_page.dart';
+import 'package:listenfy/Modules/world_mode/binding/world_mode_binding.dart';
+import 'package:listenfy/Modules/world_mode/presentation/views/world_mode_page.dart';
 
 abstract class AppPages {
   static final routes = <GetPage>[
@@ -243,6 +245,11 @@ abstract class AppPages {
       name: AppRoutes.localConnect,
       page: () => const LocalConnectPage(),
       binding: LocalConnectBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.worldMode,
+      page: () => const WorldModePage(),
+      binding: WorldModeBinding(),
     ),
 
     // Video Player

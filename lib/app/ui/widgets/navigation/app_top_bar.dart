@@ -10,6 +10,8 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onSearch;
   final Widget? leading;
   final VoidCallback? onToggleMode; // ✅ optional
+  final VoidCallback? onWorldMode;
+  final bool showWorldModeAction;
   final VoidCallback? onLocalConnect;
   final bool showLocalConnectAction;
   final AppMediaMode mode;
@@ -20,6 +22,8 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.onSearch,
     this.leading,
     this.onToggleMode, // ✅ no required
+    this.onWorldMode,
+    this.showWorldModeAction = true,
     this.onLocalConnect,
     this.showLocalConnectAction = true,
     this.mode = AppMediaMode.audio, // ✅ default
@@ -60,6 +64,13 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                 ? 'Modo Audio (tocar para Video)'
                 : 'Modo Video (tocar para Audio)',
             onPressed: onToggleMode,
+          ),
+
+        if (showWorldModeAction)
+          IconButton(
+            icon: const Icon(Icons.public_rounded),
+            tooltip: 'Listenfy Atlas',
+            onPressed: onWorldMode ?? () => Get.toNamed(AppRoutes.worldMode),
           ),
 
         if (showLocalConnectAction)

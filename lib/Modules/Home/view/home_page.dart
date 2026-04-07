@@ -168,12 +168,26 @@ class HomePage extends GetView<HomeController> {
                                               item,
                                               onChanged: controller.loadHome,
                                             ),
-                                        'onInterested': controller
-                                            .markRecommendationInterested,
+                                        'onInterested':
+                                            (
+                                              MediaItem item,
+                                              int _,
+                                            ) => controller
+                                                .markRecommendationInterested(
+                                                  item,
+                                                ),
                                         'onHideTrack':
-                                            controller.hideRecommendationTrack,
+                                            (MediaItem item, int _) =>
+                                                controller
+                                                    .hideRecommendationTrack(
+                                                      item,
+                                                    ),
                                         'onHideArtist':
-                                            controller.hideRecommendationArtist,
+                                            (MediaItem item, int _) =>
+                                                controller
+                                                    .hideRecommendationArtist(
+                                                      item,
+                                                    ),
                                         'onShuffle': (queue) => controller
                                             .openMedia(queue.first, 0, queue),
                                       },
@@ -227,12 +241,30 @@ class HomePage extends GetView<HomeController> {
                                                   onChanged:
                                                       controller.loadHome,
                                                 ),
-                                            'onInterested': controller
-                                                .markRecommendationInterested,
-                                            'onHideTrack': controller
-                                                .hideRecommendationTrack,
-                                            'onHideArtist': controller
-                                                .hideRecommendationArtist,
+                                            'onInterested':
+                                                (
+                                                  MediaItem item,
+                                                  int _,
+                                                ) => controller
+                                                    .markRecommendationInterested(
+                                                      item,
+                                                    ),
+                                            'onHideTrack':
+                                                (
+                                                  MediaItem item,
+                                                  int _,
+                                                ) => controller
+                                                    .hideRecommendationTrack(
+                                                      item,
+                                                    ),
+                                            'onHideArtist':
+                                                (
+                                                  MediaItem item,
+                                                  int _,
+                                                ) => controller
+                                                    .hideRecommendationArtist(
+                                                      item,
+                                                    ),
                                             'onShuffle': (queue) =>
                                                 controller.openMedia(
                                                   queue.first,

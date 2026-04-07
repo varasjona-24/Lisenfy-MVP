@@ -32,4 +32,5 @@ abstract class AppRoutes {
   static const lyricsEntry = '/lyrics/entry';
   static const nearbyTransfer = '/transfer/nearby';
   static const localConnect = '/connect/local';
+  static const worldMode = '/world/mode';
 }
