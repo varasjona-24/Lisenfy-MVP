@@ -26,6 +26,7 @@ class WorldModePage extends GetView<WorldModeController> {
           final stations = controller.stations.toList(growable: false);
           final loadingCountries = controller.isLoadingCountries.value;
           final loadingStations = controller.isLoadingStations.value;
+          final mapExpanded = controller.isMapExpanded.value;
 
           return LayoutBuilder(
             builder: (context, constraints) {
@@ -37,6 +38,8 @@ class WorldModePage extends GetView<WorldModeController> {
                 onSearchChanged: controller.setSearchQuery,
                 searchQuery: controller.searchQuery.value,
                 loadingCountries: loadingCountries,
+                isExpanded: mapExpanded,
+                onExpandedChanged: controller.setMapExpanded,
               );
               final stationBlock = _CountryStationsBlock(
                 selectedCountry: selected,
@@ -65,12 +68,9 @@ class WorldModePage extends GetView<WorldModeController> {
               }
 
               return ListView(
+                physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
-                children: [
-                  SizedBox(height: 280, child: mapBlock),
-                  const SizedBox(height: 12),
-                  stationBlock,
-                ],
+                children: [mapBlock, const SizedBox(height: 12), stationBlock],
               );
             },
           );
@@ -97,6 +97,8 @@ class _MapBlock extends StatelessWidget {
     required this.onSearchChanged,
     required this.searchQuery,
     required this.loadingCountries,
+    required this.isExpanded,
+    required this.onExpandedChanged,
   });
 
   final List<CountryEntity> countries;
@@ -105,11 +107,16 @@ class _MapBlock extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final String searchQuery;
   final bool loadingCountries;
+  final bool isExpanded;
+  final ValueChanged<bool> onExpandedChanged;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final showControls = isExpanded;
+    final mapHeight = isExpanded ? 500.0 : 210.0;
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -124,33 +131,129 @@ class _MapBlock extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 8),
-            TextFormField(
-              key: ValueKey<String>('world-country-search-$searchQuery'),
-              onChanged: onSearchChanged,
-              initialValue: searchQuery,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search_rounded),
-                hintText: 'Buscar región...',
-                isDense: true,
-                filled: true,
-                fillColor: scheme.surfaceContainerHighest.withValues(
-                  alpha: 0.4,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: !showControls
+                  ? Padding(
+                      key: const ValueKey<String>('preview-map-caption'),
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        'Vista rápida: toca para explorar con zoom.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : Padding(
+                      key: const ValueKey<String>('expanded-map-search'),
+                      padding: const EdgeInsets.only(top: 8),
+                      child: TextFormField(
+                        key: ValueKey<String>(
+                          'world-country-search-$searchQuery',
+                        ),
+                        onChanged: onSearchChanged,
+                        initialValue: searchQuery,
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          hintText: 'Buscar región...',
+                          isDense: true,
+                          filled: true,
+                          fillColor: scheme.surfaceContainerHighest.withValues(
+                            alpha: 0.4,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
             ),
             const SizedBox(height: 10),
-            Expanded(
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 320),
+              curve: Curves.easeOutCubic,
+              height: mapHeight,
               child: loadingCountries
                   ? const Center(child: CircularProgressIndicator())
-                  : WorldMapCanvas(
-                      countries: countries,
-                      selectedCountryCode: selectedCountry?.code,
-                      onCountryTap: onCountryTap,
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: AbsorbPointer(
+                              absorbing: !isExpanded,
+                              child: WorldMapCanvas(
+                                countries: countries,
+                                selectedCountryCode: selectedCountry?.code,
+                                onCountryTap: onCountryTap,
+                                interactive: isExpanded,
+                                showHint: isExpanded,
+                              ),
+                            ),
+                          ),
+                          if (!isExpanded)
+                            Positioned.fill(
+                              child: Material(
+                                color: Colors.black.withValues(alpha: 0.20),
+                                child: InkWell(
+                                  onTap: () => onExpandedChanged(true),
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: scheme.surface.withValues(
+                                          alpha: 0.86,
+                                        ),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                        border: Border.all(
+                                          color: scheme.outlineVariant
+                                              .withValues(alpha: 0.5),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Toca para ampliar el mapa',
+                                        style: theme.textTheme.labelLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          Positioned(
+                            right: 10,
+                            bottom: 10,
+                            child: FilledButton.tonalIcon(
+                              onPressed: () => onExpandedChanged(!isExpanded),
+                              icon: Icon(
+                                isExpanded
+                                    ? Icons.zoom_out_map_rounded
+                                    : Icons.zoom_in_map_rounded,
+                              ),
+                              label: Text(isExpanded ? 'Contraer' : 'Ampliar'),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isExpanded
+                  ? 'Mapa ampliado: puedes arrastrar, hacer zoom y tocar regiones.'
+                  : 'Primero se muestra el mapa compacto con puntos activos.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),

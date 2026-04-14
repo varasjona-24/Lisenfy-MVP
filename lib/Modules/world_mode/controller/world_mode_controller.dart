@@ -20,6 +20,7 @@ class WorldModeController extends GetxController {
   final RxBool isLoadingCountries = false.obs;
   final RxBool isLoadingStations = false.obs;
   final RxBool preferOnline = true.obs;
+  final RxBool isMapExpanded = false.obs;
   final RxString errorMessage = ''.obs;
   final RxString searchQuery = ''.obs;
 
@@ -58,6 +59,10 @@ class WorldModeController extends GetxController {
 
   void toggleOnlinePreference(bool value) {
     preferOnline.value = value;
+  }
+
+  void setMapExpanded(bool value) {
+    isMapExpanded.value = value;
   }
 
   Future<void> selectCountry(

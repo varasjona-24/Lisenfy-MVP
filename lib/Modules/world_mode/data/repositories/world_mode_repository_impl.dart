@@ -69,6 +69,8 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
           regionKey: region.continentKey,
           latitude: region.latitude,
           longitude: region.longitude,
+          mapX: region.mapX,
+          mapY: region.mapY,
           discoveryCount: trackCount,
         ),
       );

@@ -6,6 +6,8 @@ class WorldRegionDefinition {
     required this.latitude,
     required this.longitude,
     required this.countryCodes,
+    required this.mapX,
+    required this.mapY,
   });
 
   final String code;
@@ -14,6 +16,8 @@ class WorldRegionDefinition {
   final double latitude;
   final double longitude;
   final Set<String> countryCodes;
+  final double mapX;
+  final double mapY;
 }
 
 class WorldRegionCatalog {
@@ -28,6 +32,8 @@ class WorldRegionCatalog {
       latitude: -31.0,
       longitude: -58.5,
       countryCodes: {'AR', 'UY', 'PY'},
+      mapX: 0.297,
+      mapY: 0.777,
     ),
     WorldRegionDefinition(
       code: 'gran_colombia',
@@ -36,6 +42,8 @@ class WorldRegionCatalog {
       latitude: 6.5,
       longitude: -75.0,
       countryCodes: {'EC', 'CO', 'VE', 'PA'},
+      mapX: 0.268,
+      mapY: 0.544,
     ),
     WorldRegionDefinition(
       code: 'andes_centrales',
@@ -44,6 +52,8 @@ class WorldRegionCatalog {
       latitude: -18.0,
       longitude: -71.0,
       countryCodes: {'PE', 'BO', 'CL'},
+      mapX: 0.250,
+      mapY: 0.647,
     ),
     WorldRegionDefinition(
       code: 'brasil',
@@ -52,6 +62,8 @@ class WorldRegionCatalog {
       latitude: -15.5,
       longitude: -52.0,
       countryCodes: {'BR'},
+      mapX: 0.356,
+      mapY: 0.586,
     ),
     WorldRegionDefinition(
       code: 'mexico',
@@ -60,6 +72,8 @@ class WorldRegionCatalog {
       latitude: 22.0,
       longitude: -102.0,
       countryCodes: {'MX'},
+      mapX: 0.184,
+      mapY: 0.425,
     ),
     WorldRegionDefinition(
       code: 'centroamerica',
@@ -68,6 +82,8 @@ class WorldRegionCatalog {
       latitude: 13.0,
       longitude: -88.5,
       countryCodes: {'GT', 'SV', 'HN', 'NI', 'CR'},
+      mapX: 0.254,
+      mapY: 0.428,
     ),
     WorldRegionDefinition(
       code: 'caribe_hispano',
@@ -76,6 +92,8 @@ class WorldRegionCatalog {
       latitude: 20.5,
       longitude: -71.0,
       countryCodes: {'CU', 'DO', 'PR'},
+      mapX: 0.276,
+      mapY: 0.429,
     ),
     WorldRegionDefinition(
       code: 'caribe_anglo_franco',
@@ -84,6 +102,8 @@ class WorldRegionCatalog {
       latitude: 17.8,
       longitude: -61.5,
       countryCodes: {'JM', 'HT', 'TT', 'BB', 'BS'},
+      mapX: 0.329,
+      mapY: 0.401,
     ),
     WorldRegionDefinition(
       code: 'norteamerica_anglosajona',
@@ -92,6 +112,8 @@ class WorldRegionCatalog {
       latitude: 43.0,
       longitude: -95.0,
       countryCodes: {'US', 'CA'},
+      mapX: 0.236,
+      mapY: 0.261,
     ),
 
     // 🌍 Europa
@@ -102,6 +124,8 @@ class WorldRegionCatalog {
       latitude: 40.0,
       longitude: -5.0,
       countryCodes: {'ES', 'PT'},
+      mapX: 0.459,
+      mapY: 0.322,
     ),
     WorldRegionDefinition(
       code: 'francia_benelux',
@@ -110,6 +134,8 @@ class WorldRegionCatalog {
       latitude: 48.8,
       longitude: 3.5,
       countryCodes: {'FR', 'BE', 'NL', 'LU'},
+      mapX: 0.494,
+      mapY: 0.272,
     ),
     WorldRegionDefinition(
       code: 'mundo_germanico',
@@ -118,6 +144,8 @@ class WorldRegionCatalog {
       latitude: 48.2,
       longitude: 11.0,
       countryCodes: {'DE', 'AT', 'CH'},
+      mapX: 0.531,
+      mapY: 0.232,
     ),
     WorldRegionDefinition(
       code: 'islas_britanicas',
@@ -126,6 +154,8 @@ class WorldRegionCatalog {
       latitude: 53.5,
       longitude: -4.5,
       countryCodes: {'GB', 'IE'},
+      mapX: 0.454,
+      mapY: 0.209,
     ),
     WorldRegionDefinition(
       code: 'europa_nordica',
@@ -134,6 +164,8 @@ class WorldRegionCatalog {
       latitude: 61.5,
       longitude: 14.0,
       countryCodes: {'NO', 'SE', 'FI', 'DK', 'IS'},
+      mapX: 0.539,
+      mapY: 0.158,
     ),
     WorldRegionDefinition(
       code: 'mediterraneo_occidental',
@@ -142,6 +174,8 @@ class WorldRegionCatalog {
       latitude: 39.0,
       longitude: 20.0,
       countryCodes: {'IT', 'MT', 'GR', 'CY', 'TR'},
+      mapX: 0.523,
+      mapY: 0.334,
     ),
     WorldRegionDefinition(
       code: 'balcanes',
@@ -150,6 +184,8 @@ class WorldRegionCatalog {
       latitude: 43.0,
       longitude: 20.0,
       countryCodes: {'RS', 'HR', 'BA', 'ME', 'AL', 'MK', 'XK'},
+      mapX: 0.556,
+      mapY: 0.261,
     ),
     WorldRegionDefinition(
       code: 'europa_central',
@@ -158,6 +194,8 @@ class WorldRegionCatalog {
       latitude: 49.5,
       longitude: 18.0,
       countryCodes: {'PL', 'CZ', 'SK', 'HU'},
+      mapX: 0.550,
+      mapY: 0.225,
     ),
     WorldRegionDefinition(
       code: 'europa_oriental',
@@ -166,6 +204,8 @@ class WorldRegionCatalog {
       latitude: 50.0,
       longitude: 32.0,
       countryCodes: {'UA', 'BY', 'MD', 'RU', 'RO'},
+      mapX: 0.589,
+      mapY: 0.222,
     ),
 
     // 🌍 África
@@ -176,6 +216,8 @@ class WorldRegionCatalog {
       latitude: 31.5,
       longitude: 4.0,
       countryCodes: {'MA', 'DZ', 'TN', 'LY', 'EG'},
+      mapX: 0.511,
+      mapY: 0.325,
     ),
     WorldRegionDefinition(
       code: 'africa_occidental',
@@ -184,6 +226,8 @@ class WorldRegionCatalog {
       latitude: 11.5,
       longitude: -2.0,
       countryCodes: {'SN', 'ML', 'CI', 'GH', 'NG'},
+      mapX: 0.494,
+      mapY: 0.436,
     ),
     WorldRegionDefinition(
       code: 'africa_central',
@@ -192,6 +236,8 @@ class WorldRegionCatalog {
       latitude: 0.8,
       longitude: 16.0,
       countryCodes: {'CM', 'GA', 'CG', 'CD'},
+      mapX: 0.544,
+      mapY: 0.496,
     ),
     WorldRegionDefinition(
       code: 'africa_oriental',
@@ -200,6 +246,8 @@ class WorldRegionCatalog {
       latitude: 3.0,
       longitude: 36.0,
       countryCodes: {'ET', 'KE', 'TZ', 'UG'},
+      mapX: 0.600,
+      mapY: 0.483,
     ),
     WorldRegionDefinition(
       code: 'africa_austral',
@@ -208,6 +256,8 @@ class WorldRegionCatalog {
       latitude: -23.0,
       longitude: 24.0,
       countryCodes: {'ZA', 'NA', 'BW', 'ZW', 'ZM'},
+      mapX: 0.567,
+      mapY: 0.628,
     ),
 
     // 🌏 Asia
@@ -233,6 +283,8 @@ class WorldRegionCatalog {
         'BH',
         'PS',
       },
+      mapX: 0.622,
+      mapY: 0.342,
     ),
     WorldRegionDefinition(
       code: 'asia_central',
@@ -241,6 +293,8 @@ class WorldRegionCatalog {
       latitude: 42.0,
       longitude: 67.0,
       countryCodes: {'KZ', 'UZ', 'TM', 'KG', 'TJ'},
+      mapX: 0.686,
+      mapY: 0.267,
     ),
     WorldRegionDefinition(
       code: 'subcontinente_indio',
@@ -249,6 +303,8 @@ class WorldRegionCatalog {
       latitude: 22.0,
       longitude: 79.0,
       countryCodes: {'IN', 'PK', 'BD', 'NP', 'LK'},
+      mapX: 0.719,
+      mapY: 0.378,
     ),
     WorldRegionDefinition(
       code: 'sudeste_asiatico',
@@ -257,6 +313,8 @@ class WorldRegionCatalog {
       latitude: 12.0,
       longitude: 106.0,
       countryCodes: {'TH', 'VN', 'ID', 'MY', 'PH', 'SG', 'KH', 'LA', 'MM'},
+      mapX: 0.794,
+      mapY: 0.433,
     ),
     WorldRegionDefinition(
       code: 'asia_oriental',
@@ -265,6 +323,8 @@ class WorldRegionCatalog {
       latitude: 36.0,
       longitude: 120.0,
       countryCodes: {'CN', 'JP', 'KR', 'KP', 'MN', 'HK', 'TW'},
+      mapX: 0.797,
+      mapY: 0.340,
     ),
 
     // 🌊 Extra geográfico necesario
@@ -275,6 +335,8 @@ class WorldRegionCatalog {
       latitude: -22.0,
       longitude: 146.0,
       countryCodes: {'AU', 'NZ', 'FJ', 'PG', 'WS'},
+      mapX: 0.906,
+      mapY: 0.622,
     ),
   ];
 

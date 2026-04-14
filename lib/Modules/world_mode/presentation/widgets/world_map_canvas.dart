@@ -1,20 +1,65 @@
-import 'dart:math';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/country_entity.dart';
 
-class WorldMapCanvas extends StatelessWidget {
+class WorldMapCanvas extends StatefulWidget {
   const WorldMapCanvas({
     super.key,
     required this.countries,
     required this.selectedCountryCode,
     required this.onCountryTap,
+    this.interactive = true,
+    this.showHint = true,
+    this.minScale = 1.0,
+    this.maxScale = 3.2,
   });
 
   final List<CountryEntity> countries;
   final String? selectedCountryCode;
   final ValueChanged<CountryEntity> onCountryTap;
+  final bool interactive;
+  final bool showHint;
+  final double minScale;
+  final double maxScale;
+
+  @override
+  State<WorldMapCanvas> createState() => _WorldMapCanvasState();
+}
+
+class _WorldMapCanvasState extends State<WorldMapCanvas> {
+  static const Size _sourceMapSize = Size(1500, 844);
+  static const double _panEnableThreshold = 1.01;
+
+  final TransformationController _transformController =
+      TransformationController();
+  bool _panEnabled = false;
+
+  @override
+  void didUpdateWidget(covariant WorldMapCanvas oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.interactive && !widget.interactive) {
+      _transformController.value = Matrix4.identity();
+      if (_panEnabled) {
+        setState(() => _panEnabled = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _transformController.dispose();
+    super.dispose();
+  }
+
+  void _syncPanState() {
+    final scale = _transformController.value.getMaxScaleOnAxis();
+    final shouldEnablePan = scale > _panEnableThreshold;
+    if (shouldEnablePan == _panEnabled) return;
+    setState(() => _panEnabled = shouldEnablePan);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,56 +85,99 @@ class WorldMapCanvas extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            const virtualWidth = 1600.0;
-            const virtualHeight = 820.0;
+            final mapWidth = constraints.maxWidth.clamp(1.0, double.infinity);
+            final mapHeight = constraints.maxHeight.clamp(1.0, double.infinity);
+            final mapRect = _fittedRect(
+              src: _sourceMapSize,
+              dst: Size(mapWidth, mapHeight),
+            );
 
-            return InteractiveViewer(
-              minScale: 1.0,
-              maxScale: 3.2,
-              constrained: false,
-              child: SizedBox(
-                width: virtualWidth,
-                height: virtualHeight,
+            final mapLayer = SizedBox(
+              width: mapWidth,
+              height: mapHeight,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTapUp: kDebugMode
+                    ? (details) => _logNormalizedTap(
+                        details: details,
+                        mapRect: mapRect,
+                        countries: widget.countries,
+                      )
+                    : null,
                 child: Stack(
                   children: [
-                    CustomPaint(
-                      size: const Size(virtualWidth, virtualHeight),
-                      painter: _MapGridPainter(scheme),
-                    ),
-                    for (final country in countries)
-                      _CountryPoint(
-                        country: country,
-                        selected: selectedCountryCode == country.code,
-                        onTap: () => onCountryTap(country),
-                        x: _lonToX(country.longitude, virtualWidth),
-                        y: _latToY(country.latitude, virtualHeight),
+                    Positioned.fromRect(
+                      rect: mapRect,
+                      child: Image.asset(
+                        'assets/ui/Mapa-Mundi.jpg',
+                        fit: BoxFit.fill,
                       ),
-                    Positioned(
-                      right: 14,
-                      top: 10,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
+                    ),
+                    Positioned.fromRect(
+                      rect: mapRect,
+                      child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: scheme.surface.withValues(alpha: 0.75),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: scheme.outlineVariant.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: Text(
-                          'Pinch para zoom · arrastra para explorar',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.10),
+                              Colors.black.withValues(alpha: 0.22),
+                            ],
                           ),
                         ),
                       ),
                     ),
+                    for (final country in widget.countries)
+                      _buildCountryPoint(
+                        country: country,
+                        selectedCountryCode: widget.selectedCountryCode,
+                        onCountryTap: widget.onCountryTap,
+                        mapRect: mapRect,
+                      ),
+                    if (widget.showHint)
+                      Positioned(
+                        right: 14,
+                        top: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: scheme.surface.withValues(alpha: 0.75),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: scheme.outlineVariant.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            _panEnabled
+                                ? 'Zoom activo · puedes arrastrar el mapa'
+                                : 'Pinch para zoom · luego arrastra',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
+            );
+
+            if (!widget.interactive) return mapLayer;
+            return InteractiveViewer(
+              transformationController: _transformController,
+              minScale: widget.minScale,
+              maxScale: widget.maxScale,
+              constrained: false,
+              panEnabled: _panEnabled,
+              onInteractionUpdate: (_) => _syncPanState(),
+              onInteractionEnd: (_) => _syncPanState(),
+              child: mapLayer,
             );
           },
         ),
@@ -97,12 +185,82 @@ class WorldMapCanvas extends StatelessWidget {
     );
   }
 
-  static double _lonToX(double lon, double width) {
-    return ((lon + 180.0) / 360.0) * width;
+  static void _logNormalizedTap({
+    required TapUpDetails details,
+    required Rect mapRect,
+    required List<CountryEntity> countries,
+  }) {
+    final local = details.localPosition;
+    if (!mapRect.contains(local)) return;
+    final nx = ((local.dx - mapRect.left) / mapRect.width).clamp(0.0, 1.0);
+    final ny = ((local.dy - mapRect.top) / mapRect.height).clamp(0.0, 1.0);
+
+    CountryEntity? nearest;
+    double bestDistanceSq = double.infinity;
+    for (final country in countries) {
+      final dx = nx - country.mapX;
+      final dy = ny - country.mapY;
+      final distSq = (dx * dx) + (dy * dy);
+      if (distSq < bestDistanceSq) {
+        bestDistanceSq = distSq;
+        nearest = country;
+      }
+    }
+
+    if (nearest == null) {
+      debugPrint(
+        '[WorldMap] tap mapX=${nx.toStringAsFixed(3)} mapY=${ny.toStringAsFixed(3)}',
+      );
+      return;
+    }
+
+    final distance = math.sqrt(bestDistanceSq);
+    debugPrint(
+      '[WorldMapCal] nearest=${nearest.code} '
+      'current=(${nearest.mapX.toStringAsFixed(3)},${nearest.mapY.toStringAsFixed(3)}) '
+      'suggested=(${nx.toStringAsFixed(3)},${ny.toStringAsFixed(3)}) '
+      'distance=${distance.toStringAsFixed(4)}',
+    );
   }
 
-  static double _latToY(double lat, double height) {
-    return ((90.0 - lat) / 180.0) * height;
+  static Widget _buildCountryPoint({
+    required CountryEntity country,
+    required String? selectedCountryCode,
+    required ValueChanged<CountryEntity> onCountryTap,
+    required Rect mapRect,
+  }) {
+    assert(
+      country.mapX >= 0.0 &&
+          country.mapX <= 1.0 &&
+          country.mapY >= 0.0 &&
+          country.mapY <= 1.0,
+      'mapX/mapY fuera de rango para ${country.code}: '
+      '${country.mapX}, ${country.mapY}',
+    );
+    return _CountryPoint(
+      country: country,
+      selected: selectedCountryCode == country.code,
+      onTap: () => onCountryTap(country),
+      x: mapRect.left + (country.mapX * mapRect.width),
+      y: mapRect.top + (country.mapY * mapRect.height),
+    );
+  }
+
+  static Rect _fittedRect({required Size src, required Size dst}) {
+    final srcAspect = src.width / src.height;
+    final dstAspect = dst.width / dst.height;
+
+    if (srcAspect > dstAspect) {
+      final renderWidth = dst.width;
+      final renderHeight = renderWidth / srcAspect;
+      final dy = (dst.height - renderHeight) / 2;
+      return Rect.fromLTWH(0, dy, renderWidth, renderHeight);
+    }
+
+    final renderHeight = dst.height;
+    final renderWidth = renderHeight * srcAspect;
+    final dx = (dst.width - renderWidth) / 2;
+    return Rect.fromLTWH(dx, 0, renderWidth, renderHeight);
   }
 }
 
@@ -126,11 +284,12 @@ class _CountryPoint extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final color = selected ? scheme.primary : _regionColor(country.regionKey);
-    final radius = selected ? 7.0 : 5.0;
+    final dotSize = selected ? 16.0 : 12.0;
+    final innerDotSize = selected ? 4.8 : 3.6;
 
     return Positioned(
-      left: x - (selected ? 10 : 8),
-      top: y - (selected ? 10 : 8),
+      left: x - (dotSize / 2),
+      top: y - (dotSize / 2),
       child: Tooltip(
         message: country.name,
         waitDuration: const Duration(milliseconds: 140),
@@ -140,8 +299,8 @@ class _CountryPoint extends StatelessWidget {
             onTap: onTap,
             borderRadius: BorderRadius.circular(999),
             child: Container(
-              width: selected ? 20 : 16,
-              height: selected ? 20 : 16,
+              width: dotSize,
+              height: dotSize,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: color.withValues(alpha: 0.9),
@@ -149,20 +308,20 @@ class _CountryPoint extends StatelessWidget {
                   color: selected
                       ? scheme.onPrimary.withValues(alpha: 0.85)
                       : scheme.surface.withValues(alpha: 0.8),
-                  width: selected ? 2.0 : 1.2,
+                  width: selected ? 1.6 : 1.0,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: color.withValues(alpha: selected ? 0.45 : 0.28),
-                    blurRadius: selected ? 12 : 8,
+                    blurRadius: selected ? 10 : 7,
                     spreadRadius: selected ? 0.6 : 0,
                   ),
                 ],
               ),
               child: Center(
                 child: Container(
-                  width: radius,
-                  height: radius,
+                  width: innerDotSize,
+                  height: innerDotSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.white.withValues(
@@ -193,47 +352,5 @@ class _CountryPoint extends StatelessWidget {
       default:
         return Colors.white;
     }
-  }
-}
-
-class _MapGridPainter extends CustomPainter {
-  const _MapGridPainter(this.scheme);
-
-  final ColorScheme scheme;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final gridPaint = Paint()
-      ..color = scheme.outlineVariant.withValues(alpha: 0.22)
-      ..strokeWidth = 1.0;
-
-    const lonStep = 200.0;
-    const latStep = 120.0;
-    for (double x = 0; x <= size.width; x += lonStep) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 0; y <= size.height; y += latStep) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    final wavePaint = Paint()
-      ..color = scheme.primary.withValues(alpha: 0.16)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
-    final path = Path();
-    for (double x = 0; x <= size.width; x++) {
-      final y = size.height * 0.5 + sin(x / 72) * 28 + cos(x / 113) * 10;
-      if (x == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    canvas.drawPath(path, wavePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _MapGridPainter oldDelegate) {
-    return oldDelegate.scheme != scheme;
   }
 }

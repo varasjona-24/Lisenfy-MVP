@@ -84,6 +84,7 @@ flutter:
     - assets/ui/aguja.png
     - assets/ui/vinyl.png
     - assets/ui/volumen.svg
+    - assets/ui/Mapa-Mundi.jpg
     - assets/logo/listenfy_logo.svg
     - assets/hrtf/default.sofa
 
