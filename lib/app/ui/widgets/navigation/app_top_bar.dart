@@ -14,6 +14,8 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showWorldModeAction;
   final VoidCallback? onLocalConnect;
   final bool showLocalConnectAction;
+  final bool showSettingsAction;
+  final VoidCallback? onSettings;
   final AppMediaMode mode;
 
   const AppTopBar({
@@ -26,6 +28,8 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.showWorldModeAction = true,
     this.onLocalConnect,
     this.showLocalConnectAction = true,
+    this.showSettingsAction = true,
+    this.onSettings,
     this.mode = AppMediaMode.audio, // ✅ default
   });
 
@@ -66,24 +70,13 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
             onPressed: onToggleMode,
           ),
 
-        if (showWorldModeAction)
-          IconButton(
-            icon: const Icon(Icons.public_rounded),
-            tooltip: 'Listenfy Atlas',
-            onPressed: onWorldMode ?? () => Get.toNamed(AppRoutes.worldMode),
-          ),
-
-        if (showLocalConnectAction)
-          IconButton(
-            icon: const Icon(Icons.cast_connected_rounded),
-            tooltip: 'Listenfy Local Connect',
-            onPressed:
-                onLocalConnect ?? () => Get.toNamed(AppRoutes.localConnect),
-          ),
-
-        IconButton(
-          icon: const Icon(Icons.settings),
-          onPressed: () => Get.toNamed(AppRoutes.settings),
+        _TopBarOverflowMenu(
+          showWorldModeAction: showWorldModeAction,
+          onWorldMode: onWorldMode,
+          showLocalConnectAction: showLocalConnectAction,
+          onLocalConnect: onLocalConnect,
+          showSettingsAction: showSettingsAction,
+          onSettings: onSettings,
         ),
       ],
     );
@@ -91,4 +84,91 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+}
+
+enum _TopBarMenuAction { worldMode, localConnect, settings }
+
+class _TopBarOverflowMenu extends StatelessWidget {
+  const _TopBarOverflowMenu({
+    required this.showWorldModeAction,
+    required this.onWorldMode,
+    required this.showLocalConnectAction,
+    required this.onLocalConnect,
+    required this.showSettingsAction,
+    required this.onSettings,
+  });
+
+  final bool showWorldModeAction;
+  final VoidCallback? onWorldMode;
+  final bool showLocalConnectAction;
+  final VoidCallback? onLocalConnect;
+  final bool showSettingsAction;
+  final VoidCallback? onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = <PopupMenuEntry<_TopBarMenuAction>>[
+      if (showWorldModeAction)
+        const PopupMenuItem<_TopBarMenuAction>(
+          value: _TopBarMenuAction.worldMode,
+          child: _TopBarMenuItemRow(
+            icon: Icons.public_rounded,
+            label: 'Listenfy Atlas',
+          ),
+        ),
+      if (showLocalConnectAction)
+        const PopupMenuItem<_TopBarMenuAction>(
+          value: _TopBarMenuAction.localConnect,
+          child: _TopBarMenuItemRow(
+            icon: Icons.cast_connected_rounded,
+            label: 'Listenfy Local Connect',
+          ),
+        ),
+      if (showSettingsAction && (showWorldModeAction || showLocalConnectAction))
+        const PopupMenuDivider(height: 8),
+      if (showSettingsAction)
+        const PopupMenuItem<_TopBarMenuAction>(
+          value: _TopBarMenuAction.settings,
+          child: _TopBarMenuItemRow(icon: Icons.settings, label: 'Ajustes'),
+        ),
+    ];
+
+    if (entries.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return PopupMenuButton<_TopBarMenuAction>(
+      tooltip: 'Más opciones',
+      icon: const Icon(Icons.more_vert_rounded),
+      onSelected: (value) {
+        switch (value) {
+          case _TopBarMenuAction.worldMode:
+            (onWorldMode ?? () => Get.toNamed(AppRoutes.worldMode)).call();
+            break;
+          case _TopBarMenuAction.localConnect:
+            (onLocalConnect ?? () => Get.toNamed(AppRoutes.localConnect))
+                .call();
+            break;
+          case _TopBarMenuAction.settings:
+            (onSettings ?? () => Get.toNamed(AppRoutes.settings)).call();
+            break;
+        }
+      },
+      itemBuilder: (context) => entries,
+    );
+  }
+}
+
+class _TopBarMenuItemRow extends StatelessWidget {
+  const _TopBarMenuItemRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [Icon(icon, size: 18), const SizedBox(width: 10), Text(label)],
+    );
+  }
 }

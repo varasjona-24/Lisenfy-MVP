@@ -24,6 +24,7 @@ class DownloadHistoryController
   final LoadDownloadHistoryItemsUseCase _loadHistoryItemsUseCase;
   final HomeController? _homeController;
   Worker? _homeWorker;
+  final RxBool gridView = false.obs;
 
   // ============================
   // 🚀 INIT
@@ -113,6 +114,10 @@ class DownloadHistoryController
         groups: projected.groups,
       ),
     );
+  }
+
+  void toggleGridView() {
+    gridView.value = !gridView.value;
   }
 
   void _syncFilterWithHome() {

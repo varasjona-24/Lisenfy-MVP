@@ -127,6 +127,98 @@ class MediaActionsController extends GetxController {
   }
 
   // ============================
+  // 🗑️ ELIMINAR MÚLTIPLES
+  // ============================
+  Future<void> deleteMultipleFromDevice(
+    List<MediaItem> items, {
+    Future<void> Function()? onChanged,
+  }) async {
+    if (items.isEmpty) return;
+
+    try {
+      var deletedCount = 0;
+      var failedCount = 0;
+
+      for (final item in items) {
+        try {
+          for (final v in item.variants) {
+            final pth = v.localPath;
+            if (pth != null && pth.isNotEmpty) {
+              final f = File(pth);
+              if (await f.exists()) await f.delete();
+            }
+          }
+          await _store.remove(item.id);
+          deletedCount++;
+        } catch (e) {
+          debugPrint('Error deleting media ${item.id}: $e');
+          failedCount++;
+        }
+      }
+
+      if (onChanged != null) await onChanged();
+
+      if (deletedCount > 0) {
+        final msg = deletedCount == 1
+            ? 'Se eliminó 1 archivo'
+            : 'Se eliminaron $deletedCount archivos';
+        Get.snackbar(
+          'Imports',
+          failedCount > 0
+              ? '$msg ($failedCount error${failedCount > 1 ? 's' : ''})'
+              : msg,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      } else if (failedCount > 0) {
+        Get.snackbar(
+          'Imports',
+          'Error al eliminar archivos',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error in deleteMultipleFromDevice: $e');
+      Get.snackbar(
+        'Imports',
+        'Error al eliminar archivos',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Future<void> confirmDeleteMultiple(
+    BuildContext context,
+    List<MediaItem> items, {
+    Future<void> Function()? onChanged,
+  }) async {
+    if (items.isEmpty) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar archivos'),
+        content: Text(
+          '¿Eliminar ${items.length} archivo${items.length > 1 ? 's' : ''} importado${items.length > 1 ? 's' : ''}?\n\nEsta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      await deleteMultipleFromDevice(items, onChanged: onChanged);
+    }
+  }
+
+  // ============================
   // 📤 COMPARTIR
   // ============================
   Future<void> shareMediaExternally(MediaItem item) async {
@@ -248,6 +340,7 @@ class MediaActionsController extends GetxController {
     BuildContext context,
     MediaItem item, {
     Future<void> Function()? onChanged,
+    VoidCallback? onStartMultiSelect,
   }) async {
     final theme = Theme.of(context);
     final nav = Get.isRegistered<NavigationController>()
@@ -286,6 +379,17 @@ class MediaActionsController extends GetxController {
                     Navigator.of(ctx).pop();
                   },
                 ),
+                if (onStartMultiSelect != null)
+                  ListTile(
+                    leading: const Icon(Icons.checklist_rtl_rounded),
+                    title: const Text('Seleccionar varios'),
+                    onTap: () {
+                      pendingAction = () async {
+                        onStartMultiSelect();
+                      };
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
                 ListTile(
                   leading: Icon(
                     selected.isFavorite

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/controllers/media_actions_controller.dart';
+import '../../../../app/models/media_item.dart';
+import '../../../../app/routes/app_routes.dart';
 import '../../../../app/ui/themes/app_spacing.dart';
 import '../../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
@@ -69,11 +71,28 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                        child: Text(
-                          'Historial de imports',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Historial de imports',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: controller.gridView.value
+                                  ? 'Ver como lista'
+                                  : 'Ver como cuadrícula',
+                              onPressed: controller.toggleGridView,
+                              icon: Icon(
+                                controller.gridView.value
+                                    ? Icons.view_list_rounded
+                                    : Icons.grid_view_rounded,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       DownloadHistoryFilterRow(
@@ -102,9 +121,51 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                     context,
                     item,
                     onChanged: controller.loadHistory,
+                    onStartMultiSelect: () {
+                      final list = vm.filteredItems.toList(growable: false);
+                      final initialIndex = list.indexWhere(
+                        (e) => e.id == item.id,
+                      );
+                      Get.toNamed(
+                        AppRoutes.homeSectionList,
+                        arguments: {
+                          'title': 'Historial de imports',
+                          'items': list,
+                          'onItemTap': (MediaItem tapped, int index) =>
+                              home.openMedia(
+                                tapped,
+                                index < 0
+                                    ? (initialIndex < 0 ? 0 : initialIndex)
+                                    : index,
+                                list,
+                              ),
+                          'onItemLongPress':
+                              (
+                                MediaItem target,
+                                int _, {
+                                VoidCallback? onStartMultiSelect,
+                              }) => actions.showItemActions(
+                                context,
+                                target,
+                                onChanged: controller.loadHistory,
+                                onStartMultiSelect: onStartMultiSelect,
+                              ),
+                          'onDeleteSelected': (List<MediaItem> selected) async {
+                            await actions.confirmDeleteMultiple(
+                              context,
+                              selected,
+                              onChanged: controller.loadHistory,
+                            );
+                          },
+                          'startInSelectionMode': true,
+                          'initialSelectionItemId': item.id,
+                        },
+                      );
+                    },
                   ),
                   timeBuilder: controller.formatTime,
                   fallbackIcon: Icons.cloud_download_rounded,
+                  gridMode: controller.gridView.value,
                 );
               },
             ),

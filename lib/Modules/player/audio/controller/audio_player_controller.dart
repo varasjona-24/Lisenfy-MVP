@@ -16,6 +16,11 @@ enum CoverStyle { square, vinyl, wave, miniSpectrum }
 enum RepeatMode { off, once, loop }
 
 class AudioPlayerController extends GetxController {
+  static const List<CoverStyle> availableCoverStyles = <CoverStyle>[
+    CoverStyle.square,
+    CoverStyle.vinyl,
+  ];
+
   final AudioService audioService;
   final SpatialAudioService _spatial = Get.find<SpatialAudioService>();
   final PlaybackSettingsController _settings =
@@ -56,6 +61,8 @@ class AudioPlayerController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+
+    _normalizeCoverStyle();
 
     isShuffling.value = audioService.shuffleEnabled;
     _restoreRepeatMode();
@@ -521,14 +528,26 @@ class AudioPlayerController extends GetxController {
   }
 
   void toggleCoverStyle() {
-    final all = CoverStyle.values;
-    final idx = all.indexOf(coverStyle.value);
+    final all = availableCoverStyles;
+    final current = normalizeCoverStyle(coverStyle.value);
+    final idx = all.indexOf(current);
     final next = (idx + 1) % all.length;
     coverStyle.value = all[next];
   }
 
   void setCoverStyle(CoverStyle style) {
-    coverStyle.value = style;
+    coverStyle.value = normalizeCoverStyle(style);
+  }
+
+  CoverStyle normalizeCoverStyle(CoverStyle style) {
+    return availableCoverStyles.contains(style) ? style : CoverStyle.square;
+  }
+
+  void _normalizeCoverStyle() {
+    final normalized = normalizeCoverStyle(coverStyle.value);
+    if (normalized != coverStyle.value) {
+      coverStyle.value = normalized;
+    }
   }
 
   Future<void> toggleShuffle() async {

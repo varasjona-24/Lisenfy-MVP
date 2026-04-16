@@ -9,6 +9,7 @@ import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
+import '../../../app/ui/widgets/media/media_item_grid.dart';
 import '../../../app/models/media_item.dart';
 import '../controller/playlists_controller.dart';
 import '../domain/playlist.dart';
@@ -89,19 +90,32 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   )
-                else
-                  ...items.asMap().entries.map(
-                    (entry) => _trackTile(
+                else ...[
+                  _tracksHeader(theme, items.length),
+                  const SizedBox(height: 10),
+                  if (controller.detailGridView.value)
+                    _trackGrid(
                       context,
                       theme,
-                      entry.value,
-                      entry.key,
                       items,
                       playlist,
                       isSmart,
                       actions,
+                    )
+                  else
+                    ...items.asMap().entries.map(
+                      (entry) => _trackTile(
+                        context,
+                        theme,
+                        entry.value,
+                        entry.key,
+                        items,
+                        playlist,
+                        isSmart,
+                        actions,
+                      ),
                     ),
-                  ),
+                ],
               ],
             ),
           ),
@@ -201,6 +215,32 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
     );
   }
 
+  Widget _tracksHeader(ThemeData theme, int count) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '$count canciones',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: controller.detailGridView.value
+              ? 'Ver como lista'
+              : 'Ver como cuadrícula',
+          onPressed: controller.toggleDetailGridView,
+          icon: Icon(
+            controller.detailGridView.value
+                ? Icons.view_list_rounded
+                : Icons.grid_view_rounded,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _trackTile(
     BuildContext context,
     ThemeData theme,
@@ -241,51 +281,196 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: PopupMenuButton<_TrackAction>(
-        icon: const Icon(Icons.more_vert),
-        onSelected: (action) async {
-          switch (action) {
-            case _TrackAction.removeFromPlaylist:
-              if (playlist == null) return;
-              await controller.removeItemFromPlaylist(playlist.id, item);
-              if (context.mounted) {
-                Get.snackbar(
-                  'Playlist',
-                  'Canción eliminada de la lista',
-                  snackPosition: SnackPosition.BOTTOM,
-                );
-              }
-              break;
-            case _TrackAction.moreActions:
-              await actions.showItemActions(
-                context,
-                item,
-                onChanged: controller.load,
-              );
-              break;
-          }
-        },
-        itemBuilder: (ctx) => [
-          if (canRemoveFromPlaylist)
-            const PopupMenuItem<_TrackAction>(
-              value: _TrackAction.removeFromPlaylist,
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.remove_circle_outline_rounded),
-                title: Text('Quitar de esta playlist'),
-              ),
-            ),
-          const PopupMenuItem<_TrackAction>(
-            value: _TrackAction.moreActions,
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.tune_rounded),
-              title: Text('Más acciones'),
-            ),
-          ),
-        ],
+      trailing: _trackMenuButton(
+        context: context,
+        item: item,
+        queue: queue,
+        playlist: playlist,
+        isSmartPlaylist: isSmartPlaylist,
+        actions: actions,
+        canRemoveFromPlaylist: canRemoveFromPlaylist,
       ),
     );
+  }
+
+  Widget _trackGrid(
+    BuildContext context,
+    ThemeData theme,
+    List<MediaItem> queue,
+    Playlist? playlist,
+    bool isSmartPlaylist,
+    MediaActionsController actions,
+  ) {
+    return MediaItemGrid(
+      items: queue,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      childAspectRatio: 0.78,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      onTap: (item, index) => _play(queue, index),
+      onMore: (item, index) => _openTrackActionSheet(
+        context: context,
+        item: item,
+        queue: queue,
+        playlist: playlist,
+        isSmartPlaylist: isSmartPlaylist,
+        actions: actions,
+        canRemoveFromPlaylist: !isSmartPlaylist && playlist != null,
+      ),
+    );
+  }
+
+  Widget _trackMenuButton({
+    required BuildContext context,
+    required MediaItem item,
+    required List<MediaItem> queue,
+    required Playlist? playlist,
+    required bool isSmartPlaylist,
+    required MediaActionsController actions,
+    required bool canRemoveFromPlaylist,
+  }) {
+    return PopupMenuButton<_TrackAction>(
+      icon: const Icon(Icons.more_vert),
+      onSelected: (action) => _handleTrackAction(
+        context: context,
+        action: action,
+        item: item,
+        queue: queue,
+        playlist: playlist,
+        isSmartPlaylist: isSmartPlaylist,
+        actions: actions,
+      ),
+      itemBuilder: (ctx) => [
+        if (canRemoveFromPlaylist)
+          const PopupMenuItem<_TrackAction>(
+            value: _TrackAction.removeFromPlaylist,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.remove_circle_outline_rounded),
+              title: Text('Quitar de esta playlist'),
+            ),
+          ),
+        const PopupMenuItem<_TrackAction>(
+          value: _TrackAction.moreActions,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.tune_rounded),
+            title: Text('Más acciones'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openTrackActionSheet({
+    required BuildContext context,
+    required MediaItem item,
+    required List<MediaItem> queue,
+    required Playlist? playlist,
+    required bool isSmartPlaylist,
+    required MediaActionsController actions,
+    required bool canRemoveFromPlaylist,
+  }) async {
+    final action = await showModalBottomSheet<_TrackAction>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (canRemoveFromPlaylist)
+                ListTile(
+                  leading: const Icon(Icons.remove_circle_outline_rounded),
+                  title: const Text('Quitar de esta playlist'),
+                  onTap: () =>
+                      Navigator.of(ctx).pop(_TrackAction.removeFromPlaylist),
+                ),
+              ListTile(
+                leading: const Icon(Icons.tune_rounded),
+                title: const Text('Más acciones'),
+                onTap: () => Navigator.of(ctx).pop(_TrackAction.moreActions),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (action == null || !context.mounted) return;
+    await _handleTrackAction(
+      context: context,
+      action: action,
+      item: item,
+      queue: queue,
+      playlist: playlist,
+      isSmartPlaylist: isSmartPlaylist,
+      actions: actions,
+    );
+  }
+
+  Future<void> _handleTrackAction({
+    required BuildContext context,
+    required _TrackAction action,
+    required MediaItem item,
+    required List<MediaItem> queue,
+    required Playlist? playlist,
+    required bool isSmartPlaylist,
+    required MediaActionsController actions,
+  }) async {
+    switch (action) {
+      case _TrackAction.removeFromPlaylist:
+        if (playlist == null) return;
+        await controller.removeItemFromPlaylist(playlist.id, item);
+        if (context.mounted) {
+          Get.snackbar(
+            'Playlist',
+            'Canción eliminada de la lista',
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        }
+        break;
+      case _TrackAction.moreActions:
+        await actions.showItemActions(
+          context,
+          item,
+          onChanged: controller.load,
+          onStartMultiSelect: () {
+            Get.toNamed(
+              AppRoutes.homeSectionList,
+              arguments: {
+                'title': isSmartPlaylist
+                    ? 'Playlist inteligente'
+                    : (playlist?.name ?? 'Playlist'),
+                'items': queue,
+                'onItemTap': (MediaItem tapped, int tapIndex) =>
+                    _play(queue, tapIndex < 0 ? 0 : tapIndex),
+                'onItemLongPress':
+                    (
+                      MediaItem target,
+                      int _, {
+                      VoidCallback? onStartMultiSelect,
+                    }) => actions.showItemActions(
+                      context,
+                      target,
+                      onChanged: controller.load,
+                      onStartMultiSelect: onStartMultiSelect,
+                    ),
+                'onDeleteSelected': (List<MediaItem> selected) async {
+                  await actions.confirmDeleteMultiple(
+                    context,
+                    selected,
+                    onChanged: controller.load,
+                  );
+                },
+                'startInSelectionMode': true,
+                'initialSelectionItemId': item.id,
+              },
+            );
+          },
+        );
+        break;
+    }
   }
 
   void _play(List<MediaItem> queue, int index) {

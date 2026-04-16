@@ -93,6 +93,9 @@ abstract class AppPages {
           onInterested: args['onInterested'],
           onHideTrack: args['onHideTrack'],
           onHideArtist: args['onHideArtist'],
+          onDeleteSelected: args['onDeleteSelected'],
+          startInSelectionMode: args['startInSelectionMode'] == true,
+          initialSelectionItemId: args['initialSelectionItemId'],
         );
       },
       transition: Transition.rightToLeft,

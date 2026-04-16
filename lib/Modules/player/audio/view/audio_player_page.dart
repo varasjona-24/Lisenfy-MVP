@@ -13,12 +13,17 @@ import '../../../../app/services/spatial_audio_service.dart';
 
 void openPlayerVisualStyleSheet({
   required CoverStyle currentStyle,
+  required List<CoverStyle> options,
   required ValueChanged<CoverStyle> onSelected,
 }) {
   if (Get.isBottomSheetOpen ?? false) return;
 
   Get.bottomSheet<void>(
-    _PlayerVisualStyleSheet(currentStyle: currentStyle, onSelected: onSelected),
+    _PlayerVisualStyleSheet(
+      currentStyle: currentStyle,
+      options: options,
+      onSelected: onSelected,
+    ),
     isScrollControlled: false,
     useRootNavigator: true,
     ignoreSafeArea: false,
@@ -75,7 +80,9 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
           child: Obx(() {
             final queue = controller.queue;
             final idx = controller.currentIndex.value;
-            final coverStyle = controller.coverStyle.value;
+            final coverStyle = controller.normalizeCoverStyle(
+              controller.coverStyle.value,
+            );
             final item = (queue.isNotEmpty && idx >= 0 && idx < queue.length)
                 ? queue[idx]
                 : null;
@@ -169,6 +176,8 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                                 value: _coverStyleLabel(coverStyle),
                                 onTap: () => openPlayerVisualStyleSheet(
                                   currentStyle: coverStyle,
+                                  options:
+                                      AudioPlayerController.availableCoverStyles,
                                   onSelected: controller.setCoverStyle,
                                 ),
                               ),
@@ -278,10 +287,12 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
 class _PlayerVisualStyleSheet extends StatelessWidget {
   const _PlayerVisualStyleSheet({
     required this.currentStyle,
+    required this.options,
     required this.onSelected,
   });
 
   final CoverStyle currentStyle;
+  final List<CoverStyle> options;
   final ValueChanged<CoverStyle> onSelected;
 
   IconData _iconFor(CoverStyle style) {
@@ -328,7 +339,7 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
-                children: CoverStyle.values
+                children: options
                     .map((style) {
                       final selected = style == currentStyle;
                       return ChoiceChip(

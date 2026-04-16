@@ -3,11 +3,15 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import '../../../app/models/media_item.dart';
+import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
+import '../../../app/ui/widgets/media/media_item_grid.dart';
+import '../controller/home_controller.dart';
 
 class SectionListPage extends StatefulWidget {
   const SectionListPage({
@@ -21,17 +25,28 @@ class SectionListPage extends StatefulWidget {
     this.onInterested,
     this.onHideTrack,
     this.onHideArtist,
+    this.onDeleteSelected,
+    this.startInSelectionMode = false,
+    this.initialSelectionItemId,
   });
 
   final String title;
   final List<MediaItem> items;
   final FutureOr<void> Function(MediaItem item, int index) onItemTap;
-  final FutureOr<void> Function(MediaItem item, int index) onItemLongPress;
+  final FutureOr<void> Function(
+    MediaItem item,
+    int index, {
+    VoidCallback? onStartMultiSelect,
+  })
+  onItemLongPress;
   final void Function(List<MediaItem> queue)? onShuffle;
   final String? Function(MediaItem item, int index)? itemHintBuilder;
   final FutureOr<void> Function(MediaItem item, int index)? onInterested;
   final FutureOr<void> Function(MediaItem item, int index)? onHideTrack;
   final FutureOr<void> Function(MediaItem item, int index)? onHideArtist;
+  final FutureOr<void> Function(List<MediaItem> items)? onDeleteSelected;
+  final bool startInSelectionMode;
+  final String? initialSelectionItemId;
 
   @override
   State<SectionListPage> createState() => _SectionListPageState();
@@ -39,11 +54,30 @@ class SectionListPage extends StatefulWidget {
 
 class _SectionListPageState extends State<SectionListPage> {
   late List<MediaItem> _items;
+  bool _selectionMode = false;
+  bool _gridMode = false;
+  final Set<String> _selectedIds = <String>{};
 
   @override
   void initState() {
     super.initState();
     _items = List<MediaItem>.from(widget.items);
+    if (widget.startInSelectionMode) {
+      _selectionMode = true;
+      final initialId = widget.initialSelectionItemId?.trim();
+      if (initialId != null && initialId.isNotEmpty) {
+        MediaItem? initialItem;
+        for (final item in _items) {
+          if (item.id == initialId) {
+            initialItem = item;
+            break;
+          }
+        }
+        if (initialItem != null && _canSelect(initialItem)) {
+          _selectedIds.add(initialId);
+        }
+      }
+    }
   }
 
   @override
@@ -51,6 +85,7 @@ class _SectionListPageState extends State<SectionListPage> {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.items, widget.items)) {
       _items = List<MediaItem>.from(widget.items);
+      _selectedIds.removeWhere((id) => !_items.any((item) => item.id == id));
     }
   }
 
@@ -96,6 +131,99 @@ class _SectionListPageState extends State<SectionListPage> {
     return normalized.isEmpty ? item.title.trim().toLowerCase() : normalized;
   }
 
+  int get _selectedCount => _selectedIds.length;
+
+  List<MediaItem> get _selectedItems => _items
+      .where((item) => _selectedIds.contains(item.id))
+      .toList(growable: false);
+
+  bool _canSelect(MediaItem item) => item.isOfflineStored;
+
+  void _toggleSelectionMode([bool? enabled]) {
+    setState(() {
+      _selectionMode = enabled ?? !_selectionMode;
+      if (!_selectionMode) {
+        _selectedIds.clear();
+      }
+    });
+  }
+
+  void _toggleItemSelection(MediaItem item) {
+    if (!_canSelect(item)) {
+      Get.snackbar(
+        'Selección',
+        'Este item no tiene archivo local para borrar.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    setState(() {
+      if (_selectedIds.contains(item.id)) {
+        _selectedIds.remove(item.id);
+      } else {
+        _selectedIds.add(item.id);
+      }
+    });
+  }
+
+  void _startMultiSelectFromItem(MediaItem item) {
+    if (!_canSelect(item)) {
+      Get.snackbar(
+        'Selección',
+        'Este item no tiene archivo local para borrar.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+    setState(() {
+      _selectionMode = true;
+      _selectedIds.add(item.id);
+    });
+  }
+
+  Future<void> _deleteSelectedItems() async {
+    final selectedItems = _selectedItems;
+    final selectedIds = selectedItems.map((e) => e.id).toSet();
+    if (selectedItems.isEmpty) {
+      Get.snackbar(
+        'Selección',
+        'No hay items seleccionados.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    if (widget.onDeleteSelected != null) {
+      await widget.onDeleteSelected!.call(selectedItems);
+      if (!mounted) return;
+      setState(() {
+        _items.removeWhere((item) => selectedIds.contains(item.id));
+        _selectedIds.removeWhere((id) => selectedIds.contains(id));
+        _selectionMode = false;
+      });
+      return;
+    }
+
+    final actions = Get.find<MediaActionsController>();
+
+    await actions.confirmDeleteMultiple(
+      context,
+      selectedItems,
+      onChanged: () async {
+        if (!mounted) return;
+        setState(() {
+          _items.removeWhere((item) => selectedIds.contains(item.id));
+          _selectedIds.removeWhere((id) => selectedIds.contains(id));
+          _selectionMode = false;
+        });
+        if (Get.isRegistered<HomeController>()) {
+          await Get.find<HomeController>().loadHome();
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -104,80 +232,227 @@ class _SectionListPageState extends State<SectionListPage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: ListenfyLogo(size: 28, color: scheme.primary),
+        title: _selectionMode
+            ? Text(
+                'Seleccionados: $_selectedCount',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            : ListenfyLogo(size: 28, color: scheme.primary),
         backgroundColor: scheme.surface,
         surfaceTintColor: scheme.surface,
         foregroundColor: scheme.onSurface,
         elevation: 0,
+        actions: _selectionMode
+            ? [
+                IconButton(
+                  tooltip: 'Borrar seleccionados',
+                  onPressed: _selectedCount == 0 ? null : _deleteSelectedItems,
+                  icon: const Icon(Icons.delete_sweep_rounded),
+                ),
+                IconButton(
+                  tooltip: 'Cancelar selección',
+                  onPressed: () => _toggleSelectionMode(false),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ]
+            : [
+                IconButton(
+                  tooltip: _gridMode ? 'Ver como lista' : 'Ver cuadrícula',
+                  onPressed: () => setState(() => _gridMode = !_gridMode),
+                  icon: Icon(
+                    _gridMode
+                        ? Icons.view_list_rounded
+                        : Icons.grid_view_rounded,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Seleccionar varios',
+                  onPressed: _items.any(_canSelect)
+                      ? () => _toggleSelectionMode(true)
+                      : null,
+                  icon: const Icon(Icons.checklist_rounded),
+                ),
+              ],
       ),
       body: AppGradientBackground(
-        child: ListView.separated(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (_selectionMode) {
+              return _buildIconSelectionView(theme, constraints.maxWidth);
+            }
+            if (_gridMode) {
+              return _buildDefaultGridView(theme, constraints.maxWidth);
+            }
+            return _buildDefaultListView(theme);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.title,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        if (widget.onShuffle != null) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () {
+                final queue = List<MediaItem>.from(widget.items);
+                queue.shuffle(Random());
+                if (queue.isEmpty) return;
+                widget.onShuffle?.call(queue);
+              },
+              icon: const Icon(Icons.shuffle_rounded),
+              label: const Text('Reproducción aleatoria'),
+            ),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.md),
+      ],
+    );
+  }
+
+  Widget _buildDefaultListView(ThemeData theme) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.lg,
+      ),
+      itemCount: _items.length + 1,
+      separatorBuilder: (context, index) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildSectionHeader(theme);
+        }
+
+        final item = _items[index - 1];
+        return _MediaRow(
+          item: item,
+          hintText: widget.itemHintBuilder?.call(item, index - 1),
+          selectionMode: _selectionMode,
+          selected: _selectedIds.contains(item.id),
+          selectable: _canSelect(item),
+          onToggleSelection: () => _toggleItemSelection(item),
+          onTap: () async {
+            if (_selectionMode) {
+              _toggleItemSelection(item);
+              return;
+            }
+            await widget.onItemTap(item, index - 1);
+            if (mounted) setState(() {});
+          },
+          onLongPress: () async {
+            if (_selectionMode) {
+              _toggleItemSelection(item);
+              return;
+            }
+            await widget.onItemLongPress(
+              item,
+              index - 1,
+              onStartMultiSelect: () => _startMultiSelectFromItem(item),
+            );
+            if (mounted) setState(() {});
+          },
+          showFeedbackActions: _hasFeedbackActions,
+          onInterested: widget.onInterested == null
+              ? null
+              : () => _handleInterested(item, index - 1),
+          onHideTrack: widget.onHideTrack == null
+              ? null
+              : () => _handleHideTrack(item, index - 1),
+          onHideArtist: widget.onHideArtist == null
+              ? null
+              : () => _handleHideArtist(item, index - 1),
+          onSelectMultiple: _canSelect(item)
+              ? () => _startMultiSelectFromItem(item)
+              : null,
+        );
+      },
+    );
+  }
+
+  Widget _buildDefaultGridView(ThemeData theme, double maxWidth) {
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.md,
             AppSpacing.md,
             AppSpacing.md,
+            AppSpacing.md,
+          ),
+          sliver: SliverToBoxAdapter(child: _buildSectionHeader(theme)),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            0,
+            AppSpacing.md,
             AppSpacing.lg,
           ),
-          itemCount: _items.length + 1,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.title,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (widget.onShuffle != null) ...[
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () {
-                          final queue = List<MediaItem>.from(widget.items);
-                          queue.shuffle(Random());
-                          if (queue.isEmpty) return;
-                          widget.onShuffle?.call(queue);
-                        },
-                        icon: const Icon(Icons.shuffle_rounded),
-                        label: const Text('Reproducción aleatoria'),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.md),
-                ],
+          sliver: MediaItemSliverGrid(
+            items: _items,
+            hintBuilder: widget.itemHintBuilder,
+            onTap: (item, index) async {
+              await widget.onItemTap(item, index);
+              if (mounted) setState(() {});
+            },
+            onLongPress: (item, index) async {
+              await widget.onItemLongPress(
+                item,
+                index,
+                onStartMultiSelect: () => _startMultiSelectFromItem(item),
               );
-            }
-
-            final item = _items[index - 1];
-            return _MediaRow(
-              item: item,
-              hintText: widget.itemHintBuilder?.call(item, index - 1),
-              onTap: () async {
-                await widget.onItemTap(item, index - 1);
-                if (mounted) setState(() {});
-              },
-              onLongPress: () async {
-                await widget.onItemLongPress(item, index - 1);
-                if (mounted) setState(() {});
-              },
-              showFeedbackActions: _hasFeedbackActions,
-              onInterested: widget.onInterested == null
-                  ? null
-                  : () => _handleInterested(item, index - 1),
-              onHideTrack: widget.onHideTrack == null
-                  ? null
-                  : () => _handleHideTrack(item, index - 1),
-              onHideArtist: widget.onHideArtist == null
-                  ? null
-                  : () => _handleHideArtist(item, index - 1),
-            );
-          },
+              if (mounted) setState(() {});
+            },
+          ),
         ),
-      ),
+      ],
+    );
+  }
+
+  Widget _buildIconSelectionView(ThemeData theme, double maxWidth) {
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+          ),
+          sliver: SliverToBoxAdapter(child: _buildSectionHeader(theme)),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            0,
+            AppSpacing.md,
+            AppSpacing.lg,
+          ),
+          sliver: MediaItemSliverGrid(
+            items: _items,
+            selectionMode: true,
+            selectedBuilder: (item, index) => _selectedIds.contains(item.id),
+            selectableBuilder: (item, index) => _canSelect(item),
+            onTap: (item, index) => _toggleItemSelection(item),
+            onSelectionTap: (item, index) => _toggleItemSelection(item),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -189,9 +464,14 @@ class _MediaRow extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     required this.showFeedbackActions,
+    required this.selectionMode,
+    required this.selected,
+    required this.selectable,
+    required this.onToggleSelection,
     this.onInterested,
     this.onHideTrack,
     this.onHideArtist,
+    this.onSelectMultiple,
   });
 
   final MediaItem item;
@@ -199,9 +479,14 @@ class _MediaRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final bool showFeedbackActions;
+  final bool selectionMode;
+  final bool selected;
+  final bool selectable;
+  final VoidCallback onToggleSelection;
   final FutureOr<void> Function()? onInterested;
   final FutureOr<void> Function()? onHideTrack;
   final FutureOr<void> Function()? onHideArtist;
+  final FutureOr<void> Function()? onSelectMultiple;
 
   @override
   Widget build(BuildContext context) {
@@ -215,8 +500,16 @@ class _MediaRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: scheme.surfaceContainerHigh,
+          color: selected
+              ? scheme.primary.withValues(alpha: 0.12)
+              : scheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(16),
+          border: selected
+              ? Border.all(
+                  color: scheme.primary.withValues(alpha: 0.55),
+                  width: 1.2,
+                )
+              : null,
         ),
         child: Row(
           children: [
@@ -250,7 +543,7 @@ class _MediaRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: scheme.primary.withOpacity(0.9),
+                        color: scheme.primary.withValues(alpha: 0.9),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -259,7 +552,28 @@ class _MediaRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            if (showFeedbackActions)
+            if (selectionMode)
+              InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: selectable ? onToggleSelection : null,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(
+                    selected
+                        ? Icons.check_circle_rounded
+                        : (selectable
+                              ? Icons.radio_button_unchecked_rounded
+                              : Icons.block_rounded),
+                    color: selected
+                        ? scheme.primary
+                        : (selectable
+                              ? scheme.onSurfaceVariant
+                              : scheme.outline),
+                    size: 22,
+                  ),
+                ),
+              )
+            else if (showFeedbackActions)
               PopupMenuButton<_FeedbackAction>(
                 tooltip: 'Feedback',
                 icon: Icon(
@@ -271,6 +585,9 @@ class _MediaRow extends StatelessWidget {
                 ),
                 onSelected: (value) async {
                   switch (value) {
+                    case _FeedbackAction.selectMultiple:
+                      await onSelectMultiple?.call();
+                      break;
                     case _FeedbackAction.interested:
                       await onInterested?.call();
                       break;
@@ -283,6 +600,21 @@ class _MediaRow extends StatelessWidget {
                   }
                 },
                 itemBuilder: (context) => [
+                  if (onSelectMultiple != null)
+                    PopupMenuItem(
+                      value: _FeedbackAction.selectMultiple,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.checklist_rounded,
+                            size: 18,
+                            color: scheme.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          const Text('Seleccionar varios'),
+                        ],
+                      ),
+                    ),
                   PopupMenuItem(
                     value: _FeedbackAction.interested,
                     child: Row(
@@ -344,7 +676,7 @@ class _MediaRow extends StatelessWidget {
   }
 }
 
-enum _FeedbackAction { interested, hideTrack, hideArtist }
+enum _FeedbackAction { selectMultiple, interested, hideTrack, hideArtist }
 
 class _Thumb extends StatelessWidget {
   const _Thumb({required this.thumb});
@@ -366,7 +698,7 @@ class _Thumb extends StatelessWidget {
           width: 56,
           height: 56,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
+          errorBuilder: (context, error, stackTrace) => Container(
             width: 56,
             height: 56,
             decoration: BoxDecoration(

@@ -11,6 +11,7 @@ import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
+import '../../../app/ui/widgets/media/media_item_grid.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../home/controller/home_controller.dart';
@@ -49,6 +50,7 @@ class SourceLibraryPage extends StatefulWidget {
 class _SourceLibraryPageState extends State<SourceLibraryPage> {
   final SourcesController _sources = Get.find<SourcesController>();
   final MediaActionsController _actions = Get.find<MediaActionsController>();
+  bool _gridView = false;
 
   // ============================
   // 📚 DATA
@@ -130,9 +132,9 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
 
                     final list = snap.data ?? const <MediaItem>[];
 
-                    final hasAudio = (MediaItem e) =>
+                    bool hasAudio(MediaItem e) =>
                         e.variants.any((v) => v.kind == MediaVariantKind.audio);
-                    final hasVideo = (MediaItem e) =>
+                    bool hasVideo(MediaItem e) =>
                         e.variants.any((v) => v.kind == MediaVariantKind.video);
 
                     final modeList = widget.forceKind != null
@@ -179,6 +181,14 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                               ],
                               if (themeMeta == null ||
                                   themeMeta.onlyOffline == true) ...[
+                                if (!widget.onlyOffline) ...[
+                                  _librarySummary(
+                                    theme,
+                                    modeList.length,
+                                    displayMode,
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
                                 if (modeList.isEmpty)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 12),
@@ -192,9 +202,12 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                                           ),
                                     ),
                                   )
+                                else if (_gridView)
+                                  _itemGrid(modeList, displayMode)
                                 else
                                   ...modeList.map(
-                                    (item) => _itemTile(item, modeList),
+                                    (item) =>
+                                        _itemTile(item, modeList, displayMode),
                                   ),
                               ],
                             ],
@@ -241,9 +254,8 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
     });
   }
 
-  Widget _itemTile(MediaItem item, List<MediaItem> queue) {
-    final v =
-        item.localAudioVariant ?? item.localVideoVariant ?? item.variants.first;
+  Widget _itemTile(MediaItem item, List<MediaItem> queue, HomeMode mode) {
+    final v = _variantForMode(item, mode) ?? item.variants.first;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final thumb = item.effectiveThumbnail ?? '';
@@ -298,17 +310,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
               IconButton(
                 icon: const Icon(Icons.play_arrow_rounded),
                 onPressed: () {
-                  final idx = queue.indexWhere((e) => e.id == item.id);
-                  final safeIdx = idx == -1 ? 0 : idx;
-
-                  Get.toNamed(
-                    AppRoutes.audioPlayer,
-                    arguments: {
-                      'queue': queue,
-                      'index': safeIdx,
-                      'playableUrl': item.playableUrl, // ✅ FIX LINK
-                    },
-                  );
+                  _playSourceItem(item, queue, mode);
                 },
               ),
               IconButton(
@@ -322,6 +324,44 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                       await _sources.refreshAll();
                       if (mounted) setState(() {});
                     },
+                    onStartMultiSelect: () {
+                      Get.toNamed(
+                        AppRoutes.homeSectionList,
+                        arguments: {
+                          'title': widget.title,
+                          'items': queue,
+                          'onItemTap': (MediaItem tapped, int index) {
+                            _playSourceItem(tapped, queue, mode);
+                          },
+                          'onItemLongPress':
+                              (
+                                MediaItem target,
+                                int _, {
+                                VoidCallback? onStartMultiSelect,
+                              }) => _actions.showItemActions(
+                                context,
+                                target,
+                                onChanged: () async {
+                                  await _sources.refreshAll();
+                                  if (mounted) setState(() {});
+                                },
+                                onStartMultiSelect: onStartMultiSelect,
+                              ),
+                          'onDeleteSelected': (List<MediaItem> selected) async {
+                            await _actions.confirmDeleteMultiple(
+                              context,
+                              selected,
+                              onChanged: () async {
+                                await _sources.refreshAll();
+                                if (mounted) setState(() {});
+                              },
+                            );
+                          },
+                          'startInSelectionMode': true,
+                          'initialSelectionItemId': item.id,
+                        },
+                      );
+                    },
                   );
                 },
               ),
@@ -330,6 +370,97 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
         ),
       ),
     );
+  }
+
+  Widget _itemGrid(List<MediaItem> queue, HomeMode mode) {
+    return MediaItemGrid(
+      items: queue,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      childAspectRatio: 0.78,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      fallbackIcon: mode == HomeMode.audio
+          ? Icons.music_note_rounded
+          : Icons.videocam_rounded,
+      onTap: (item, index) => _playSourceItem(item, queue, mode),
+      onMore: (item, index) => _openGridItemActions(item, queue, mode),
+    );
+  }
+
+  Future<void> _openGridItemActions(
+    MediaItem item,
+    List<MediaItem> queue,
+    HomeMode mode,
+  ) {
+    return _actions.showItemActions(
+      context,
+      item,
+      onChanged: () async {
+        await _sources.refreshAll();
+        if (mounted) setState(() {});
+      },
+      onStartMultiSelect: () {
+        Get.toNamed(
+          AppRoutes.homeSectionList,
+          arguments: {
+            'title': widget.title,
+            'items': queue,
+            'onItemTap': (MediaItem tapped, int index) {
+              _playSourceItem(tapped, queue, mode);
+            },
+            'onItemLongPress':
+                (MediaItem target, int _, {VoidCallback? onStartMultiSelect}) =>
+                    _actions.showItemActions(
+                      context,
+                      target,
+                      onChanged: () async {
+                        await _sources.refreshAll();
+                        if (mounted) setState(() {});
+                      },
+                      onStartMultiSelect: onStartMultiSelect,
+                    ),
+            'onDeleteSelected': (List<MediaItem> selected) async {
+              await _actions.confirmDeleteMultiple(
+                context,
+                selected,
+                onChanged: () async {
+                  await _sources.refreshAll();
+                  if (mounted) setState(() {});
+                },
+              );
+            },
+            'startInSelectionMode': true,
+            'initialSelectionItemId': item.id,
+          },
+        );
+      },
+    );
+  }
+
+  void _playSourceItem(MediaItem item, List<MediaItem> queue, HomeMode mode) {
+    final idx = queue.indexWhere((e) => e.id == item.id);
+    final safeIdx = idx == -1 ? 0 : idx;
+    final variant = _variantForMode(item, mode);
+    final route = mode == HomeMode.audio
+        ? AppRoutes.audioPlayer
+        : AppRoutes.videoPlayer;
+
+    Get.toNamed(
+      route,
+      arguments: {
+        'queue': queue,
+        'index': safeIdx,
+        if (variant?.playableUrl.isNotEmpty == true)
+          'playableUrl': variant!.playableUrl,
+      },
+    );
+  }
+
+  MediaVariant? _variantForMode(MediaItem item, HomeMode mode) {
+    return mode == HomeMode.audio
+        ? item.localAudioVariant
+        : item.localVideoVariant;
   }
 
   Widget _offlineHeader(ThemeData theme) {
@@ -342,14 +473,27 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
   }
 
   Widget _offlineSummary(ThemeData theme, int total, HomeMode mode) {
+    return _librarySummary(theme, total, mode);
+  }
+
+  Widget _librarySummary(ThemeData theme, int total, HomeMode mode) {
     final label = mode == HomeMode.audio ? 'audio' : 'video';
     return Row(
       children: [
-        Text(
-          '$total elementos de $label',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
+        Expanded(
+          child: Text(
+            '$total elementos de $label',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: _gridView ? 'Ver como lista' : 'Ver como cuadrícula',
+          onPressed: () => setState(() => _gridView = !_gridView),
+          icon: Icon(
+            _gridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
           ),
         ),
       ],

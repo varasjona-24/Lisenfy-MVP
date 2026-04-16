@@ -130,23 +130,12 @@ class DownloadsPage extends GetView<DownloadsController> {
                                 ),
                               )
                             else
-                              Column(
-                                children: List.generate(
-                                  list.length,
-                                  (i) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    child: DownloadTile(
-                                      item: list[i],
-                                      onPlay: (item) =>
-                                          _playItem(mode, list, item),
-                                      onHold: (item) => actions.showItemActions(
-                                        context,
-                                        item,
-                                        onChanged: controller.load,
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                              _buildListResults(
+                                theme,
+                                mode,
+                                list,
+                                actions,
+                                context,
                               ),
                             const SizedBox(height: AppSpacing.lg),
                           ],
@@ -197,5 +186,62 @@ class DownloadsPage extends GetView<DownloadsController> {
         : AppRoutes.videoPlayer;
 
     Get.toNamed(route, arguments: {'queue': queue, 'index': idx < 0 ? 0 : idx});
+  }
+
+  Widget _buildListResults(
+    ThemeData theme,
+    HomeMode mode,
+    List<MediaItem> list,
+    MediaActionsController actions,
+    BuildContext context,
+  ) {
+    return Column(
+      children: List.generate(
+        list.length,
+        (i) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: DownloadTile(
+            item: list[i],
+            onPlay: (item) => _playItem(mode, list, item),
+            onHold: (item) => actions.showItemActions(
+              context,
+              item,
+              onChanged: controller.load,
+              onStartMultiSelect: () {
+                Get.toNamed(
+                  AppRoutes.homeSectionList,
+                  arguments: {
+                    'title': 'Imports',
+                    'items': list,
+                    'onItemTap': (MediaItem tapped, int index) =>
+                        _playItem(mode, list, tapped),
+                    'onItemLongPress':
+                        (
+                          MediaItem target,
+                          int _, {
+                          VoidCallback? onStartMultiSelect,
+                        }) => actions.showItemActions(
+                          context,
+                          target,
+                          onChanged: controller.load,
+                          onStartMultiSelect: onStartMultiSelect,
+                        ),
+                    'onDeleteSelected': (List<MediaItem> selected) async {
+                      await actions.confirmDeleteMultiple(
+                        context,
+                        selected,
+                        onChanged: controller.load,
+                      );
+                    },
+                    'startInSelectionMode': true,
+                    'initialSelectionItemId': item.id,
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -15,13 +15,14 @@ class HistoryController extends GetxStateController<HistoryState> {
   HistoryController({
     required LoadHistoryItemsUseCase loadHistoryItemsUseCase,
     HomeController? homeController,
-  })  : _loadHistoryItemsUseCase = loadHistoryItemsUseCase,
-        _homeController = homeController,
-        super(HistoryState.initial());
+  }) : _loadHistoryItemsUseCase = loadHistoryItemsUseCase,
+       _homeController = homeController,
+       super(HistoryState.initial());
 
   final LoadHistoryItemsUseCase _loadHistoryItemsUseCase;
   final HomeController? _homeController;
   Worker? _homeWorker;
+  final RxBool gridView = false.obs;
 
   // ============================
   // 🔁 LIFECYCLE
@@ -29,9 +30,10 @@ class HistoryController extends GetxStateController<HistoryState> {
   @override
   void onInit() {
     super.onInit();
-    if (_homeController != null) {
+    final home = _homeController;
+    if (home != null) {
       _syncFilterWithHome();
-      _homeWorker = ever<HomeMode>(_homeController!.mode, (_) {
+      _homeWorker = ever<HomeMode>(home.mode, (_) {
         _syncFilterWithHome();
       });
     }
@@ -48,12 +50,7 @@ class HistoryController extends GetxStateController<HistoryState> {
   // 📥 LOAD
   // ============================
   Future<void> loadHistory() async {
-    emit(
-      state.value.copyWith(
-        status: ViewStatus.loading,
-        clearError: true,
-      ),
-    );
+    emit(state.value.copyWith(status: ViewStatus.loading, clearError: true));
 
     try {
       final recent = await _loadHistoryItemsUseCase();
@@ -95,6 +92,10 @@ class HistoryController extends GetxStateController<HistoryState> {
     );
   }
 
+  void toggleGridView() {
+    gridView.value = !gridView.value;
+  }
+
   // Sincroniza el filtro de historial con el modo actual del Home.
   void _syncFilterWithHome() {
     final home = _homeController;
@@ -108,14 +109,13 @@ class HistoryController extends GetxStateController<HistoryState> {
   // ============================
   // 🧩 HELPERS DE TRANSFORMACIÓN
   // ============================
-  List<MediaItem> _filterItems(
-    List<MediaItem> list,
-    HistoryKindFilter kind,
-  ) {
-    return list.where((item) {
-      if (kind == HistoryKindFilter.audio) return item.hasAudioLocal;
-      return item.hasVideoLocal;
-    }).toList(growable: false);
+  List<MediaItem> _filterItems(List<MediaItem> list, HistoryKindFilter kind) {
+    return list
+        .where((item) {
+          if (kind == HistoryKindFilter.audio) return item.hasAudioLocal;
+          return item.hasVideoLocal;
+        })
+        .toList(growable: false);
   }
 
   // Agrupa elementos por fecha (día) para la UI.
