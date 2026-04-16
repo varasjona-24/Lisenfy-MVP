@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
@@ -27,6 +28,7 @@ class SmartPlaylist {
 class PlaylistsController extends GetxController {
   final MediaRepository _repo = Get.find<MediaRepository>();
   final PlaylistStore _store = Get.find<PlaylistStore>();
+  final GetStorage _storage = GetStorage();
 
   final RxBool isLoading = false.obs;
   final RxBool detailGridView = false.obs;
@@ -38,6 +40,7 @@ class PlaylistsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    detailGridView.value = _storage.read('playlist_detail_grid_view') ?? false;
     load();
   }
 
@@ -239,5 +242,6 @@ class PlaylistsController extends GetxController {
 
   void toggleDetailGridView() {
     detailGridView.value = !detailGridView.value;
+    _storage.write('playlist_detail_grid_view', detailGridView.value);
   }
 }

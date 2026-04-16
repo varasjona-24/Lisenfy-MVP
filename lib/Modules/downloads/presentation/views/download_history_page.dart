@@ -38,136 +38,161 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
       body: AppGradientBackground(
         child: Obx(() {
           final vm = controller.state.value;
+          final isGrid = controller.gridView.value;
 
-          if (vm.status.isLoading) {
+          if (vm.status.isLoading && vm.groups.isEmpty) {
             return const Center(child: CircularProgressIndicator());
-          }
-
-          if (vm.groups.isEmpty) {
-            return Center(
-              child: Text(
-                'Aún no hay imports.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            );
           }
 
           return RefreshIndicator(
             onRefresh: controller.loadHistory,
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.lg,
-              ),
-              itemCount: vm.groups.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                        child: Row(
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
                             Expanded(
                               child: Text(
                                 'Historial de imports',
                                 style: theme.textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.5,
                                 ),
                               ),
                             ),
                             IconButton(
-                              tooltip: controller.gridView.value
-                                  ? 'Ver como lista'
-                                  : 'Ver como cuadrícula',
                               onPressed: controller.toggleGridView,
+                              style: IconButton.styleFrom(
+                                backgroundColor: scheme.surfaceContainerHigh,
+                              ),
                               icon: Icon(
-                                controller.gridView.value
-                                    ? Icons.view_list_rounded
-                                    : Icons.grid_view_rounded,
+                                isGrid
+                                    ? Icons.grid_view_rounded
+                                    : Icons.view_list_rounded,
+                                color: scheme.primary,
+                                size: 20,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      DownloadHistoryFilterRow(
-                        selected: vm.filter,
-                        onSelect: controller.setFilter,
-                      ),
-                      const SizedBox(height: 10),
-                      DownloadHistorySearchField(
-                        onChanged: controller.setQuery,
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                  );
-                }
-
-                final group = vm.groups[index - 1];
-                return MediaHistoryGroupSection(
-                  label: group.label,
-                  items: group.items,
-                  onTap: (item) {
-                    final list = vm.filteredItems.toList();
-                    final idx = list.indexWhere((e) => e.id == item.id);
-                    home.openMedia(item, idx < 0 ? 0 : idx, list);
-                  },
-                  onLongPress: (item) => actions.showItemActions(
-                    context,
-                    item,
-                    onChanged: controller.loadHistory,
-                    onStartMultiSelect: () {
-                      final list = vm.filteredItems.toList(growable: false);
-                      final initialIndex = list.indexWhere(
-                        (e) => e.id == item.id,
-                      );
-                      Get.toNamed(
-                        AppRoutes.homeSectionList,
-                        arguments: {
-                          'title': 'Historial de imports',
-                          'items': list,
-                          'onItemTap': (MediaItem tapped, int index) =>
-                              home.openMedia(
-                                tapped,
-                                index < 0
-                                    ? (initialIndex < 0 ? 0 : initialIndex)
-                                    : index,
-                                list,
-                              ),
-                          'onItemLongPress':
-                              (
-                                MediaItem target,
-                                int _, {
-                                VoidCallback? onStartMultiSelect,
-                              }) => actions.showItemActions(
-                                context,
-                                target,
-                                onChanged: controller.loadHistory,
-                                onStartMultiSelect: onStartMultiSelect,
-                              ),
-                          'onDeleteSelected': (List<MediaItem> selected) async {
-                            await actions.confirmDeleteMultiple(
-                              context,
-                              selected,
-                              onChanged: controller.loadHistory,
-                            );
-                          },
-                          'startInSelectionMode': true,
-                          'initialSelectionItemId': item.id,
-                        },
-                      );
-                    },
+                        const SizedBox(height: 16),
+                        DownloadHistorySearchField(
+                          onChanged: controller.setQuery,
+                        ),
+                        const SizedBox(height: 16),
+                        DownloadHistoryFilterRow(
+                          selected: vm.filter,
+                          onSelect: controller.setFilter,
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
                   ),
-                  timeBuilder: controller.formatTime,
-                  fallbackIcon: Icons.cloud_download_rounded,
-                  gridMode: controller.gridView.value,
-                );
-              },
+                ),
+                if (vm.groups.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.history_rounded,
+                            size: 64,
+                            color: scheme.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No se encontraron registros.',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.xl),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final group = vm.groups[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 24),
+                            child: MediaHistoryGroupSection(
+                              group: group,
+                              expandedSections: vm.expandedSections,
+                              onToggle: controller.toggleSection,
+                              onTap: (item) {
+                                final list = vm.filteredItems.toList();
+                                final idx = list.indexWhere((e) => e.id == item.id);
+                                home.openMedia(item, idx < 0 ? 0 : idx, list);
+                              },
+                              onLongPress: (item) => actions.showItemActions(
+                                context,
+                                item,
+                                onChanged: controller.loadHistory,
+                                onStartMultiSelect: () {
+                                  final list = vm.filteredItems.toList(growable: false);
+                                  final initialIndex = list.indexWhere(
+                                    (e) => e.id == item.id,
+                                  );
+                                  Get.toNamed(
+                                    AppRoutes.homeSectionList,
+                                    arguments: {
+                                      'title': 'Historial de imports',
+                                      'items': list,
+                                      'onItemTap': (MediaItem tapped, int index) =>
+                                          home.openMedia(
+                                            tapped,
+                                            index < 0
+                                                ? (initialIndex < 0 ? 0 : initialIndex)
+                                                : index,
+                                            list,
+                                          ),
+                                      'onItemLongPress':
+                                          (
+                                            MediaItem target,
+                                            int _, {
+                                            VoidCallback? onStartMultiSelect,
+                                          }) => actions.showItemActions(
+                                            context,
+                                            target,
+                                            onChanged: controller.loadHistory,
+                                            onStartMultiSelect: onStartMultiSelect,
+                                          ),
+                                      'onDeleteSelected': (List<MediaItem> selected) async {
+                                        await actions.confirmDeleteMultiple(
+                                          context,
+                                          selected,
+                                          onChanged: controller.loadHistory,
+                                        );
+                                      },
+                                      'startInSelectionMode': true,
+                                      'initialSelectionItemId': item.id,
+                                    },
+                                  );
+                                },
+                              ),
+                              timeBuilder: controller.formatTime,
+                              fallbackIcon: Icons.cloud_download_rounded,
+                              gridMode: isGrid,
+                            ),
+                          );
+                        },
+                        childCount: vm.groups.length,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           );
         }),

@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 import '../../../app/models/media_item.dart';
 import '../../../app/controllers/media_actions_controller.dart';
@@ -22,6 +23,7 @@ class SectionListPage extends StatefulWidget {
     required this.onItemLongPress,
     this.onShuffle,
     this.itemHintBuilder,
+    this.itemTrailingBuilder,
     this.onInterested,
     this.onHideTrack,
     this.onHideArtist,
@@ -41,6 +43,7 @@ class SectionListPage extends StatefulWidget {
   onItemLongPress;
   final void Function(List<MediaItem> queue)? onShuffle;
   final String? Function(MediaItem item, int index)? itemHintBuilder;
+  final Widget? Function(MediaItem item, int index)? itemTrailingBuilder;
   final FutureOr<void> Function(MediaItem item, int index)? onInterested;
   final FutureOr<void> Function(MediaItem item, int index)? onHideTrack;
   final FutureOr<void> Function(MediaItem item, int index)? onHideArtist;
@@ -56,11 +59,13 @@ class _SectionListPageState extends State<SectionListPage> {
   late List<MediaItem> _items;
   bool _selectionMode = false;
   bool _gridMode = false;
+  final GetStorage _storage = GetStorage();
   final Set<String> _selectedIds = <String>{};
 
   @override
   void initState() {
     super.initState();
+    _gridMode = _storage.read('section_list_grid_view') ?? false;
     _items = List<MediaItem>.from(widget.items);
     if (widget.startInSelectionMode) {
       _selectionMode = true;
@@ -259,12 +264,17 @@ class _SectionListPageState extends State<SectionListPage> {
               ]
             : [
                 IconButton(
-                  tooltip: _gridMode ? 'Ver como lista' : 'Ver cuadrícula',
-                  onPressed: () => setState(() => _gridMode = !_gridMode),
+                  tooltip: _gridMode ? 'Vista de cuadrícula' : 'Vista de lista',
+                  onPressed: () {
+                    setState(() {
+                      _gridMode = !_gridMode;
+                      _storage.write('section_list_grid_view', _gridMode);
+                    });
+                  },
                   icon: Icon(
                     _gridMode
-                        ? Icons.view_list_rounded
-                        : Icons.grid_view_rounded,
+                        ? Icons.grid_view_rounded
+                        : Icons.view_list_rounded,
                   ),
                 ),
                 IconButton(
@@ -339,9 +349,11 @@ class _SectionListPageState extends State<SectionListPage> {
         }
 
         final item = _items[index - 1];
+        final itemIndex = index - 1;
         return _MediaRow(
           item: item,
-          hintText: widget.itemHintBuilder?.call(item, index - 1),
+          hintText: widget.itemHintBuilder?.call(item, itemIndex),
+          trailing: widget.itemTrailingBuilder?.call(item, itemIndex),
           selectionMode: _selectionMode,
           selected: _selectedIds.contains(item.id),
           selectable: _canSelect(item),
@@ -351,7 +363,7 @@ class _SectionListPageState extends State<SectionListPage> {
               _toggleItemSelection(item);
               return;
             }
-            await widget.onItemTap(item, index - 1);
+            await widget.onItemTap(item, itemIndex);
             if (mounted) setState(() {});
           },
           onLongPress: () async {
@@ -361,7 +373,7 @@ class _SectionListPageState extends State<SectionListPage> {
             }
             await widget.onItemLongPress(
               item,
-              index - 1,
+              itemIndex,
               onStartMultiSelect: () => _startMultiSelectFromItem(item),
             );
             if (mounted) setState(() {});
@@ -369,13 +381,13 @@ class _SectionListPageState extends State<SectionListPage> {
           showFeedbackActions: _hasFeedbackActions,
           onInterested: widget.onInterested == null
               ? null
-              : () => _handleInterested(item, index - 1),
+              : () => _handleInterested(item, itemIndex),
           onHideTrack: widget.onHideTrack == null
               ? null
-              : () => _handleHideTrack(item, index - 1),
+              : () => _handleHideTrack(item, itemIndex),
           onHideArtist: widget.onHideArtist == null
               ? null
-              : () => _handleHideArtist(item, index - 1),
+              : () => _handleHideArtist(item, itemIndex),
           onSelectMultiple: _canSelect(item)
               ? () => _startMultiSelectFromItem(item)
               : null,
@@ -461,6 +473,7 @@ class _MediaRow extends StatelessWidget {
   const _MediaRow({
     required this.item,
     required this.hintText,
+    required this.trailing,
     required this.onTap,
     required this.onLongPress,
     required this.showFeedbackActions,
@@ -476,6 +489,7 @@ class _MediaRow extends StatelessWidget {
 
   final MediaItem item;
   final String? hintText;
+  final Widget? trailing;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final bool showFeedbackActions;
@@ -660,15 +674,16 @@ class _MediaRow extends StatelessWidget {
                 ],
               ),
             if (showFeedbackActions) const SizedBox(width: 4),
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: scheme.surface,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.play_arrow_rounded, color: scheme.primary),
-            ),
+            trailing ??
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: scheme.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.play_arrow_rounded, color: scheme.primary),
+                ),
           ],
         ),
       ),

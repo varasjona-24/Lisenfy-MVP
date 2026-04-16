@@ -9,6 +9,7 @@ import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
+import '../../../app/ui/themes/app_grid_theme.dart';
 import '../../../app/ui/widgets/media/media_item_grid.dart';
 import '../../../app/models/media_item.dart';
 import '../controller/playlists_controller.dart';
@@ -228,13 +229,13 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
         ),
         IconButton(
           tooltip: controller.detailGridView.value
-              ? 'Ver como lista'
-              : 'Ver como cuadrícula',
+              ? 'Vista de cuadrícula'
+              : 'Vista de lista',
           onPressed: controller.toggleDetailGridView,
           icon: Icon(
             controller.detailGridView.value
-                ? Icons.view_list_rounded
-                : Icons.grid_view_rounded,
+                ? Icons.grid_view_rounded
+                : Icons.view_list_rounded,
           ),
         ),
       ],
@@ -305,9 +306,9 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
       items: queue,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 0.78,
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
+      childAspectRatio: AppGridTheme.childAspectRatio,
+      crossAxisSpacing: AppGridTheme.spacing,
+      mainAxisSpacing: AppGridTheme.spacing,
       onTap: (item, index) => _play(queue, index),
       onMore: (item, index) => _openTrackActionSheet(
         context: context,

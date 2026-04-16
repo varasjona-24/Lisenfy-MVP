@@ -1,4 +1,4 @@
-import 'package:listenfy/Modules/history/domain/entities/history_day_group.dart';
+import 'package:listenfy/app/models/history_group.dart';
 import 'package:listenfy/Modules/history/domain/entities/history_kind_filter.dart';
 import 'package:listenfy/app/core/presentation/view_status.dart';
 import 'package:listenfy/app/models/media_item.dart';
@@ -14,6 +14,7 @@ class HistoryState {
     required this.filteredItems,
     required this.groups,
     required this.filter,
+    required this.expandedSections,
     this.errorMessage,
   });
 
@@ -23,8 +24,9 @@ class HistoryState {
       status: ViewStatus.idle,
       allItems: <MediaItem>[],
       filteredItems: <MediaItem>[],
-      groups: <HistoryDayGroup>[],
+      groups: <HistoryGroup>[],
       filter: HistoryKindFilter.audio,
+      expandedSections: <String>{},
       errorMessage: null,
     );
   }
@@ -32,8 +34,9 @@ class HistoryState {
   final ViewStatus status;
   final List<MediaItem> allItems;
   final List<MediaItem> filteredItems;
-  final List<HistoryDayGroup> groups;
+  final List<HistoryGroup> groups;
   final HistoryKindFilter filter;
+  final Set<String> expandedSections;
   final String? errorMessage;
 
   // Actualiza campos de forma declarativa.
@@ -41,8 +44,9 @@ class HistoryState {
     ViewStatus? status,
     List<MediaItem>? allItems,
     List<MediaItem>? filteredItems,
-    List<HistoryDayGroup>? groups,
+    List<HistoryGroup>? groups,
     HistoryKindFilter? filter,
+    Set<String>? expandedSections,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -52,6 +56,7 @@ class HistoryState {
       filteredItems: filteredItems ?? this.filteredItems,
       groups: groups ?? this.groups,
       filter: filter ?? this.filter,
+      expandedSections: expandedSections ?? this.expandedSections,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }

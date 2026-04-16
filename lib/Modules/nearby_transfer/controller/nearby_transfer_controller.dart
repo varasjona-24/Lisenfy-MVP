@@ -416,7 +416,7 @@ class NearbyTransferController extends GetxController {
 
     if (payload.type == PayloadType.FILE) {
       debugPrint(
-        '[NearbyTransfer] file payload received endpoint=$endpointId payloadId=${payload.id} uri=${payload.uri} filePath=${payload.filePath}',
+        '[NearbyTransfer] file payload received endpoint=$endpointId payloadId=${payload.id} uri=${payload.uri}',
       );
       _filePayloadIds.add(payload.id);
       _filePayloadById[payload.id] = payload;

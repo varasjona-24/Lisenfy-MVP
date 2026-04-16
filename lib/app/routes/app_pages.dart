@@ -90,6 +90,7 @@ abstract class AppPages {
           onItemLongPress: args['onItemLongPress'],
           onShuffle: args['onShuffle'],
           itemHintBuilder: args['itemHintBuilder'],
+          itemTrailingBuilder: args['itemTrailingBuilder'],
           onInterested: args['onInterested'],
           onHideTrack: args['onHideTrack'],
           onHideArtist: args['onHideArtist'],

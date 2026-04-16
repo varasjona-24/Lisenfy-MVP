@@ -4,15 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../../../models/media_item.dart';
 
+import '../../themes/app_grid_theme.dart';
+
 typedef MediaGridItemCallback = void Function(MediaItem item, int index);
 typedef MediaGridTextBuilder = String? Function(MediaItem item, int index);
 typedef MediaGridBoolBuilder = bool Function(MediaItem item, int index);
-
-int mediaGridCrossAxisCount(double width) {
-  if (width >= 1180) return 5;
-  if (width >= 900) return 4;
-  return 3;
-}
 
 class MediaItemGrid extends StatelessWidget {
   const MediaItemGrid({
@@ -31,9 +27,9 @@ class MediaItemGrid extends StatelessWidget {
     this.padding = EdgeInsets.zero,
     this.physics,
     this.shrinkWrap = false,
-    this.childAspectRatio = 0.70,
-    this.crossAxisSpacing = 8,
-    this.mainAxisSpacing = 8,
+    this.childAspectRatio = AppGridTheme.childAspectRatio,
+    this.crossAxisSpacing = AppGridTheme.spacing,
+    this.mainAxisSpacing = AppGridTheme.spacing,
   });
 
   final List<MediaItem> items;
@@ -64,7 +60,9 @@ class MediaItemGrid extends StatelessWidget {
           physics: physics,
           itemCount: items.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: mediaGridCrossAxisCount(constraints.maxWidth),
+            crossAxisCount: AppGridTheme.getCrossAxisCount(
+              constraints.maxWidth,
+            ),
             crossAxisSpacing: crossAxisSpacing,
             mainAxisSpacing: mainAxisSpacing,
             childAspectRatio: childAspectRatio,
@@ -111,9 +109,9 @@ class MediaItemSliverGrid extends StatelessWidget {
     this.onSelectionTap,
     this.fallbackIcon = Icons.music_note_rounded,
     this.padding = EdgeInsets.zero,
-    this.childAspectRatio = 0.70,
-    this.crossAxisSpacing = 8,
-    this.mainAxisSpacing = 8,
+    this.childAspectRatio = AppGridTheme.childAspectRatio,
+    this.crossAxisSpacing = AppGridTheme.spacing,
+    this.mainAxisSpacing = AppGridTheme.spacing,
   });
 
   final List<MediaItem> items;
@@ -144,7 +142,7 @@ class MediaItemSliverGrid extends StatelessWidget {
               childCount: items.length,
             ),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: mediaGridCrossAxisCount(
+              crossAxisCount: AppGridTheme.getCrossAxisCount(
                 constraints.crossAxisExtent,
               ),
               crossAxisSpacing: crossAxisSpacing,
@@ -213,86 +211,98 @@ class MediaGridTile extends StatelessWidget {
       color: selected
           ? scheme.primary.withValues(alpha: 0.14)
           : scheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
+      elevation: selected ? 2 : 0,
+      shadowColor: scheme.shadow.withValues(alpha: 0.1),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         onLongPress: onLongPress,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: selected
-                ? Border.all(
-                    color: scheme.primary.withValues(alpha: 0.68),
-                    width: 1.4,
-                  )
-                : null,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected
+                  ? scheme.primary.withValues(alpha: 0.68)
+                  : scheme.outlineVariant.withValues(alpha: 0.2),
+              width: selected ? 1.4 : 1.0,
+            ),
           ),
           padding: const EdgeInsets.all(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: _cover(context)),
-              const SizedBox(height: 7),
-              Text(
-                item.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      item.displaySubtitle,
+              AspectRatio(aspectRatio: 1.0, child: _cover(context)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 9),
+                    Text(
+                      item.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ),
-                  if (!selectionMode && onMore != null)
-                    SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.more_vert_rounded, size: 18),
-                        tooltip: 'Más opciones',
-                        color: scheme.onSurfaceVariant,
-                        onPressed: onMore,
-                      ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.displaySubtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        if (!selectionMode && onMore != null)
+                          SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(
+                                Icons.more_vert_rounded,
+                                size: 18,
+                              ),
+                              tooltip: 'Más opciones',
+                              color: scheme.onSurfaceVariant,
+                              onPressed: onMore,
+                            ),
+                          ),
+                      ],
                     ),
-                ],
+                    if (hint.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        hint,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.primary.withValues(alpha: 0.92),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ] else if (footer.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        footer,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              if (hint.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  hint,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: scheme.primary.withValues(alpha: 0.92),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ] else if (footer.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  footer,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -313,7 +323,7 @@ class MediaGridTile extends StatelessWidget {
       children: [
         Positioned.fill(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             child: Container(
               color: scheme.surfaceContainerHighest,
               alignment: Alignment.center,

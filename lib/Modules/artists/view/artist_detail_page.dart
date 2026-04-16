@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 import '../../../app/models/media_item.dart';
 import '../../../app/controllers/media_actions_controller.dart';
@@ -13,6 +14,7 @@ import '../controller/artists_controller.dart';
 import '../domain/artist_profile.dart';
 import '../../edit/controller/edit_entity_controller.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
+import '../../../app/ui/themes/app_grid_theme.dart';
 import '../../../app/ui/widgets/media/media_item_grid.dart';
 import 'widgets/artist_avatar.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
@@ -575,6 +577,13 @@ class _SongSection extends StatefulWidget {
 
 class _SongSectionState extends State<_SongSection> {
   bool _gridMode = false;
+  final GetStorage _storage = GetStorage();
+
+  @override
+  void initState() {
+    super.initState();
+    _gridMode = _storage.read('artist_detail_grid_view') ?? false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -595,10 +604,15 @@ class _SongSectionState extends State<_SongSection> {
               ),
             ),
             IconButton(
-              tooltip: _gridMode ? 'Ver como lista' : 'Ver como cuadrícula',
-              onPressed: () => setState(() => _gridMode = !_gridMode),
+              tooltip: _gridMode ? 'Vista de cuadrícula' : 'Vista de lista',
+              onPressed: () {
+                setState(() {
+                  _gridMode = !_gridMode;
+                  _storage.write('artist_detail_grid_view', _gridMode);
+                });
+              },
               icon: Icon(
-                _gridMode ? Icons.view_list_rounded : Icons.grid_view_rounded,
+                _gridMode ? Icons.grid_view_rounded : Icons.view_list_rounded,
               ),
             ),
           ],
@@ -617,9 +631,9 @@ class _SongSectionState extends State<_SongSection> {
             onMore: (item, index) => widget.onMore(item),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: 0.78,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
+            childAspectRatio: AppGridTheme.childAspectRatio,
+            crossAxisSpacing: AppGridTheme.spacing,
+            mainAxisSpacing: AppGridTheme.spacing,
           )
         else
           for (final item in widget.items)

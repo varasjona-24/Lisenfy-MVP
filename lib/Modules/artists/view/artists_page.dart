@@ -269,13 +269,13 @@ class ArtistsPage extends GetView<ArtistsController> {
 
   Future<void> _openSortSheet(BuildContext context) async {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      isScrollControlled: true,
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: scheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       builder: (ctx) {
         return Obx(() {
@@ -283,70 +283,104 @@ class ArtistsPage extends GetView<ArtistsController> {
           final asc = controller.sortAscending.value;
 
           return SafeArea(
-            child: DraggableScrollableSheet(
-              expand: false,
-              minChildSize: 0.4,
-              initialChildSize: 0.72,
-              maxChildSize: 0.9,
-              builder: (context, scrollController) {
-                return ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                  children: [
-                    Text(
-                      'Ordenar por',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
+            child: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(ctx).size.height * 0.45,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Ordenar por',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    _SortOption(
-                      label: 'Nombre del artista',
-                      selected: sort == ArtistSort.name,
-                      onTap: () => controller.setSort(ArtistSort.name),
-                    ),
-                    _SortOption(
-                      label: 'Número de canciones',
-                      selected: sort == ArtistSort.count,
-                      onTap: () => controller.setSort(ArtistSort.count),
-                    ),
-                    _SortOption(
-                      label: 'Aleatorio',
-                      selected: sort == ArtistSort.random,
-                      onTap: () => controller.setSort(ArtistSort.random),
-                    ),
-                    const Divider(height: 28),
-                    _SortOption(
-                      label: 'Tamaño más a menos',
-                      selected: !asc,
-                      onTap: () => controller.setSortAscending(false),
-                    ),
-                    _SortOption(
-                      label: 'Tamaño menos a más',
-                      selected: asc,
-                      onTap: () => controller.setSortAscending(true),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
-                            child: const Text('Cancelar'),
-                          ),
+                      const SizedBox(height: 16),
+                      _SortOption(
+                        label: 'Nombre del artista',
+                        selected: sort == ArtistSort.name,
+                        onTap: () => controller.setSort(ArtistSort.name),
+                      ),
+                      _SortOption(
+                        label: 'Número de canciones',
+                        selected: sort == ArtistSort.count,
+                        onTap: () => controller.setSort(ArtistSort.count),
+                      ),
+                      _SortOption(
+                        label: 'Aleatorio',
+                        selected: sort == ArtistSort.random,
+                        onTap: () => controller.setSort(ArtistSort.random),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Divider(
+                          color: scheme.outlineVariant.withValues(alpha: 0.5),
+                          height: 1,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
-                            child: const Text('Aceptar'),
+                      ),
+                      _SortOption(
+                        label: 'Tamaño: de mayor a menor',
+                        selected: !asc,
+                        onTap: () => controller.setSortAscending(false),
+                      ),
+                      _SortOption(
+                        label: 'Tamaño: de menor a mayor',
+                        selected: asc,
+                        onTap: () => controller.setSortAscending(true),
+                      ),
+                      const SizedBox(height: 32),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                side: BorderSide(color: scheme.outlineVariant),
+                              ),
+                              child: Text(
+                                'Cancelar',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: Text(
+                                'Aceptar',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: scheme.onPrimary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           );
         });
@@ -549,20 +583,44 @@ class _SortOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        label,
-        style: theme.textTheme.bodyLarge?.copyWith(
-          color: selected ? scheme.primary : scheme.onSurface,
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected
+                ? scheme.primary.withValues(alpha: 0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: selected ? scheme.primary : scheme.onSurface,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked,
+                color: selected ? scheme.primary : scheme.outline,
+                size: 24,
+              ),
+            ],
+          ),
         ),
       ),
-      trailing: Icon(
-        selected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
-        color: selected ? scheme.primary : scheme.onSurfaceVariant,
-      ),
-      onTap: onTap,
     );
   }
 }

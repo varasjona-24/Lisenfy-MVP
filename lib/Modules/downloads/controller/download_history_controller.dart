@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
-import 'package:listenfy/Modules/downloads/domain/entities/download_day_group.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:listenfy/app/models/history_group.dart';
 import 'package:listenfy/Modules/downloads/domain/entities/download_history_filter.dart';
 import 'package:listenfy/Modules/downloads/domain/usecases/load_download_history_items_usecase.dart';
 import 'package:listenfy/Modules/downloads/state/download_history_state.dart';
@@ -24,7 +25,8 @@ class DownloadHistoryController
   final LoadDownloadHistoryItemsUseCase _loadHistoryItemsUseCase;
   final HomeController? _homeController;
   Worker? _homeWorker;
-  final RxBool gridView = false.obs;
+  final GetStorage _storage = GetStorage();
+  final RxBool gridView = true.obs;
 
   // ============================
   // 🚀 INIT
@@ -32,6 +34,7 @@ class DownloadHistoryController
   @override
   void onInit() {
     super.onInit();
+    gridView.value = _storage.read('download_history_grid_view') ?? true;
     final home = _homeController;
     if (home != null) {
       _syncFilterWithHome();
@@ -116,8 +119,19 @@ class DownloadHistoryController
     );
   }
 
+  void toggleSection(String sectionId) {
+    final current = Set<String>.from(state.value.expandedSections);
+    if (current.contains(sectionId)) {
+      current.remove(sectionId);
+    } else {
+      current.add(sectionId);
+    }
+    emit(state.value.copyWith(expandedSections: current));
+  }
+
   void toggleGridView() {
     gridView.value = !gridView.value;
+    _storage.write('download_history_grid_view', gridView.value);
   }
 
   void _syncFilterWithHome() {
@@ -135,7 +149,7 @@ class DownloadHistoryController
     required String query,
   }) {
     final filtered = _filterItems(allItems, filter, query);
-    final groups = _groupByDay(filtered);
+    final groups = _groupHistory(filtered);
     return _HistoryProjection(filteredItems: filtered, groups: groups);
   }
 
@@ -155,26 +169,102 @@ class DownloadHistoryController
     }).toList();
   }
 
-  List<DownloadDayGroup> _groupByDay(List<MediaItem> list) {
-    final Map<String, List<MediaItem>> bucket = {};
+  List<HistoryGroup> _groupHistory(List<MediaItem> items) {
+    if (items.isEmpty) return [];
 
-    for (final item in list) {
-      final ts = _latestVariantCreatedAt(item);
-      if (ts <= 0) continue;
-      final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+    final now = DateTime.now();
+    final List<HistoryGroup> finalGroups = [];
+
+    // Separate current month items from older ones
+    final currentMonthItems = items.where((item) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(item));
+      return dt.year == now.year && dt.month == now.month;
+    }).toList();
+
+    final olderItems = items.where((item) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(item));
+      return !(dt.year == now.year && dt.month == now.month);
+    }).toList();
+
+    // 1. Current Month: Flat Daily Detail
+    if (currentMonthItems.isNotEmpty) {
+      finalGroups.addAll(_buildDailyGroups(currentMonthItems, now));
+    }
+
+    // 2. Older Items: Nested Month > Week > Day
+    if (olderItems.isNotEmpty) {
+      finalGroups.addAll(_buildNestedMonthlyGroups(olderItems));
+    }
+
+    return finalGroups;
+  }
+
+  List<HistoryGroup> _buildDailyGroups(List<MediaItem> items, DateTime now) {
+    final Map<String, List<MediaItem>> bucket = {};
+    for (final item in items) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(item));
       final key = _dayKey(dt);
       bucket.putIfAbsent(key, () => []).add(item);
     }
 
     final keys = bucket.keys.toList()..sort((a, b) => b.compareTo(a));
-
     return keys.map((k) {
-      final date = _parseDayKey(k);
-      final label = _dayLabel(date);
-      return DownloadDayGroup(
+      final firstItem = bucket[k]!.first;
+      final date = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(firstItem));
+      return HistoryGroup(
+        id: k,
+        label: _dayLabel(date, now),
         date: date,
-        label: label,
-        items: bucket[k] ?? const <MediaItem>[],
+        items: bucket[k],
+      );
+    }).toList();
+  }
+
+  List<HistoryGroup> _buildNestedMonthlyGroups(List<MediaItem> items) {
+    // Group 1: By Month
+    final Map<String, List<MediaItem>> monthBucket = {};
+    for (final item in items) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(item));
+      final monthIndex = dt.month.toString().padLeft(2, '0');
+      final key = '${dt.year}-$monthIndex';
+      monthBucket.putIfAbsent(key, () => []).add(item);
+    }
+
+    final monthKeys = monthBucket.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return monthKeys.map((mKey) {
+      final monthItems = monthBucket[mKey]!;
+      final date = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(monthItems.first));
+
+      return HistoryGroup(
+        id: mKey,
+        label: _monthLabel(date, DateTime.now()),
+        date: date,
+        subGroups: _buildWeeklyGroups(monthItems, mKey),
+      );
+    }).toList();
+  }
+
+  List<HistoryGroup> _buildWeeklyGroups(List<MediaItem> items, String monthKey) {
+    final Map<int, List<MediaItem>> weekBucket = {};
+    for (final item in items) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(item));
+      // Calculate week of month roughly
+      final weekNum = ((dt.day - 1) / 7).floor() + 1;
+      weekBucket.putIfAbsent(weekNum, () => []).add(item);
+    }
+
+    final weekNums = weekBucket.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return weekNums.map((wn) {
+      final weekItems = weekBucket[wn]!;
+      final date = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(weekItems.first));
+
+      return HistoryGroup(
+        id: '$monthKey-W$wn',
+        label: 'Semana $wn',
+        date: date,
+        subGroups: _buildDailyGroups(weekItems, DateTime.now()),
       );
     }).toList();
   }
@@ -204,17 +294,7 @@ class DownloadHistoryController
     return '$y-$m-$d';
   }
 
-  DateTime _parseDayKey(String key) {
-    final parts = key.split('-');
-    if (parts.length != 3) return DateTime.now();
-    final y = int.tryParse(parts[0]) ?? DateTime.now().year;
-    final m = int.tryParse(parts[1]) ?? DateTime.now().month;
-    final d = int.tryParse(parts[2]) ?? DateTime.now().day;
-    return DateTime(y, m, d);
-  }
-
-  String _dayLabel(DateTime date) {
-    final now = DateTime.now();
+  String _dayLabel(DateTime date, DateTime now) {
     final today = DateTime(now.year, now.month, now.day);
     final other = DateTime(date.year, date.month, date.day);
     final diff = today.difference(other).inDays;
@@ -222,10 +302,20 @@ class DownloadHistoryController
     if (diff == 0) return 'Hoy';
     if (diff == 1) return 'Ayer';
 
-    final d = date.day.toString().padLeft(2, '0');
-    final m = date.month.toString().padLeft(2, '0');
-    final y = date.year.toString();
-    return '$d/$m/$y';
+    final weekdays = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    final dayName = weekdays[date.weekday];
+    return '$dayName ${date.day}/${date.month}';
+  }
+
+  String _monthLabel(DateTime date, DateTime now) {
+    final months = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    final monthName = months[date.month];
+
+    if (date.year == now.year) {
+      return monthName;
+    } else {
+      return '$monthName ${date.year}';
+    }
   }
 }
 
@@ -233,5 +323,5 @@ class _HistoryProjection {
   const _HistoryProjection({required this.filteredItems, required this.groups});
 
   final List<MediaItem> filteredItems;
-  final List<DownloadDayGroup> groups;
+  final List<HistoryGroup> groups;
 }

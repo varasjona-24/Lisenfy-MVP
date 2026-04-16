@@ -34,6 +34,7 @@ class HistoryPage extends GetView<HistoryController> {
       body: AppGradientBackground(
         child: Obx(() {
           final vm = controller.state.value;
+          final isGrid = controller.gridView.value;
 
           if (vm.status.isLoading) {
             return const Center(child: CircularProgressIndicator());
@@ -76,14 +77,14 @@ class HistoryPage extends GetView<HistoryController> {
                           ),
                         ),
                         IconButton(
-                          tooltip: controller.gridView.value
-                              ? 'Ver como lista'
-                              : 'Ver como cuadrícula',
+                          tooltip: isGrid
+                              ? 'Vista de cuadrícula'
+                              : 'Vista de lista',
                           onPressed: controller.toggleGridView,
                           icon: Icon(
-                            controller.gridView.value
-                                ? Icons.view_list_rounded
-                                : Icons.grid_view_rounded,
+                            isGrid
+                                ? Icons.grid_view_rounded
+                                : Icons.view_list_rounded,
                           ),
                         ),
                       ],
@@ -93,8 +94,9 @@ class HistoryPage extends GetView<HistoryController> {
 
                 final group = vm.groups[index - 1];
                 return MediaHistoryGroupSection(
-                  label: group.label,
-                  items: group.items,
+                  group: group,
+                  expandedSections: vm.expandedSections,
+                  onToggle: controller.toggleSection,
                   onTap: (item) {
                     final list = vm.filteredItems.toList();
                     final idx = list.indexWhere((e) => e.id == item.id);
@@ -148,7 +150,7 @@ class HistoryPage extends GetView<HistoryController> {
                   ),
                   timeBuilder: controller.formatTime,
                   fallbackIcon: Icons.music_note_rounded,
-                  gridMode: controller.gridView.value,
+                  gridMode: isGrid,
                 );
               },
             ),

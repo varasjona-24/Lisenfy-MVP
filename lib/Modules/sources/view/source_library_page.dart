@@ -11,6 +11,7 @@ import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
+import '../../../app/ui/themes/app_grid_theme.dart';
 import '../../../app/ui/widgets/media/media_item_grid.dart';
 
 import '../../../app/routes/app_routes.dart';
@@ -377,9 +378,9 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
       items: queue,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 0.78,
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
+      childAspectRatio: AppGridTheme.childAspectRatio,
+      crossAxisSpacing: AppGridTheme.spacing,
+      mainAxisSpacing: AppGridTheme.spacing,
       fallbackIcon: mode == HomeMode.audio
           ? Icons.music_note_rounded
           : Icons.videocam_rounded,

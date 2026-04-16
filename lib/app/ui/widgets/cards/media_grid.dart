@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/media_item.dart';
+import '../../themes/app_grid_theme.dart';
 import '../../themes/app_spacing.dart';
 import 'media_card.dart';
 
@@ -14,17 +15,7 @@ class MediaGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth;
-
-        int crossAxisCount = 2;
-
-        if (width >= 900) {
-          crossAxisCount = 5;
-        } else if (width >= 700) {
-          crossAxisCount = 4;
-        } else if (width >= 600) {
-          crossAxisCount = 3;
-        }
+        final crossAxisCount = AppGridTheme.getCrossAxisCount(constraints.maxWidth);
 
         return AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
@@ -33,9 +24,9 @@ class MediaGrid extends StatelessWidget {
             padding: const EdgeInsets.all(AppSpacing.md),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
-              crossAxisSpacing: AppSpacing.md,
-              mainAxisSpacing: AppSpacing.md,
-              childAspectRatio: 0.75,
+              crossAxisSpacing: AppGridTheme.spacing,
+              mainAxisSpacing: AppGridTheme.spacing,
+              childAspectRatio: AppGridTheme.childAspectRatio,
             ),
             itemCount: items.length,
             itemBuilder: (context, index) {

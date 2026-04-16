@@ -11,6 +11,7 @@ import '../../../app/data/repo/media_repository.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
+import '../../../app/ui/themes/app_grid_theme.dart';
 import '../../../app/ui/widgets/dialogs/image_search_dialog.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
@@ -35,9 +36,8 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     final home = Get.find<HomeController>();
 
     return Obx(() {
-      final smart = controller.smartPlaylists;
       final list = controller.playlists;
-      final total = smart.length + list.length;
+      final total = list.length;
 
       return Scaffold(
         extendBody: true,
@@ -71,10 +71,6 @@ class PlaylistsPage extends GetView<PlaylistsController> {
                                   onAdd: () => _createPlaylist(context),
                                 ),
                                 const SizedBox(height: AppSpacing.lg),
-                                if (smart.isNotEmpty) ...[
-                                  _smartGrid(smart),
-                                  const SizedBox(height: AppSpacing.lg),
-                                ],
                                 _myPlaylistsHeader(theme, list.length),
                                 const SizedBox(height: 10),
                                 _myPlaylists(list),
@@ -152,41 +148,6 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     );
   }
 
-  Widget _smartGrid(List<SmartPlaylist> smart) {
-    return Builder(
-      builder: (context) {
-        final scheme = Theme.of(context).colorScheme;
-        return Container(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: smart.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 28,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.0,
-            ),
-            itemBuilder: (context, index) {
-              final data = smart[index];
-              return _SmartPlaylistCard(
-                data: data,
-                onOpen: () => Get.toNamed(
-                  AppRoutes.playlistDetail,
-                  arguments: {'playlistId': data.id, 'isSmart': true},
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
 
   Widget _myPlaylistsHeader(ThemeData theme, int count) {
     return Text(
@@ -662,84 +623,6 @@ class PlaylistsPage extends GetView<PlaylistsController> {
   }
 }
 
-class _SmartPlaylistCard extends StatelessWidget {
-  const _SmartPlaylistCard({required this.data, required this.onOpen});
-
-  final SmartPlaylist data;
-  final VoidCallback onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final scheme = theme.colorScheme;
-    final thumb = data.items.isNotEmpty
-        ? data.items.first.effectiveThumbnail
-        : null;
-    ImageProvider? provider;
-    if (thumb != null && thumb.isNotEmpty) {
-      provider = thumb.startsWith('http')
-          ? NetworkImage(thumb)
-          : FileImage(File(thumb));
-    }
-
-    final textColor = scheme.onSurface;
-    final subColor = scheme.onSurfaceVariant;
-    final iconColor = scheme.primary;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onOpen,
-      child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: scheme.onSurface.withOpacity(0.2)),
-          boxShadow: [BoxShadow(blurRadius: 18, offset: const Offset(0, 10))],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                data.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: textColor,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '${data.items.length} canciones',
-                style: theme.textTheme.bodySmall?.copyWith(color: subColor),
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Icon(data.icon, color: iconColor),
-                  const Spacer(),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      color: Colors.white.withOpacity(isDark ? 0.22 : 0.18),
-                      child: provider != null
-                          ? Image(image: provider, fit: BoxFit.cover)
-                          : Icon(Icons.play_arrow_rounded, color: iconColor),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _PlaylistTile extends StatelessWidget {
   const _PlaylistTile({

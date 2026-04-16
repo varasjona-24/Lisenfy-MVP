@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
-import 'package:listenfy/Modules/history/domain/entities/history_day_group.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:listenfy/app/models/history_group.dart';
 import 'package:listenfy/Modules/history/domain/entities/history_kind_filter.dart';
 import 'package:listenfy/Modules/history/domain/usecases/load_history_items_usecase.dart';
 import 'package:listenfy/Modules/history/state/history_state.dart';
@@ -22,7 +23,8 @@ class HistoryController extends GetxStateController<HistoryState> {
   final LoadHistoryItemsUseCase _loadHistoryItemsUseCase;
   final HomeController? _homeController;
   Worker? _homeWorker;
-  final RxBool gridView = false.obs;
+  final GetStorage _storage = GetStorage();
+  final RxBool gridView = true.obs;
 
   // ============================
   // 🔁 LIFECYCLE
@@ -30,6 +32,7 @@ class HistoryController extends GetxStateController<HistoryState> {
   @override
   void onInit() {
     super.onInit();
+    gridView.value = _storage.read('history_grid_view') ?? true;
     final home = _homeController;
     if (home != null) {
       _syncFilterWithHome();
@@ -55,7 +58,7 @@ class HistoryController extends GetxStateController<HistoryState> {
     try {
       final recent = await _loadHistoryItemsUseCase();
       final nextFiltered = _filterItems(recent, state.value.filter);
-      final nextGroups = _groupByDay(nextFiltered);
+      final nextGroups = _groupHistory(nextFiltered);
 
       emit(
         state.value.copyWith(
@@ -82,7 +85,7 @@ class HistoryController extends GetxStateController<HistoryState> {
   void setFilter(HistoryKindFilter next) {
     if (state.value.filter == next) return;
     final nextFiltered = _filterItems(state.value.allItems, next);
-    final nextGroups = _groupByDay(nextFiltered);
+    final nextGroups = _groupHistory(nextFiltered);
     emit(
       state.value.copyWith(
         filter: next,
@@ -92,8 +95,19 @@ class HistoryController extends GetxStateController<HistoryState> {
     );
   }
 
+  void toggleSection(String sectionId) {
+    final current = Set<String>.from(state.value.expandedSections);
+    if (current.contains(sectionId)) {
+      current.remove(sectionId);
+    } else {
+      current.add(sectionId);
+    }
+    emit(state.value.copyWith(expandedSections: current));
+  }
+
   void toggleGridView() {
     gridView.value = !gridView.value;
+    _storage.write('history_grid_view', gridView.value);
   }
 
   // Sincroniza el filtro de historial con el modo actual del Home.
@@ -105,8 +119,6 @@ class HistoryController extends GetxStateController<HistoryState> {
         : HistoryKindFilter.video;
     setFilter(desired);
   }
-
-  // ============================
   // 🧩 HELPERS DE TRANSFORMACIÓN
   // ============================
   List<MediaItem> _filterItems(List<MediaItem> list, HistoryKindFilter kind) {
@@ -118,32 +130,109 @@ class HistoryController extends GetxStateController<HistoryState> {
         .toList(growable: false);
   }
 
-  // Agrupa elementos por fecha (día) para la UI.
-  List<HistoryDayGroup> _groupByDay(List<MediaItem> list) {
-    final bucket = <String, List<MediaItem>>{};
+  List<HistoryGroup> _groupHistory(List<MediaItem> items) {
+    if (items.isEmpty) return [];
 
-    for (final item in list) {
+    final now = DateTime.now();
+    final List<HistoryGroup> finalGroups = [];
+
+    // Separate current month items from older ones
+    final currentMonthItems = items.where((item) {
       final ts = item.lastPlayedAt ?? 0;
-      if (ts <= 0) continue;
+      final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+      return dt.year == now.year && dt.month == now.month;
+    }).toList();
+
+    final olderItems = items.where((item) {
+      final ts = item.lastPlayedAt ?? 0;
+      final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+      return !(dt.year == now.year && dt.month == now.month);
+    }).toList();
+
+    // 1. Current Month: Flat Daily Detail
+    if (currentMonthItems.isNotEmpty) {
+      finalGroups.addAll(_buildDailyGroups(currentMonthItems, now));
+    }
+
+    // 2. Older Items: Nested Month > Week > Day
+    if (olderItems.isNotEmpty) {
+      finalGroups.addAll(_buildNestedMonthlyGroups(olderItems));
+    }
+
+    return finalGroups;
+  }
+
+  List<HistoryGroup> _buildDailyGroups(List<MediaItem> items, DateTime now) {
+    final Map<String, List<MediaItem>> bucket = {};
+    for (final item in items) {
+      final ts = item.lastPlayedAt ?? 0;
       final dt = DateTime.fromMillisecondsSinceEpoch(ts);
       final key = _dayKey(dt);
-      bucket.putIfAbsent(key, () => <MediaItem>[]).add(item);
+      bucket.putIfAbsent(key, () => []).add(item);
     }
 
     final keys = bucket.keys.toList()..sort((a, b) => b.compareTo(a));
-    return keys
-        .map((key) {
-          final date = _parseDayKey(key);
-          return HistoryDayGroup(
-            date: date,
-            label: _dayLabel(date),
-            items: bucket[key] ?? const <MediaItem>[],
-          );
-        })
-        .toList(growable: false);
+    return keys.map((k) {
+      final firstItem = bucket[k]!.first;
+      final ts = firstItem.lastPlayedAt ?? 0;
+      final date = DateTime.fromMillisecondsSinceEpoch(ts);
+      return HistoryGroup(
+        id: k,
+        label: _dayLabel(date, now),
+        date: date,
+        items: bucket[k],
+      );
+    }).toList();
   }
 
-  // Formato de clave estable para bucket por día.
+  List<HistoryGroup> _buildNestedMonthlyGroups(List<MediaItem> items) {
+    final Map<String, List<MediaItem>> monthBucket = {};
+    for (final item in items) {
+      final ts = item.lastPlayedAt ?? 0;
+      final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+      final mKey = '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+      monthBucket.putIfAbsent(mKey, () => []).add(item);
+    }
+
+    final monthKeys = monthBucket.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return monthKeys.map((mKey) {
+      final monthItems = monthBucket[mKey]!;
+      final date = DateTime.fromMillisecondsSinceEpoch(monthItems.first.lastPlayedAt ?? 0);
+
+      return HistoryGroup(
+        id: mKey,
+        label: _monthLabel(date, DateTime.now()),
+        date: date,
+        subGroups: _buildWeeklyGroups(monthItems, mKey),
+      );
+    }).toList();
+  }
+
+  List<HistoryGroup> _buildWeeklyGroups(List<MediaItem> items, String monthKey) {
+    final Map<int, List<MediaItem>> weekBucket = {};
+    for (final item in items) {
+      final ts = item.lastPlayedAt ?? 0;
+      final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+      final weekNum = ((dt.day - 1) / 7).floor() + 1;
+      weekBucket.putIfAbsent(weekNum, () => []).add(item);
+    }
+
+    final weekNums = weekBucket.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return weekNums.map((wn) {
+      final weekItems = weekBucket[wn]!;
+      final date = DateTime.fromMillisecondsSinceEpoch(weekItems.first.lastPlayedAt ?? 0);
+
+      return HistoryGroup(
+        id: '$monthKey-W$wn',
+        label: 'Semana $wn',
+        date: date,
+        subGroups: _buildDailyGroups(weekItems, DateTime.now()),
+      );
+    }).toList();
+  }
+
   String _dayKey(DateTime dt) {
     final y = dt.year.toString().padLeft(4, '0');
     final m = dt.month.toString().padLeft(2, '0');
@@ -151,18 +240,7 @@ class HistoryController extends GetxStateController<HistoryState> {
     return '$y-$m-$d';
   }
 
-  DateTime _parseDayKey(String key) {
-    final parts = key.split('-');
-    if (parts.length != 3) return DateTime.now();
-    final y = int.tryParse(parts[0]) ?? DateTime.now().year;
-    final m = int.tryParse(parts[1]) ?? DateTime.now().month;
-    final d = int.tryParse(parts[2]) ?? DateTime.now().day;
-    return DateTime(y, m, d);
-  }
-
-  // Etiqueta amigable para encabezados del historial.
-  String _dayLabel(DateTime date) {
-    final now = DateTime.now();
+  String _dayLabel(DateTime date, DateTime now) {
     final today = DateTime(now.year, now.month, now.day);
     final other = DateTime(date.year, date.month, date.day);
     final diff = today.difference(other).inDays;
@@ -170,13 +248,22 @@ class HistoryController extends GetxStateController<HistoryState> {
     if (diff == 0) return 'Hoy';
     if (diff == 1) return 'Ayer';
 
-    final d = date.day.toString().padLeft(2, '0');
-    final m = date.month.toString().padLeft(2, '0');
-    final y = date.year.toString();
-    return '$d/$m/$y';
+    final weekdays = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    final dayName = weekdays[date.weekday];
+    return '$dayName ${date.day}/${date.month}';
   }
 
-  // Hora en formato HH:mm para cada item.
+  String _monthLabel(DateTime date, DateTime now) {
+    final months = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    final monthName = months[date.month];
+
+    if (date.year == now.year) {
+      return monthName;
+    } else {
+      return '$monthName ${date.year}';
+    }
+  }
+
   String formatTime(MediaItem item) {
     final ts = item.lastPlayedAt ?? 0;
     if (ts <= 0) return '';

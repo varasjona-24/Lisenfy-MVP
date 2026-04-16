@@ -272,15 +272,6 @@ class DownloadsController extends GetxStateController<DownloadsState> {
     });
   }
 
-  void _openDownloadsFromShare() {
-    if (Get.currentRoute == AppRoutes.downloads) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (Get.currentRoute != AppRoutes.downloads) {
-        Get.toNamed(AppRoutes.downloads);
-      }
-    });
-  }
-
   void requestOpenLocalImport() {
     openLocalImportRequested.value = true;
   }

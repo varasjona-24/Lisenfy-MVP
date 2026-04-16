@@ -54,7 +54,10 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
       title: title,
       actions: [
         if (onSearch != null)
-          IconButton(icon: const Icon(Icons.search), onPressed: onSearch),
+          IconButton(
+            icon: const Icon(Icons.library_music_rounded),
+            onPressed: onSearch,
+          ),
 
         if (onToggleMode != null)
           IconButton(
