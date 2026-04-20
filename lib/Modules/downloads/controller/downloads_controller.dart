@@ -13,20 +13,29 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../../app/core/presentation/getx_state_controller.dart';
+import '../../../app/core/presentation/view_status.dart';
 import '../../../app/data/local/local_library_store.dart';
-import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/services/local_media_metadata_service.dart';
+import '../domain/usecases/load_download_items_usecase.dart';
 import '../service/download_task_service.dart';
+import '../state/downloads_state.dart';
+import '../presentation/widgets/downloads_pill.dart';
 
 import '../../sources/domain/source_origin.dart';
 
-class DownloadsController extends GetxController {
+class DownloadsController extends GetxStateController<DownloadsState> {
+  DownloadsController({
+    required LoadDownloadItemsUseCase loadDownloadItemsUseCase,
+  }) : _loadDownloadItemsUseCase = loadDownloadItemsUseCase,
+       super(DownloadsState.initial());
+
   // ============================
   // 🔌 DEPENDENCIAS
   // ============================
-  final MediaRepository _repo = Get.find<MediaRepository>();
+  final LoadDownloadItemsUseCase _loadDownloadItemsUseCase;
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
   final DownloadTaskService _downloadTask = Get.find<DownloadTaskService>();
   final LocalMediaMetadataService _metadata =
@@ -35,12 +44,13 @@ class DownloadsController extends GetxController {
   // ============================
   // 🧭 ESTADO UI
   // ============================
-  final RxList<MediaItem> downloads = <MediaItem>[].obs;
-  final RxBool isLoading = false.obs;
   final RxBool customTabOpening = false.obs;
   RxBool get isDownloading => _downloadTask.isDownloading;
   RxDouble get downloadProgress => _downloadTask.downloadProgress;
   RxString get downloadStatus => _downloadTask.downloadStatus;
+
+  bool get isLoading => state.value.status.isLoading;
+  List<MediaItem> get downloads => state.value.items;
 
   // 📁 Archivos locales para importar
   final RxList<MediaItem> localFilesForImport = <MediaItem>[].obs;
@@ -104,41 +114,66 @@ class DownloadsController extends GetxController {
   }
 
   Future<void> _handleIncomingSharedMedia(List<SharedMediaFile> files) async {
-    if (files.isEmpty || _processingSharedFiles) return;
+    debugPrint(
+      '[SHARE] _handleIncomingSharedMedia called with ${files.length} files',
+    );
+    if (files.isEmpty || _processingSharedFiles) {
+      debugPrint(
+        '[SHARE] Early return: isEmpty=${files.isEmpty}, processing=$_processingSharedFiles',
+      );
+      return;
+    }
     _processingSharedFiles = true;
-    var importedCount = 0;
-    var skippedCount = 0;
 
     try {
       final incomingMetadata = await _readIncomingListenfyMetadata(files);
+      final validFiles = <MediaItem>[];
 
       for (final shared in files) {
-        final raw = shared.path.trim();
-        if (raw.isEmpty) {
-          skippedCount += 1;
+        var filePath = shared.path.trim();
+        debugPrint('[SHARE] Processing file: $filePath');
+
+        if (filePath.isEmpty) {
+          debugPrint('[SHARE] Skipping empty path');
           continue;
         }
 
-        if (_isLikelyWebUrl(raw)) {
-          _setSharedUrl(raw);
+        if (_isLikelyWebUrl(filePath)) {
+          debugPrint('[SHARE] Detected URL, calling _setSharedUrl');
+          _setSharedUrl(filePath);
           continue;
         }
 
-        if (_isListenfyMetadataFilePath(raw)) {
+        if (_isListenfyMetadataFilePath(filePath)) {
+          debugPrint('[SHARE] Skipping metadata file');
           continue;
         }
 
+        // Convertir content:// URI a ruta real si es necesario (copia a temp)
+        if (filePath.startsWith('content://')) {
+          debugPrint('[SHARE] Converting content:// URI to temp file');
+          final resolved = await _copyContentUriToTemp(filePath);
+          if (resolved == null) {
+            debugPrint('[SHARE] Failed to resolve content:// URI');
+            continue;
+          }
+          filePath = resolved;
+          debugPrint('[SHARE] Resolved to temp path: $filePath');
+        }
+
+        debugPrint('[SHARE] Building candidate from path: $filePath');
         final candidate = await _buildCandidateFromPath(
-          raw,
-          displayName: p.basename(raw),
+          filePath,
+          displayName: p.basename(filePath),
         );
         if (candidate == null) {
-          skippedCount += 1;
+          debugPrint('[SHARE] Failed to build candidate');
           continue;
         }
 
+        debugPrint('[SHARE] Matching metadata');
         final metadata = _matchIncomingMetadata(
-          mediaPath: raw,
+          mediaPath: filePath,
           mediaItem: candidate,
           metadataPool: incomingMetadata,
         );
@@ -147,34 +182,77 @@ class DownloadsController extends GetxController {
           metadata,
         );
 
-        final imported = await importLocalFileToApp(enrichedCandidate);
-        if (imported != null) {
-          importedCount += 1;
-        } else {
-          skippedCount += 1;
-        }
+        validFiles.add(enrichedCandidate);
+        debugPrint(
+          '[SHARE] Added file to validFiles: ${enrichedCandidate.title}',
+        );
       }
 
-      if (importedCount > 0) {
-        await load();
-        _openDownloadsFromShare();
-        Get.snackbar(
-          'Importación completada',
-          importedCount == 1
-              ? 'Se importó 1 archivo compartido.'
-              : 'Se importaron $importedCount archivos compartidos.',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-      } else if (skippedCount > 0) {
-        Get.snackbar(
-          'Importación',
-          'No se pudo importar el archivo compartido. Verifica formato y permisos.',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+      debugPrint('[SHARE] Total valid files: ${validFiles.length}');
+      if (validFiles.isNotEmpty) {
+        localFilesForImport.addAll(validFiles);
+
+        // Navegar a downloads si no estamos ya ahí
+        if (Get.currentRoute != AppRoutes.downloads) {
+          debugPrint('[SHARE] Navigating to downloads');
+          Get.toNamed(AppRoutes.downloads);
+
+          // Esperar a que la página se cargue y luego abrir el diálogo
+          await Future.delayed(const Duration(milliseconds: 500));
+          _openImportDialog();
+        } else {
+          debugPrint('[SHARE] Already on downloads, opening dialog');
+          _openImportDialog();
+        }
+        debugPrint('[SHARE] Dialog requested');
       }
+    } catch (e) {
+      debugPrint('[SHARE] ERROR: $e');
     } finally {
       _processingSharedFiles = false;
     }
+  }
+
+  Future<String?> _copyContentUriToTemp(String contentUri) async {
+    try {
+      final sourceFile = File(contentUri);
+      if (!await sourceFile.exists()) {
+        debugPrint('Source file does not exist: $contentUri');
+        return null;
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final shareDir = Directory(p.join(tempDir.path, 'listenfy_share'));
+      if (!await shareDir.exists()) {
+        await shareDir.create(recursive: true);
+      }
+
+      final fileName = contentUri.split('/').last.isNotEmpty
+          ? contentUri.split('/').last
+          : 'shared_${DateTime.now().millisecondsSinceEpoch}';
+
+      final tempFile = File(p.join(shareDir.path, fileName));
+      await sourceFile.copy(tempFile.path);
+      debugPrint('Copied content URI to temp: ${tempFile.path}');
+      return tempFile.path;
+    } catch (e) {
+      debugPrint('Error copying content URI: $e');
+      return null;
+    }
+  }
+
+  void _openImportDialog() {
+    debugPrint('[SHARE] Opening import dialog');
+    localImportDialogOpen.value = true;
+    openLocalImportRequested.value = true;
+
+    // Trigger the dialog via BuildContext if available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Get.context != null && !isClosed) {
+        debugPrint('[SHARE] Showing dialog via showLocalImportDialog');
+        DownloadsPill.showLocalImportDialog(Get.context!, this);
+      }
+    });
   }
 
   void _setSharedUrl(String? value) {
@@ -190,15 +268,6 @@ class DownloadsController extends GetxController {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (Get.currentRoute != AppRoutes.downloads) {
         Get.toNamed(AppRoutes.downloads, arguments: {'sharedUrl': url});
-      }
-    });
-  }
-
-  void _openDownloadsFromShare() {
-    if (Get.currentRoute == AppRoutes.downloads) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (Get.currentRoute != AppRoutes.downloads) {
-        Get.toNamed(AppRoutes.downloads);
       }
     });
   }
@@ -278,30 +347,25 @@ class DownloadsController extends GetxController {
   // 📥 CARGA DE DESCARGAS
   // ============================
   Future<void> load() async {
-    isLoading.value = true;
+    emit(state.value.copyWith(status: ViewStatus.loading, clearError: true));
 
     try {
-      final all = await _repo.getLibrary();
-
-      final list = all.where((item) {
-        return item.variants.any((v) {
-          final pth = (v.localPath ?? '').trim();
-          return pth.isNotEmpty;
-        });
-      }).toList();
-
-      // Ordenar por fecha más reciente
-      list.sort((a, b) {
-        final aTime = a.variants.firstOrNull?.createdAt ?? 0;
-        final bTime = b.variants.firstOrNull?.createdAt ?? 0;
-        return bTime.compareTo(aTime);
-      });
-
-      downloads.assignAll(list);
+      final list = await _loadDownloadItemsUseCase();
+      emit(
+        state.value.copyWith(
+          status: ViewStatus.success,
+          items: list,
+          clearError: true,
+        ),
+      );
     } catch (e) {
       debugPrint('Error loading downloads: $e');
-    } finally {
-      isLoading.value = false;
+      emit(
+        state.value.copyWith(
+          status: ViewStatus.failure,
+          errorMessage: e.toString(),
+        ),
+      );
     }
   }
 
@@ -312,7 +376,7 @@ class DownloadsController extends GetxController {
   // ▶️ REPRODUCIR
   // ============================
   void play(MediaItem item) {
-    final queue = List<MediaItem>.from(downloads);
+    final queue = List<MediaItem>.from(state.value.items);
     final idx = queue.indexWhere((e) => e.id == item.id);
 
     Get.toNamed(

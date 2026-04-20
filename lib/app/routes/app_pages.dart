@@ -3,62 +3,66 @@ import 'package:get/get.dart';
 import 'app_routes.dart';
 
 // Entry / Home
-import 'package:flutter_listenfy/Modules/home/binding/home_binding.dart';
-import 'package:flutter_listenfy/Modules/home/view/home_entry_page.dart';
-import 'package:flutter_listenfy/Modules/home/view/home_page.dart';
-import 'package:flutter_listenfy/Modules/home/view/section_list_page.dart';
+import 'package:listenfy/Modules/home/binding/home_binding.dart';
+import 'package:listenfy/Modules/home/view/home_entry_page.dart';
+import 'package:listenfy/Modules/home/view/home_page.dart';
+import 'package:listenfy/Modules/home/view/section_list_page.dart';
 
 // Player
-import 'package:flutter_listenfy/Modules/player/audio/binding/audio_player_binding.dart';
-import 'package:flutter_listenfy/Modules/player/audio/view/audio_player_page.dart';
+import 'package:listenfy/Modules/player/audio/binding/audio_player_binding.dart';
+import 'package:listenfy/Modules/player/audio/view/audio_player_page.dart';
 
 // Video
-import 'package:flutter_listenfy/Modules/player/Video/binding/video_player_binding.dart';
-import 'package:flutter_listenfy/Modules/player/Video/view/video_player_page.dart';
-import 'package:flutter_listenfy/Modules/player/Video/view/lyrics_entry_page.dart';
+import 'package:listenfy/Modules/player/Video/binding/video_player_binding.dart';
+import 'package:listenfy/Modules/player/Video/view/video_player_page.dart';
+import 'package:listenfy/Modules/player/Video/view/lyrics_entry_page.dart';
 
 // Sources
-import 'package:flutter_listenfy/Modules/sources/binding/sources_binding.dart';
-import 'package:flutter_listenfy/Modules/sources/view/sources_page.dart';
+import 'package:listenfy/Modules/sources/binding/sources_binding.dart';
+import 'package:listenfy/Modules/sources/view/sources_page.dart';
 
 // Downloads
-import 'package:flutter_listenfy/Modules/downloads/binding/downloads_binding.dart';
-import 'package:flutter_listenfy/Modules/downloads/view/downloads_page.dart';
-import 'package:flutter_listenfy/Modules/downloads/binding/download_history_binding.dart';
-import 'package:flutter_listenfy/Modules/downloads/view/download_history_page.dart';
+import 'package:listenfy/Modules/downloads/binding/downloads_binding.dart';
+import 'package:listenfy/Modules/downloads/presentation/views/downloads_page.dart';
+import 'package:listenfy/Modules/downloads/binding/download_history_binding.dart';
+import 'package:listenfy/Modules/downloads/presentation/views/download_history_page.dart';
 
 // History
-import 'package:flutter_listenfy/Modules/history/binding/history_binding.dart';
-import 'package:flutter_listenfy/Modules/history/view/history_page.dart';
+import 'package:listenfy/Modules/history/binding/history_binding.dart';
+import 'package:listenfy/Modules/history/presentation/views/history_page.dart';
 
 // Artists
-import 'package:flutter_listenfy/Modules/artists/binding/artists_binding.dart';
-import 'package:flutter_listenfy/Modules/artists/view/artists_page.dart';
+import 'package:listenfy/Modules/artists/binding/artists_binding.dart';
+import 'package:listenfy/Modules/artists/view/artists_page.dart';
 
 // Playlists
-import 'package:flutter_listenfy/Modules/playlists/binding/playlists_binding.dart';
-import 'package:flutter_listenfy/Modules/playlists/view/playlists_page.dart';
+import 'package:listenfy/Modules/playlists/binding/playlists_binding.dart';
+import 'package:listenfy/Modules/playlists/view/playlists_page.dart';
 
 // Settings
-import 'package:flutter_listenfy/Modules/settings/binding/settings_binding.dart';
-import 'package:flutter_listenfy/Modules/settings/view/settings_view.dart';
+import 'package:listenfy/Modules/settings/binding/settings_binding.dart';
+import 'package:listenfy/Modules/settings/view/settings_view.dart';
 
 // Edit
-import 'package:flutter_listenfy/Modules/edit/binding/edit_entity_binding.dart';
-import 'package:flutter_listenfy/Modules/edit/view/edit_entity_page.dart';
-import 'package:flutter_listenfy/Modules/edit/view/create_entity_page.dart';
+import 'package:listenfy/Modules/edit/binding/edit_entity_binding.dart';
+import 'package:listenfy/Modules/edit/view/edit_entity_page.dart';
+import 'package:listenfy/Modules/edit/view/create_entity_page.dart';
 
 // Queues & Details (New)
-import 'package:flutter_listenfy/Modules/player/audio/view/queue_page.dart';
-import 'package:flutter_listenfy/Modules/player/Video/view/video_queue_page.dart';
-import 'package:flutter_listenfy/Modules/artists/view/artist_detail_page.dart';
-import 'package:flutter_listenfy/Modules/playlists/view/playlist_detail_page.dart';
-import 'package:flutter_listenfy/Modules/home/view/app_songs_search_page.dart';
-import 'package:flutter_listenfy/Modules/sources/view/source_library_page.dart';
-import 'package:flutter_listenfy/Modules/sources/view/source_theme_topic_page.dart';
-import 'package:flutter_listenfy/Modules/sources/view/source_theme_topic_playlist_page.dart';
-import 'package:flutter_listenfy/Modules/nearby_transfer/binding/nearby_transfer_binding.dart';
-import 'package:flutter_listenfy/Modules/nearby_transfer/view/nearby_transfer_page.dart';
+import 'package:listenfy/Modules/player/audio/view/queue_page.dart';
+import 'package:listenfy/Modules/player/Video/view/video_queue_page.dart';
+import 'package:listenfy/Modules/artists/view/artist_detail_page.dart';
+import 'package:listenfy/Modules/playlists/view/playlist_detail_page.dart';
+import 'package:listenfy/Modules/home/view/app_songs_search_page.dart';
+import 'package:listenfy/Modules/sources/view/source_library_page.dart';
+import 'package:listenfy/Modules/sources/view/source_theme_topic_page.dart';
+import 'package:listenfy/Modules/sources/view/source_theme_topic_playlist_page.dart';
+import 'package:listenfy/Modules/nearby_transfer/binding/nearby_transfer_binding.dart';
+import 'package:listenfy/Modules/nearby_transfer/view/nearby_transfer_page.dart';
+import 'package:listenfy/Modules/local_connect/binding/local_connect_binding.dart';
+import 'package:listenfy/Modules/local_connect/presentation/views/local_connect_page.dart';
+import 'package:listenfy/Modules/world_mode/binding/world_mode_binding.dart';
+import 'package:listenfy/Modules/world_mode/presentation/views/world_mode_page.dart';
 
 abstract class AppPages {
   static final routes = <GetPage>[
@@ -86,6 +90,13 @@ abstract class AppPages {
           onItemLongPress: args['onItemLongPress'],
           onShuffle: args['onShuffle'],
           itemHintBuilder: args['itemHintBuilder'],
+          itemTrailingBuilder: args['itemTrailingBuilder'],
+          onInterested: args['onInterested'],
+          onHideTrack: args['onHideTrack'],
+          onHideArtist: args['onHideArtist'],
+          onDeleteSelected: args['onDeleteSelected'],
+          startInSelectionMode: args['startInSelectionMode'] == true,
+          initialSelectionItemId: args['initialSelectionItemId'],
         );
       },
       transition: Transition.rightToLeft,
@@ -233,6 +244,16 @@ abstract class AppPages {
       name: AppRoutes.nearbyTransfer,
       page: () => const NearbyTransferPage(),
       binding: NearbyTransferBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.localConnect,
+      page: () => const LocalConnectPage(),
+      binding: LocalConnectBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.worldMode,
+      page: () => const WorldModePage(),
+      binding: WorldModeBinding(),
     ),
 
     // Video Player

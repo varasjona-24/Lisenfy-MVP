@@ -127,6 +127,98 @@ class MediaActionsController extends GetxController {
   }
 
   // ============================
+  // 🗑️ ELIMINAR MÚLTIPLES
+  // ============================
+  Future<void> deleteMultipleFromDevice(
+    List<MediaItem> items, {
+    Future<void> Function()? onChanged,
+  }) async {
+    if (items.isEmpty) return;
+
+    try {
+      var deletedCount = 0;
+      var failedCount = 0;
+
+      for (final item in items) {
+        try {
+          for (final v in item.variants) {
+            final pth = v.localPath;
+            if (pth != null && pth.isNotEmpty) {
+              final f = File(pth);
+              if (await f.exists()) await f.delete();
+            }
+          }
+          await _store.remove(item.id);
+          deletedCount++;
+        } catch (e) {
+          debugPrint('Error deleting media ${item.id}: $e');
+          failedCount++;
+        }
+      }
+
+      if (onChanged != null) await onChanged();
+
+      if (deletedCount > 0) {
+        final msg = deletedCount == 1
+            ? 'Se eliminó 1 archivo'
+            : 'Se eliminaron $deletedCount archivos';
+        Get.snackbar(
+          'Imports',
+          failedCount > 0
+              ? '$msg ($failedCount error${failedCount > 1 ? 's' : ''})'
+              : msg,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      } else if (failedCount > 0) {
+        Get.snackbar(
+          'Imports',
+          'Error al eliminar archivos',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error in deleteMultipleFromDevice: $e');
+      Get.snackbar(
+        'Imports',
+        'Error al eliminar archivos',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Future<void> confirmDeleteMultiple(
+    BuildContext context,
+    List<MediaItem> items, {
+    Future<void> Function()? onChanged,
+  }) async {
+    if (items.isEmpty) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar archivos'),
+        content: Text(
+          '¿Eliminar ${items.length} archivo${items.length > 1 ? 's' : ''} importado${items.length > 1 ? 's' : ''}?\n\nEsta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      await deleteMultipleFromDevice(items, onChanged: onChanged);
+    }
+  }
+
+  // ============================
   // 📤 COMPARTIR
   // ============================
   Future<void> shareMediaExternally(MediaItem item) async {
@@ -248,6 +340,7 @@ class MediaActionsController extends GetxController {
     BuildContext context,
     MediaItem item, {
     Future<void> Function()? onChanged,
+    VoidCallback? onStartMultiSelect,
   }) async {
     final theme = Theme.of(context);
     final nav = Get.isRegistered<NavigationController>()
@@ -263,90 +356,172 @@ class MediaActionsController extends GetxController {
       showDragHandle: true,
       backgroundColor: theme.colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       builder: (ctx) {
+        final scheme = theme.colorScheme;
+        final thumb = selected.effectiveThumbnail ?? '';
+        final hasThumb = thumb.isNotEmpty;
+        final isLocal = hasThumb && thumb.startsWith('/');
+
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.edit_rounded),
-                  title: const Text('Editar cancion'),
-                  onTap: () {
-                    pendingAction = () async {
-                      final latest = await _resolveLatest(selected);
-                      final changed = await openEditPage(latest);
-                      if (changed == true && onChanged != null) {
-                        await onChanged();
-                      }
-                    };
-                    Navigator.of(ctx).pop();
-                  },
-                ),
-                ListTile(
-                  leading: Icon(
-                    selected.isFavorite
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: MediaQuery.of(ctx).size.height * 0.5,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header section
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            width: 64,
+                            height: 64,
+                            color: scheme.surfaceContainerHigh,
+                            child: hasThumb
+                                ? (isLocal
+                                    ? Image.file(
+                                        File(thumb),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : Image.network(
+                                        thumb,
+                                        fit: BoxFit.cover,
+                                      ))
+                                : Icon(
+                                    selected.localVideoVariant != null
+                                        ? Icons.videocam_rounded
+                                        : Icons.music_note_rounded,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                selected.title,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 18,
+                                  letterSpacing: -0.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                selected.displaySubtitle,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  const SizedBox(height: 12),
+                  // Actions section
+                  _ActionItem(
+                    icon: Icons.edit_rounded,
+                    label: 'Editar canción',
+                    onTap: () {
+                      pendingAction = () async {
+                        final latest = await _resolveLatest(selected);
+                        final changed = await openEditPage(latest);
+                        if (changed == true && onChanged != null) {
+                          await onChanged();
+                        }
+                      };
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                  if (onStartMultiSelect != null)
+                    _ActionItem(
+                      icon: Icons.checklist_rtl_rounded,
+                      label: 'Seleccionar varios',
+                      onTap: () {
+                        pendingAction = () async {
+                          onStartMultiSelect();
+                        };
+                        Navigator.of(ctx).pop();
+                      },
+                    ),
+                  _ActionItem(
+                    icon: selected.isFavorite
                         ? Icons.favorite_rounded
                         : Icons.favorite_border_rounded,
-                  ),
-                  title: Text(
-                    selected.isFavorite
+                    label: selected.isFavorite
                         ? 'Quitar de favoritos'
                         : 'Agregar a favoritos',
+                    color: selected.isFavorite ? scheme.primary : null,
+                    onTap: () {
+                      pendingAction = () async {
+                        final latest = await _resolveLatest(selected);
+                        await toggleFavorite(latest, onChanged: onChanged);
+                      };
+                      Navigator.of(ctx).pop();
+                    },
                   ),
-                  onTap: () {
-                    pendingAction = () async {
-                      final latest = await _resolveLatest(selected);
-                      await toggleFavorite(latest, onChanged: onChanged);
-                    };
-                    Navigator.of(ctx).pop();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.delete_outline_rounded),
-                  title: const Text('Borrar del dispositivo'),
-                  onTap: () {
-                    pendingAction = () async {
-                      final latest = await _resolveLatest(selected);
-                      if (!context.mounted) return;
-                      await confirmDelete(
-                        context,
-                        latest,
-                        onChanged: onChanged,
-                      );
-                    };
-                    Navigator.of(ctx).pop();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.bluetooth_searching_rounded),
-                  title: const Text('Transferir a Listenfy (offline)'),
-                  onTap: () {
-                    pendingAction = () async {
-                      final latest = await _resolveLatest(selected);
-                      await Get.toNamed(
-                        AppRoutes.nearbyTransfer,
-                        arguments: {'item': latest},
-                      );
-                    };
-                    Navigator.of(ctx).pop();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.ios_share_rounded),
-                  title: const Text('Compartir archivo (externo)'),
-                  onTap: () {
-                    pendingAction = () async {
-                      final latest = await _resolveLatest(selected);
-                      await shareMediaExternally(latest);
-                    };
-                    Navigator.of(ctx).pop();
-                  },
-                ),
-              ],
+                  _ActionItem(
+                    icon: Icons.delete_outline_rounded,
+                    label: 'Borrar del dispositivo',
+                    color: Colors.redAccent,
+                    onTap: () {
+                      pendingAction = () async {
+                        final latest = await _resolveLatest(selected);
+                        if (!context.mounted) return;
+                        await confirmDelete(
+                          context,
+                          latest,
+                          onChanged: onChanged,
+                        );
+                      };
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                  _ActionItem(
+                    icon: Icons.bluetooth_searching_rounded,
+                    label: 'Transferir a Listenfy (offline)',
+                    onTap: () {
+                      pendingAction = () async {
+                        final latest = await _resolveLatest(selected);
+                        await Get.toNamed(
+                          AppRoutes.nearbyTransfer,
+                          arguments: {'item': latest},
+                        );
+                      };
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                  _ActionItem(
+                    icon: Icons.ios_share_rounded,
+                    label: 'Compartir archivo (externo)',
+                    onTap: () {
+                      pendingAction = () async {
+                        final latest = await _resolveLatest(selected);
+                        await shareMediaExternally(latest);
+                      };
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           ),
         );
@@ -357,5 +532,66 @@ class MediaActionsController extends GetxController {
       await action();
     }
     nav?.setOverlayOpen(false);
+  }
+}
+class _ActionItem extends StatelessWidget {
+  const _ActionItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: (color ?? scheme.primary).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  color: color ?? scheme.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: color ?? scheme.onSurface,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: scheme.outlineVariant,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

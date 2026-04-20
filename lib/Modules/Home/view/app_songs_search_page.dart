@@ -5,9 +5,11 @@ import 'package:get/get.dart';
 
 import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/models/media_item.dart';
+import '../../../app/routes/app_routes.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
+import '../../../app/ui/widgets/media/media_item_grid.dart';
 import '../controller/home_controller.dart';
 
 class AppSongsSearchPage extends StatefulWidget {
@@ -23,6 +25,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
   final TextEditingController _searchCtrl = TextEditingController();
 
   String _query = '';
+  bool _gridView = false;
 
   @override
   void dispose() {
@@ -61,13 +64,38 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
                   AppSpacing.md,
                   10,
                 ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Biblioteca de canciones',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: _gridView ? 'Ver como lista' : 'Ver cuadrícula',
+                      onPressed: () => setState(() => _gridView = !_gridView),
+                      icon: Icon(
+                        _gridView
+                            ? Icons.view_list_rounded
+                            : Icons.grid_view_rounded,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 child: Text(
-                  'Canciones de la app',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
+                  '${list.length} resultados',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 child: TextField(
@@ -101,28 +129,9 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
                           ),
                         ),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.md,
-                          0,
-                          AppSpacing.md,
-                          AppSpacing.lg,
-                        ),
-                        itemCount: list.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final item = list[index];
-                          return _SearchItemTile(
-                            item: item,
-                            onTap: () => _home.openMedia(item, index, list),
-                            onMore: () => _actions.showItemActions(
-                              context,
-                              item,
-                              onChanged: _home.loadHome,
-                            ),
-                          );
-                        },
-                      ),
+                    : _gridView
+                    ? _buildGridResults(theme, scheme, list)
+                    : _buildListResults(theme, list),
               ),
             ],
           );
@@ -154,6 +163,85 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
     return item.variants
         .map((v) => v.createdAt)
         .fold<int>(0, (maxValue, value) => value > maxValue ? value : maxValue);
+  }
+
+  Widget _buildListResults(ThemeData theme, List<MediaItem> list) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.lg,
+      ),
+      itemCount: list.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final item = list[index];
+        return _SearchItemTile(
+          item: item,
+          onTap: () => _home.openMedia(item, index, list),
+          onMore: () => _openItemActions(context, item, list),
+        );
+      },
+    );
+  }
+
+  Widget _buildGridResults(
+    ThemeData theme,
+    ColorScheme scheme,
+    List<MediaItem> list,
+  ) {
+    return MediaItemGrid(
+      items: list,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.lg,
+      ),
+      onTap: (item, index) => _home.openMedia(item, index, list),
+      onMore: (item, index) => _openItemActions(context, item, list),
+    );
+  }
+
+  Future<void> _openItemActions(
+    BuildContext context,
+    MediaItem item,
+    List<MediaItem> list,
+  ) {
+    return _actions.showItemActions(
+      context,
+      item,
+      onChanged: _home.loadHome,
+      onStartMultiSelect: () {
+        Get.toNamed(
+          AppRoutes.homeSectionList,
+          arguments: {
+            'title': 'Resultados de búsqueda',
+            'items': list,
+            'onItemTap': (MediaItem tapped, int tapIndex) =>
+                _home.openMedia(tapped, tapIndex < 0 ? 0 : tapIndex, list),
+            'onItemLongPress':
+                (MediaItem target, int _, {VoidCallback? onStartMultiSelect}) =>
+                    _actions.showItemActions(
+                      context,
+                      target,
+                      onChanged: _home.loadHome,
+                      onStartMultiSelect: onStartMultiSelect,
+                    ),
+            'onDeleteSelected': (List<MediaItem> selected) async {
+              await _actions.confirmDeleteMultiple(
+                context,
+                selected,
+                onChanged: _home.loadHome,
+              );
+            },
+            'startInSelectionMode': true,
+            'initialSelectionItemId': item.id,
+          },
+        );
+      },
+    );
   }
 }
 

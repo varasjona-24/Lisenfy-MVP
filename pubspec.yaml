@@ -1,5 +1,5 @@
-name: flutter_listenfy
-description: "A new Flutter project."
+name: listenfy
+description: "Listenfy, reproductor multimedia local con descubrimiento musical y control remoto web."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -84,6 +84,7 @@ flutter:
     - assets/ui/aguja.png
     - assets/ui/vinyl.png
     - assets/ui/volumen.svg
+    - assets/ui/Mapa-Mundi.jpg
     - assets/logo/listenfy_logo.svg
     - assets/hrtf/default.sofa
 

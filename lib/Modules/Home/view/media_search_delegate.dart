@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 
 import '../../../app/models/media_item.dart';
 import '../../../app/controllers/media_actions_controller.dart';
+import '../../../app/routes/app_routes.dart';
 import '../controller/home_controller.dart';
 
 class MediaSearchDelegate extends SearchDelegate<MediaItem?> {
@@ -231,6 +232,42 @@ class MediaSearchDelegate extends SearchDelegate<MediaItem?> {
                     context,
                     item,
                     onChanged: controller.loadHome,
+                    onStartMultiSelect: () {
+                      close(context, null);
+                      Get.toNamed(
+                        AppRoutes.homeSectionList,
+                        arguments: {
+                          'title': 'Resultados de búsqueda',
+                          'items': list,
+                          'onItemTap': (MediaItem tapped, int tapIndex) =>
+                              controller.openMedia(
+                                tapped,
+                                tapIndex < 0 ? 0 : tapIndex,
+                                list,
+                              ),
+                          'onItemLongPress':
+                              (
+                                MediaItem target,
+                                int _, {
+                                VoidCallback? onStartMultiSelect,
+                              }) => _actions.showItemActions(
+                                context,
+                                target,
+                                onChanged: controller.loadHome,
+                                onStartMultiSelect: onStartMultiSelect,
+                              ),
+                          'onDeleteSelected': (List<MediaItem> selected) async {
+                            await _actions.confirmDeleteMultiple(
+                              context,
+                              selected,
+                              onChanged: controller.loadHome,
+                            );
+                          },
+                          'startInSelectionMode': true,
+                          'initialSelectionItemId': item.id,
+                        },
+                      );
+                    },
                   );
                 },
               ),

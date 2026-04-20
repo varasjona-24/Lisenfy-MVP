@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -35,6 +36,7 @@ class SettingsController extends GetxController {
   // 🔄 Forzar refresco de datos de almacenamiento
   final RxInt storageTick = 0.obs;
   final RxInt bluetoothTick = 0.obs;
+  final RxString cacheSummary = 'Calculando...'.obs;
   final BluetoothAudioService _bluetoothAudio = BluetoothAudioService();
 
   // 🍪 YouTube cookies
@@ -47,6 +49,7 @@ class SettingsController extends GetxController {
     super.onInit();
     _loadSettings();
     _configureAudioSession();
+    refreshCacheSummary();
   }
 
   void _loadSettings() {
@@ -105,22 +108,48 @@ class SettingsController extends GetxController {
   // ============================
   // 🧹 CACHÉ
   // ============================
+  static const _worldModeStationsCacheKey = 'world_mode_stations_cache_v1';
+
+  Future<void> refreshCacheSummary() async {
+    try {
+      final bytes = await _estimateClearableCacheBytes();
+      cacheSummary.value = _formatBytes(bytes);
+    } catch (_) {
+      cacheSummary.value = '—';
+    }
+  }
+
   Future<void> clearCache() async {
     try {
+      final bytesBefore = await _estimateClearableCacheBytes();
+
       final tempDir = await getTemporaryDirectory();
       if (await tempDir.exists()) {
         await tempDir.delete(recursive: true);
         await tempDir.create(recursive: true);
       }
 
+      final appDir = await getApplicationDocumentsDirectory();
+      final karaokeDir = Directory(
+        p.join(appDir.path, 'downloads', 'karaoke_remote'),
+      );
+      if (await karaokeDir.exists()) {
+        await karaokeDir.delete(recursive: true);
+      }
+
+      await _storage.remove(_worldModeStationsCacheKey);
+
       storageTick.value++;
+      await refreshCacheSummary();
       Get.snackbar(
         'Caché',
-        'Caché limpiada correctamente',
+        bytesBefore > 0
+            ? 'Se liberaron ${_formatBytes(bytesBefore)} de caché regenerable.'
+            : 'No había caché temporal para limpiar.',
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
-      print('clearCache error: $e');
+      debugPrint('clearCache error: $e');
       Get.snackbar(
         'Caché',
         'No se pudo limpiar el caché',
@@ -143,7 +172,7 @@ class SettingsController extends GetxController {
       final mb = totalBytes / (1024 * 1024);
       return '${mb.toStringAsFixed(2)} MB';
     } catch (e) {
-      print('storage info error: $e');
+      debugPrint('storage info error: $e');
       return '0 MB';
     }
   }
@@ -158,6 +187,45 @@ class SettingsController extends GetxController {
       }
     }
     return total;
+  }
+
+  Future<int> _estimateClearableCacheBytes() async {
+    var total = 0;
+
+    final tempDir = await getTemporaryDirectory();
+    total += await _dirSize(tempDir);
+
+    final appDir = await getApplicationDocumentsDirectory();
+    final karaokeDir = Directory(
+      p.join(appDir.path, 'downloads', 'karaoke_remote'),
+    );
+    total += await _dirSize(karaokeDir);
+
+    total += _storedValueSize(_worldModeStationsCacheKey);
+    return total;
+  }
+
+  int _storedValueSize(String key) {
+    final raw = _storage.read(key);
+    if (raw == null) return 0;
+    try {
+      return utf8.encode(jsonEncode(raw)).length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return '0 MB';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    var value = bytes.toDouble();
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+    final decimals = unitIndex == 0 ? 0 : 2;
+    return '${value.toStringAsFixed(decimals)} ${units[unitIndex]}';
   }
 
   // ============================
@@ -216,7 +284,7 @@ class SettingsController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
-      print('uploadYtDlpCookies error: $e');
+      debugPrint('uploadYtDlpCookies error: $e');
       Get.snackbar(
         'Cookies',
         'No se pudieron subir las cookies.',
@@ -229,17 +297,27 @@ class SettingsController extends GetxController {
   // 🔄 RESET
   // ============================
   Future<void> resetSettings() async {
-    // Reset appearance
     selectedPalette.value = 'green';
     brightness.value = Brightness.dark;
     await _storage.write('selectedPalette', 'green');
     await _storage.write('brightness', 'dark');
+    ytdlpAdminToken.value = '';
+    ytdlpAdminTokenController.clear();
+    await _storage.remove('ytdlpAdminToken');
     _applyTheme();
 
-    // Reset playback settings
     if (Get.isRegistered<PlaybackSettingsController>()) {
       await Get.find<PlaybackSettingsController>().resetPlaybackSettings();
     }
+    if (Get.isRegistered<SleepTimerController>()) {
+      await Get.find<SleepTimerController>().resetSleepSettings();
+    }
+    if (Get.isRegistered<EqualizerController>()) {
+      await Get.find<EqualizerController>().resetEqualizerSettings();
+    }
+
+    storageTick.value++;
+    bluetoothTick.value++;
   }
 
   @override

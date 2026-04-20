@@ -13,12 +13,17 @@ import '../../../../app/services/spatial_audio_service.dart';
 
 void openPlayerVisualStyleSheet({
   required CoverStyle currentStyle,
+  required List<CoverStyle> options,
   required ValueChanged<CoverStyle> onSelected,
 }) {
   if (Get.isBottomSheetOpen ?? false) return;
 
   Get.bottomSheet<void>(
-    _PlayerVisualStyleSheet(currentStyle: currentStyle, onSelected: onSelected),
+    _PlayerVisualStyleSheet(
+      currentStyle: currentStyle,
+      options: options,
+      onSelected: onSelected,
+    ),
     isScrollControlled: false,
     useRootNavigator: true,
     ignoreSafeArea: false,
@@ -39,7 +44,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
 
   IconData _coverStyleIcon(CoverStyle style) {
     return switch (style) {
-      CoverStyle.square => Icons.crop_square_rounded,
+      CoverStyle.square => Icons.photo_rounded,
       CoverStyle.vinyl => Icons.album_rounded,
       CoverStyle.wave => Icons.graphic_eq_rounded,
       CoverStyle.miniSpectrum => Icons.equalizer_rounded,
@@ -48,7 +53,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
 
   String _coverStyleLabel(CoverStyle style) {
     return switch (style) {
-      CoverStyle.square => 'normal',
+      CoverStyle.square => 'portada',
       CoverStyle.vinyl => 'disco',
       CoverStyle.wave => 'ondas',
       CoverStyle.miniSpectrum => 'mini espectro',
@@ -75,7 +80,9 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
           child: Obx(() {
             final queue = controller.queue;
             final idx = controller.currentIndex.value;
-            final coverStyle = controller.coverStyle.value;
+            final coverStyle = controller.normalizeCoverStyle(
+              controller.coverStyle.value,
+            );
             final item = (queue.isNotEmpty && idx >= 0 && idx < queue.length)
                 ? queue[idx]
                 : null;
@@ -169,6 +176,8 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                                 value: _coverStyleLabel(coverStyle),
                                 onTap: () => openPlayerVisualStyleSheet(
                                   currentStyle: coverStyle,
+                                  options: AudioPlayerController
+                                      .availableCoverStyles,
                                   onSelected: controller.setCoverStyle,
                                 ),
                               ),
@@ -215,7 +224,8 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                                     SpatialAudioMode.virtualizer;
                                 final lockedByBinaural =
                                     controller.isSpatialModeLocked;
-                                final effectiveOn = stereoOn || lockedByBinaural;
+                                final effectiveOn =
+                                    stereoOn || lockedByBinaural;
                                 return _PlayerQuickActionTile(
                                   icon: Icons.surround_sound_rounded,
                                   label: 'Estéreo',
@@ -278,15 +288,17 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
 class _PlayerVisualStyleSheet extends StatelessWidget {
   const _PlayerVisualStyleSheet({
     required this.currentStyle,
+    required this.options,
     required this.onSelected,
   });
 
   final CoverStyle currentStyle;
+  final List<CoverStyle> options;
   final ValueChanged<CoverStyle> onSelected;
 
   IconData _iconFor(CoverStyle style) {
     return switch (style) {
-      CoverStyle.square => Icons.crop_square_rounded,
+      CoverStyle.square => Icons.photo_rounded,
       CoverStyle.vinyl => Icons.album_rounded,
       CoverStyle.wave => Icons.graphic_eq_rounded,
       CoverStyle.miniSpectrum => Icons.equalizer_rounded,
@@ -295,10 +307,19 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
 
   String _labelFor(CoverStyle style) {
     return switch (style) {
-      CoverStyle.square => 'normal',
+      CoverStyle.square => 'portada',
       CoverStyle.vinyl => 'disco',
       CoverStyle.wave => 'ondas',
       CoverStyle.miniSpectrum => 'mini espectro',
+    };
+  }
+
+  String _descriptionFor(CoverStyle style) {
+    return switch (style) {
+      CoverStyle.square => 'Portada estática centrada en la carátula.',
+      CoverStyle.vinyl => 'Vista de disco con presencia visual.',
+      CoverStyle.wave => 'Forma de onda amplia y estable.',
+      CoverStyle.miniSpectrum => 'Espectro circular más dinámico.',
     };
   }
 
@@ -318,51 +339,144 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Visualizador',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: scheme.outline.withValues(alpha: 0.28),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
               ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: CoverStyle.values
-                    .map((style) {
-                      final selected = style == currentStyle;
-                      return ChoiceChip(
-                        selected: selected,
-                        showCheckmark: false,
-                        avatar: Icon(
-                          _iconFor(style),
-                          size: 16,
+              const SizedBox(height: 14),
+              Text(
+                'Visualizador',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Elige cómo quieres ver la portada y la animación del reproductor.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: options.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.18,
+                ),
+                itemBuilder: (context, index) {
+                  final style = options[index];
+                  final selected = style == currentStyle;
+
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () {
+                      onSelected(style);
+                      Get.back<void>();
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? scheme.primary.withValues(alpha: 0.14)
+                            : scheme.surfaceContainerHighest.withValues(
+                                alpha: 0.42,
+                              ),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
                           color: selected
-                              ? scheme.primary
-                              : scheme.onSurfaceVariant,
+                              ? scheme.primary.withValues(alpha: 0.65)
+                              : scheme.outline.withValues(alpha: 0.18),
+                          width: selected ? 1.4 : 1,
                         ),
-                        label: Text(
-                          _labelFor(style),
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: selected ? scheme.primary : scheme.onSurface,
-                            fontWeight: FontWeight.w700,
+                        boxShadow: selected
+                            ? [
+                                BoxShadow(
+                                  color: scheme.primary.withValues(alpha: 0.12),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? scheme.primary.withValues(alpha: 0.16)
+                                      : scheme.surface.withValues(alpha: 0.72),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  _iconFor(style),
+                                  color: selected
+                                      ? scheme.primary
+                                      : scheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const Spacer(),
+                              if (selected)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: scheme.primary.withValues(
+                                      alpha: 0.16,
+                                    ),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    'Activo',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: scheme.primary,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                        ),
-                        selectedColor: scheme.primary.withValues(alpha: 0.12),
-                        backgroundColor: scheme.surfaceContainerHighest
-                            .withValues(alpha: 0.45),
-                        side: BorderSide(
-                          color: selected
-                              ? scheme.primary.withValues(alpha: 0.4)
-                              : scheme.outline.withValues(alpha: 0.2),
-                        ),
-                        onSelected: (_) {
-                          onSelected(style);
-                          Get.back<void>();
-                        },
-                      );
-                    })
-                    .toList(growable: false),
+                          const Spacer(),
+                          Text(
+                            _labelFor(style),
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _descriptionFor(style),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              height: 1.25,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),

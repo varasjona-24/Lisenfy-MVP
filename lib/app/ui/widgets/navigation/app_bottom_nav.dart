@@ -16,13 +16,21 @@ class AppBottomNav extends StatelessWidget {
     final scheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    final navBg = isDark ? const Color(0xFF0B0B0B) : Colors.white;
-    // si tu Flutter no tiene outlineVariant, usa:
-    // final divider = scheme.outline.withOpacity(isDark ? 0.35 : 0.45);
+    final navBg = scheme.surface.withValues(alpha: isDark ? 0.94 : 0.98);
+    final dividerColor = scheme.outline.withValues(alpha: isDark ? 0.24 : 0.14);
+    final shadowColor = Colors.black.withValues(alpha: isDark ? 0.18 : 0.06);
 
     return DecoratedBox(
       decoration: BoxDecoration(
         color: navBg,
+        border: Border(top: BorderSide(color: dividerColor)),
+        boxShadow: [
+          BoxShadow(
+            color: shadowColor,
+            blurRadius: 14,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: SafeArea(
         top: false,
@@ -34,8 +42,8 @@ class AppBottomNav extends StatelessWidget {
           elevation: 0,
 
           selectedItemColor: scheme.primary,
-          unselectedItemColor: scheme.onSurface.withOpacity(
-            isDark ? 0.70 : 0.62,
+          unselectedItemColor: scheme.onSurface.withValues(
+            alpha: isDark ? 0.70 : 0.62,
           ),
 
           selectedFontSize: 11,

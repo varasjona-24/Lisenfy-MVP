@@ -7,7 +7,7 @@ import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart' as vp;
 
-import 'package:flutter_listenfy/Modules/player/Video/controller/video_player_controller.dart';
+import 'package:listenfy/Modules/player/Video/controller/video_player_controller.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../../app/routes/app_routes.dart';
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../app/ui/themes/app_spacing.dart';
-import 'package:flutter_listenfy/Modules/home/controller/home_controller.dart';
+import 'package:listenfy/Modules/home/controller/home_controller.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/ui/widgets/branding/animated_listenfy_logo.dart';
 import '../../../app/controllers/theme_controller.dart'; // ajusta el path

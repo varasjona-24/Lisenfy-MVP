@@ -1,10 +1,10 @@
-import 'package:flutter_listenfy/Modules/artists/domain/artist_profile.dart';
+import 'package:listenfy/Modules/artists/domain/artist_profile.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_listenfy/Modules/home/data/recommendation_store.dart';
-import 'package:flutter_listenfy/Modules/home/domain/recommendation_models.dart';
-import 'package:flutter_listenfy/Modules/home/service/local_recommendation_service.dart';
-import 'package:flutter_listenfy/Modules/sources/domain/source_origin.dart';
-import 'package:flutter_listenfy/app/models/media_item.dart';
+import 'package:listenfy/Modules/recommendations/data/recommendation_store.dart';
+import 'package:listenfy/Modules/recommendations/domain/recommendation_models.dart';
+import 'package:listenfy/Modules/recommendations/application/local_recommendation_service.dart';
+import 'package:listenfy/Modules/sources/domain/source_origin.dart';
+import 'package:listenfy/app/models/media_item.dart';
 
 void main() {
   group('LocalRecommendationService', () {

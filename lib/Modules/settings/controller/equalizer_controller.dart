@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
@@ -131,7 +132,7 @@ class EqualizerController extends GetxController {
       await _applyPreset();
       await setEqEnabled(eqEnabled.value);
     } catch (e) {
-      print('Equalizer init error: $e');
+      debugPrint('Equalizer init error: $e');
       eqAvailable.value = false;
       eqUnavailableMessage.value = 'No se pudo iniciar el ecualizador.';
     }
@@ -156,6 +157,26 @@ class EqualizerController extends GetxController {
     _storage.write('eqGains', eqGains.toList());
     for (var i = 0; i < gains.length; i++) {
       await audio.setEqBandGain(i, gains[i]);
+    }
+  }
+
+  Future<void> resetEqualizerSettings() async {
+    eqEnabled.value = false;
+    eqPreset.value = 'custom';
+    if (eqGains.isNotEmpty) {
+      eqGains.assignAll(List<double>.filled(eqGains.length, 0.0));
+    }
+
+    await _storage.write('eqEnabled', false);
+    await _storage.write('eqPreset', 'custom');
+    await _storage.write('eqGains', eqGains.toList());
+
+    if (Get.isRegistered<AudioService>()) {
+      final audio = Get.find<AudioService>();
+      for (var i = 0; i < eqGains.length; i++) {
+        await audio.setEqBandGain(i, 0.0);
+      }
+      await audio.setEqEnabled(false);
     }
   }
 

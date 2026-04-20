@@ -1,6 +1,6 @@
 {
-    "name": "flutter_listenfy",
-    "short_name": "flutter_listenfy",
+    "name": "listenfy",
+    "short_name": "listenfy",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

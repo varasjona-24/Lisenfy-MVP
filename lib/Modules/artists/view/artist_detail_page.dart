@@ -2,17 +2,20 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 import '../../../app/models/media_item.dart';
 import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
-import 'package:flutter_listenfy/Modules/home/controller/home_controller.dart';
+import 'package:listenfy/Modules/home/controller/home_controller.dart';
 import '../../../app/routes/app_routes.dart';
 import '../controller/artists_controller.dart';
 import '../domain/artist_profile.dart';
 import '../../edit/controller/edit_entity_controller.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
+import '../../../app/ui/themes/app_grid_theme.dart';
+import '../../../app/ui/widgets/media/media_item_grid.dart';
 import 'widgets/artist_avatar.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 
@@ -223,6 +226,45 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                     context,
                     item,
                     onChanged: controller.load,
+                    onStartMultiSelect: () {
+                      Get.toNamed(
+                        AppRoutes.homeSectionList,
+                        arguments: {
+                          'title': isBand
+                              ? 'Canciones de la banda'
+                              : 'Canciones',
+                          'items': primarySongs,
+                          'onItemTap': (MediaItem tapped, int index) =>
+                              home.openMedia(
+                                tapped,
+                                displayQueue.indexWhere(
+                                  (e) => e.id == tapped.id,
+                                ),
+                                displayQueue,
+                              ),
+                          'onItemLongPress':
+                              (
+                                MediaItem target,
+                                int _, {
+                                VoidCallback? onStartMultiSelect,
+                              }) => actions.showItemActions(
+                                context,
+                                target,
+                                onChanged: controller.load,
+                                onStartMultiSelect: onStartMultiSelect,
+                              ),
+                          'onDeleteSelected': (List<MediaItem> selected) async {
+                            await actions.confirmDeleteMultiple(
+                              context,
+                              selected,
+                              onChanged: controller.load,
+                            );
+                          },
+                          'startInSelectionMode': true,
+                          'initialSelectionItemId': item.id,
+                        },
+                      );
+                    },
                   ),
                 ),
                 if (collaborationSongs.isNotEmpty) ...[
@@ -242,6 +284,46 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                       context,
                       item,
                       onChanged: controller.load,
+                      onStartMultiSelect: () {
+                        Get.toNamed(
+                          AppRoutes.homeSectionList,
+                          arguments: {
+                            'title': isBand
+                                ? 'Colaboraciones de la banda'
+                                : 'Colaboraciones',
+                            'items': collaborationSongs,
+                            'onItemTap': (MediaItem tapped, int index) =>
+                                home.openMedia(
+                                  tapped,
+                                  displayQueue.indexWhere(
+                                    (e) => e.id == tapped.id,
+                                  ),
+                                  displayQueue,
+                                ),
+                            'onItemLongPress':
+                                (
+                                  MediaItem target,
+                                  int _, {
+                                  VoidCallback? onStartMultiSelect,
+                                }) => actions.showItemActions(
+                                  context,
+                                  target,
+                                  onChanged: controller.load,
+                                  onStartMultiSelect: onStartMultiSelect,
+                                ),
+                            'onDeleteSelected':
+                                (List<MediaItem> selected) async {
+                                  await actions.confirmDeleteMultiple(
+                                    context,
+                                    selected,
+                                    onChanged: controller.load,
+                                  );
+                                },
+                            'startInSelectionMode': true,
+                            'initialSelectionItemId': item.id,
+                          },
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -261,6 +343,44 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                       context,
                       item,
                       onChanged: controller.load,
+                      onStartMultiSelect: () {
+                        Get.toNamed(
+                          AppRoutes.homeSectionList,
+                          arguments: {
+                            'title': 'Singles de integrantes',
+                            'items': memberSingles,
+                            'onItemTap': (MediaItem tapped, int index) =>
+                                home.openMedia(
+                                  tapped,
+                                  displayQueue.indexWhere(
+                                    (e) => e.id == tapped.id,
+                                  ),
+                                  displayQueue,
+                                ),
+                            'onItemLongPress':
+                                (
+                                  MediaItem target,
+                                  int _, {
+                                  VoidCallback? onStartMultiSelect,
+                                }) => actions.showItemActions(
+                                  context,
+                                  target,
+                                  onChanged: controller.load,
+                                  onStartMultiSelect: onStartMultiSelect,
+                                ),
+                            'onDeleteSelected':
+                                (List<MediaItem> selected) async {
+                                  await actions.confirmDeleteMultiple(
+                                    context,
+                                    selected,
+                                    onChanged: controller.load,
+                                  );
+                                },
+                            'startInSelectionMode': true,
+                            'initialSelectionItemId': item.id,
+                          },
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -280,6 +400,44 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                       context,
                       item,
                       onChanged: controller.load,
+                      onStartMultiSelect: () {
+                        Get.toNamed(
+                          AppRoutes.homeSectionList,
+                          arguments: {
+                            'title': 'Colaboraciones de integrantes',
+                            'items': memberCollaborations,
+                            'onItemTap': (MediaItem tapped, int index) =>
+                                home.openMedia(
+                                  tapped,
+                                  displayQueue.indexWhere(
+                                    (e) => e.id == tapped.id,
+                                  ),
+                                  displayQueue,
+                                ),
+                            'onItemLongPress':
+                                (
+                                  MediaItem target,
+                                  int _, {
+                                  VoidCallback? onStartMultiSelect,
+                                }) => actions.showItemActions(
+                                  context,
+                                  target,
+                                  onChanged: controller.load,
+                                  onStartMultiSelect: onStartMultiSelect,
+                                ),
+                            'onDeleteSelected':
+                                (List<MediaItem> selected) async {
+                                  await actions.confirmDeleteMultiple(
+                                    context,
+                                    selected,
+                                    onChanged: controller.load,
+                                  );
+                                },
+                            'startInSelectionMode': true,
+                            'initialSelectionItemId': item.id,
+                          },
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -398,7 +556,7 @@ class _MemberArtistCard extends StatelessWidget {
   }
 }
 
-class _SongSection extends StatelessWidget {
+class _SongSection extends StatefulWidget {
   const _SongSection({
     required this.title,
     required this.subtitle,
@@ -414,33 +572,76 @@ class _SongSection extends StatelessWidget {
   final ValueChanged<MediaItem> onMore;
 
   @override
+  State<_SongSection> createState() => _SongSectionState();
+}
+
+class _SongSectionState extends State<_SongSection> {
+  bool _gridMode = false;
+  final GetStorage _storage = GetStorage();
+
+  @override
+  void initState() {
+    super.initState();
+    _gridMode = _storage.read('artist_detail_grid_view') ?? false;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (items.isEmpty) return const SizedBox.shrink();
+    if (widget.items.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: _gridMode ? 'Vista de cuadrícula' : 'Vista de lista',
+              onPressed: () {
+                setState(() {
+                  _gridMode = !_gridMode;
+                  _storage.write('artist_detail_grid_view', _gridMode);
+                });
+              },
+              icon: Icon(
+                _gridMode ? Icons.grid_view_rounded : Icons.view_list_rounded,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 2),
         Text(
-          subtitle,
+          widget.subtitle,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 8),
-        for (final item in items)
-          _SongTile(
-            item: item,
-            onPlay: () => onPlay(item),
-            onMore: () => onMore(item),
-          ),
+        if (_gridMode)
+          MediaItemGrid(
+            items: widget.items,
+            onTap: (item, index) => widget.onPlay(item),
+            onMore: (item, index) => widget.onMore(item),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: AppGridTheme.childAspectRatio,
+            crossAxisSpacing: AppGridTheme.spacing,
+            mainAxisSpacing: AppGridTheme.spacing,
+          )
+        else
+          for (final item in widget.items)
+            _SongTile(
+              item: item,
+              onPlay: () => widget.onPlay(item),
+              onMore: () => widget.onMore(item),
+            ),
       ],
     );
   }

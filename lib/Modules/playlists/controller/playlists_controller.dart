@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
@@ -27,8 +28,10 @@ class SmartPlaylist {
 class PlaylistsController extends GetxController {
   final MediaRepository _repo = Get.find<MediaRepository>();
   final PlaylistStore _store = Get.find<PlaylistStore>();
+  final GetStorage _storage = GetStorage();
 
   final RxBool isLoading = false.obs;
+  final RxBool detailGridView = false.obs;
   final RxList<Playlist> playlists = <Playlist>[].obs;
   final RxList<SmartPlaylist> smartPlaylists = <SmartPlaylist>[].obs;
 
@@ -37,6 +40,7 @@ class PlaylistsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    detailGridView.value = _storage.read('playlist_detail_grid_view') ?? false;
     load();
   }
 
@@ -55,8 +59,7 @@ class PlaylistsController extends GetxController {
     }
   }
 
-  List<MediaItem> get libraryAudio =>
-      _library.where(_hasAudioVariant).toList();
+  List<MediaItem> get libraryAudio => _library.where(_hasAudioVariant).toList();
 
   String _keyForItem(MediaItem item) {
     final pid = item.publicId.trim();
@@ -95,10 +98,7 @@ class PlaylistsController extends GetxController {
     return null;
   }
 
-  Future<void> createPlaylist(
-    String name, {
-    String? coverLocalPath,
-  }) async {
+  Future<void> createPlaylist(String name, {String? coverLocalPath}) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -187,25 +187,16 @@ class PlaylistsController extends GetxController {
 
     final favorites = items.where((e) => e.isFavorite).toList();
 
-    final recent = items
-        .where((e) => (e.lastPlayedAt ?? 0) > 0)
-        .toList()
-      ..sort(
-        (a, b) =>
-            (b.lastPlayedAt ?? 0).compareTo(a.lastPlayedAt ?? 0),
-      );
+    final recent = items.where((e) => (e.lastPlayedAt ?? 0) > 0).toList()
+      ..sort((a, b) => (b.lastPlayedAt ?? 0).compareTo(a.lastPlayedAt ?? 0));
 
-    final mostPlayed = items
-        .where((e) => e.playCount > 0)
-        .toList()
+    final mostPlayed = items.where((e) => e.playCount > 0).toList()
       ..sort((a, b) => b.playCount.compareTo(a.playCount));
 
-    final latest = items
-        .where((e) => e.isOfflineStored)
-        .toList()
+    final latest = items.where((e) => e.isOfflineStored).toList()
       ..sort(
-        (a, b) => _latestVariantCreatedAt(b)
-            .compareTo(_latestVariantCreatedAt(a)),
+        (a, b) =>
+            _latestVariantCreatedAt(b).compareTo(_latestVariantCreatedAt(a)),
       );
 
     smartPlaylists.assignAll([
@@ -247,5 +238,10 @@ class PlaylistsController extends GetxController {
       if (v.createdAt > maxTs) maxTs = v.createdAt;
     }
     return maxTs;
+  }
+
+  void toggleDetailGridView() {
+    detailGridView.value = !detailGridView.value;
+    _storage.write('playlist_detail_grid_view', detailGridView.value);
   }
 }

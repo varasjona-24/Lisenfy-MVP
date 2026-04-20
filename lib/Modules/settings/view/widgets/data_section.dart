@@ -47,7 +47,7 @@ class DataSection extends StatelessWidget {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.dividerColor.withOpacity(.12)),
+            side: BorderSide(color: theme.dividerColor.withValues(alpha: .12)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -77,16 +77,22 @@ class DataSection extends StatelessWidget {
                 }),
 
                 const SizedBox(height: 12),
-                Divider(color: theme.dividerColor.withOpacity(.12)),
+                Divider(color: theme.dividerColor.withValues(alpha: .12)),
                 const SizedBox(height: 12),
 
                 // Actions
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: settings.clearCache,
-                    icon: const Icon(Icons.delete_sweep_rounded),
-                    label: const Text('Limpiar caché'),
+                  child: Obx(
+                    () => ElevatedButton.icon(
+                      onPressed: settings.clearCache,
+                      icon: const Icon(Icons.delete_sweep_rounded),
+                      label: Text(
+                        settings.cacheSummary.value == 'Calculando...'
+                            ? 'Limpiar caché'
+                            : 'Limpiar caché (${settings.cacheSummary.value})',
+                      ),
+                    ),
                   ),
                 ),
 
@@ -97,10 +103,10 @@ class DataSection extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(.08),
+                      color: theme.colorScheme.primary.withValues(alpha: .08),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: theme.colorScheme.primary.withOpacity(.25),
+                        color: theme.colorScheme.primary.withValues(alpha: .25),
                       ),
                     ),
                     child: Row(
@@ -146,10 +152,10 @@ class DataSection extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(.08),
+                    color: Colors.amber.withValues(alpha: .08),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.amber.withOpacity(.25),
+                      color: Colors.amber.withValues(alpha: .25),
                     ),
                   ),
                   child: Row(
@@ -239,32 +245,6 @@ class DataSection extends StatelessWidget {
                 }),
 
                 const SizedBox(height: 12),
-                Divider(color: theme.dividerColor.withOpacity(.12)),
-                const SizedBox(height: 12),
-
-                const SectionHeader(
-                  title: 'Cookies de YouTube',
-                  subtitle:
-                      'Sube el archivo cookies.txt para descargas de YouTube.',
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: settings.ytdlpAdminTokenController,
-                  decoration: const InputDecoration(
-                    labelText: 'Token admin',
-                    hintText: 'Pega tu token',
-                  ),
-                  onChanged: settings.setYtDlpAdminToken,
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: settings.uploadYtDlpCookies,
-                    icon: const Icon(Icons.upload_rounded),
-                    label: const Text('Actualizar cookies'),
-                  ),
-                ),
               ],
             ),
           ),

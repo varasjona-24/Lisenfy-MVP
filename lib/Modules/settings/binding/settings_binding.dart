@@ -7,7 +7,8 @@ import '../../artists/data/artist_store.dart';
 import '../../sources/data/source_theme_pill_store.dart';
 import '../../sources/data/source_theme_topic_store.dart';
 import '../../sources/data/source_theme_topic_playlist_store.dart';
-import '../../home/data/recommendation_store.dart';
+import '../../recommendations/data/recommendation_store.dart';
+import '../../recommendations/data/recommendation_feedback_store.dart';
 import '../controller/settings_controller.dart';
 import '../controller/playback_settings_controller.dart';
 import '../controller/sleep_timer_controller.dart';
@@ -43,6 +44,12 @@ class SettingsBinding extends Bindings {
     }
     if (!Get.isRegistered<RecommendationStore>()) {
       Get.put(RecommendationStore(Get.find<GetStorage>()), permanent: true);
+    }
+    if (!Get.isRegistered<RecommendationFeedbackStore>()) {
+      Get.put(
+        RecommendationFeedbackStore(Get.find<GetStorage>()),
+        permanent: true,
+      );
     }
     Get.lazyPut<SettingsController>(() => SettingsController(), fenix: true);
     Get.lazyPut<PlaybackSettingsController>(
