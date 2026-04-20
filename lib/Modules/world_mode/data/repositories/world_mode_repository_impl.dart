@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../../../app/data/repo/media_repository.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../../app/utils/artist_credit_parser.dart';
@@ -115,15 +117,20 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
     final recentEvents = await _localDatasource.readRecentPlaybackEvents(
       limit: 220,
     );
+    final effectiveSeed =
+        options.shuffleSeed ?? DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF;
     final ranked = _rankTracksForRegion(
       regionCode: regionCode,
       tracks: regionTracks,
       events: recentEvents,
+      shuffleSeed: effectiveSeed,
     );
+    // Mezcla dentro de grupos de 8 para variedad real entre recargas
+    final shuffledRanked = _shuffleWithinTiers(ranked, effectiveSeed, tierSize: 8);
     final localStations = _buildRegionStations(
       regionCode: regionCode,
       regionName: regionDef.name,
-      rankedTracks: ranked,
+      rankedTracks: shuffledRanked,
     );
 
     List<CountryStationEntity> merged = localStations;
@@ -193,6 +200,7 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
     );
     final isRegionMode = WorldRegionCatalog.byCode(station.countryCode) != null;
 
+    final continueSeed = math.Random().nextInt(0x7FFFFFFF);
     final localRadioContinuation = isRegionMode
         ? _buildRegionContinuation(
             station: station,
@@ -200,6 +208,7 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
             playedTrackIds: stationPlayed,
             recentEvents: recentEvents,
             limit: safeLimit,
+            shuffleSeed: continueSeed,
           )
         : _radioPlanner.buildContinuation(
             station: station,
@@ -208,6 +217,7 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
             recentPlaybackEvents: recentEvents,
             countryAffinity: await _localDatasource.readCountryAffinity(),
             limit: safeLimit,
+            shuffleSeed: continueSeed,
           );
 
     final recentTrackIds = _extractRecentTrackIdsForStation(
@@ -264,7 +274,10 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
     required Set<String> playedTrackIds,
     required List<Map<String, dynamic>> recentEvents,
     required int limit,
+    int? shuffleSeed,
   }) {
+    final effectiveSeed =
+        shuffleSeed ?? DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF;
     final artistRegionIndex = _buildArtistRegionIndex();
     final eligible = _eligibleTracksForRegion(
       regionCode: station.countryCode,
@@ -276,6 +289,7 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
       regionCode: station.countryCode,
       tracks: eligible,
       events: recentEvents,
+      shuffleSeed: effectiveSeed,
     );
 
     final normalizedPlayed = _mergePlayedIds(
@@ -481,7 +495,10 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
     required String regionCode,
     required List<MediaItem> tracks,
     required List<Map<String, dynamic>> events,
+    int? shuffleSeed,
   }) {
+    final effectiveSeed =
+        shuffleSeed ?? DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF;
     final recentTrackIds = _extractRecentTrackIdsForCountry(
       countryCode: regionCode,
       events: events,
@@ -502,9 +519,10 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
           (engagement * 0.48) +
           (novelty * 0.24) +
           (resumeBoost) +
-          _deterministicRegionJitter(
+          _stochasticRegionJitter(
             regionCode: regionCode,
             stableTrackId: stableId,
+            shuffleSeed: effectiveSeed,
           );
       scored.add(
         _RegionScoredItem(
@@ -517,6 +535,24 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
     }
     scored.sort((a, b) => b.score.compareTo(a.score));
     return _interleaveByArtist(scored);
+  }
+
+  /// Mezcla pistas dentro de grupos de [tierSize] respetando el ranking
+  /// global pero introduciendo variedad real con cada [seed] distinto.
+  List<MediaItem> _shuffleWithinTiers(
+    List<MediaItem> sorted,
+    int seed, {
+    int tierSize = 8,
+  }) {
+    final rng = math.Random(seed);
+    final result = <MediaItem>[];
+    for (var i = 0; i < sorted.length; i += tierSize) {
+      final end = math.min(i + tierSize, sorted.length);
+      final tier = sorted.sublist(i, end).toList();
+      tier.shuffle(rng);
+      result.addAll(tier);
+    }
+    return result;
   }
 
   List<MediaItem> _interleaveByArtist(List<_RegionScoredItem> scored) {
@@ -677,11 +713,12 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
     return 0.2;
   }
 
-  double _deterministicRegionJitter({
+  double _stochasticRegionJitter({
     required String regionCode,
     required String stableTrackId,
+    required int shuffleSeed,
   }) {
-    final hash = Object.hash(regionCode, stableTrackId).abs();
+    final hash = Object.hash(regionCode, stableTrackId, shuffleSeed).abs();
     return (hash % 1000) / 1000 * 0.06;
   }
 

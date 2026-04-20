@@ -83,10 +83,16 @@ class DataSection extends StatelessWidget {
                 // Actions
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: settings.clearCache,
-                    icon: const Icon(Icons.delete_sweep_rounded),
-                    label: const Text('Limpiar caché'),
+                  child: Obx(
+                    () => ElevatedButton.icon(
+                      onPressed: settings.clearCache,
+                      icon: const Icon(Icons.delete_sweep_rounded),
+                      label: Text(
+                        settings.cacheSummary.value == 'Calculando...'
+                            ? 'Limpiar caché'
+                            : 'Limpiar caché (${settings.cacheSummary.value})',
+                      ),
+                    ),
                   ),
                 ),
 
@@ -239,32 +245,6 @@ class DataSection extends StatelessWidget {
                 }),
 
                 const SizedBox(height: 12),
-                Divider(color: theme.dividerColor.withValues(alpha: .12)),
-                const SizedBox(height: 12),
-
-                const SectionHeader(
-                  title: 'Cookies de YouTube',
-                  subtitle:
-                      'Sube el archivo cookies.txt para descargas de YouTube.',
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: settings.ytdlpAdminTokenController,
-                  decoration: const InputDecoration(
-                    labelText: 'Token admin',
-                    hintText: 'Pega tu token',
-                  ),
-                  onChanged: settings.setYtDlpAdminToken,
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: settings.uploadYtDlpCookies,
-                    icon: const Icon(Icons.upload_rounded),
-                    label: const Text('Actualizar cookies'),
-                  ),
-                ),
               ],
             ),
           ),

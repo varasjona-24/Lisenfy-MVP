@@ -151,10 +151,14 @@ class PlaybackSettingsController extends GetxController {
   // ============================
   Future<void> resetPlaybackSettings() async {
     defaultVolume.value = 100.0;
+    downloadQuality.value = 'high';
+    dataUsage.value = 'all';
     autoPlayNext.value = true;
     crossfadeSeconds.value = 0;
 
     await _storage.write('defaultVolume', defaultVolume.value);
+    await _storage.write('downloadQuality', downloadQuality.value);
+    await _storage.write('dataUsage', dataUsage.value);
     await _storage.write('autoPlayNext', autoPlayNext.value);
     await _storage.write('audio_crossfade_seconds', crossfadeSeconds.value);
 

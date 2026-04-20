@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
+import '../../../app/data/local/local_library_store.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/ui/themes/app_spacing.dart';
@@ -60,6 +61,7 @@ class _SectionListPageState extends State<SectionListPage> {
   bool _selectionMode = false;
   bool _gridMode = false;
   final GetStorage _storage = GetStorage();
+  final LocalLibraryStore _libraryStore = Get.find<LocalLibraryStore>();
   final Set<String> _selectedIds = <String>{};
 
   @override
@@ -143,6 +145,39 @@ class _SectionListPageState extends State<SectionListPage> {
       .toList(growable: false);
 
   bool _canSelect(MediaItem item) => item.isOfflineStored;
+
+  Future<void> _refreshItemsFromStore() async {
+    final current = List<MediaItem>.from(_items);
+    if (current.isEmpty) return;
+
+    final all = await _libraryStore.readAll();
+    if (all.isEmpty) return;
+
+    MediaItem? resolve(MediaItem item) {
+      for (final candidate in all) {
+        if (candidate.id == item.id) return candidate;
+      }
+
+      final publicId = item.publicId.trim();
+      if (publicId.isEmpty) return null;
+
+      for (final candidate in all) {
+        if (candidate.publicId.trim() == publicId) return candidate;
+      }
+
+      return null;
+    }
+
+    final refreshed = current
+        .map((item) => resolve(item) ?? item)
+        .toList(growable: false);
+
+    if (!mounted) return;
+    setState(() {
+      _items = refreshed;
+      _selectedIds.removeWhere((id) => !_items.any((item) => item.id == id));
+    });
+  }
 
   void _toggleSelectionMode([bool? enabled]) {
     setState(() {
@@ -318,7 +353,7 @@ class _SectionListPageState extends State<SectionListPage> {
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: () {
-                final queue = List<MediaItem>.from(widget.items);
+                final queue = List<MediaItem>.from(_items);
                 queue.shuffle(Random());
                 if (queue.isEmpty) return;
                 widget.onShuffle?.call(queue);
@@ -376,7 +411,7 @@ class _SectionListPageState extends State<SectionListPage> {
               itemIndex,
               onStartMultiSelect: () => _startMultiSelectFromItem(item),
             );
-            if (mounted) setState(() {});
+            await _refreshItemsFromStore();
           },
           showFeedbackActions: _hasFeedbackActions,
           onInterested: widget.onInterested == null
@@ -428,7 +463,7 @@ class _SectionListPageState extends State<SectionListPage> {
                 index,
                 onStartMultiSelect: () => _startMultiSelectFromItem(item),
               );
-              if (mounted) setState(() {});
+              await _refreshItemsFromStore();
             },
           ),
         ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:listenfy/Modules/home/controller/home_controller.dart';
-import 'package:listenfy/app/controllers/media_actions_controller.dart';
 import 'package:listenfy/app/ui/themes/app_spacing.dart';
 import 'package:listenfy/app/ui/widgets/branding/listenfy_logo.dart';
 import 'package:listenfy/app/ui/widgets/layout/app_gradient_background.dart';
@@ -30,7 +29,6 @@ class DownloadsPage extends GetView<DownloadsController> {
         : false;
 
     return Obx(() {
-      final mode = home.mode.value;
       final shared = controller.sharedUrl.value;
       final dialogOpen = controller.shareDialogOpen.value;
       final shouldOpenLocalImport = controller.openLocalImportRequested.value;
@@ -147,7 +145,4 @@ class DownloadsPage extends GetView<DownloadsController> {
       );
     });
   }
-
-
-
 }

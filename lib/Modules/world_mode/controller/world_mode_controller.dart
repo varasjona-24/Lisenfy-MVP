@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:get/get.dart';
 
 import '../../../app/models/media_item.dart';
@@ -16,6 +18,7 @@ class WorldModeController extends GetxController {
 
   final WorldModeRepository _repository;
   final WorldModePlaybackFacade _playbackFacade;
+  final math.Random _rng = math.Random();
 
   final RxBool isLoadingCountries = false.obs;
   final RxBool isLoadingStations = false.obs;
@@ -28,6 +31,10 @@ class WorldModeController extends GetxController {
   final RxList<CountryEntity> filteredCountries = <CountryEntity>[].obs;
   final Rxn<CountryEntity> selectedCountry = Rxn<CountryEntity>();
   final RxList<CountryStationEntity> stations = <CountryStationEntity>[].obs;
+
+  /// Seed aleatorio que cambia en cada selectCountry / refreshStations.
+  /// Garantiza que el orden de canciones sea distinto en cada petición.
+  int _shuffleSeed = DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF;
 
   @override
   void onInit() {
@@ -70,12 +77,15 @@ class WorldModeController extends GetxController {
     bool forceRefresh = false,
   }) async {
     selectedCountry.value = country;
+    _shuffleSeed = _rng.nextInt(0x7FFFFFFF);
     await _loadStations(country, forceRefresh: forceRefresh);
   }
 
   Future<void> refreshStations() async {
     final country = selectedCountry.value;
     if (country == null) return;
+    // Genera un seed nuevo → orden completamente diferente cada vez
+    _shuffleSeed = _rng.nextInt(0x7FFFFFFF);
     await _loadStations(country, forceRefresh: true);
   }
 
@@ -136,6 +146,7 @@ class WorldModeController extends GetxController {
         options: WorldExploreOptions(
           preferOnline: preferOnline.value,
           forceRefresh: forceRefresh,
+          shuffleSeed: _shuffleSeed,
         ),
       );
       stations.assignAll(result);

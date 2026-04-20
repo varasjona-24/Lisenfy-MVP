@@ -189,7 +189,46 @@ class EditEntityController extends GetxController {
     for (final item in all) {
       if (item.id == fallback.id) return item;
     }
+    final publicId = fallback.publicId.trim();
+    if (publicId.isNotEmpty) {
+      for (final item in all) {
+        if (item.publicId.trim() == publicId) return item;
+      }
+    }
     return fallback;
+  }
+
+  Future<void> _applyMediaMetadataToSiblings(MediaItem updated) async {
+    final all = await _store.readAll();
+    final publicId = updated.publicId.trim();
+
+    final matches = all
+        .where((entry) {
+          if (entry.id == updated.id) return true;
+          return publicId.isNotEmpty && entry.publicId.trim() == publicId;
+        })
+        .toList(growable: false);
+
+    if (matches.isEmpty) {
+      await _store.upsert(updated);
+      return;
+    }
+
+    for (final entry in matches) {
+      await _store.upsert(
+        entry.copyWith(
+          title: updated.title,
+          subtitle: updated.subtitle,
+          thumbnail: updated.thumbnail,
+          thumbnailLocalPath: updated.thumbnailLocalPath,
+          durationSeconds: updated.durationSeconds,
+          lyrics: updated.lyrics,
+          lyricsLanguage: updated.lyricsLanguage,
+          translations: updated.translations,
+          timedLyrics: updated.timedLyrics,
+        ),
+      );
+    }
   }
 
   Future<MediaCleanupAnalysis?> analyzeMediaSilences({
@@ -338,7 +377,7 @@ class EditEntityController extends GetxController {
       timedLyrics: Map<String, List<TimedLyricCue>>.from(timedLyrics),
     );
 
-    await _store.upsert(updated);
+    await _applyMediaMetadataToSiblings(updated);
     await _refreshDependentControllers();
 
     return true;

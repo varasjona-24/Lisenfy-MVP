@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../../app/models/media_item.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
@@ -17,6 +19,7 @@ class RadioStationPlanner {
     required List<Map<String, dynamic>> recentPlaybackEvents,
     required Map<String, double> countryAffinity,
     int limit = 20,
+    int? shuffleSeed,
   }) {
     if (limit <= 0) return const <MediaItem>[];
     final targetCountryCode = station.countryCode.trim().toUpperCase();
@@ -40,6 +43,9 @@ class RadioStationPlanner {
       stationId: station.stationId,
       limit: 8,
     );
+
+    final effectiveSeed =
+        shuffleSeed ?? DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF;
 
     final scored = <_ScoredTrack>[];
     for (final item in playable) {
@@ -67,10 +73,11 @@ class RadioStationPlanner {
           baseScore +
           resumeBoost -
           replayPenalty +
-          _deterministicJitter(
+          _stochasticJitter(
             stationId: station.stationId,
             stableId: stableId,
             stationType: station.type,
+            shuffleSeed: effectiveSeed,
           );
 
       scored.add(
@@ -85,9 +92,13 @@ class RadioStationPlanner {
     }
 
     scored.sort((a, b) => b.score.compareTo(a.score));
+
+    // Mezcla dentro de grupos de puntaje similar para verdadera variedad
+    final shuffled = _shuffleWithinTiers(scored, effectiveSeed, tierSize: 6);
+
     return _selectWithRadioRotation(
       stationType: station.type,
-      scored: scored,
+      scored: shuffled,
       limit: limit,
     );
   }
@@ -213,6 +224,24 @@ class RadioStationPlanner {
     );
   }
 
+  /// Mezcla pistas dentro de grupos de tamaño [tierSize] para introducir
+  /// variedad real manteniendo el orden general de relevancia.
+  List<_ScoredTrack> _shuffleWithinTiers(
+    List<_ScoredTrack> sorted,
+    int seed, {
+    int tierSize = 6,
+  }) {
+    final rng = math.Random(seed);
+    final result = <_ScoredTrack>[];
+    for (var i = 0; i < sorted.length; i += tierSize) {
+      final end = math.min(i + tierSize, sorted.length);
+      final tier = sorted.sublist(i, end).toList();
+      tier.shuffle(rng);
+      result.addAll(tier);
+    }
+    return result;
+  }
+
   Set<String> _normalizedPlayedIds(Set<String> rawIds) {
     final normalized = <String>{};
     for (final raw in rawIds) {
@@ -297,13 +326,18 @@ class RadioStationPlanner {
     return _CountryRelevance.other;
   }
 
-  double _deterministicJitter({
+  /// Jitter estocástico: mezcla el seed aleatorio del usuario con el hash
+  /// de la pista para que el mismo track produzca posiciones distintas
+  /// en cada llamada con distinto [shuffleSeed].
+  double _stochasticJitter({
     required String stationId,
     required String stableId,
     required WorldStationType stationType,
+    required int shuffleSeed,
   }) {
-    final hash = Object.hash(stationId, stationType.key, stableId).abs();
-    return (hash % 1000) / 1000 * 0.03;
+    final hash =
+        Object.hash(stationId, stationType.key, stableId, shuffleSeed).abs();
+    return (hash % 1000) / 1000 * 0.04;
   }
 
   String _artistKey(MediaItem item) {

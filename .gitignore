@@ -43,3 +43,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local signing and machine-specific files
+key.properties
+*.jks
+*.keystore
+
+# Local media/source dumps that must not be uploaded
+www.youtube.com_cookies*.txt
+/android/openal-soft/

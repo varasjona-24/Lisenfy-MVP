@@ -237,6 +237,30 @@ class SleepTimerController extends GetxController {
     });
   }
 
+  Future<void> resetSleepSettings() async {
+    _cancelSleepTimer();
+    _cancelInactivityTimer();
+    _restoreVolume();
+
+    sleepTimerEnabled.value = false;
+    sleepTimerMinutes.value = 30;
+    sleepRemaining.value = Duration.zero;
+    fadeOutEnabled.value = true;
+    inactivityPauseEnabled.value = false;
+    inactivityPauseMinutes.value = 15;
+
+    await _storage.write('sleepTimerEnabled', false);
+    await _storage.write('sleepTimerMinutes', 30);
+    await _storage.write('fadeOutEnabled', true);
+    await _storage.write('inactivityPauseEnabled', false);
+    await _storage.write('inactivityPauseMinutes', 15);
+    await _storage.remove('sleepTimerEndMs');
+
+    if (Get.isRegistered<AudioService>()) {
+      Get.find<AudioService>().refreshNotification();
+    }
+  }
+
   @override
   void onClose() {
     _sleepTimer?.cancel();

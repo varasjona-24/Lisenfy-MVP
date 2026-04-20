@@ -91,6 +91,22 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
 
 enum _TopBarMenuAction { worldMode, localConnect, settings }
 
+class _TopBarMenuEntryData {
+  const _TopBarMenuEntryData({
+    required this.action,
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.tint,
+  });
+
+  final _TopBarMenuAction action;
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final Color tint;
+}
+
 class _TopBarOverflowMenu extends StatelessWidget {
   const _TopBarOverflowMenu({
     required this.showWorldModeAction,
@@ -110,39 +126,60 @@ class _TopBarOverflowMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = <PopupMenuEntry<_TopBarMenuAction>>[
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    final items = <_TopBarMenuEntryData>[
       if (showWorldModeAction)
-        const PopupMenuItem<_TopBarMenuAction>(
-          value: _TopBarMenuAction.worldMode,
-          child: _TopBarMenuItemRow(
-            icon: Icons.public_rounded,
-            label: 'Listenfy Atlas',
-          ),
+        _TopBarMenuEntryData(
+          action: _TopBarMenuAction.worldMode,
+          icon: Icons.public_rounded,
+          label: 'Listenfy Atlas',
+          subtitle: 'Explorar música por regiones',
+          tint: scheme.tertiary,
         ),
       if (showLocalConnectAction)
-        const PopupMenuItem<_TopBarMenuAction>(
-          value: _TopBarMenuAction.localConnect,
-          child: _TopBarMenuItemRow(
-            icon: Icons.cast_connected_rounded,
-            label: 'Listenfy Local Connect',
-          ),
+        _TopBarMenuEntryData(
+          action: _TopBarMenuAction.localConnect,
+          icon: Icons.cast_connected_rounded,
+          label: 'Listenfy Connect',
+          subtitle: 'Control remoto y sesión local',
+          tint: scheme.primary,
         ),
-      if (showSettingsAction && (showWorldModeAction || showLocalConnectAction))
-        const PopupMenuDivider(height: 8),
       if (showSettingsAction)
-        const PopupMenuItem<_TopBarMenuAction>(
-          value: _TopBarMenuAction.settings,
-          child: _TopBarMenuItemRow(icon: Icons.settings, label: 'Ajustes'),
+        _TopBarMenuEntryData(
+          action: _TopBarMenuAction.settings,
+          icon: Icons.settings_rounded,
+          label: 'Ajustes',
+          subtitle: 'Preferencias y herramientas',
+          tint: scheme.secondary,
         ),
     ];
 
-    if (entries.isEmpty) {
+    if (items.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return PopupMenuButton<_TopBarMenuAction>(
       tooltip: 'Más opciones',
-      icon: const Icon(Icons.more_vert_rounded),
+      padding: const EdgeInsets.only(right: 6),
+      offset: const Offset(0, 10),
+      elevation: 10,
+      color: scheme.surfaceContainerHigh,
+      shadowColor: Colors.black.withValues(alpha: 0.22),
+      surfaceTintColor: scheme.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      constraints: const BoxConstraints(minWidth: 260, maxWidth: 320),
+      icon: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: scheme.outline.withValues(alpha: 0.14)),
+        ),
+        child: Icon(Icons.more_horiz_rounded, color: scheme.onSurface),
+      ),
       onSelected: (value) {
         switch (value) {
           case _TopBarMenuAction.worldMode:
@@ -157,21 +194,83 @@ class _TopBarOverflowMenu extends StatelessWidget {
             break;
         }
       },
-      itemBuilder: (context) => entries,
+      itemBuilder: (context) => [
+        PopupMenuItem<_TopBarMenuAction>(
+          enabled: false,
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+          height: 0,
+          child: Text(
+            'Accesos rápidos',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+        ...items.map(
+          (item) => PopupMenuItem<_TopBarMenuAction>(
+            value: item.action,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            child: _TopBarMenuItemRow(item: item),
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _TopBarMenuItemRow extends StatelessWidget {
-  const _TopBarMenuItemRow({required this.icon, required this.label});
+  const _TopBarMenuItemRow({required this.item});
 
-  final IconData icon;
-  final String label;
+  final _TopBarMenuEntryData item;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Row(
-      children: [Icon(icon, size: 18), const SizedBox(width: 10), Text(label)],
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: item.tint.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(item.icon, size: 20, color: item.tint),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                item.label,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                item.subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Icon(
+          Icons.chevron_right_rounded,
+          size: 20,
+          color: scheme.onSurfaceVariant.withValues(alpha: 0.85),
+        ),
+      ],
     );
   }
 }

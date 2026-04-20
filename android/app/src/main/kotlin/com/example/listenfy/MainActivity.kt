@@ -17,6 +17,10 @@ import android.app.PictureInPictureParams
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.MediaMetadataRetriever
+import android.media.MediaCodec
+import android.media.MediaCodecInfo
+import android.media.MediaFormat
+import android.media.MediaMuxer
 import android.media.audiofx.BassBoost
 import android.media.audiofx.EnvironmentalReverb
 import android.media.audiofx.LoudnessEnhancer
@@ -1310,7 +1314,7 @@ class MainActivity : AudioServiceActivity() {
 
         val cleanedDurationMs = ((writtenFrames * 1000L) / sampleRate).toInt()
         val removedDurationMs = (originalDurationMs - cleanedDurationMs).coerceAtLeast(0)
-        val outputPath = writePcm16Wav(
+        val outputPath = writeCleanedAudio(
             sourcePath = normalizedPath,
             pcm = cleanedPcm,
             sampleRate = sampleRate,
@@ -1536,6 +1540,37 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
+    private fun writeCleanedAudio(
+        sourcePath: String,
+        pcm: ByteArray,
+        sampleRate: Int,
+        channels: Int
+    ): String {
+        val sourceExt = File(sourcePath).extension.lowercase()
+        val prefersCompressed = sourceExt in setOf(
+            "mp3", "m4a", "aac", "ogg", "opus", "webm", "mp4", "3gp"
+        )
+
+        if (prefersCompressed) {
+            try {
+                return writePcm16AacM4a(
+                    sourcePath = sourcePath,
+                    pcm = pcm,
+                    sampleRate = sampleRate,
+                    channels = channels
+                )
+            } catch (_: Throwable) {
+            }
+        }
+
+        return writePcm16Wav(
+            sourcePath = sourcePath,
+            pcm = pcm,
+            sampleRate = sampleRate,
+            channels = channels
+        )
+    }
+
     private fun writePcm16Wav(
         sourcePath: String,
         pcm: ByteArray,
@@ -1584,6 +1619,164 @@ class MainActivity : AudioServiceActivity() {
             fos.write(header.array())
             fos.write(pcm)
             fos.flush()
+        }
+
+        return outputFile.absolutePath
+    }
+
+    private fun writePcm16AacM4a(
+        sourcePath: String,
+        pcm: ByteArray,
+        sampleRate: Int,
+        channels: Int
+    ): String {
+        val sourceFile = File(sourcePath)
+        val safeBaseName = sanitizeFileName(
+            sourceFile.nameWithoutExtension.ifBlank { "audio" }
+        )
+        val mediaDir = File(filesDir, "media")
+        if (!mediaDir.exists() && !mediaDir.mkdirs()) {
+            throw IllegalStateException("No se pudo crear carpeta de salida.")
+        }
+
+        val outputFile = File(
+            mediaDir,
+            "${safeBaseName}_clean_${System.currentTimeMillis()}.m4a"
+        )
+
+        val mimeType = MediaFormat.MIMETYPE_AUDIO_AAC
+        val encoder = MediaCodec.createEncoderByType(mimeType)
+        val targetChannels = channels.coerceIn(1, 2)
+        val bitrate = when {
+            targetChannels <= 1 -> 128_000
+            sampleRate >= 48000 -> 224_000
+            else -> 192_000
+        }
+
+        val format = MediaFormat.createAudioFormat(mimeType, sampleRate, targetChannels).apply {
+            setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
+            setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
+            setInteger(MediaFormat.KEY_PCM_ENCODING, android.media.AudioFormat.ENCODING_PCM_16BIT)
+            setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 256 * 1024)
+        }
+
+        encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+        encoder.start()
+
+        val muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+        val bufferInfo = MediaCodec.BufferInfo()
+        var trackIndex = -1
+        var muxerStarted = false
+        var inputDone = false
+        var outputDone = false
+        var inputOffset = 0
+        val bytesPerFrame = targetChannels * 2
+        var totalFramesQueued = 0L
+
+        try {
+            while (!outputDone) {
+                if (!inputDone) {
+                    val inputBufferIndex = encoder.dequeueInputBuffer(10_000)
+                    if (inputBufferIndex >= 0) {
+                        val inputBuffer = encoder.getInputBuffer(inputBufferIndex)
+                            ?: throw IllegalStateException("InputBuffer nulo.")
+                        inputBuffer.clear()
+
+                        val remaining = pcm.size - inputOffset
+                        if (remaining <= 0) {
+                            encoder.queueInputBuffer(
+                                inputBufferIndex,
+                                0,
+                                0,
+                                ((totalFramesQueued * 1_000_000L) / sampleRate).coerceAtLeast(0L),
+                                MediaCodec.BUFFER_FLAG_END_OF_STREAM
+                            )
+                            inputDone = true
+                        } else {
+                            val chunkSize = minOf(remaining, inputBuffer.capacity())
+                            val alignedChunkSize = chunkSize - (chunkSize % bytesPerFrame)
+                            val safeChunkSize = if (alignedChunkSize > 0) alignedChunkSize else minOf(remaining, bytesPerFrame)
+                            inputBuffer.put(pcm, inputOffset, safeChunkSize)
+                            val frameCount = safeChunkSize / bytesPerFrame
+                            val presentationTimeUs =
+                                ((totalFramesQueued * 1_000_000L) / sampleRate).coerceAtLeast(0L)
+                            encoder.queueInputBuffer(
+                                inputBufferIndex,
+                                0,
+                                safeChunkSize,
+                                presentationTimeUs,
+                                0
+                            )
+                            inputOffset += safeChunkSize
+                            totalFramesQueued += frameCount.toLong()
+                        }
+                    }
+                }
+
+                when (val outputBufferIndex = encoder.dequeueOutputBuffer(bufferInfo, 10_000)) {
+                    MediaCodec.INFO_TRY_AGAIN_LATER -> {
+                    }
+
+                    MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        if (muxerStarted) {
+                            throw IllegalStateException("Formato AAC cambiado dos veces.")
+                        }
+                        trackIndex = muxer.addTrack(encoder.outputFormat)
+                        muxer.start()
+                        muxerStarted = true
+                    }
+
+                    else -> {
+                        if (outputBufferIndex >= 0) {
+                            val outputBuffer = encoder.getOutputBuffer(outputBufferIndex)
+                                ?: throw IllegalStateException("OutputBuffer nulo.")
+
+                            if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
+                                bufferInfo.size = 0
+                            }
+
+                            if (bufferInfo.size > 0) {
+                                if (!muxerStarted || trackIndex < 0) {
+                                    throw IllegalStateException("Muxer no iniciado.")
+                                }
+
+                                outputBuffer.position(bufferInfo.offset)
+                                outputBuffer.limit(bufferInfo.offset + bufferInfo.size)
+                                muxer.writeSampleData(trackIndex, outputBuffer, bufferInfo)
+                            }
+
+                            encoder.releaseOutputBuffer(outputBufferIndex, false)
+
+                            if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                                outputDone = true
+                            }
+                        }
+                    }
+                }
+            }
+        } finally {
+            try {
+                encoder.stop()
+            } catch (_: Throwable) {
+            }
+            try {
+                encoder.release()
+            } catch (_: Throwable) {
+            }
+            try {
+                if (muxerStarted) {
+                    muxer.stop()
+                }
+            } catch (_: Throwable) {
+            }
+            try {
+                muxer.release()
+            } catch (_: Throwable) {
+            }
+        }
+
+        if (!outputFile.exists() || outputFile.length() <= 0L) {
+            throw IllegalStateException("No se pudo generar audio AAC.")
         }
 
         return outputFile.absolutePath
