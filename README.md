@@ -139,3 +139,5 @@ Contributions are welcome across UI, state management, and native DSP implementa
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+For detailed information regarding the licenses of the third-party libraries and native components (such as OpenAL Soft) used in this project, please refer to the [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) file.
