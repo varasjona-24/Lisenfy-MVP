@@ -18,7 +18,7 @@
 
 ## 📦 Download
 
-- [Releases](https://github.com/your-username/listenfy/releases)
+
 - F-Droid *(coming soon)*
 - Zapstore *(coming soon)*
 
