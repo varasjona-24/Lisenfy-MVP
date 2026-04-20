@@ -11,7 +11,7 @@ import '../../../app/data/repo/media_repository.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
-import '../../../app/ui/themes/app_grid_theme.dart';
+
 import '../../../app/ui/widgets/dialogs/image_search_dialog.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
@@ -147,7 +147,6 @@ class PlaylistsPage extends GetView<PlaylistsController> {
       ],
     );
   }
-
 
   Widget _myPlaylistsHeader(ThemeData theme, int count) {
     return Text(
@@ -622,7 +621,6 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     } catch (_) {}
   }
 }
-
 
 class _PlaylistTile extends StatelessWidget {
   const _PlaylistTile({

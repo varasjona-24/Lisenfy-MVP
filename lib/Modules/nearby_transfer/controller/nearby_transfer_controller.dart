@@ -55,7 +55,7 @@ class NearbyTransferController extends GetxController {
   late final String _nickName;
   String? _outgoingInviteSessionId;
   String? _expectedInviteSessionId;
-  String? _expectedSenderName;
+
   bool _autoConnectInProgress = false;
   final Set<String> _inviteHandshakeSent = <String>{};
   final Set<String> _autoSentBySessionEndpoint = <String>{};
@@ -191,7 +191,7 @@ class NearbyTransferController extends GetxController {
     connectedPeers.clear();
     _outgoingInviteSessionId = null;
     _expectedInviteSessionId = null;
-    _expectedSenderName = null;
+
     _autoConnectInProgress = false;
     _inviteHandshakeSent.clear();
     _autoSentBySessionEndpoint.clear();
@@ -239,7 +239,7 @@ class NearbyTransferController extends GetxController {
 
   Future<void> startReceiveFromInvite(ListenfyNearbyInvite invite) async {
     _expectedInviteSessionId = invite.sessionId;
-    _expectedSenderName = invite.senderName;
+
     _autoConnectInProgress = false;
     statusText.value = 'Buscando a ${invite.senderName}...';
     await startDiscoveryMode();
@@ -496,7 +496,8 @@ class NearbyTransferController extends GetxController {
         }
         _filePayloadById.remove(update.id);
         _descriptorByPayloadId.remove(update.id);
-        statusText.value = 'Transferencia fallida/cancelada (payload ${update.id}).';
+        statusText.value =
+            'Transferencia fallida/cancelada (payload ${update.id}).';
         return;
       case PayloadStatus.NONE:
         return;
@@ -604,7 +605,8 @@ class NearbyTransferController extends GetxController {
         if (sent) {
           _autoSentBySessionEndpoint.add(dedupeKey);
         } else {
-          statusText.value = 'Falló envío automático. Reintentando al reconectar.';
+          statusText.value =
+              'Falló envío automático. Reintentando al reconectar.';
         }
         return true;
       }
