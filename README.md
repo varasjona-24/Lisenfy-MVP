@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/Readme/Banner-prinicipal-github.jpeg" alt="Listenfy banner" width="100%" />
+
 # Listenfy — Music & Video Player
 
 **A privacy-first, modular multimedia player for local audio playback and hybrid streaming, designed to run fully on-device without relying on cloud services.**
@@ -136,8 +138,12 @@ Contributions are welcome across UI, state management, and native DSP implementa
 
 ---
 
+## 📜 Third-party licenses
+
+See [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)
+
+---
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-For detailed information regarding the licenses of the third-party libraries and native components (such as OpenAL Soft) used in this project, please refer to the [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) file.
