@@ -72,9 +72,9 @@ static void releaseAll() {
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_example_flutter_1listenfy_OpenALBridge_nativePlay(
+Java_com_example_listenfy_OpenALBridge_nativePlay(
         JNIEnv *env,
-        jclass,
+        jobject,
         jbyteArray pcm,
         jint sampleRate,
         jint channels,
@@ -100,8 +100,8 @@ Java_com_example_flutter_1listenfy_OpenALBridge_nativePlay(
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_example_flutter_1listenfy_OpenALBridge_nativePause(
-        JNIEnv *, jclass) {
+Java_com_example_listenfy_OpenALBridge_nativePause(
+        JNIEnv *, jobject) {
     if (gSource) {
         alSourcePause(gSource);
     }
@@ -109,8 +109,8 @@ Java_com_example_flutter_1listenfy_OpenALBridge_nativePause(
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_example_flutter_1listenfy_OpenALBridge_nativeResume(
-        JNIEnv *, jclass) {
+Java_com_example_listenfy_OpenALBridge_nativeResume(
+        JNIEnv *, jobject) {
     if (gSource) {
         alSourcePlay(gSource);
     }
@@ -118,8 +118,8 @@ Java_com_example_flutter_1listenfy_OpenALBridge_nativeResume(
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_example_flutter_1listenfy_OpenALBridge_nativeSeek(
-        JNIEnv *, jclass, jfloat seconds) {
+Java_com_example_listenfy_OpenALBridge_nativeSeek(
+        JNIEnv *, jobject, jfloat seconds) {
     if (gSource) {
         alSourcef(gSource, AL_SEC_OFFSET, seconds);
     }
@@ -127,8 +127,8 @@ Java_com_example_flutter_1listenfy_OpenALBridge_nativeSeek(
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_example_flutter_1listenfy_OpenALBridge_nativeStop(
-        JNIEnv *, jclass) {
+Java_com_example_listenfy_OpenALBridge_nativeStop(
+        JNIEnv *, jobject) {
     if (gSource) {
         alSourceStop(gSource);
     }
@@ -136,7 +136,7 @@ Java_com_example_flutter_1listenfy_OpenALBridge_nativeStop(
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_example_flutter_1listenfy_OpenALBridge_nativeRelease(
-        JNIEnv *, jclass) {
+Java_com_example_listenfy_OpenALBridge_nativeRelease(
+        JNIEnv *, jobject) {
     releaseAll();
 }

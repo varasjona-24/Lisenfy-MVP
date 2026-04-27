@@ -40,7 +40,7 @@ Future<void> _extractZipIsolate(Map<String, dynamic> params) async {
   final path = params['path'] as String;
   final outDir = params['outDir'] as String;
   // Extrae en modo stream para evitar cargar el ZIP completo en memoria.
-  await extractFileToDisk(path, outDir);
+  await extractFileToDisk(path, outDir, bufferSize: 64 * 1024);
 }
 
 // Comprime un directorio en ZIP fuera del hilo principal para evitar ANR.
@@ -66,6 +66,12 @@ class _BackupEstimate {
   final int estimatedZipBytes;
   final int includedFiles;
   final int missingFiles;
+}
+
+class _ManifestArrayStats {
+  const _ManifestArrayStats({required this.totalObjects});
+
+  final int totalObjects;
 }
 
 /// Gestiona: exportar e importar copias de seguridad de la librería.
@@ -1141,8 +1147,15 @@ class BackupRestoreController extends GetxController {
       currentOperation.value = 'Leyendo manifiesto...';
       progress.value = 0.3;
 
-      final manifestRaw = await manifestFile.readAsString();
-      final manifest = jsonDecode(manifestRaw) as Map<String, dynamic>;
+      final manifestLength = await manifestFile.length();
+      final useStreamingManifest = manifestLength > 8 * 1024 * 1024;
+      Map<String, dynamic>? manifest;
+      if (useStreamingManifest) {
+        currentOperation.value = 'Leyendo manifiesto grande por partes...';
+      } else {
+        final manifestRaw = await manifestFile.readAsString();
+        manifest = jsonDecode(manifestRaw) as Map<String, dynamic>;
+      }
 
       String? resolveRel(String? rel) {
         final clean = rel?.trim() ?? '';
@@ -1164,19 +1177,13 @@ class BackupRestoreController extends GetxController {
       progress.value = 0.4;
 
       final libraryStore = Get.find<LocalLibraryStore>();
-      final itemsRaw = (manifest['items'] as List?) ?? const [];
-      for (int i = 0; i < itemsRaw.length; i++) {
-        final raw = itemsRaw[i];
-
+      var restoredItems = 0;
+      Future<void> restoreItem(Map<String, dynamic> data, int i) async {
         if (i % 10 == 0) {
           await _yieldUi();
-          currentOperation.value =
-              'Restaurando canciones (${i + 1}/${itemsRaw.length})';
-          progress.value = 0.4 + (0.3 * (i / itemsRaw.length));
+          currentOperation.value = 'Restaurando canciones (${i + 1})';
+          progress.value = (0.4 + (0.3 * ((i % 500) / 500))).clamp(0.4, 0.7);
         }
-
-        if (raw is! Map) continue;
-        final data = Map<String, dynamic>.from(raw);
 
         final thumbRel = (data['thumbnailLocalPath'] as String?)?.trim();
         if (thumbRel != null && thumbRel.isNotEmpty) {
@@ -1200,16 +1207,29 @@ class BackupRestoreController extends GetxController {
 
         final item = MediaItem.fromJson(data);
         await libraryStore.upsert(item);
+        restoredItems++;
+      }
+
+      if (useStreamingManifest) {
+        await _forEachManifestObject(
+          manifestFile,
+          'items',
+          (data, index) => restoreItem(data, index),
+        );
+      } else {
+        final itemsRaw = (manifest!['items'] as List?) ?? const [];
+        for (int i = 0; i < itemsRaw.length; i++) {
+          final raw = itemsRaw[i];
+          if (raw is! Map) continue;
+          await restoreItem(Map<String, dynamic>.from(raw), i);
+        }
       }
 
       currentOperation.value = 'Restaurando Playlists & Artistas...';
       progress.value = 0.75;
 
       final playlistStore = Get.find<PlaylistStore>();
-      final playlistsRaw = (manifest['playlists'] as List?) ?? const [];
-      for (final raw in playlistsRaw) {
-        if (raw is! Map) continue;
-        final data = Map<String, dynamic>.from(raw);
+      Future<void> restorePlaylist(Map<String, dynamic> data, int index) async {
         final coverRel = (data['coverLocalPath'] as String?)?.trim();
         if (coverRel != null && coverRel.isNotEmpty) {
           await restoreFile(coverRel);
@@ -1218,11 +1238,23 @@ class BackupRestoreController extends GetxController {
         await playlistStore.upsert(Playlist.fromJson(data));
       }
 
+      if (useStreamingManifest) {
+        await _forEachManifestObject(
+          manifestFile,
+          'playlists',
+          restorePlaylist,
+        );
+      } else {
+        final playlistsRaw = (manifest!['playlists'] as List?) ?? const [];
+        for (var i = 0; i < playlistsRaw.length; i++) {
+          final raw = playlistsRaw[i];
+          if (raw is! Map) continue;
+          await restorePlaylist(Map<String, dynamic>.from(raw), i);
+        }
+      }
+
       final artistStore = Get.find<ArtistStore>();
-      final artistsRaw = (manifest['artists'] as List?) ?? const [];
-      for (final raw in artistsRaw) {
-        if (raw is! Map) continue;
-        final data = Map<String, dynamic>.from(raw);
+      Future<void> restoreArtist(Map<String, dynamic> data, int index) async {
         final thumbRel = (data['thumbnailLocalPath'] as String?)?.trim();
         if (thumbRel != null && thumbRel.isNotEmpty) {
           await restoreFile(thumbRel);
@@ -1231,23 +1263,42 @@ class BackupRestoreController extends GetxController {
         await artistStore.upsert(ArtistProfile.fromJson(data));
       }
 
+      if (useStreamingManifest) {
+        await _forEachManifestObject(manifestFile, 'artists', restoreArtist);
+      } else {
+        final artistsRaw = (manifest!['artists'] as List?) ?? const [];
+        for (var i = 0; i < artistsRaw.length; i++) {
+          final raw = artistsRaw[i];
+          if (raw is! Map) continue;
+          await restoreArtist(Map<String, dynamic>.from(raw), i);
+        }
+      }
+
       currentOperation.value = 'Restaurando Fuentes...';
       progress.value = 0.85;
 
       final pillStore = Get.find<SourceThemePillStore>();
-      final pillsRaw = (manifest['sourceThemePills'] as List?) ?? const [];
-      for (final raw in pillsRaw) {
-        if (raw is! Map) continue;
-        await pillStore.upsert(
-          SourceThemePill.fromJson(Map<String, dynamic>.from(raw)),
+      Future<void> restorePill(Map<String, dynamic> data, int index) async {
+        await pillStore.upsert(SourceThemePill.fromJson(data));
+      }
+
+      if (useStreamingManifest) {
+        await _forEachManifestObject(
+          manifestFile,
+          'sourceThemePills',
+          restorePill,
         );
+      } else {
+        final pillsRaw = (manifest!['sourceThemePills'] as List?) ?? const [];
+        for (var i = 0; i < pillsRaw.length; i++) {
+          final raw = pillsRaw[i];
+          if (raw is! Map) continue;
+          await restorePill(Map<String, dynamic>.from(raw), i);
+        }
       }
 
       final topicStore = Get.find<SourceThemeTopicStore>();
-      final topicsRaw = (manifest['sourceThemeTopics'] as List?) ?? const [];
-      for (final raw in topicsRaw) {
-        if (raw is! Map) continue;
-        final data = Map<String, dynamic>.from(raw);
+      Future<void> restoreTopic(Map<String, dynamic> data, int index) async {
         final coverRel = (data['coverLocalPath'] as String?)?.trim();
         if (coverRel != null && coverRel.isNotEmpty) {
           await restoreFile(coverRel);
@@ -1256,12 +1307,26 @@ class BackupRestoreController extends GetxController {
         await topicStore.upsert(SourceThemeTopic.fromJson(data));
       }
 
+      if (useStreamingManifest) {
+        await _forEachManifestObject(
+          manifestFile,
+          'sourceThemeTopics',
+          restoreTopic,
+        );
+      } else {
+        final topicsRaw = (manifest!['sourceThemeTopics'] as List?) ?? const [];
+        for (var i = 0; i < topicsRaw.length; i++) {
+          final raw = topicsRaw[i];
+          if (raw is! Map) continue;
+          await restoreTopic(Map<String, dynamic>.from(raw), i);
+        }
+      }
+
       final topicPlaylistStore = Get.find<SourceThemeTopicPlaylistStore>();
-      final topicPlaylistsRaw =
-          (manifest['sourceThemeTopicPlaylists'] as List?) ?? const [];
-      for (final raw in topicPlaylistsRaw) {
-        if (raw is! Map) continue;
-        final data = Map<String, dynamic>.from(raw);
+      Future<void> restoreTopicPlaylist(
+        Map<String, dynamic> data,
+        int index,
+      ) async {
         final coverRel = (data['coverLocalPath'] as String?)?.trim();
         if (coverRel != null && coverRel.isNotEmpty) {
           await restoreFile(coverRel);
@@ -1272,19 +1337,41 @@ class BackupRestoreController extends GetxController {
         );
       }
 
-      if (Get.isRegistered<RecommendationStore>()) {
-        await Get.find<RecommendationStore>().restoreBackupPayload(manifest);
-        if (Get.isRegistered<RecommendationEngine>()) {
-          await Get.find<RecommendationEngine>().reloadFromStore();
+      if (useStreamingManifest) {
+        await _forEachManifestObject(
+          manifestFile,
+          'sourceThemeTopicPlaylists',
+          restoreTopicPlaylist,
+        );
+      } else {
+        final topicPlaylistsRaw =
+            (manifest!['sourceThemeTopicPlaylists'] as List?) ?? const [];
+        for (var i = 0; i < topicPlaylistsRaw.length; i++) {
+          final raw = topicPlaylistsRaw[i];
+          if (raw is! Map) continue;
+          await restoreTopicPlaylist(Map<String, dynamic>.from(raw), i);
         }
       }
-      if (Get.isRegistered<RecommendationFeedbackStore>()) {
-        await Get.find<RecommendationFeedbackStore>().restoreBackupPayload(
-          manifest,
-        );
-        if (Get.isRegistered<RecommendationFeedbackService>()) {
-          await Get.find<RecommendationFeedbackService>().reloadFromStore();
+
+      if (!useStreamingManifest && manifest != null) {
+        if (Get.isRegistered<RecommendationStore>()) {
+          await Get.find<RecommendationStore>().restoreBackupPayload(manifest);
+          if (Get.isRegistered<RecommendationEngine>()) {
+            await Get.find<RecommendationEngine>().reloadFromStore();
+          }
         }
+        if (Get.isRegistered<RecommendationFeedbackStore>()) {
+          await Get.find<RecommendationFeedbackStore>().restoreBackupPayload(
+            manifest,
+          );
+          if (Get.isRegistered<RecommendationFeedbackService>()) {
+            await Get.find<RecommendationFeedbackService>().reloadFromStore();
+          }
+        }
+      } else {
+        debugPrint(
+          'Backup import restored $restoredItems items using streaming manifest mode.',
+        );
       }
 
       currentOperation.value =
@@ -1337,6 +1424,103 @@ class BackupRestoreController extends GetxController {
   // ============================
   // 🧰 HELPERS
   // ============================
+  Future<_ManifestArrayStats> _forEachManifestObject(
+    File manifestFile,
+    String key,
+    Future<void> Function(Map<String, dynamic> data, int index) onObject,
+  ) async {
+    final keyPattern = '"$key"';
+    var buffer = '';
+    var foundKey = false;
+    var inArray = false;
+    var inString = false;
+    var escaped = false;
+    var depth = 0;
+    var objectBuffer = StringBuffer();
+    var objectIndex = 0;
+
+    await for (final chunk in manifestFile.openRead().transform(
+      const Utf8Decoder(),
+    )) {
+      buffer += chunk;
+      var i = 0;
+
+      while (i < buffer.length) {
+        if (!foundKey) {
+          final idx = buffer.indexOf(keyPattern, i);
+          if (idx < 0) {
+            final keep = keyPattern.length - 1;
+            buffer = buffer.length > keep
+                ? buffer.substring(buffer.length - keep)
+                : buffer;
+            i = buffer.length;
+            continue;
+          }
+          foundKey = true;
+          i = idx + keyPattern.length;
+        }
+
+        if (!inArray) {
+          final ch = buffer[i];
+          if (ch == '[') {
+            inArray = true;
+          }
+          i++;
+          continue;
+        }
+
+        final ch = buffer[i];
+        if (depth == 0) {
+          if (ch == ']') {
+            return _ManifestArrayStats(totalObjects: objectIndex);
+          }
+          if (ch == '{') {
+            depth = 1;
+            objectBuffer = StringBuffer()..write(ch);
+            inString = false;
+            escaped = false;
+          }
+          i++;
+          continue;
+        }
+
+        objectBuffer.write(ch);
+        if (inString) {
+          if (escaped) {
+            escaped = false;
+          } else if (ch == r'\') {
+            escaped = true;
+          } else if (ch == '"') {
+            inString = false;
+          }
+        } else if (ch == '"') {
+          inString = true;
+        } else if (ch == '{') {
+          depth++;
+        } else if (ch == '}') {
+          depth--;
+          if (depth == 0) {
+            final decoded = jsonDecode(objectBuffer.toString());
+            if (decoded is Map) {
+              await onObject(Map<String, dynamic>.from(decoded), objectIndex);
+              objectIndex++;
+            }
+            objectBuffer = StringBuffer();
+          }
+        }
+        i++;
+      }
+
+      if (foundKey && inArray && depth > 0) {
+        buffer = '';
+      } else if (foundKey) {
+        buffer = '';
+      }
+    }
+
+    return _ManifestArrayStats(totalObjects: objectIndex);
+  }
+
   Future<_BackupEstimate> _estimateFullBackup({
     required bool includeInstrumentalVariants,
   }) async {

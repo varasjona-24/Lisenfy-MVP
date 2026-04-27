@@ -292,7 +292,7 @@ class LocalConnectServerService extends GetxService {
       _sendToClient(
         clientId,
         type: 'playbackStateChanged',
-        payload: _playbackSync.buildSessionPayload(),
+        payload: _playbackSync.buildSessionPayload(includeQueue: true),
       );
     } else {
       _authorizedSocketClients.remove(clientId);
@@ -731,7 +731,7 @@ class LocalConnectServerService extends GetxService {
       _lastTrackSignature = trackSig;
       _broadcastPaired(
         type: 'currentTrackChanged',
-        payload: _playbackSync.buildSessionPayload(),
+        payload: _playbackSync.buildSessionPayload(includeQueue: false),
       );
     }
 
@@ -739,7 +739,7 @@ class LocalConnectServerService extends GetxService {
       _lastPlaybackSignature = playbackSig;
       _broadcastPaired(
         type: 'playbackStateChanged',
-        payload: _playbackSync.buildSessionPayload(),
+        payload: _playbackSync.buildSessionPayload(includeQueue: false),
       );
     }
 
@@ -747,7 +747,7 @@ class LocalConnectServerService extends GetxService {
       _lastQueueSignature = queueSig;
       _broadcastPaired(
         type: 'queueChanged',
-        payload: _playbackSync.buildSessionPayload(),
+        payload: _playbackSync.buildSessionPayload(includeQueue: true),
       );
     }
 

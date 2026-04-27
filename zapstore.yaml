@@ -1,0 +1,4 @@
+name: Listenfy
+description: "Listenfy, reproductor multimedia local con descubrimiento musical y control remoto web."
+repository: https://github.com/varasjona-24/Lisenfy-MVP
+release_source: ./build/app/outputs/flutter-apk/app-release.apk

@@ -89,6 +89,37 @@ class AudioService extends GetxService {
     return idx;
   }
 
+  void applyUpdatedMediaItem(MediaItem updatedItem) {
+    var changed = false;
+
+    List<MediaItem> replaceIn(List<MediaItem> items) {
+      return items
+          .map((item) {
+            if (!_sameItem(item, updatedItem)) return item;
+            changed = true;
+            return updatedItem;
+          })
+          .toList(growable: false);
+    }
+
+    _queueItems = replaceIn(_queueItems);
+    _linearItems = replaceIn(_linearItems);
+
+    final current = currentItem.value;
+    if (current != null && _sameItem(current, updatedItem)) {
+      currentItem.value = updatedItem;
+      final variant = currentVariant.value;
+      if (variant != null) {
+        _persistLastItem(updatedItem, variant);
+      }
+      changed = true;
+    }
+
+    if (!changed) return;
+    _persistSessionSnapshot();
+    _notifyHandler();
+  }
+
   @override
   Future<void> onInit() async {
     super.onInit();

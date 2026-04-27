@@ -10,10 +10,12 @@ import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/audio_cleanup.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/services/audio_cleanup_service.dart';
+import '../../../app/services/audio_service.dart';
 import '../../artists/controller/artists_controller.dart';
 import '../../artists/domain/artist_profile.dart';
 import '../../downloads/controller/downloads_controller.dart';
 import '../../home/controller/home_controller.dart';
+import '../../player/audio/controller/audio_player_controller.dart';
 import '../../playlists/controller/playlists_controller.dart';
 import '../../playlists/domain/playlist.dart';
 import '../../sources/controller/sources_controller.dart';
@@ -211,23 +213,32 @@ class EditEntityController extends GetxController {
 
     if (matches.isEmpty) {
       await _store.upsert(updated);
+      _refreshLivePlaybackItem(updated);
       return;
     }
 
     for (final entry in matches) {
-      await _store.upsert(
-        entry.copyWith(
-          title: updated.title,
-          subtitle: updated.subtitle,
-          thumbnail: updated.thumbnail,
-          thumbnailLocalPath: updated.thumbnailLocalPath,
-          durationSeconds: updated.durationSeconds,
-          lyrics: updated.lyrics,
-          lyricsLanguage: updated.lyricsLanguage,
-          translations: updated.translations,
-          timedLyrics: updated.timedLyrics,
-        ),
+      final next = entry.copyWith(
+        title: updated.title,
+        subtitle: updated.subtitle,
+        thumbnail: updated.thumbnail,
+        thumbnailLocalPath: updated.thumbnailLocalPath,
+        durationSeconds: updated.durationSeconds,
+        lyrics: updated.lyrics,
+        lyricsLanguage: updated.lyricsLanguage,
+        translations: updated.translations,
+        timedLyrics: updated.timedLyrics,
       );
+      await _store.upsert(next);
+      _refreshLivePlaybackItem(next);
+    }
+  }
+
+  void _refreshLivePlaybackItem(MediaItem updated) {
+    if (!Get.isRegistered<AudioService>()) return;
+    Get.find<AudioService>().applyUpdatedMediaItem(updated);
+    if (Get.isRegistered<AudioPlayerController>()) {
+      Get.find<AudioPlayerController>().updateQueueItem(updated);
     }
   }
 

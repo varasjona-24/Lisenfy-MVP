@@ -21,7 +21,12 @@ class LocalConnectPlaybackSync {
   static final RegExp _parenChunkPattern = RegExp(r'\([^)]*\)|\[[^\]]*\]');
 
   String queueSignature() {
-    final ids = _audioService.queueItems.map((item) => item.id).join('|');
+    final ids = _audioService.queueItems
+        .map(
+          (item) =>
+              '${item.id}:${item.title}:${item.displaySubtitle}:${item.effectiveThumbnail ?? ''}',
+        )
+        .join('|');
     return '$ids#${_audioService.currentQueueIndex}';
   }
 
@@ -29,7 +34,7 @@ class LocalConnectPlaybackSync {
     final current = _audioService.currentItem.value;
     final variant = _audioService.currentVariant.value;
     if (current == null || variant == null) return 'none';
-    return '${current.id}::${variant.kind.name}::${variant.format}::${variant.localPath ?? variant.fileName}';
+    return '${current.id}::${current.title}::${current.displaySubtitle}::${current.effectiveThumbnail ?? ''}::${variant.kind.name}::${variant.format}::${variant.localPath ?? variant.fileName}';
   }
 
   String playbackStateSignature() {
@@ -41,7 +46,7 @@ class LocalConnectPlaybackSync {
     return '$playing|$buffering|$speed|$volume|$shuffle';
   }
 
-  Map<String, dynamic> buildSessionPayload() {
+  Map<String, dynamic> buildSessionPayload({bool includeQueue = true}) {
     final current = _audioService.currentItem.value;
     final duration =
         _audioService.currentVariant.value?.durationSeconds ??
@@ -50,10 +55,7 @@ class LocalConnectPlaybackSync {
     final artistProfileCache = <String, Map<String, dynamic>?>{};
 
     return <String, dynamic>{
-      'track': _trackToJson(
-        current,
-        artistProfileCache: artistProfileCache,
-      ),
+      'track': _trackToJson(current, artistProfileCache: artistProfileCache),
       'playback': <String, dynamic>{
         'isPlaying': _audioService.isPlaying.value,
         'isBuffering': _audioService.isLoading.value,
@@ -63,14 +65,15 @@ class LocalConnectPlaybackSync {
         'volume': _audioService.volume.value,
         'shuffleEnabled': _audioService.shuffleEnabled,
       },
-      'queue': _audioService.queueItems
-          .map(
-            (item) => _queueItemToJson(
-              item,
-              artistProfileCache: artistProfileCache,
-            ),
-          )
-          .toList(),
+      if (includeQueue)
+        'queue': _audioService.queueItems
+            .map(
+              (item) => _queueItemToJson(
+                item,
+                artistProfileCache: artistProfileCache,
+              ),
+            )
+            .toList(),
       'currentQueueIndex': _audioService.currentQueueIndex,
       'hasNext':
           _audioService.currentQueueIndex < _audioService.queueItems.length - 1,

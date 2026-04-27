@@ -514,8 +514,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
   Future<void> _openAddSongs(BuildContext context, Playlist? playlist) async {
     if (playlist == null) return;
     final existing = playlist.itemIds.toSet();
-    final selected = <String>{};
-    final items = controller.libraryAudio.where((item) {
+    final allItems = controller.libraryAudio.where((item) {
       final key = item.publicId.trim().isNotEmpty
           ? item.publicId.trim()
           : item.id.trim();
@@ -530,83 +529,11 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx2, setState) {
-            return SafeArea(
-              child: SizedBox(
-                height: MediaQuery.of(ctx2).size.height * 0.7,
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.playlist_add_rounded),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Agregar canciones',
-                            style: Theme.of(ctx2).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const Spacer(),
-                          TextButton(
-                            onPressed: () => Navigator.of(ctx2).pop(),
-                            child: const Text('Cerrar'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: items.length,
-                        itemBuilder: (ctx3, i) {
-                          final item = items[i];
-                          final key = item.publicId.trim().isNotEmpty
-                              ? item.publicId.trim()
-                              : item.id.trim();
-                          final checked = selected.contains(key);
-                          return CheckboxListTile(
-                            value: checked,
-                            onChanged: (v) {
-                              setState(() {
-                                if (v == true) {
-                                  selected.add(key);
-                                } else {
-                                  selected.remove(key);
-                                }
-                              });
-                            },
-                            title: Text(item.title),
-                            subtitle: Text(item.displaySubtitle),
-                          );
-                        },
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: FilledButton(
-                        onPressed: () async {
-                          final toAdd = items.where((item) {
-                            final key = item.publicId.trim().isNotEmpty
-                                ? item.publicId.trim()
-                                : item.id.trim();
-                            return selected.contains(key);
-                          }).toList();
-                          await controller.addItemsToPlaylist(
-                            playlist.id,
-                            toAdd,
-                          );
-                          if (ctx2.mounted) Navigator.of(ctx2).pop();
-                        },
-                        child: const Text('Agregar seleccionadas'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+      builder: (_) {
+        return _AddSongsSheet(
+          playlist: playlist,
+          allItems: allItems,
+          controller: controller,
         );
       },
     );
@@ -614,3 +541,251 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
 }
 
 enum _TrackAction { removeFromPlaylist, moreActions }
+
+class _AddSongsSheet extends StatefulWidget {
+  const _AddSongsSheet({
+    required this.playlist,
+    required this.allItems,
+    required this.controller,
+  });
+
+  final Playlist playlist;
+  final List<MediaItem> allItems;
+  final PlaylistsController controller;
+
+  @override
+  State<_AddSongsSheet> createState() => _AddSongsSheetState();
+}
+
+class _AddSongsSheetState extends State<_AddSongsSheet> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  final Set<String> _selected = <String>{};
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  String _keyFor(MediaItem item) {
+    final publicId = item.publicId.trim();
+    return publicId.isNotEmpty ? publicId : item.id.trim();
+  }
+
+  List<MediaItem> get _filteredItems {
+    final normalizedQuery = _query.trim().toLowerCase();
+    if (normalizedQuery.isEmpty) return widget.allItems;
+    return widget.allItems
+        .where((item) {
+          return item.title.toLowerCase().contains(normalizedQuery) ||
+              item.displaySubtitle.toLowerCase().contains(normalizedQuery);
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedQuery = _query.trim().toLowerCase();
+    final items = _filteredItems;
+
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.82,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.playlist_add_rounded),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Agregar canciones',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cerrar'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _searchCtrl,
+                    onChanged: (value) {
+                      setState(() => _query = value);
+                    },
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _query.trim().isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _query = '');
+                              },
+                            ),
+                      hintText: 'Buscar por cancion o artista',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Chip(
+                        avatar: const Icon(
+                          Icons.library_music_rounded,
+                          size: 18,
+                        ),
+                        label: Text('${widget.allItems.length} disponibles'),
+                      ),
+                      Chip(
+                        avatar: const Icon(
+                          Icons.check_circle_rounded,
+                          size: 18,
+                        ),
+                        label: Text('${_selected.length} seleccionadas'),
+                      ),
+                      if (normalizedQuery.isNotEmpty)
+                        Chip(
+                          avatar: const Icon(
+                            Icons.filter_alt_rounded,
+                            size: 18,
+                          ),
+                          label: Text('${items.length} resultados'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: items.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          normalizedQuery.isEmpty
+                              ? 'No hay canciones nuevas para agregar.'
+                              : 'No se encontraron canciones.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      itemCount: items.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 8),
+                      itemBuilder: (ctx, i) => _songTile(ctx, items[i]),
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _selected.isEmpty ? null : _addSelected,
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(
+                    _selected.isEmpty
+                        ? 'Selecciona canciones'
+                        : 'Agregar ${_selected.length} seleccionadas',
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _songTile(BuildContext context, MediaItem item) {
+    final key = _keyFor(item);
+    final checked = _selected.contains(key);
+    final thumb = item.effectiveThumbnail;
+
+    return Material(
+      color: checked
+          ? Theme.of(
+              context,
+            ).colorScheme.primaryContainer.withValues(alpha: 0.5)
+          : Theme.of(context).colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: checked
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.outlineVariant,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        onTap: () => _toggle(key, checked),
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: thumb == null || thumb.isEmpty
+                ? ColoredBox(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    child: const Icon(Icons.music_note_rounded),
+                  )
+                : Image(
+                    image: thumb.startsWith('http')
+                        ? NetworkImage(thumb)
+                        : FileImage(File(thumb)) as ImageProvider,
+                    fit: BoxFit.cover,
+                  ),
+          ),
+        ),
+        title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          item.displaySubtitle.isEmpty
+              ? 'Artista desconocido'
+              : item.displaySubtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Checkbox(
+          value: checked,
+          onChanged: (v) => _toggle(key, checked),
+        ),
+      ),
+    );
+  }
+
+  void _toggle(String key, bool checked) {
+    setState(() {
+      if (checked) {
+        _selected.remove(key);
+      } else {
+        _selected.add(key);
+      }
+    });
+  }
+
+  Future<void> _addSelected() async {
+    final toAdd = widget.allItems.where((item) {
+      return _selected.contains(_keyFor(item));
+    }).toList();
+    await widget.controller.addItemsToPlaylist(widget.playlist.id, toAdd);
+    if (mounted) Navigator.of(context).pop();
+  }
+}

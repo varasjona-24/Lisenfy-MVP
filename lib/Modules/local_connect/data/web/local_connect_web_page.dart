@@ -960,6 +960,8 @@ String buildLocalConnectWebPage() {
       seekSyncLockUntilMs: 0
     };
 
+    const MAX_RENDERED_QUEUE_ITEMS = 90;
+
     if (!state.clientId) {
       state.clientId = "web-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
       localStorage.setItem("listenfy_local_client_id", state.clientId);
@@ -1090,6 +1092,30 @@ String buildLocalConnectWebPage() {
           (item?.title ? item.title + "#" + index : index)
         ))
         .join("|");
+    }
+
+    function visibleQueueEntries(queue, activeIndex) {
+      if (!Array.isArray(queue)) return [];
+      if (queue.length <= MAX_RENDERED_QUEUE_ITEMS) {
+        return queue.map((item, index) => ({ item, index }));
+      }
+
+      const safeIndex = Math.max(0, Math.min(queue.length - 1, Number(activeIndex || 0)));
+      const before = 35;
+      const after = MAX_RENDERED_QUEUE_ITEMS - before - 1;
+      let start = Math.max(0, safeIndex - before);
+      let end = Math.min(queue.length, safeIndex + after + 1);
+
+      if (end - start < MAX_RENDERED_QUEUE_ITEMS) {
+        start = Math.max(0, end - MAX_RENDERED_QUEUE_ITEMS);
+        end = Math.min(queue.length, start + MAX_RENDERED_QUEUE_ITEMS);
+      }
+
+      const entries = [];
+      for (let index = start; index < end; index++) {
+        entries.push({ item: queue[index], index });
+      }
+      return entries;
     }
 
     function markQueueInteraction() {
@@ -1764,7 +1790,25 @@ String buildLocalConnectWebPage() {
       el.queueCarousel.innerHTML = "";
       el.queueList.innerHTML = "";
 
-      state.queue.forEach((item, i) => {
+      const visibleEntries = visibleQueueEntries(state.queue, state.currentQueueIndex);
+
+      if (visibleEntries.length < state.queue.length) {
+        const head = document.createElement("li");
+        head.className = "queue-item";
+        head.innerHTML =
+          "<div class=\\"queue-item-main\\">"
+          + "<span class=\\"queue-item-index\\">" + state.queue.length + "</span>"
+          + "<div class=\\"queue-item-text\\">"
+          + "<div class=\\"queue-item-title\\">Large queue optimized</div>"
+          + "<div class=\\"queue-item-sub\\">Showing tracks around the current song</div>"
+          + "</div>"
+          + "</div>";
+        el.queueList.appendChild(head);
+      }
+
+      visibleEntries.forEach((entry) => {
+        const item = entry.item;
+        const i = entry.index;
         const isActive = i === state.currentQueueIndex;
         const title = escapeHtml(item.title || "Unknown");
         const artist = escapeHtml(item.artist || "—");
