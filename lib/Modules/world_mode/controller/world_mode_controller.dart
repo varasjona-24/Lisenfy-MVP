@@ -122,6 +122,9 @@ class WorldModeController extends GetxController {
   }
 
   Future<void> continueStation(CountryStationEntity station) async {
+    final resumed = await _playbackFacade.resumeActiveStation(station);
+    if (resumed) return;
+
     final next = await _repository.continueStation(station: station, limit: 20);
     if (next.isEmpty) {
       Get.snackbar(

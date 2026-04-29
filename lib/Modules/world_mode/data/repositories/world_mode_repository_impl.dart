@@ -118,7 +118,8 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
       limit: 220,
     );
     final effectiveSeed =
-        options.shuffleSeed ?? DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF;
+        options.shuffleSeed ??
+        DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF;
     final ranked = _rankTracksForRegion(
       regionCode: regionCode,
       tracks: regionTracks,
@@ -126,7 +127,11 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
       shuffleSeed: effectiveSeed,
     );
     // Mezcla dentro de grupos de 8 para variedad real entre recargas
-    final shuffledRanked = _shuffleWithinTiers(ranked, effectiveSeed, tierSize: 8);
+    final shuffledRanked = _shuffleWithinTiers(
+      ranked,
+      effectiveSeed,
+      tierSize: 8,
+    );
     final localStations = _buildRegionStations(
       regionCode: regionCode,
       regionName: regionDef.name,
@@ -145,6 +150,7 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
         seedArtists: _seedArtists(localStations),
         seedGenres: _seedGenres(localStations),
         recentTrackIds: recentTrackIds,
+        candidateTrackIds: regionTracks.map(_stableTrackId).toList(),
       );
       if (remoteResponse != null &&
           remoteResponse.countryCode == regionCode &&
@@ -241,6 +247,7 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
       ),
       recentTrackIds: recentTrackIds,
       recentArtistKeys: recentArtistKeys.toList(growable: false),
+      candidateTrackIds: station.tracks.map(_stableTrackId).toList(),
       limit: safeLimit,
     );
 

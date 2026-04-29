@@ -28,7 +28,9 @@ class AudioPlayerController extends GetxController {
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
   final GetStorage _storage = GetStorage();
   static const _repeatModeKey = 'audio_repeat_mode';
+  static const _resumePositionsKey = 'audio_resume_positions';
   static const _countThreshold = Duration(seconds: 15);
+  static const _resumePromptThreshold = Duration(seconds: 5);
 
   AudioPlayerController({required this.audioService});
 
@@ -53,6 +55,9 @@ class AudioPlayerController extends GetxController {
   bool _handlingCompleted = false;
   bool _endActionHandledForTrack = false;
   String _endActionTrackKey = '';
+  DateTime _lastResumePositionPersistAt = DateTime.fromMillisecondsSinceEpoch(
+    0,
+  );
 
   Rx<SpatialAudioMode> get spatialMode => _spatial.mode;
   bool get isSpatialModeLocked =>
@@ -69,6 +74,7 @@ class AudioPlayerController extends GetxController {
 
     _posSub = audioService.positionStream.listen((v) {
       position.value = v;
+      _persistResumePositionForCurrent(v);
       _captureSessionProgress();
       _maybeCountPlayback();
       _maybeApplyAutoPlayNextPolicy();
@@ -142,8 +148,12 @@ class AudioPlayerController extends GetxController {
   }
 
   void applyRouteArgs(dynamic args) {
+    unawaited(_applyRouteArgs(args));
+  }
+
+  Future<void> _applyRouteArgs(dynamic args) async {
     if (audioService.resumePromptPending) {
-      unawaited(_handleResumePrompt(args));
+      await _handleResumePrompt(args);
       return;
     }
 
@@ -159,7 +169,8 @@ class AudioPlayerController extends GetxController {
         .clamp(0, items.length - 1)
         .toInt();
 
-    _playCurrent(forceReload: true);
+    final resumePosition = await _resolveStartPositionForCurrent();
+    await _playCurrent(forceReload: true, resumePosition: resumePosition);
   }
 
   Future<bool> _handleResumePrompt(dynamic args) async {
@@ -204,6 +215,7 @@ class AudioPlayerController extends GetxController {
     currentIndex.value = (rawIndex is int ? rawIndex : 0)
         .clamp(0, items.length - 1)
         .toInt();
+    await _playCurrent(forceReload: true, resumePosition: Duration.zero);
     return true;
   }
 
@@ -211,6 +223,117 @@ class AudioPlayerController extends GetxController {
     if (rawQueue is List<MediaItem>) return rawQueue;
     if (rawQueue is List) return rawQueue.whereType<MediaItem>().toList();
     return <MediaItem>[];
+  }
+
+  Future<Duration> _resolveStartPositionForCurrent() async {
+    final item = currentItemOrNull;
+    if (item == null) return Duration.zero;
+
+    final loaded = audioService.currentItem.value;
+    if (loaded != null &&
+        audioService.hasSourceLoaded &&
+        _sameItemKey(loaded, item)) {
+      return Duration.zero;
+    }
+
+    final resume = _storedResumePositionFor(item);
+    if (resume <= _resumePromptThreshold) return Duration.zero;
+
+    final total = item.effectiveDurationSeconds;
+    if (total != null && total > 0) {
+      final duration = Duration(seconds: total);
+      if (resume >= duration - const Duration(seconds: 5)) {
+        _clearStoredResumePosition(item);
+        return Duration.zero;
+      }
+    }
+
+    final shouldResume = await Get.dialog<bool>(
+      AlertDialog(
+        title: const Text('Continuar canción'),
+        content: Text(
+          'Esta canción quedó en ${_fmtDuration(resume)}. ¿Quieres retomarla desde ahí o reproducirla desde el principio?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Desde el principio'),
+          ),
+          FilledButton(
+            onPressed: () => Get.back(result: true),
+            child: Text('Retomar ${_fmtDuration(resume)}'),
+          ),
+        ],
+      ),
+      barrierDismissible: true,
+    );
+
+    if (shouldResume == true) return resume;
+    _clearStoredResumePosition(item);
+    return Duration.zero;
+  }
+
+  Duration _storedResumePositionFor(MediaItem item) {
+    final raw = _storage.read<Map>(_resumePositionsKey);
+    if (raw == null) return Duration.zero;
+    final value = raw[_stableTrackKey(item)];
+    final ms = value is int ? value : int.tryParse(value?.toString() ?? '');
+    if (ms == null || ms <= 0) return Duration.zero;
+    return Duration(milliseconds: ms);
+  }
+
+  void _persistResumePositionForCurrent(Duration value) {
+    final item = audioService.currentItem.value;
+    if (item == null) return;
+    if (!audioService.hasSourceLoaded) return;
+
+    final now = DateTime.now();
+    if (now.difference(_lastResumePositionPersistAt) <
+        const Duration(seconds: 3)) {
+      return;
+    }
+    _lastResumePositionPersistAt = now;
+
+    final total = duration.value > Duration.zero
+        ? duration.value
+        : Duration(seconds: item.effectiveDurationSeconds ?? 0);
+    final key = _stableTrackKey(item);
+    final raw = _storage.read<Map>(_resumePositionsKey);
+    final next = raw == null
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(raw);
+
+    final nearEnd =
+        total > Duration.zero && value >= total - const Duration(seconds: 5);
+    if (value <= _resumePromptThreshold || nearEnd) {
+      next.remove(key);
+    } else {
+      next[key] = value.inMilliseconds;
+    }
+
+    if (next.length > 300) {
+      final overflow = next.length - 300;
+      final keys = next.keys.take(overflow).toList(growable: false);
+      for (final oldKey in keys) {
+        next.remove(oldKey);
+      }
+    }
+
+    _storage.write(_resumePositionsKey, next);
+  }
+
+  void _clearStoredResumePosition(MediaItem item) {
+    final raw = _storage.read<Map>(_resumePositionsKey);
+    if (raw == null) return;
+    final next = Map<String, dynamic>.from(raw)..remove(_stableTrackKey(item));
+    _storage.write(_resumePositionsKey, next);
+  }
+
+  String _fmtDuration(Duration value) {
+    final totalSeconds = value.inSeconds < 0 ? 0 : value.inSeconds;
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
   MediaItem? get currentItemOrNull {
@@ -313,7 +436,10 @@ class AudioPlayerController extends GetxController {
     return resolveNormalAudioVariant(item);
   }
 
-  Future<void> _playCurrent({bool forceReload = false}) async {
+  Future<void> _playCurrent({
+    bool forceReload = false,
+    Duration? resumePosition,
+  }) async {
     final item = currentItemOrNull;
     if (item == null) return;
     final variant = _resolveAudioVariant(item);
@@ -328,6 +454,9 @@ class AudioPlayerController extends GetxController {
       forceReload: forceReload,
     );
     await _enforceSpatialModeForVariant(variant);
+    if (resumePosition != null && resumePosition > Duration.zero) {
+      await audioService.seek(resumePosition);
+    }
 
     _syncFromService();
   }

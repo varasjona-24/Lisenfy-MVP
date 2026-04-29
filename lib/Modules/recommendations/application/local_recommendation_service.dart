@@ -796,9 +796,9 @@ class LocalRecommendationService implements RecommendationEngine {
     final dominantTagCount = <String, int>{};
     final artistCount = <String, int>{};
     final originCount = <String, int>{};
-    final maxPerTag = max(4, (limit * 0.15).ceil());
-    final maxPerArtist = max(2, (limit * 0.10).ceil());
-    final maxPerOrigin = max(6, (limit * 0.35).ceil());
+    final maxPerTag = max(4, (limit * 0.12).ceil());
+    final maxPerArtist = max(2, (limit * 0.07).ceil());
+    final maxPerOrigin = max(6, (limit * 0.30).ceil());
 
     bool canSelect(_ScoredCandidate candidate) {
       if (selectedKeys.contains(candidate.candidate.stableKey)) return false;

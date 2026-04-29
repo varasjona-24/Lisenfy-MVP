@@ -304,7 +304,11 @@ class AudioService extends GetxService {
           ),
         );
       }
-      await _player.setAudioSources(sources, initialIndex: _activeIndex);
+      await _player.setAudioSources(
+        sources,
+        initialIndex: _activeIndex,
+        initialPosition: Duration.zero,
+      );
 
       currentItem.value = _queueItems[_activeIndex];
       currentVariant.value = _queueVariants[_activeIndex];

@@ -13,6 +13,7 @@ class SyncManager {
     required List<String> seedArtists,
     required List<String> seedGenres,
     required List<String> recentTrackIds,
+    required List<String> candidateTrackIds,
   }) async {
     if (!options.preferOnline) return null;
     final tracksPerStation = options.tracksPerStation < 30
@@ -26,6 +27,7 @@ class SyncManager {
       'seedArtists': seedArtists.take(8).toList(growable: false),
       'genres': seedGenres.take(8).toList(growable: false),
       'recentTrackIds': recentTrackIds.take(30).toList(growable: false),
+      'candidateTrackIds': candidateTrackIds.take(240).toList(growable: false),
       'context': <String, dynamic>{
         'tracksPerStation': tracksPerStation,
         'maxStations': options.maxStations,
@@ -58,6 +60,7 @@ class SyncManager {
     required List<String> playedTrackIds,
     required List<String> recentTrackIds,
     required List<String> recentArtistKeys,
+    required List<String> candidateTrackIds,
     int limit = 20,
   }) async {
     try {
@@ -72,6 +75,9 @@ class SyncManager {
               'recentTrackIds': recentTrackIds.take(40).toList(growable: false),
               'recentArtistKeys': recentArtistKeys
                   .take(12)
+                  .toList(growable: false),
+              'candidateTrackIds': candidateTrackIds
+                  .take(240)
                   .toList(growable: false),
               'limit': limit,
               'strategy': <String, dynamic>{

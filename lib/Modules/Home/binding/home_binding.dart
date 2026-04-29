@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 import '../../../app/data/local/local_library_store.dart';
+import '../../../app/data/network/dio_client.dart';
 import '../../../app/data/repo/media_repository.dart';
 import 'package:listenfy/Modules/home/controller/home_controller.dart';
 import '../../artists/data/artist_store.dart';
@@ -9,6 +10,7 @@ import '../../sources/data/source_theme_topic_store.dart';
 import '../../sources/data/source_theme_topic_playlist_store.dart';
 import '../../recommendations/data/recommendation_store.dart';
 import '../../recommendations/data/recommendation_feedback_store.dart';
+import '../../recommendations/application/hybrid_recommendation_service.dart';
 import '../../recommendations/application/local_recommendation_service.dart';
 import '../../recommendations/application/recommendation_feedback_service.dart';
 import '../../recommendations/domain/contracts/recommendation_engine.dart';
@@ -56,6 +58,9 @@ class HomeBinding extends Bindings {
     if (!Get.isRegistered<ArtistStore>()) {
       Get.put(ArtistStore(Get.find<GetStorage>()), permanent: true);
     }
+    if (!Get.isRegistered<DioClient>()) {
+      Get.put(DioClient(), permanent: true);
+    }
 
     // Repo (local-first)
     if (!Get.isRegistered<MediaRepository>()) {
@@ -72,14 +77,23 @@ class HomeBinding extends Bindings {
             Get.find<SourceThemeTopicPlaylistStore>().readAll(),
       );
       Get.put<LocalRecommendationService>(service, permanent: true);
-      if (!Get.isRegistered<RecommendationEngine>()) {
-        Get.put<RecommendationEngine>(service, permanent: true);
-      }
-    } else if (!Get.isRegistered<RecommendationEngine>()) {
-      Get.put<RecommendationEngine>(
-        Get.find<LocalRecommendationService>(),
+    }
+    if (!Get.isRegistered<HybridRecommendationService>()) {
+      Get.put(
+        HybridRecommendationService(
+          localEngine: Get.find<LocalRecommendationService>(),
+          client: Get.find<DioClient>(),
+          libraryLoader: () => Get.find<MediaRepository>().getLibrary(),
+          feedbackService: Get.find<RecommendationFeedbackService>(),
+        ),
         permanent: true,
       );
+    }
+    final engine = Get.find<HybridRecommendationService>();
+    if (Get.isRegistered<RecommendationEngine>()) {
+      Get.replace<RecommendationEngine>(engine);
+    } else {
+      Get.put<RecommendationEngine>(engine, permanent: true);
     }
     if (!Get.isRegistered<GetOrBuildDailyRecommendationsUseCase>()) {
       Get.lazyPut<GetOrBuildDailyRecommendationsUseCase>(
