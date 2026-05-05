@@ -142,49 +142,58 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Obx(() {
-          final queue = controller.queue;
-          final idx = controller.currentIndex.value;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        // Pausar el video al salir, quedándose en la posición actual
+        await controller.videoService.pause();
+        if (context.mounted) Get.back();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Obx(() {
+            final queue = controller.queue;
+            final idx = controller.currentIndex.value;
 
-          final item = (queue.isNotEmpty && idx >= 0 && idx < queue.length)
-              ? queue[idx]
-              : null;
+            final item = (queue.isNotEmpty && idx >= 0 && idx < queue.length)
+                ? queue[idx]
+                : null;
 
-          if (item == null) {
-            return const Center(child: Text('No hay vídeo'));
-          }
+            if (item == null) {
+              return const Center(child: Text('No hay vídeo'));
+            }
 
-          return Stack(
-            children: [
-              Positioned.fill(child: _buildVideoArea(theme)),
-              if (_showControls)
-                Positioned.fill(child: _buildControls(theme, item)),
-              if (_toastMessage != null)
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _toastMessage!,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
+            return Stack(
+              children: [
+                Positioned.fill(child: _buildVideoArea(theme)),
+                if (_showControls)
+                  Positioned.fill(child: _buildControls(theme, item)),
+                if (_toastMessage != null)
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _toastMessage!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          );
-        }),
+              ],
+            );
+          }),
+        ),
       ),
     );
   }
@@ -325,7 +334,11 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back),
-                    onPressed: Get.back,
+                    onPressed: () async {
+                      // Pausar el video al volver
+                      await controller.videoService.pause();
+                      Get.back();
+                    },
                   ),
                   Expanded(
                     child: Text(

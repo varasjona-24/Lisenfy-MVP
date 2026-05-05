@@ -185,8 +185,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
     if (_args.type == EditEntityType.media) return 'Editar metadatos';
     if (_args.type == EditEntityType.artist) return 'Editar artista';
     if (_args.type == EditEntityType.playlist) return 'Editar playlist';
-    if (_args.type == EditEntityType.topic) return 'Editar temática';
-    return 'Editar lista';
+    if (_args.type == EditEntityType.topic) return 'Editar Collection';
+    return 'Editar Collection';
   }
 
   bool get _isMedia => _args.type == EditEntityType.media;

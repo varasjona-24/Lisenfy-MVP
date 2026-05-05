@@ -61,52 +61,90 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
         body: AppGradientBackground(
           child: RefreshIndicator(
             onRefresh: controller.load,
-            child: ListView(
+            child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.lg,
-              ),
-              children: [
-                _header(theme, title, cover, items.length, totalBytes),
-                const SizedBox(height: 14),
-                _actionRow(context, items, playlist, isSmart),
-                const SizedBox(height: 16),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    0,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _header(theme, title, cover, items.length, totalBytes),
+                        const SizedBox(height: 14),
+                        _actionRow(context, items, playlist, isSmart),
+                        const SizedBox(height: 16),
+                        if (items.isEmpty)
+                          Text(
+                            'No hay canciones en esta lista.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          )
+                        else ...[
+                          _tracksHeader(theme, items.length),
+                          const SizedBox(height: 10),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
                 if (items.isEmpty)
-                  Text(
-                    'No hay canciones en esta lista.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: AppSpacing.lg),
+                  )
+                else if (controller.detailGridView.value)
+                  MediaItemSliverGrid(
+                    items: items,
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      0,
+                      AppSpacing.md,
+                      AppSpacing.lg,
+                    ),
+                    childAspectRatio: AppGridTheme.childAspectRatio,
+                    crossAxisSpacing: AppGridTheme.spacing,
+                    mainAxisSpacing: AppGridTheme.spacing,
+                    onTap: (item, index) => _play(items, index),
+                    onMore: (item, index) => _openTrackActionSheet(
+                      context: context,
+                      item: item,
+                      queue: items,
+                      playlist: playlist,
+                      isSmartPlaylist: isSmart,
+                      actions: actions,
+                      canRemoveFromPlaylist: !isSmart && playlist != null,
                     ),
                   )
-                else ...[
-                  _tracksHeader(theme, items.length),
-                  const SizedBox(height: 10),
-                  if (controller.detailGridView.value)
-                    _trackGrid(
-                      context,
-                      theme,
-                      items,
-                      playlist,
-                      isSmart,
-                      actions,
-                    )
-                  else
-                    ...items.asMap().entries.map(
-                      (entry) => _trackTile(
-                        context,
-                        theme,
-                        entry.value,
-                        entry.key,
-                        items,
-                        playlist,
-                        isSmart,
-                        actions,
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      0,
+                      AppSpacing.md,
+                      AppSpacing.lg,
+                    ),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) => _trackTile(
+                          context,
+                          theme,
+                          items[index],
+                          index,
+                          items,
+                          playlist,
+                          isSmart,
+                          actions,
+                        ),
+                        childCount: items.length,
                       ),
                     ),
-                ],
+                  ),
               ],
             ),
           ),
@@ -348,34 +386,6 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _trackGrid(
-    BuildContext context,
-    ThemeData theme,
-    List<MediaItem> queue,
-    Playlist? playlist,
-    bool isSmartPlaylist,
-    MediaActionsController actions,
-  ) {
-    return MediaItemGrid(
-      items: queue,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: AppGridTheme.childAspectRatio,
-      crossAxisSpacing: AppGridTheme.spacing,
-      mainAxisSpacing: AppGridTheme.spacing,
-      onTap: (item, index) => _play(queue, index),
-      onMore: (item, index) => _openTrackActionSheet(
-        context: context,
-        item: item,
-        queue: queue,
-        playlist: playlist,
-        isSmartPlaylist: isSmartPlaylist,
-        actions: actions,
-        canRemoveFromPlaylist: !isSmartPlaylist && playlist != null,
       ),
     );
   }

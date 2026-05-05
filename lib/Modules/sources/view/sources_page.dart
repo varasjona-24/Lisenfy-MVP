@@ -88,7 +88,7 @@ class SourcesPage extends GetView<SourcesController> {
           children: [
             Expanded(
               child: Text(
-                'Fuentes',
+                'Listenfy Collections',
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -98,7 +98,7 @@ class SourcesPage extends GetView<SourcesController> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Explora tu contenido organizado por temáticas.',
+          'Explora tu contenido organizado por Collections.',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -142,6 +142,9 @@ class SourcesPage extends GetView<SourcesController> {
               break;
             case 4:
               home.goToSources();
+              break;
+            case 5:
+              home.goToAtlas();
               break;
           }
         },
@@ -190,7 +193,7 @@ class _ThemeCardState extends State<_ThemeCard> {
     final subtitleColor = Colors.white.withValues(alpha: 0.84);
     final cardScale = _isPressed ? 0.985 : (_isHovered ? 1.01 : 1.0);
     final mediaTag = theme.onlyOffline
-        ? 'Audio y video'
+        ? 'Video'
         : theme.forceKind?.name == 'video'
         ? 'Video'
         : theme.forceKind?.name == 'audio'

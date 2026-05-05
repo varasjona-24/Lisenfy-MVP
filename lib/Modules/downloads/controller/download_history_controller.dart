@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show DateTimeRange;
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:listenfy/app/models/history_group.dart';
@@ -29,6 +30,11 @@ class DownloadHistoryController
   final RxBool gridView = true.obs;
   final Rx<DateTime> selectedDate = Rx<DateTime>(DateTime.now());
   final RxBool calendarMode = true.obs;
+  final Rx<DateTime> visibleMonth = Rx<DateTime>(
+    DateTime(DateTime.now().year, DateTime.now().month),
+  );
+  final Rx<String> dateFilterRange = Rx<String>('all');
+  final Rx<DateTimeRange?> customDateRange = Rx<DateTimeRange?>(null);
 
   // ============================
   // 🚀 INIT
@@ -37,6 +43,8 @@ class DownloadHistoryController
   void onInit() {
     super.onInit();
     gridView.value = _storage.read('download_history_grid_view') ?? true;
+    calendarMode.value =
+        _storage.read('download_history_calendar_mode') ?? true;
     final home = _homeController;
     if (home != null) {
       _syncFilterWithHome();
@@ -61,16 +69,20 @@ class DownloadHistoryController
 
     try {
       final downloaded = await _loadHistoryItemsUseCase();
+      // Al cargar de nuevo, el rango de fechas se reinicia a 'all',
+      // así que baseItems == allItems.
       final projected = _project(
-        allItems: downloaded,
+        baseItems: downloaded,
         filter: state.value.filter,
         query: state.value.query,
       );
+      _ensureSelectedDate(projected.filteredItems);
 
       emit(
         state.value.copyWith(
           status: ViewStatus.success,
           allItems: downloaded,
+          baseItems: downloaded,
           filteredItems: projected.filteredItems,
           groups: projected.groups,
           clearError: true,
@@ -89,13 +101,16 @@ class DownloadHistoryController
   // ============================
   // 🧩 HELPERS
   // ============================
+
+  /// Filtra por tipo (audio/video) manteniendo el rango de fechas activo.
   void setFilter(DownloadHistoryFilter next) {
     if (state.value.filter == next) return;
     final projected = _project(
-      allItems: state.value.allItems,
+      baseItems: state.value.baseItems,
       filter: next,
       query: state.value.query,
     );
+    _ensureSelectedDate(projected.filteredItems);
     emit(
       state.value.copyWith(
         filter: next,
@@ -105,13 +120,15 @@ class DownloadHistoryController
     );
   }
 
+  /// Filtra por texto de búsqueda, respetando el rango de fechas y tipo activos.
   void setQuery(String value) {
     if (state.value.query == value) return;
     final projected = _project(
-      allItems: state.value.allItems,
+      baseItems: state.value.baseItems,
       filter: state.value.filter,
       query: value,
     );
+    _ensureSelectedDate(projected.filteredItems);
     emit(
       state.value.copyWith(
         query: value,
@@ -136,6 +153,67 @@ class DownloadHistoryController
     _storage.write('download_history_grid_view', gridView.value);
   }
 
+  void toggleCalendarMode() {
+    calendarMode.value = !calendarMode.value;
+    _storage.write('download_history_calendar_mode', calendarMode.value);
+  }
+
+  void selectDate(DateTime date) {
+    selectedDate.value = DateTime(date.year, date.month, date.day);
+    visibleMonth.value = DateTime(date.year, date.month);
+  }
+
+  void previousMonth() {
+    final current = visibleMonth.value;
+    visibleMonth.value = DateTime(current.year, current.month - 1);
+  }
+
+  void nextMonth() {
+    final current = visibleMonth.value;
+    visibleMonth.value = DateTime(current.year, current.month + 1);
+  }
+
+  List<DateTime> visibleMonthDays() {
+    final month = visibleMonth.value;
+    final totalDays = DateTime(month.year, month.month + 1, 0).day;
+    return List<DateTime>.generate(
+      totalDays,
+      (index) => DateTime(month.year, month.month, index + 1),
+    );
+  }
+
+  int importCountForDay(DateTime date) {
+    final key = _dayKey(date);
+    var count = 0;
+    for (final item in state.value.filteredItems) {
+      final ts = _latestVariantCreatedAt(item);
+      if (ts <= 0) continue;
+      final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+      if (_dayKey(dt) == key) count++;
+    }
+    return count;
+  }
+
+  List<MediaItem> selectedDateItems() {
+    final key = _dayKey(selectedDate.value);
+    return state.value.filteredItems
+        .where((item) {
+          final ts = _latestVariantCreatedAt(item);
+          if (ts <= 0) return false;
+          final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+          return _dayKey(dt) == key;
+        })
+        .toList(growable: false);
+  }
+
+  String visibleMonthLabel() {
+    return _monthLabel(visibleMonth.value, DateTime.now());
+  }
+
+  String selectedDateLabel() {
+    return _dayLabel(selectedDate.value, DateTime.now());
+  }
+
   void _syncFilterWithHome() {
     final home = _homeController;
     if (home == null) return;
@@ -145,12 +223,15 @@ class DownloadHistoryController
     setFilter(desired);
   }
 
+  // ============================
+  // 🔍 PROYECCIÓN (tipo + query)
+  // ============================
   _HistoryProjection _project({
-    required List<MediaItem> allItems,
+    required List<MediaItem> baseItems,
     required DownloadHistoryFilter filter,
     required String query,
   }) {
-    final filtered = _filterItems(allItems, filter, query);
+    final filtered = _filterItems(baseItems, filter, query);
     final groups = _groupHistory(filtered);
     return _HistoryProjection(filteredItems: filtered, groups: groups);
   }
@@ -177,7 +258,6 @@ class DownloadHistoryController
     final now = DateTime.now();
     final List<HistoryGroup> finalGroups = [];
 
-    // Separate current month items from older ones
     final currentMonthItems = items.where((item) {
       final dt = DateTime.fromMillisecondsSinceEpoch(
         _latestVariantCreatedAt(item),
@@ -192,12 +272,10 @@ class DownloadHistoryController
       return !(dt.year == now.year && dt.month == now.month);
     }).toList();
 
-    // 1. Current Month: Flat Daily Detail
     if (currentMonthItems.isNotEmpty) {
       finalGroups.addAll(_buildDailyGroups(currentMonthItems, now));
     }
 
-    // 2. Older Items: Nested Month > Week > Day
     if (olderItems.isNotEmpty) {
       finalGroups.addAll(_buildNestedMonthlyGroups(olderItems));
     }
@@ -231,7 +309,6 @@ class DownloadHistoryController
   }
 
   List<HistoryGroup> _buildNestedMonthlyGroups(List<MediaItem> items) {
-    // Group 1: By Month
     final Map<String, List<MediaItem>> monthBucket = {};
     for (final item in items) {
       final dt = DateTime.fromMillisecondsSinceEpoch(
@@ -268,7 +345,6 @@ class DownloadHistoryController
       final dt = DateTime.fromMillisecondsSinceEpoch(
         _latestVariantCreatedAt(item),
       );
-      // Calculate week of month roughly
       final weekNum = ((dt.day - 1) / 7).floor() + 1;
       weekBucket.putIfAbsent(weekNum, () => []).add(item);
     }
@@ -297,6 +373,29 @@ class DownloadHistoryController
       if (v.createdAt > latest) latest = v.createdAt;
     }
     return latest;
+  }
+
+  void _ensureSelectedDate(List<MediaItem> items) {
+    if (items.isEmpty) return;
+
+    final selectedKey = _dayKey(selectedDate.value);
+    final selectedHasItems = items.any((item) {
+      final ts = _latestVariantCreatedAt(item);
+      if (ts <= 0) return false;
+      return _dayKey(DateTime.fromMillisecondsSinceEpoch(ts)) == selectedKey;
+    });
+    if (selectedHasItems) return;
+
+    final latest = items
+        .map(_latestVariantCreatedAt)
+        .where((ts) => ts > 0)
+        .fold<int>(0, (best, ts) => ts > best ? ts : best);
+    if (latest <= 0) return;
+
+    final dt = DateTime.fromMillisecondsSinceEpoch(latest);
+    final day = DateTime(dt.year, dt.month, dt.day);
+    selectedDate.value = day;
+    visibleMonth.value = DateTime(day.year, day.month);
   }
 
   String formatTime(MediaItem item) {
@@ -360,6 +459,171 @@ class DownloadHistoryController
     } else {
       return '$monthName ${date.year}';
     }
+  }
+
+  // ============================
+  // 📅 CALENDAR UTILITIES
+  // ============================
+  List<DateTime> daysWithImports() {
+    final Set<String> daysSet = {};
+    for (final item in state.value.filteredItems) {
+      final ts = _latestVariantCreatedAt(item);
+      if (ts <= 0) continue;
+      final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+      daysSet.add(_dayKey(dt));
+    }
+    return daysSet.map((key) {
+      final parts = key.split('-');
+      return DateTime(
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+        int.parse(parts[2]),
+      );
+    }).toList()..sort();
+  }
+
+  bool hasImportsOnDay(DateTime day) {
+    final key = _dayKey(day);
+    return state.value.filteredItems.any((item) {
+      final ts = _latestVariantCreatedAt(item);
+      if (ts <= 0) return false;
+      final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+      return _dayKey(dt) == key;
+    });
+  }
+
+  // ============================
+  // 📆 FILTRO POR RANGO DE FECHAS
+  // ============================
+  /// Aplica el filtro de rango de fechas sobre `allItems`,
+  /// actualiza `baseItems` y re-proyecta con el tipo y query actuales.
+  void filterByRange(String range) {
+    if (dateFilterRange.value == range) return;
+
+    dateFilterRange.value = range;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final List<MediaItem> newBase;
+
+    switch (range) {
+      case 'lastWeek':
+        final sevenDaysStart = today.subtract(const Duration(days: 6));
+        final tomorrowStart = today.add(const Duration(days: 1));
+        newBase = state.value.allItems.where((item) {
+          final ts = _latestVariantCreatedAt(item);
+          if (ts <= 0) return false;
+          final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+          return !dt.isBefore(sevenDaysStart) && dt.isBefore(tomorrowStart);
+        }).toList();
+        break;
+      case 'lastMonth':
+        final startOfMonth = DateTime(now.year, now.month, 1);
+        final startOfNextMonth = DateTime(now.year, now.month + 1, 1);
+        newBase = state.value.allItems.where((item) {
+          final ts = _latestVariantCreatedAt(item);
+          if (ts <= 0) return false;
+          final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+          return !dt.isBefore(startOfMonth) && dt.isBefore(startOfNextMonth);
+        }).toList();
+        break;
+      default: // 'all'
+        newBase = state.value.allItems;
+    }
+
+    final projected = _project(
+      baseItems: newBase,
+      filter: state.value.filter,
+      query: state.value.query,
+    );
+    _ensureSelectedDate(projected.filteredItems);
+    emit(
+      state.value.copyWith(
+        baseItems: newBase,
+        filteredItems: projected.filteredItems,
+        groups: projected.groups,
+      ),
+    );
+  }
+
+  bool isToday(DateTime day) {
+    final now = DateTime.now();
+    return day.year == now.year && day.month == now.month && day.day == now.day;
+  }
+
+  // ============================
+  // 📋 SIMPLE DAY GROUPING
+  // ============================
+  /// Agrupa items por día de forma simple: {fechaKey -> items}
+  Map<String, List<MediaItem>> itemsGroupedByDay() {
+    final Map<String, List<MediaItem>> groups = {};
+    for (final item in state.value.filteredItems) {
+      final ts = _latestVariantCreatedAt(item);
+      if (ts <= 0) continue;
+      final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+      final key = _dayKey(dt);
+      groups.putIfAbsent(key, () => []).add(item);
+    }
+    final sortedKeys = groups.keys.toList()..sort((a, b) => b.compareTo(a));
+    final sorted = <String, List<MediaItem>>{};
+    for (final key in sortedKeys) {
+      sorted[key] = groups[key]!;
+    }
+    return sorted;
+  }
+
+  /// Obtiene label amigable para una fecha en formato día/mes
+  String dayLabelSimple(DateTime date) {
+    return '${date.day}/${date.month}';
+  }
+
+  void setCustomDateRange(DateTime start, DateTime end) {
+    const maxRange = Duration(days: 75); // ~2.5 meses
+    final DateTimeRange range;
+    if (end.difference(start).compareTo(maxRange) > 0) {
+      range = DateTimeRange(start: start, end: start.add(maxRange));
+    } else {
+      range = DateTimeRange(start: start, end: end);
+    }
+
+    customDateRange.value = range;
+    dateFilterRange.value = 'custom';
+
+    final newBase = state.value.allItems.where((item) {
+      final ts = _latestVariantCreatedAt(item);
+      if (ts <= 0) return false;
+      final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+      final start = DateTime(
+        range.start.year,
+        range.start.month,
+        range.start.day,
+      );
+      final endExclusive = DateTime(
+        range.end.year,
+        range.end.month,
+        range.end.day + 1,
+      );
+      return !dt.isBefore(start) && dt.isBefore(endExclusive);
+    }).toList();
+
+    final projected = _project(
+      baseItems: newBase,
+      filter: state.value.filter,
+      query: state.value.query,
+    );
+    _ensureSelectedDate(projected.filteredItems);
+    emit(
+      state.value.copyWith(
+        baseItems: newBase,
+        filteredItems: projected.filteredItems,
+        groups: projected.groups,
+      ),
+    );
+  }
+
+  String customDateRangeLabel() {
+    final range = customDateRange.value;
+    if (range == null) return 'Seleccionar rango';
+    return '${dayLabelSimple(range.start)} - ${dayLabelSimple(range.end)}';
   }
 }
 

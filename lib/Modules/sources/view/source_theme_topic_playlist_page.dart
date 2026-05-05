@@ -71,7 +71,9 @@ class _SourceThemeTopicPlaylistPageState
     return Obx(() {
       final playlist = _playlist;
       if (playlist == null) {
-        return const Scaffold(body: Center(child: Text('Lista no encontrada')));
+        return const Scaffold(
+          body: Center(child: Text('Collection no encontrada')),
+        );
       }
 
       final children = _sources.playlistsForTopic(
@@ -97,27 +99,48 @@ class _SourceThemeTopicPlaylistPageState
               await _sources.refreshAll();
               if (mounted) setState(() {});
             },
-            child: ListView(
+            child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.lg,
-              ),
-              children: [
-                Text(
-                  _buildMetaLine(playlist.itemIds.length, children.length),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    0,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _buildMetaLine(
+                            playlist.itemIds.length,
+                            children.length,
+                          ),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _actionRow(playlist),
+                        const SizedBox(height: 18),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                _actionRow(playlist),
-                const SizedBox(height: 18),
                 _itemsSection(playlist),
-                const SizedBox(height: 18),
-                _subListsSection(playlist, children),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    18,
+                    AppSpacing.md,
+                    AppSpacing.lg,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: _subListsSection(playlist, children),
+                  ),
+                ),
               ],
             ),
           ),
@@ -144,7 +167,7 @@ class _SourceThemeTopicPlaylistPageState
           child: FilledButton.tonalIcon(
             onPressed: () => _addSubList(playlist),
             icon: const Icon(Icons.create_new_folder_rounded),
-            label: const Text('Subcarpeta'),
+            label: const Text('Collection'),
           ),
         ),
       ],
@@ -164,36 +187,53 @@ class _SourceThemeTopicPlaylistPageState
         }
 
         if (items.isEmpty) {
-          return Text(
-            'No hay items todavía.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+          return SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            sliver: SliverToBoxAdapter(
+              child: Text(
+                'No hay items todavía.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
           );
         }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Items',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            ...items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: SourceMediaListItem(
-                  item: item,
-                  onTap: () => _playItem(items, item),
-                  onLongPress: () => _showItemActions(playlist, item),
-                  onMore: () => _showItemActions(playlist, item),
+        return SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          sliver: SliverMainAxisGroup(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Items',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                 ),
               ),
-            ),
-          ],
+              SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final item = items[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: SourceMediaListItem(
+                      item: item,
+                      onTap: () => _playItem(items, item),
+                      onLongPress: () => _showItemActions(playlist, item),
+                      onMore: () => _showItemActions(playlist, item),
+                    ),
+                  );
+                }, childCount: items.length),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -236,7 +276,7 @@ class _SourceThemeTopicPlaylistPageState
         Row(
           children: [
             Text(
-              'Subcarpetas',
+              'Collections',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
@@ -264,8 +304,8 @@ class _SourceThemeTopicPlaylistPageState
         if (filtered.isEmpty)
           Text(
             lists.isEmpty
-                ? 'No hay subcarpetas aún.'
-                : 'No hay subcarpetas con ese nombre.',
+                ? 'No hay Collections aún.'
+                : 'No hay Collections con ese nombre.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -309,7 +349,7 @@ class _SourceThemeTopicPlaylistPageState
               onChanged: (value) => setState(() => _subListQuery = value),
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                hintText: 'Buscar subcarpeta',
+                hintText: 'Buscar Collection',
                 prefixIcon: const Icon(Icons.search_rounded),
                 suffixIcon: _subListQuery.trim().isEmpty
                     ? null
@@ -355,7 +395,7 @@ class _SourceThemeTopicPlaylistPageState
             ),
             PopupMenuItem(
               value: _SourceSubListSort.subfolders,
-              child: Text('Más subcarpetas'),
+              child: Text('Más Collections'),
             ),
           ],
         ),
@@ -367,7 +407,7 @@ class _SourceThemeTopicPlaylistPageState
   // 🧾 META / SIZE
   // ============================
   String _buildMetaLine(int itemCount, int listCount) {
-    final base = '$itemCount items · $listCount listas';
+    final base = '$itemCount items · $listCount Collections';
     if (_playlistSizeLabel == null || _playlistSizeLabel!.isEmpty) return base;
     return '$base · ${_playlistSizeLabel!}';
   }
@@ -449,7 +489,7 @@ class _SourceThemeTopicPlaylistPageState
                       child: list.isEmpty
                           ? Center(
                               child: Text(
-                                'No hay items disponibles para esta temática.',
+                                'No hay items disponibles para esta Collection.',
                                 style: Theme.of(ctx2).textTheme.bodyMedium
                                     ?.copyWith(
                                       color: Theme.of(

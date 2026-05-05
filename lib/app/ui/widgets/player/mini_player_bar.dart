@@ -6,11 +6,9 @@ import 'package:get/get.dart';
 import '../../../models/media_item.dart';
 import '../../../routes/app_routes.dart';
 import '../../../services/audio_service.dart';
-import '../../../services/video_service.dart';
 import '../../../controllers/navigation_controller.dart';
 import 'player_lyrics_sheet.dart';
 import '../../../../Modules/player/audio/controller/audio_player_controller.dart';
-import '../../../../Modules/player/Video/controller/video_player_controller.dart';
 
 class MiniPlayerBar extends StatelessWidget {
   const MiniPlayerBar({super.key});
@@ -18,7 +16,6 @@ class MiniPlayerBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final audio = Get.find<AudioService>();
-    final video = Get.find<VideoService>();
     final nav = Get.find<NavigationController>();
 
     return Obx(() {
@@ -33,88 +30,43 @@ class MiniPlayerBar extends StatelessWidget {
         return const SizedBox.shrink();
       }
 
-      final audioCtrl = Get.isRegistered<AudioPlayerController>()
+      final AudioPlayerController? audioCtrl =
+          Get.isRegistered<AudioPlayerController>()
           ? Get.find<AudioPlayerController>()
-          : null;
-      final videoCtrl = Get.isRegistered<VideoPlayerController>()
-          ? Get.find<VideoPlayerController>()
           : null;
 
       final audioItem = audio.currentItem.value;
-      final videoItem = video.currentItem.value;
+      if (audioItem == null) {
+        return const SizedBox.shrink();
+      }
+
       final audioActive =
-          audioItem != null &&
-          (audio.state.value != PlaybackState.stopped || audio.keepLastItem);
-      final videoActive =
-          videoItem != null &&
-          (video.state.value != VideoPlaybackState.stopped ||
-              video.keepLastItem);
+          audio.state.value != PlaybackState.stopped || audio.keepLastItem;
 
-      if (!audioActive && !videoActive) {
+      // El mini player es exclusivo de audio.
+      // El video se pausa al salir del reproductor, no necesita mini player.
+      if (!audioActive) {
         return const SizedBox.shrink();
       }
 
-      final isVideo = videoActive && !audioActive;
-      final item = isVideo ? videoItem : audioItem;
-      if (item == null) {
-        return const SizedBox.shrink();
-      }
-      final isPlaying = isVideo ? video.isPlaying.value : audio.isPlaying.value;
-
-      final canPrev = isVideo
-          ? (videoCtrl != null && videoCtrl.currentIndex.value > 0)
-          : (audioCtrl != null && audioCtrl.currentIndex.value > 0);
-      final canNext = isVideo
-          ? (videoCtrl != null &&
-                videoCtrl.currentIndex.value < videoCtrl.queue.length - 1)
-          : (audioCtrl != null &&
-                audioCtrl.currentIndex.value < audioCtrl.queue.length - 1);
+      final isPlaying = audio.isPlaying.value;
+      final canPrev = audioCtrl != null && audioCtrl.currentIndex.value > 0;
+      final canNext =
+          audioCtrl != null &&
+          audioCtrl.currentIndex.value < audioCtrl.queue.length - 1;
 
       return _MiniBar(
-        item: item,
-        isVideo: isVideo,
+        item: audioItem,
+        isVideo: false,
         isPlaying: isPlaying,
         canPrev: canPrev,
         canNext: canNext,
-        onToggle: () async {
-          if (isVideo) {
-            await video.toggle();
-          } else {
-            await audio.toggle();
-          }
-        },
-        onPrev: canPrev
-            ? () async {
-                if (isVideo) {
-                  await videoCtrl?.previous();
-                } else {
-                  await audioCtrl?.previous();
-                }
-              }
-            : null,
-        onNext: canNext
-            ? () async {
-                if (isVideo) {
-                  await videoCtrl?.next();
-                } else {
-                  await audioCtrl?.next();
-                }
-              }
-            : null,
-        onClose: () async {
-          if (isVideo) {
-            await video.stop();
-            video.clearLastItem();
-            VideoPlayerController.clearPersistedQueueSnapshot();
-          } else {
-            await audio.stopAndHidePreservingSession();
-          }
-        },
-        onOpen: () {
-          final route = isVideo ? AppRoutes.videoPlayer : AppRoutes.audioPlayer;
-          Get.toNamed(route);
-        },
-        onLyrics: () => openPlayerLyricsSheet(item),
+        onToggle: () async => audio.toggle(),
+        onPrev: canPrev ? () async => audioCtrl.previous() : null,
+        onNext: canNext ? () async => audioCtrl.next() : null,
+        onClose: () async => audio.stopAndHidePreservingSession(),
+        onOpen: () => Get.toNamed(AppRoutes.audioPlayer),
+        onLyrics: () => openPlayerLyricsSheet(audioItem),
       );
     });
   }

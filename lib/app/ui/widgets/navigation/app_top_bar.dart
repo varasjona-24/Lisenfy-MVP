@@ -10,8 +10,6 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onSearch;
   final Widget? leading;
   final VoidCallback? onToggleMode; // ✅ optional
-  final VoidCallback? onWorldMode;
-  final bool showWorldModeAction;
   final VoidCallback? onLocalConnect;
   final bool showLocalConnectAction;
   final bool showSettingsAction;
@@ -24,8 +22,6 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.onSearch,
     this.leading,
     this.onToggleMode, // ✅ no required
-    this.onWorldMode,
-    this.showWorldModeAction = true,
     this.onLocalConnect,
     this.showLocalConnectAction = true,
     this.showSettingsAction = true,
@@ -74,8 +70,6 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
           ),
 
         _TopBarOverflowMenu(
-          showWorldModeAction: showWorldModeAction,
-          onWorldMode: onWorldMode,
           showLocalConnectAction: showLocalConnectAction,
           onLocalConnect: onLocalConnect,
           showSettingsAction: showSettingsAction,
@@ -89,7 +83,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
 
-enum _TopBarMenuAction { worldMode, localConnect, settings }
+enum _TopBarMenuAction { localConnect, settings }
 
 class _TopBarMenuEntryData {
   const _TopBarMenuEntryData({
@@ -109,16 +103,12 @@ class _TopBarMenuEntryData {
 
 class _TopBarOverflowMenu extends StatelessWidget {
   const _TopBarOverflowMenu({
-    required this.showWorldModeAction,
-    required this.onWorldMode,
     required this.showLocalConnectAction,
     required this.onLocalConnect,
     required this.showSettingsAction,
     required this.onSettings,
   });
 
-  final bool showWorldModeAction;
-  final VoidCallback? onWorldMode;
   final bool showLocalConnectAction;
   final VoidCallback? onLocalConnect;
   final bool showSettingsAction;
@@ -130,14 +120,6 @@ class _TopBarOverflowMenu extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     final items = <_TopBarMenuEntryData>[
-      if (showWorldModeAction)
-        _TopBarMenuEntryData(
-          action: _TopBarMenuAction.worldMode,
-          icon: Icons.public_rounded,
-          label: 'Listenfy Atlas',
-          subtitle: 'Explorar música por regiones',
-          tint: scheme.tertiary,
-        ),
       if (showLocalConnectAction)
         _TopBarMenuEntryData(
           action: _TopBarMenuAction.localConnect,
@@ -173,9 +155,6 @@ class _TopBarOverflowMenu extends StatelessWidget {
       icon: Icon(Icons.more_horiz_rounded, color: scheme.onSurface),
       onSelected: (value) {
         switch (value) {
-          case _TopBarMenuAction.worldMode:
-            (onWorldMode ?? () => Get.toNamed(AppRoutes.worldMode)).call();
-            break;
           case _TopBarMenuAction.localConnect:
             (onLocalConnect ?? () => Get.toNamed(AppRoutes.localConnect))
                 .call();

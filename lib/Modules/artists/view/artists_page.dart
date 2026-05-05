@@ -90,6 +90,9 @@ class ArtistsPage extends GetView<ArtistsController> {
                       case 4:
                         home.goToSources();
                         break;
+                      case 5:
+                        home.goToAtlas();
+                        break;
                     }
                   },
                 ),
@@ -341,7 +344,9 @@ class ArtistsPage extends GetView<ArtistsController> {
                             child: OutlinedButton(
                               onPressed: () => Navigator.of(ctx).pop(),
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
@@ -361,7 +366,9 @@ class ArtistsPage extends GetView<ArtistsController> {
                             child: FilledButton(
                               onPressed: () => Navigator.of(ctx).pop(),
                               style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),

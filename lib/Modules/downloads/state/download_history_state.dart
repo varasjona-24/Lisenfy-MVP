@@ -10,6 +10,7 @@ class DownloadHistoryState {
   const DownloadHistoryState({
     required this.status,
     required this.allItems,
+    required this.baseItems,
     required this.filteredItems,
     required this.groups,
     required this.filter,
@@ -22,6 +23,7 @@ class DownloadHistoryState {
     return const DownloadHistoryState(
       status: ViewStatus.idle,
       allItems: <MediaItem>[],
+      baseItems: <MediaItem>[],
       filteredItems: <MediaItem>[],
       groups: <HistoryGroup>[],
       filter: DownloadHistoryFilter.audio,
@@ -32,7 +34,11 @@ class DownloadHistoryState {
   }
 
   final ViewStatus status;
+  /// Todos los items descargados (sin ningún filtro).
   final List<MediaItem> allItems;
+  /// Items después de aplicar el filtro de rango de fechas.
+  /// Es la "base" sobre la que se aplica tipo (audio/video) y query.
+  final List<MediaItem> baseItems;
   final List<MediaItem> filteredItems;
   final List<HistoryGroup> groups;
   final DownloadHistoryFilter filter;
@@ -43,6 +49,7 @@ class DownloadHistoryState {
   DownloadHistoryState copyWith({
     ViewStatus? status,
     List<MediaItem>? allItems,
+    List<MediaItem>? baseItems,
     List<MediaItem>? filteredItems,
     List<HistoryGroup>? groups,
     DownloadHistoryFilter? filter,
@@ -54,6 +61,7 @@ class DownloadHistoryState {
     return DownloadHistoryState(
       status: status ?? this.status,
       allItems: allItems ?? this.allItems,
+      baseItems: baseItems ?? this.baseItems,
       filteredItems: filteredItems ?? this.filteredItems,
       groups: groups ?? this.groups,
       filter: filter ?? this.filter,

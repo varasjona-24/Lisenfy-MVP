@@ -55,6 +55,7 @@ class AudioPlayerController extends GetxController {
   bool _handlingCompleted = false;
   bool _endActionHandledForTrack = false;
   String _endActionTrackKey = '';
+  DateTime _ignorePositionPersistUntil = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _lastResumePositionPersistAt = DateTime.fromMillisecondsSinceEpoch(
     0,
   );
@@ -228,7 +229,10 @@ class AudioPlayerController extends GetxController {
   Future<Duration> _resolveStartPositionForCurrent() async {
     final item = currentItemOrNull;
     if (item == null) return Duration.zero;
+    return _resolveStartPositionForItem(item);
+  }
 
+  Future<Duration> _resolveStartPositionForItem(MediaItem item) async {
     final loaded = audioService.currentItem.value;
     if (loaded != null &&
         audioService.hasSourceLoaded &&
@@ -286,6 +290,7 @@ class AudioPlayerController extends GetxController {
     final item = audioService.currentItem.value;
     if (item == null) return;
     if (!audioService.hasSourceLoaded) return;
+    if (DateTime.now().isBefore(_ignorePositionPersistUntil)) return;
 
     final now = DateTime.now();
     if (now.difference(_lastResumePositionPersistAt) <
@@ -452,11 +457,9 @@ class AudioPlayerController extends GetxController {
       queue: queue.toList(),
       queueIndex: currentIndex.value,
       forceReload: forceReload,
+      initialPosition: resumePosition ?? Duration.zero,
     );
     await _enforceSpatialModeForVariant(variant);
-    if (resumePosition != null && resumePosition > Duration.zero) {
-      await audioService.seek(resumePosition);
-    }
 
     _syncFromService();
   }
@@ -490,25 +493,47 @@ class AudioPlayerController extends GetxController {
   }
 
   Future<void> playAt(int index, {bool recordSkip = true}) async {
+    await _playAt(index, recordSkip: recordSkip, allowResumePrompt: true);
+  }
+
+  Future<void> _playAt(
+    int index, {
+    required bool recordSkip,
+    required bool allowResumePrompt,
+  }) async {
     if (index < 0 || index >= queue.length) return;
     if (index == currentIndex.value) return;
     if (recordSkip) {
       await _recordTransitionSkipIfNeeded();
     }
-    currentIndex.value = index;
-    if (audioService.hasSourceLoaded &&
-        _sameQueue(queue, audioService.queueItems)) {
-      await audioService.jumpToQueueIndex(index);
-      _syncFromService();
-      return;
+
+    final targetItem = queue[index];
+    final resumePosition = allowResumePrompt
+        ? await _resolveStartPositionForItem(targetItem)
+        : Duration.zero;
+    _ignorePositionPersistUntil = DateTime.now().add(
+      const Duration(milliseconds: 900),
+    );
+
+    if (!isShuffling.value && audioService.hasSourceLoaded) {
+      await audioService.stop();
+      _ignorePositionPersistUntil = DateTime.now().add(
+        const Duration(milliseconds: 900),
+      );
     }
-    await _playCurrent(forceReload: true);
+
+    currentIndex.value = index;
+    await _playCurrent(forceReload: true, resumePosition: resumePosition);
   }
 
   Future<void> next({bool recordSkip = true}) async {
     if (queue.isEmpty) return;
     if (recordSkip) {
-      await _recordTransitionSkipIfNeeded();
+      final target = currentIndex.value + 1;
+      if (target >= 0 && target < queue.length) {
+        await _playAt(target, recordSkip: true, allowResumePrompt: true);
+      }
+      return;
     }
     final before = currentIndex.value;
     final fallback = currentIndex.value + 1;
@@ -518,14 +543,18 @@ class AudioPlayerController extends GetxController {
     if (audioService.currentQueueIndex == currentIndex.value &&
         fallback >= 0 &&
         fallback < queue.length) {
-      await playAt(fallback, recordSkip: false);
+      await _playAt(fallback, recordSkip: false, allowResumePrompt: false);
     }
   }
 
   Future<void> previous({bool recordSkip = true}) async {
     if (queue.isEmpty) return;
     if (recordSkip) {
-      await _recordTransitionSkipIfNeeded();
+      final target = currentIndex.value - 1;
+      if (target >= 0 && target < queue.length) {
+        await _playAt(target, recordSkip: true, allowResumePrompt: true);
+      }
+      return;
     }
     final before = currentIndex.value;
     final fallback = currentIndex.value - 1;
@@ -535,7 +564,7 @@ class AudioPlayerController extends GetxController {
     if (audioService.currentQueueIndex == currentIndex.value &&
         fallback >= 0 &&
         fallback < queue.length) {
-      await playAt(fallback, recordSkip: false);
+      await _playAt(fallback, recordSkip: false, allowResumePrompt: false);
     }
   }
 
@@ -625,17 +654,6 @@ class AudioPlayerController extends GetxController {
     } else {
       duration.value = Duration.zero;
     }
-  }
-
-  bool _sameQueue(List<MediaItem> a, List<MediaItem> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i].id == b[i].id) continue;
-      final ap = a[i].publicId.trim();
-      final bp = b[i].publicId.trim();
-      if (ap.isEmpty || bp.isEmpty || ap != bp) return false;
-    }
-    return true;
   }
 
   Future<void> setSpatialMode(SpatialAudioMode mode) async {

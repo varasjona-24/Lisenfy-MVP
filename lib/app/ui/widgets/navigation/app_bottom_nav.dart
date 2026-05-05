@@ -81,7 +81,12 @@ class AppBottomNav extends StatelessWidget {
             BottomNavigationBarItem(
               icon: Icon(Icons.source_outlined),
               activeIcon: Icon(Icons.source),
-              label: 'Sources',
+              label: 'Collections',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.public_outlined),
+              activeIcon: Icon(Icons.public),
+              label: 'Atlas',
             ),
           ],
         ),

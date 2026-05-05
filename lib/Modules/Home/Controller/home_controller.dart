@@ -389,6 +389,8 @@ class HomeController extends GetxController {
     loadHome();
   }
 
+  void goToAtlas() => Get.toNamed(AppRoutes.worldMode);
+
   void goToSettings() => Get.toNamed(AppRoutes.settings);
 
   void enterHome() => Get.offAllNamed(AppRoutes.home);

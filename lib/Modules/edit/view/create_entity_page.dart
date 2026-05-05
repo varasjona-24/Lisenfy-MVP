@@ -25,7 +25,9 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
   String? _localThumbPath;
   int? _colorValue;
 
+  bool get _isTopic => _args.type == CreateEntityType.topic;
   bool get _isTopicPlaylist => _args.type == CreateEntityType.topicPlaylist;
+  bool get _isCollection => _isTopic || _isTopicPlaylist;
 
   @override
   void initState() {
@@ -53,7 +55,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
   }
 
   String _title() {
-    return _isTopicPlaylist ? 'Nueva lista' : 'Nueva playlist';
+    return _isCollection ? 'Nueva Collection' : 'Nueva playlist';
   }
 
   Future<void> _pickLocalThumbnail() async {
@@ -134,14 +136,21 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
       Get.snackbar(
-        _isTopicPlaylist ? 'Lista' : 'Playlist',
+        _isTopicPlaylist ? 'Collection' : 'Playlist',
         'El nombre no puede estar vacio',
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
     }
 
-    final ok = _isTopicPlaylist
+    final ok = _isTopic
+        ? await _controller.createTopic(
+            themeId: _args.themeId!,
+            name: name,
+            localThumbPath: _localThumbPath,
+            colorValue: _colorValue,
+          )
+        : _isTopicPlaylist
         ? await _controller.createTopicPlaylist(
             topicId: _args.topicId!,
             parentId: _args.parentId,
@@ -157,7 +166,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
 
     if (!ok && mounted) {
       Get.snackbar(
-        'Listas',
+        'Collections',
         'Límite de 10 niveles alcanzado',
         snackPosition: SnackPosition.BOTTOM,
       );
@@ -239,8 +248,8 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
                     Expanded(
                       child: Text(
                         _nameCtrl.text.isEmpty
-                            ? (_isTopicPlaylist
-                                  ? 'Nueva lista'
+                            ? (_isCollection
+                                  ? 'Nueva Collection'
                                   : 'Nueva playlist')
                             : _nameCtrl.text,
                         maxLines: 2,
@@ -281,7 +290,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
             ),
             const SizedBox(height: 12),
             Text(
-              _isTopicPlaylist ? 'Portada y color' : 'Portada',
+              _isCollection ? 'Portada y color de Collection' : 'Portada',
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -320,7 +329,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
                         destructive: true,
                       ),
                     ],
-                    if (_isTopicPlaylist) ...[
+                    if (_isCollection) ...[
                       const SizedBox(height: 14),
                       Align(
                         alignment: Alignment.centerLeft,

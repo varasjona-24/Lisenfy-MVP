@@ -48,6 +48,7 @@ class AudioService extends GetxService {
   final RxDouble speed = 1.0.obs;
   final RxDouble volume = 1.0.obs;
   final RxInt crossfadeSeconds = 0.obs;
+  final Rx<Duration> _position = Duration.zero.obs;
 
   final Rxn<MediaItem> currentItem = Rxn<MediaItem>();
   final Rxn<MediaVariant> currentVariant = Rxn<MediaVariant>();
@@ -64,6 +65,8 @@ class AudioService extends GetxService {
   bool _shuffleEnabled = false;
   bool get shuffleEnabled => _shuffleEnabled;
   DateTime _lastSessionPersistAt = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _positionOverrideUntil = DateTime.fromMillisecondsSinceEpoch(0);
+  Duration _positionOverride = Duration.zero;
   bool _nextHandlerStopShouldHardStop = false;
   bool _resumePromptPendingCache = false;
 
@@ -74,11 +77,11 @@ class AudioService extends GetxService {
   Stream<int?> get androidAudioSessionIdStream =>
       _player.androidAudioSessionIdStream;
 
-  Stream<Duration> get positionStream => _player.positionStream;
+  Stream<Duration> get positionStream => _position.stream;
   Stream<Duration?> get durationStream => _player.durationStream;
   Stream<ProcessingState> get processingStateStream =>
       _player.processingStateStream;
-  Duration get currentPosition => _player.position;
+  Duration get currentPosition => _position.value;
   Duration? get currentDuration => _player.duration;
 
   bool get hasSourceLoaded => _player.processingState != ProcessingState.idle;
@@ -177,7 +180,8 @@ class AudioService extends GetxService {
       _persistSessionSnapshot();
     });
 
-    _player.positionStream.listen((_) {
+    _player.positionStream.listen((position) {
+      _publishPlayerPosition(position);
       _persistSessionSnapshot(throttle: true);
     });
 
@@ -194,6 +198,35 @@ class AudioService extends GetxService {
   void attachHandler(dynamic handler) {
     _handler = handler;
     _notifyHandler();
+  }
+
+  void _publishPosition(Duration position) {
+    if (_position.value == position) return;
+    _position.value = position;
+  }
+
+  void _beginTrackPositionLifecycle(Duration initialPosition) {
+    _positionOverride = initialPosition;
+    _positionOverrideUntil = DateTime.now().add(
+      const Duration(milliseconds: 1200),
+    );
+    _publishPosition(initialPosition);
+  }
+
+  void _beginSeekPositionLifecycle(Duration position) {
+    _positionOverride = position;
+    _positionOverrideUntil = DateTime.now().add(
+      const Duration(milliseconds: 450),
+    );
+    _publishPosition(position);
+  }
+
+  void _publishPlayerPosition(Duration rawPosition) {
+    if (DateTime.now().isBefore(_positionOverrideUntil)) {
+      _publishPosition(_positionOverride);
+      return;
+    }
+    _publishPosition(rawPosition);
   }
 
   aud.MediaItem buildBackgroundItem(
@@ -230,6 +263,7 @@ class AudioService extends GetxService {
     List<MediaItem>? queue,
     int? queueIndex,
     bool forceReload = false,
+    Duration initialPosition = Duration.zero,
   }) async {
     final incomingQueue = queue;
     if (!forceReload &&
@@ -304,10 +338,11 @@ class AudioService extends GetxService {
           ),
         );
       }
+      _beginTrackPositionLifecycle(initialPosition);
       await _player.setAudioSources(
         sources,
         initialIndex: _activeIndex,
-        initialPosition: Duration.zero,
+        initialPosition: initialPosition,
       );
 
       currentItem.value = _queueItems[_activeIndex];
@@ -339,7 +374,7 @@ class AudioService extends GetxService {
     final nextQueueVariants = List<MediaVariant>.from(_queueVariants);
     nextQueueVariants[targetIndex] = selectedVariant;
     final targetItem = _queueItems[targetIndex];
-    final currentPosition = _player.position;
+    final currentPosition = this.currentPosition;
 
     isLoading.value = true;
     state.value = PlaybackState.loading;
@@ -354,6 +389,7 @@ class AudioService extends GetxService {
         );
       }
 
+      _beginTrackPositionLifecycle(currentPosition);
       await _player.setAudioSources(
         sources,
         initialIndex: targetIndex,
@@ -436,6 +472,7 @@ class AudioService extends GetxService {
 
   Future<void> stop() async {
     await _player.stop();
+    _publishPosition(Duration.zero);
     isPlaying.value = false;
     isLoading.value = false;
     state.value = PlaybackState.stopped;
@@ -456,6 +493,7 @@ class AudioService extends GetxService {
       _persistSessionSnapshot();
     }
     await _player.stop();
+    _publishPosition(Duration.zero);
     isPlaying.value = false;
     isLoading.value = false;
     state.value = PlaybackState.stopped;
@@ -471,6 +509,7 @@ class AudioService extends GetxService {
     _storage.write(_resumePromptPendingKey, true);
 
     await _player.stop();
+    _publishPosition(Duration.zero);
     isPlaying.value = false;
     isLoading.value = false;
     state.value = PlaybackState.stopped;
@@ -480,7 +519,9 @@ class AudioService extends GetxService {
 
   Future<void> seek(Duration position) async {
     if (!hasSourceLoaded) return;
+    _beginSeekPositionLifecycle(position);
     await _player.seek(position);
+    _beginSeekPositionLifecycle(position);
     _persistSessionSnapshot();
   }
 
@@ -506,10 +547,17 @@ class AudioService extends GetxService {
     await _seekToIndex(target, autoPlay: true);
   }
 
-  Future<void> jumpToQueueIndex(int index) async {
+  Future<void> jumpToQueueIndex(
+    int index, {
+    Duration initialPosition = Duration.zero,
+  }) async {
     if (_queueItems.isEmpty) return;
     if (index < 0 || index >= _queueItems.length) return;
-    await _transitionToIndex(index, autoPlay: true);
+    await _transitionToIndex(
+      index,
+      autoPlay: true,
+      initialPosition: initialPosition,
+    );
   }
 
   Future<void> setSpeed(double value) async {
@@ -531,9 +579,14 @@ class AudioService extends GetxService {
     _storage.write(_crossfadeSecondsKey, safe);
   }
 
-  Future<void> _transitionToIndex(int target, {required bool autoPlay}) async {
+  Future<void> _transitionToIndex(
+    int target, {
+    required bool autoPlay,
+    Duration initialPosition = Duration.zero,
+  }) async {
     final wasPlaying = _player.playing;
     final shouldFade = wasPlaying && crossfadeSeconds.value > 0;
+    _beginTrackPositionLifecycle(initialPosition);
     if (shouldFade) {
       await _fadeTo(
         0.0,
@@ -541,7 +594,7 @@ class AudioService extends GetxService {
       );
     }
 
-    await _player.seek(Duration.zero, index: target);
+    await _player.seek(initialPosition, index: target);
     _activeIndex = target;
 
     if (autoPlay || wasPlaying) {
@@ -561,6 +614,7 @@ class AudioService extends GetxService {
 
   Future<void> _seekToIndex(int target, {required bool autoPlay}) async {
     final wasPlaying = _player.playing;
+    _beginTrackPositionLifecycle(Duration.zero);
     await _player.seek(Duration.zero, index: target);
     _activeIndex = target;
     if (autoPlay || wasPlaying) {
@@ -598,7 +652,7 @@ class AudioService extends GetxService {
     }
 
     final playing = _player.playing;
-    final pos = _player.position;
+    final pos = currentPosition;
     final current = currentItem.value;
     final currentV = currentVariant.value;
 
@@ -623,6 +677,7 @@ class AudioService extends GetxService {
       );
     }
 
+    _beginTrackPositionLifecycle(pos);
     await _player.setAudioSources(
       sources,
       initialIndex: _activeIndex,
@@ -787,6 +842,7 @@ class AudioService extends GetxService {
         );
       }
 
+      _beginTrackPositionLifecycle(initialPos);
       await _player.setAudioSources(
         sources,
         initialIndex: _activeIndex,
@@ -853,7 +909,7 @@ class AudioService extends GetxService {
       _queueVariants.map((e) => e.toJson()).toList(growable: false),
     );
     _storage.write(_sessionIndexKey, currentQueueIndex);
-    _storage.write(_sessionPositionMsKey, _player.position.inMilliseconds);
+    _storage.write(_sessionPositionMsKey, currentPosition.inMilliseconds);
     _storage.write(_sessionWasPlayingKey, _player.playing);
   }
 
@@ -884,7 +940,7 @@ class AudioService extends GetxService {
       playing: isPlaying.value,
       buffering: isLoading.value,
       hasSourceLoaded: hasSourceLoaded,
-      position: _player.position,
+      position: currentPosition,
       speed: speed.value,
     );
 

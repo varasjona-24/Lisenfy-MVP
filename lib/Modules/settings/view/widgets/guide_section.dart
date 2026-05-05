@@ -188,12 +188,12 @@ const List<_GuideTopic> _guideTopics = [
   _GuideTopic(
     icon: Icons.category_rounded,
     title: 'Sources',
-    subtitle: 'Tematicas, carpetas y subcarpetas para videos.',
+    subtitle: 'Collections para organizar videos.',
     tips: [
-      'Sources organiza videos por tematicas; dentro puedes crear carpetas y subcarpetas con portada propia.',
-      'Usa buscador y orden cuando una tematica crece demasiado.',
-      'Una buena estructura es tematica > carpeta > subcarpeta > videos, por ejemplo Peliculas y series > Anime > Temporada 1.',
-      'Las vistas de carpetas son manuales: si un video no aparece, agregalo a la carpeta correspondiente.',
+      'Sources organiza videos en Collections con portada y color propio.',
+      'Usa buscador y orden cuando una Collection crece demasiado.',
+      'Una buena estructura es Collection > Collection hija > videos, por ejemplo Peliculas y series > Anime > Temporada 1.',
+      'Las Collections son manuales: si un video no aparece, agregalo a la Collection correspondiente.',
     ],
   ),
   _GuideTopic(

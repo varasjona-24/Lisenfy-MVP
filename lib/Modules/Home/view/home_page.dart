@@ -120,11 +120,12 @@ class HomePage extends GetView<HomeController> {
                                             .openMedia(queue.first, 0, queue),
                                       },
                                     ),
-                                    onItemTap: (item, index) => controller.openMedia(
-                                      item,
-                                      index,
-                                      controller.fullFavorites,
-                                    ),
+                                    onItemTap: (item, index) =>
+                                        controller.openMedia(
+                                          item,
+                                          index,
+                                          controller.fullFavorites,
+                                        ),
                                     onItemLongPress:
                                         (item, _, {onStartMultiSelect}) {
                                           actions.showItemActions(
@@ -315,11 +316,12 @@ class HomePage extends GetView<HomeController> {
                                   const SizedBox(height: 10),
                                   _MostPlayedRow(
                                     items: controller.mostPlayed,
-                                    onTap: (item, index) => controller.openMedia(
-                                      item,
-                                      index,
-                                      controller.fullMostPlayed,
-                                    ),
+                                    onTap: (item, index) =>
+                                        controller.openMedia(
+                                          item,
+                                          index,
+                                          controller.fullMostPlayed,
+                                        ),
                                     onLongPress: (item, _) {
                                       actions.showItemActions(
                                         context,
@@ -398,11 +400,12 @@ class HomePage extends GetView<HomeController> {
                                             .openMedia(queue.first, 0, queue),
                                       },
                                     ),
-                                    onItemTap: (item, index) => controller.openMedia(
-                                      item,
-                                      index,
-                                      controller.fullRecentlyPlayed,
-                                    ),
+                                    onItemTap: (item, index) =>
+                                        controller.openMedia(
+                                          item,
+                                          index,
+                                          controller.fullRecentlyPlayed,
+                                        ),
                                     onItemLongPress:
                                         (item, _, {onStartMultiSelect}) {
                                           actions.showItemActions(
@@ -488,11 +491,12 @@ class HomePage extends GetView<HomeController> {
                                   const SizedBox(height: 10),
                                   _FeaturedList(
                                     items: controller.featured,
-                                    onTap: (item, index) => controller.openMedia(
-                                      item,
-                                      index,
-                                      controller.fullFeatured,
-                                    ),
+                                    onTap: (item, index) =>
+                                        controller.openMedia(
+                                          item,
+                                          index,
+                                          controller.fullFeatured,
+                                        ),
                                     onLongPress: (item, _) =>
                                         actions.showItemActions(
                                           context,
@@ -567,11 +571,12 @@ class HomePage extends GetView<HomeController> {
                                             .openMedia(queue.first, 0, queue),
                                       },
                                     ),
-                                    onItemTap: (item, index) => controller.openMedia(
-                                      item,
-                                      index,
-                                      controller.fullLatestDownloads,
-                                    ),
+                                    onItemTap: (item, index) =>
+                                        controller.openMedia(
+                                          item,
+                                          index,
+                                          controller.fullLatestDownloads,
+                                        ),
                                     onItemLongPress:
                                         (item, _, {onStartMultiSelect}) {
                                           actions.showItemActions(
@@ -652,6 +657,9 @@ class HomePage extends GetView<HomeController> {
                         break;
                       case 4:
                         controller.goToSources();
+                        break;
+                      case 5:
+                        controller.goToAtlas();
                         break;
                     }
                   },

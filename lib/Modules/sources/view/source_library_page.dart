@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:file_picker/file_picker.dart';
 
 import '../../../app/models/media_item.dart';
 import '../../../app/controllers/media_actions_controller.dart';
@@ -21,7 +20,6 @@ import '../controller/sources_controller.dart';
 import '../domain/source_origin.dart';
 import '../domain/source_theme.dart';
 import '../domain/source_theme_topic.dart';
-import '../ui/source_color_picker_field.dart';
 
 // ============================
 // 🧭 PAGE: SOURCE LIBRARY
@@ -127,11 +125,14 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
 
     return Obx(() {
       final homeMode = home.mode.value;
-      final displayMode = widget.forceKind == MediaVariantKind.audio
-          ? HomeMode.audio
-          : (widget.forceKind == MediaVariantKind.video
-                ? HomeMode.video
-                : homeMode);
+      // Biblioteca offline: siempre en modo video
+      final displayMode = widget.onlyOffline
+          ? HomeMode.video
+          : (widget.forceKind == MediaVariantKind.audio
+                ? HomeMode.audio
+                : (widget.forceKind == MediaVariantKind.video
+                      ? HomeMode.video
+                      : homeMode));
 
       return Scaffold(
         backgroundColor: Colors.transparent,
@@ -145,7 +146,10 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
           title: widget.onlyOffline
               ? ListenfyLogo(size: 28, color: scheme.primary)
               : Text(widget.title),
-          onToggleMode: widget.forceKind == null ? home.toggleMode : null,
+          // Sin toggle cuando es offline (solo video) o forceKind fijo
+          onToggleMode: (widget.onlyOffline || widget.forceKind != null)
+              ? null
+              : home.toggleMode,
           showLocalConnectAction: false,
           mode: displayMode == HomeMode.audio
               ? AppMediaMode.audio
@@ -273,6 +277,9 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                         break;
                       case 4:
                         home.goToSources();
+                        break;
+                      case 5:
+                        home.goToAtlas();
                         break;
                     }
                   },
@@ -542,7 +549,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
         Row(
           children: [
             Text(
-              'Carpetas',
+              'Collections',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
@@ -567,13 +574,13 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
             }),
             const Spacer(),
             IconButton.filledTonal(
-              tooltip: 'Nueva carpeta',
+              tooltip: 'Nueva Collection',
               icon: const Icon(Icons.create_new_folder_rounded),
               onPressed: () {
                 if (limitReached) {
                   Get.snackbar(
-                    'Carpetas',
-                    'Límite de 10 carpetas alcanzado',
+                    'Collections',
+                    'Límite de 10 Collections alcanzado',
                     snackPosition: SnackPosition.BOTTOM,
                   );
                   return;
@@ -594,7 +601,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                   onChanged: (value) => setState(() => _topicQuery = value),
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
-                    hintText: 'Buscar carpeta',
+                    hintText: 'Buscar Collection',
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: _topicQuery.trim().isEmpty
                         ? null
@@ -637,7 +644,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                 ),
                 PopupMenuItem(
                   value: _TopicSort.lists,
-                  child: Text('Más listas'),
+                  child: Text('Más Collections'),
                 ),
               ],
             ),
@@ -672,8 +679,8 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
       });
       if (topics.isEmpty) {
         final emptyText = allTopics.isEmpty
-            ? 'Crea una carpeta para agrupar contenidos.'
-            : 'No hay carpetas con ese nombre.';
+            ? 'Crea una Collection para agrupar contenidos.'
+            : 'No hay Collections con ese nombre.';
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 18),
           child: Text(
@@ -715,93 +722,13 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
   // 🪄 DIALOGOS
   // ============================
   Future<void> _openCreateTopic(SourceTheme themeMeta) async {
-    String name = '';
-    String? coverUrl;
-    String? coverLocal;
-    int? colorValue;
-    Color draftColor = Theme.of(context).colorScheme.primary;
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text('Nueva temática (${themeMeta.title})'),
-          content: StatefulBuilder(
-            builder: (ctx2, setState) {
-              return SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      onChanged: (v) => name = v,
-                      decoration: const InputDecoration(hintText: 'Nombre'),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      onChanged: (v) => coverUrl = v,
-                      decoration: const InputDecoration(
-                        hintText: 'URL de imagen (opcional)',
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SourceColorPickerField(
-                      color: colorValue != null
-                          ? Color(colorValue!)
-                          : draftColor,
-                      onChanged: (c) => setState(() {
-                        draftColor = c;
-                        colorValue = c.toARGB32();
-                      }),
-                    ),
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        final res = await FilePicker.platform.pickFiles(
-                          type: FileType.custom,
-                          allowedExtensions: const [
-                            'jpg',
-                            'jpeg',
-                            'png',
-                            'webp',
-                          ],
-                        );
-                        final file = (res != null && res.files.isNotEmpty)
-                            ? res.files.first
-                            : null;
-                        final path = file?.path;
-                        if (path != null && path.isNotEmpty) {
-                          coverLocal = path;
-                        }
-                      },
-                      icon: const Icon(Icons.folder_open_rounded),
-                      label: const Text('Elegir imagen'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                Navigator.of(ctx).pop();
-                await _sources.addTopic(
-                  themeId: themeMeta.id,
-                  title: name,
-                  coverUrl: coverUrl,
-                  coverLocalPath: coverLocal,
-                  colorValue: colorValue,
-                );
-              },
-              child: const Text('Crear'),
-            ),
-          ],
-        );
-      },
+    await Get.toNamed(
+      AppRoutes.createEntity,
+      preventDuplicates: false,
+      arguments: CreateEntityArgs.topic(
+        storageId: 'stt_${themeMeta.id}_create',
+        themeId: themeMeta.id,
+      ),
     );
   }
 
@@ -816,7 +743,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar temática'),
+        title: const Text('Eliminar Collection'),
         content: Text('¿Eliminar "${topic.title}"?'),
         actions: [
           TextButton(

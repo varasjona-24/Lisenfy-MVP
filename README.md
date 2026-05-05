@@ -36,7 +36,7 @@ La app es funcional, pero sigue en desarrollo activo. La reproduccion local, lis
 
 ### Organizacion
 
-- Sources para organizar videos por tematicas, carpetas y subcarpetas.
+- Sources para organizar videos por Collections.
 - Atlas para organizar musica por region.
 - Relaciones entre artistas, bandas, integrantes y colaboraciones.
 - Portadas locales o buscadas desde la web.
@@ -106,10 +106,10 @@ Estas funciones requieren el backend externo. La app envia el archivo al backend
 
 ### Sources
 
-Sources organiza videos por tematicas y carpetas:
+Sources organiza videos por Collections:
 
-1. Crea una tematica.
-2. Entra en la tematica y crea carpetas o subcarpetas.
+1. Crea una Collection.
+2. Entra en la Collection y crea Collections hijas si necesitas mas niveles.
 3. Agrega videos a cada vista.
 4. Usa buscador y orden para navegar bibliotecas grandes.
 
@@ -123,17 +123,12 @@ El respaldo ZIP incluye biblioteca, metadatos, listas, portadas y variantes si m
 
 ## Limitaciones conocidas
 
-### Criticas
-
-- Algunas opciones del editor de video todavia pueden mostrar campos pensados para audio.
-- La deteccion de duracion de ciertos videos puede fallar si el archivo no trae metadata clara.
-- La cola de audio ha sido historicamente menos flexible que la cola de video.
 
 ### Rendimiento
 
 - Bibliotecas de mas de 400-500 items pueden hacer mas lenta la UI si una vista carga demasiados elementos de golpe.
 - Exportar ZIP con muchos archivos puede tardar mucho porque procesa una biblioteca completa.
-- Listenfy Connect puede sentirse pesado si se transmite o serializa una cola muy grande.
+
 
 ### Documentacion
 

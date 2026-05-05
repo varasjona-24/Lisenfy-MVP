@@ -73,7 +73,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
       final topic = _topic;
       if (topic == null) {
         return const Scaffold(
-          body: Center(child: Text('Temática no encontrada')),
+          body: Center(child: Text('Collection no encontrada')),
         );
       }
       final lists = _sources.playlistsForTopic(topic.id);
@@ -96,22 +96,40 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
               await _sources.refreshAll();
               if (mounted) setState(() {});
             },
-            child: ListView(
+            child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.lg,
-              ),
-              children: [
-                _header(topic, theme, lists.length),
-                const SizedBox(height: 14),
-                _actionRow(topic),
-                const SizedBox(height: 18),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    0,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _header(topic, theme, lists.length),
+                        const SizedBox(height: 14),
+                        _actionRow(topic),
+                        const SizedBox(height: 18),
+                      ],
+                    ),
+                  ),
+                ),
                 _itemsSection(topic),
-                const SizedBox(height: 18),
-                _playlistsSection(topic, lists),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    18,
+                    AppSpacing.md,
+                    AppSpacing.lg,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: _playlistsSection(topic, lists),
+                  ),
+                ),
               ],
             ),
           ),
@@ -173,7 +191,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
   }
 
   String _buildTopicMetaLine(SourceThemeTopic topic, int listCount) {
-    final base = '${topic.itemIds.length} items · $listCount listas';
+    final base = '${topic.itemIds.length} items · $listCount Collections';
     if (_topicSizeLabel == null || _topicSizeLabel!.isEmpty) return base;
     return '$base · ${_topicSizeLabel!}';
   }
@@ -193,7 +211,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           child: FilledButton.tonalIcon(
             onPressed: () => _addTopicPlaylist(topic),
             icon: const Icon(Icons.playlist_add_rounded),
-            label: const Text('Subcarpeta'),
+            label: const Text('Collection'),
           ),
         ),
       ],
@@ -215,35 +233,52 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           });
         }
         if (items.isEmpty) {
-          return Text(
-            'No hay items todavía.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Items',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            ...items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: SourceMediaListItem(
-                  item: item,
-                  onTap: () => _playItem(items, item),
-                  onLongPress: () => _showItemActions(topic, item),
-                  onMore: () => _showItemActions(topic, item),
+          return SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            sliver: SliverToBoxAdapter(
+              child: Text(
+                'No hay items todavía.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
-          ],
+          );
+        }
+        return SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          sliver: SliverMainAxisGroup(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Items',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+              SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final item = items[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: SourceMediaListItem(
+                      item: item,
+                      onTap: () => _playItem(items, item),
+                      onLongPress: () => _showItemActions(topic, item),
+                      onMore: () => _showItemActions(topic, item),
+                    ),
+                  );
+                }, childCount: items.length),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -298,7 +333,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
         Row(
           children: [
             Text(
-              'Subcarpetas',
+              'Collections',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
@@ -326,8 +361,8 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
         if (filtered.isEmpty)
           Text(
             list.isEmpty
-                ? 'No hay subcarpetas aún.'
-                : 'No hay subcarpetas con ese nombre.',
+                ? 'No hay Collections aún.'
+                : 'No hay Collections con ese nombre.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -371,7 +406,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
               onChanged: (value) => setState(() => _listQuery = value),
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                hintText: 'Buscar subcarpeta',
+                hintText: 'Buscar Collection',
                 prefixIcon: const Icon(Icons.search_rounded),
                 suffixIcon: _listQuery.trim().isEmpty
                     ? null
@@ -414,7 +449,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
             ),
             PopupMenuItem(
               value: _SourceListSort.subfolders,
-              child: Text('Más subcarpetas'),
+              child: Text('Más Collections'),
             ),
           ],
         ),
@@ -481,7 +516,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
                       child: list.isEmpty
                           ? Center(
                               child: Text(
-                                'No hay items disponibles para esta temática.',
+                                'No hay items disponibles para esta Collection.',
                                 style: Theme.of(ctx2).textTheme.bodyMedium
                                     ?.copyWith(
                                       color: Theme.of(

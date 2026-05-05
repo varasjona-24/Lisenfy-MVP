@@ -68,13 +68,16 @@ class EditEntityArgs {
       topic = null;
 }
 
-enum CreateEntityType { playlist, topicPlaylist }
+enum CreateEntityType { playlist, topic, topicPlaylist }
 
 class CreateEntityArgs {
   final CreateEntityType type;
   final String storageId;
   final String? initialName;
   final int? initialColorValue;
+
+  // topic only
+  final String? themeId;
 
   // topic playlist only
   final String? topicId;
@@ -83,10 +86,21 @@ class CreateEntityArgs {
 
   const CreateEntityArgs.playlist({required this.storageId, this.initialName})
     : type = CreateEntityType.playlist,
+      themeId = null,
       topicId = null,
       parentId = null,
       depth = null,
       initialColorValue = null;
+
+  const CreateEntityArgs.topic({
+    required this.storageId,
+    required this.themeId,
+    this.initialName,
+    this.initialColorValue,
+  }) : type = CreateEntityType.topic,
+       topicId = null,
+       parentId = null,
+       depth = null;
 
   const CreateEntityArgs.topicPlaylist({
     required this.storageId,
@@ -95,7 +109,8 @@ class CreateEntityArgs {
     this.parentId,
     this.initialName,
     this.initialColorValue,
-  }) : type = CreateEntityType.topicPlaylist;
+  }) : type = CreateEntityType.topicPlaylist,
+       themeId = null;
 }
 
 class MediaCleanupAnalysis {
@@ -563,6 +578,26 @@ class EditEntityController extends GetxController {
       coverLocalPath: localThumbPath?.trim().isEmpty == true
           ? null
           : localThumbPath,
+    );
+    return true;
+  }
+
+  Future<bool> createTopic({
+    required String themeId,
+    required String name,
+    String? localThumbPath,
+    int? colorValue,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return false;
+    await _sources.addTopic(
+      themeId: themeId,
+      title: trimmed,
+      coverUrl: null,
+      coverLocalPath: localThumbPath?.trim().isEmpty == true
+          ? null
+          : localThumbPath,
+      colorValue: colorValue,
     );
     return true;
   }
