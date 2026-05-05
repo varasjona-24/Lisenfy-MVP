@@ -13,6 +13,7 @@ class SourcePlaylistCard extends StatefulWidget {
     super.key,
     required this.theme,
     required this.playlist,
+    this.childListCount = 0,
     required this.onOpen,
     required this.onEdit,
     required this.onDelete,
@@ -20,6 +21,7 @@ class SourcePlaylistCard extends StatefulWidget {
 
   final SourceTheme theme;
   final SourceThemeTopicPlaylist playlist;
+  final int childListCount;
   final VoidCallback onOpen;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -39,7 +41,7 @@ class _SourcePlaylistCardState extends State<SourcePlaylistCard> {
     final base = playlist.colorValue != null
         ? Color(playlist.colorValue!)
         : widget.theme.colors.first;
-    final textColor = Colors.white;
+    final scheme = t.colorScheme;
     final scale = _isPressed ? 0.97 : (_isHovered ? 1.01 : 1.0);
 
     ImageProvider? provider;
@@ -66,60 +68,40 @@ class _SourcePlaylistCardState extends State<SourcePlaylistCard> {
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
             child: Material(
               color: Colors.transparent,
               child: Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [base.withOpacity(0.95), base.withOpacity(0.8)],
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.58),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _isHovered
+                        ? base.withValues(alpha: 0.65)
+                        : scheme.outlineVariant.withValues(alpha: 0.48),
                   ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: base.withOpacity(0.3),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
                 child: Stack(
                   children: [
-                    // Subtle glass overlay
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.white.withOpacity(0.12),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      ),
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(width: 4, color: base),
                     ),
                     Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
                       child: Row(
                         children: [
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(8),
                             child: Container(
-                              width: 56,
-                              height: 56,
+                              width: 52,
+                              height: 52,
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.2),
+                                color: base.withValues(alpha: 0.16),
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.2),
+                                  color: base.withValues(alpha: 0.22),
                                   width: 1,
                                 ),
                               ),
@@ -127,52 +109,60 @@ class _SourcePlaylistCardState extends State<SourcePlaylistCard> {
                                   ? Image(image: provider, fit: BoxFit.cover)
                                   : Icon(
                                       Icons.queue_music_rounded,
-                                      color: textColor,
+                                      color: base,
                                     ),
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
                                   playlist.name,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: t.textTheme.titleMedium?.copyWith(
-                                    color: textColor,
+                                    color: scheme.onSurface,
                                     fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.3,
                                   ),
                                 ),
                                 const SizedBox(height: 6),
-                                Text(
-                                  '${playlist.itemIds.length} items',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: t.textTheme.bodySmall?.copyWith(
-                                    color: textColor.withOpacity(0.85),
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: [
+                                    _SourcePlaylistMetricChip(
+                                      icon: Icons.library_music_rounded,
+                                      label: '${playlist.itemIds.length}',
+                                    ),
+                                    if (widget.childListCount > 0)
+                                      _SourcePlaylistMetricChip(
+                                        icon: Icons.folder_copy_rounded,
+                                        label: '${widget.childListCount}',
+                                      ),
+                                  ],
                                 ),
                               ],
                             ),
                           ),
                           PopupMenuButton<_SourcePlaylistAction>(
                             onSelected: (value) {
-                              if (value == _SourcePlaylistAction.edit)
+                              if (value == _SourcePlaylistAction.edit) {
                                 widget.onEdit();
-                              if (value == _SourcePlaylistAction.delete)
+                              }
+                              if (value == _SourcePlaylistAction.delete) {
                                 widget.onDelete();
+                              }
                             },
                             icon: Icon(
                               Icons.more_vert_rounded,
-                              color: textColor.withOpacity(0.9),
+                              color: scheme.onSurfaceVariant,
                             ),
                             color: t.colorScheme.surface,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             itemBuilder: (ctx) => [
                               const PopupMenuItem(
@@ -200,3 +190,37 @@ class _SourcePlaylistCardState extends State<SourcePlaylistCard> {
 }
 
 enum _SourcePlaylistAction { edit, delete }
+
+class _SourcePlaylistMetricChip extends StatelessWidget {
+  const _SourcePlaylistMetricChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

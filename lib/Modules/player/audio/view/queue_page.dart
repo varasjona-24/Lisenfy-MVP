@@ -40,11 +40,12 @@ class QueuePage extends GetView<AudioPlayerController> {
             ),
             Expanded(
               child: ReorderableListView.builder(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 itemCount: queue.length,
                 onReorder: (oldIndex, newIndex) async {
                   await controller.reorderQueue(oldIndex, newIndex);
                 },
-                buildDefaultDragHandles: true,
+                buildDefaultDragHandles: false,
                 itemBuilder: (context, i) {
                   final it = queue[i];
                   final selected = i == idx;
@@ -56,6 +57,7 @@ class QueuePage extends GetView<AudioPlayerController> {
                   return ListTile(
                     key: ValueKey(it.id),
                     selected: selected,
+                    contentPadding: const EdgeInsets.only(left: 8, right: 4),
                     leading: _thumb(theme: theme, item: it, selected: selected),
                     title: Text(
                       it.title,
@@ -67,13 +69,26 @@ class QueuePage extends GetView<AudioPlayerController> {
                       await controller.playAt(i);
                       Get.back();
                     },
-                    trailing: Column(
+                    trailing: Row(
                       mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        if (durText.isNotEmpty)
-                          Text(durText, style: theme.textTheme.bodySmall),
-                        if (selected) const Text('Reproduciendo'),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (durText.isNotEmpty)
+                              Text(durText, style: theme.textTheme.bodySmall),
+                            if (selected) const Text('Reproduciendo'),
+                          ],
+                        ),
+                        const SizedBox(width: 4),
+                        ReorderableDragStartListener(
+                          index: i,
+                          child: Icon(
+                            Icons.drag_handle,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ],
                     ),
                   );
@@ -105,6 +120,12 @@ class QueuePage extends GetView<AudioPlayerController> {
               style: theme.textTheme.bodyMedium,
             ),
           ),
+          Text(
+            'Arrastra para mover',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );
@@ -128,7 +149,7 @@ class QueuePage extends GetView<AudioPlayerController> {
           width: 48,
           height: 48,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _thumbFallback(theme),
+          errorBuilder: (context, error, stackTrace) => _thumbFallback(theme),
         );
       } else {
         image = Image.file(
@@ -136,7 +157,7 @@ class QueuePage extends GetView<AudioPlayerController> {
           width: 48,
           height: 48,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _thumbFallback(theme),
+          errorBuilder: (context, error, stackTrace) => _thumbFallback(theme),
         );
       }
     } else {
@@ -180,7 +201,7 @@ class QueuePage extends GetView<AudioPlayerController> {
     return Container(
       width: 48,
       height: 48,
-      color: theme.colorScheme.surfaceVariant,
+      color: theme.colorScheme.surfaceContainerHighest,
       alignment: Alignment.center,
       child: Icon(Icons.music_note, color: theme.colorScheme.onSurfaceVariant),
     );
@@ -196,9 +217,9 @@ class QueuePage extends GetView<AudioPlayerController> {
     final m = (s % 3600) ~/ 60;
     final sec = s % 60;
     if (h > 0) {
-      return '${h}:${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
+      return '$h:${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}';
     }
-    return '${m}:${sec.toString().padLeft(2, '0')}';
+    return '$m:${sec.toString().padLeft(2, '0')}';
   }
 
   String _fmtDurationShort(int? s) {

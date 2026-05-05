@@ -174,7 +174,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
       return Image.file(
         File(local),
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _fallbackThumb(theme),
+        errorBuilder: (_, _, _) => _fallbackThumb(theme),
       );
     }
     return _fallbackThumb(theme);
@@ -206,9 +206,10 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: FilledButton(
+          child: FilledButton.icon(
             onPressed: _save,
-            child: const Text('Crear'),
+            icon: const Icon(Icons.check_rounded),
+            label: const Text('Crear'),
           ),
         ),
       ),
@@ -239,8 +240,8 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
                       child: Text(
                         _nameCtrl.text.isEmpty
                             ? (_isTopicPlaylist
-                                ? 'Nueva lista'
-                                : 'Nueva playlist')
+                                  ? 'Nueva lista'
+                                  : 'Nueva playlist')
                             : _nameCtrl.text,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -296,41 +297,47 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton.tonalIcon(
-                            onPressed: _pickLocalThumbnail,
-                            icon: const Icon(Icons.photo_library_rounded),
-                            label: const Text('Elegir imagen'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton.tonalIcon(
-                            onPressed: _searchWebThumbnail,
-                            icon: const Icon(Icons.public_rounded),
-                            label: const Text('Buscar en web'),
-                          ),
-                        ),
-                      ],
+                    _CoverActionTile(
+                      icon: Icons.photo_library_rounded,
+                      title: 'Elegir imagen',
+                      subtitle: 'Usar una portada guardada en el dispositivo',
+                      onTap: _pickLocalThumbnail,
                     ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: _clearThumbnail,
-                        child: const Text('Quitar portada'),
+                    const SizedBox(height: 8),
+                    _CoverActionTile(
+                      icon: Icons.public_rounded,
+                      title: 'Buscar en web',
+                      subtitle: 'Encontrar y recortar una portada online',
+                      onTap: _searchWebThumbnail,
+                    ),
+                    if ((_localThumbPath ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _CoverActionTile(
+                        icon: Icons.hide_image_rounded,
+                        title: 'Quitar portada',
+                        subtitle: 'Volver al icono predeterminado',
+                        onTap: _clearThumbnail,
+                        destructive: true,
                       ),
-                    ),
+                    ],
                     if (_isTopicPlaylist) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Color',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       SourceColorPickerField(
                         color: _colorValue != null
                             ? Color(_colorValue!)
                             : theme.colorScheme.primary,
                         onChanged: (c) => setState(() {
-                          _colorValue = c.value;
+                          _colorValue = c.toARGB32();
                         }),
                       ),
                     ],
@@ -339,6 +346,79 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CoverActionTile extends StatelessWidget {
+  const _CoverActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final tint = destructive ? scheme.error : scheme.primary;
+
+    return Material(
+      color: scheme.surfaceContainerHighest.withValues(alpha: 0.52),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: tint, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: destructive ? scheme.error : scheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+            ],
+          ),
         ),
       ),
     );

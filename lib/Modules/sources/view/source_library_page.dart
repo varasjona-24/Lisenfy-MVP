@@ -51,7 +51,18 @@ class SourceLibraryPage extends StatefulWidget {
 class _SourceLibraryPageState extends State<SourceLibraryPage> {
   final SourcesController _sources = Get.find<SourcesController>();
   final MediaActionsController _actions = Get.find<MediaActionsController>();
+  final TextEditingController _topicSearchController = TextEditingController();
   bool _gridView = false;
+  String _topicQuery = '';
+  _TopicSort _topicSort = _TopicSort.recent;
+  Future<List<MediaItem>>? _itemsFuture;
+  HomeMode? _itemsFutureMode;
+
+  @override
+  void dispose() {
+    _topicSearchController.dispose();
+    super.dispose();
+  }
 
   // ============================
   // 📚 DATA
@@ -78,6 +89,21 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
       origins: widget.origins,
       modeKind: modeKind,
     );
+  }
+
+  Future<List<MediaItem>> _itemsFutureFor(HomeMode mode) {
+    final cached = _itemsFuture;
+    if (cached != null && _itemsFutureMode == mode) return cached;
+    _itemsFutureMode = mode;
+    _itemsFuture = _load(mode);
+    return _itemsFuture!;
+  }
+
+  Future<void> _refreshItems(HomeMode mode) async {
+    await _sources.refreshAll();
+    _itemsFutureMode = mode;
+    _itemsFuture = _load(mode);
+    await _itemsFuture;
   }
 
   // ============================
@@ -111,6 +137,11 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
         backgroundColor: Colors.transparent,
         extendBody: true,
         appBar: AppTopBar(
+          leading: IconButton(
+            tooltip: 'Volver',
+            onPressed: Get.back,
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
           title: widget.onlyOffline
               ? ListenfyLogo(size: 28, color: scheme.primary)
               : Text(widget.title),
@@ -125,7 +156,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
             children: [
               Positioned.fill(
                 child: FutureBuilder<List<MediaItem>>(
-                  future: _load(displayMode),
+                  future: _itemsFutureFor(displayMode),
                   builder: (context, snap) {
                     if (snap.connectionState != ConnectionState.done) {
                       return const Center(child: CircularProgressIndicator());
@@ -146,8 +177,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
 
                     return RefreshIndicator(
                       onRefresh: () async {
-                        await _sources.refreshAll();
-                        await _load(displayMode);
+                        await _refreshItems(displayMode);
                         if (mounted) setState(() {});
                       },
                       child: ScrollConfiguration(
@@ -503,28 +533,115 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
 
   Widget _topicHeader(SourceTheme themeMeta) {
     final limitReached = _sources.topicsForTheme(themeMeta.id).length >= 10;
-    return Row(
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Temáticas',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const Spacer(),
-        IconButton(
-          icon: const Icon(Icons.add_rounded),
-          onPressed: () {
-            if (limitReached) {
-              Get.snackbar(
-                'Temáticas',
-                'Límite de 10 temáticas alcanzado',
-                snackPosition: SnackPosition.BOTTOM,
+        Row(
+          children: [
+            Text(
+              'Carpetas',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Obx(() {
+              final count = _sources.topicsForTheme(themeMeta.id).length;
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$count/10',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               );
-              return;
-            }
-            _openCreateTopic(themeMeta);
-          },
+            }),
+            const Spacer(),
+            IconButton.filledTonal(
+              tooltip: 'Nueva carpeta',
+              icon: const Icon(Icons.create_new_folder_rounded),
+              onPressed: () {
+                if (limitReached) {
+                  Get.snackbar(
+                    'Carpetas',
+                    'Límite de 10 carpetas alcanzado',
+                    snackPosition: SnackPosition.BOTTOM,
+                  );
+                  return;
+                }
+                _openCreateTopic(themeMeta);
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 44,
+                child: TextField(
+                  controller: _topicSearchController,
+                  onChanged: (value) => setState(() => _topicQuery = value),
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    hintText: 'Buscar carpeta',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: _topicQuery.trim().isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Limpiar',
+                            onPressed: () {
+                              _topicSearchController.clear();
+                              setState(() => _topicQuery = '');
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                    filled: true,
+                    fillColor: scheme.surfaceContainerHighest.withValues(
+                      alpha: 0.55,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            PopupMenuButton<_TopicSort>(
+              tooltip: 'Ordenar',
+              initialValue: _topicSort,
+              onSelected: (value) => setState(() => _topicSort = value),
+              icon: const Icon(Icons.sort_rounded),
+              itemBuilder: (ctx) => const [
+                PopupMenuItem(
+                  value: _TopicSort.recent,
+                  child: Text('Recientes primero'),
+                ),
+                PopupMenuItem(value: _TopicSort.name, child: Text('Nombre')),
+                PopupMenuItem(
+                  value: _TopicSort.items,
+                  child: Text('Más items'),
+                ),
+                PopupMenuItem(
+                  value: _TopicSort.lists,
+                  child: Text('Más listas'),
+                ),
+              ],
+            ),
+          ],
         ),
       ],
     );
@@ -532,12 +649,38 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
 
   Widget _topicList(SourceTheme themeMeta) {
     return Obx(() {
-      final topics = _sources.topicsForTheme(themeMeta.id);
+      final allTopics = _sources.topicsForTheme(themeMeta.id);
+      final query = _topicQuery.trim().toLowerCase();
+      final topics = allTopics.where((topic) {
+        if (query.isEmpty) return true;
+        return topic.title.toLowerCase().contains(query);
+      }).toList();
+      topics.sort((a, b) {
+        switch (_topicSort) {
+          case _TopicSort.name:
+            return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+          case _TopicSort.items:
+            return b.itemIds.length.compareTo(a.itemIds.length);
+          case _TopicSort.lists:
+            return _sources
+                .playlistsForTopic(b.id)
+                .length
+                .compareTo(_sources.playlistsForTopic(a.id).length);
+          case _TopicSort.recent:
+            return b.createdAt.compareTo(a.createdAt);
+        }
+      });
       if (topics.isEmpty) {
-        return Text(
-          'Crea una temática para agrupar contenidos.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+        final emptyText = allTopics.isEmpty
+            ? 'Crea una carpeta para agrupar contenidos.'
+            : 'No hay carpetas con ese nombre.';
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          child: Text(
+            emptyText,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         );
       }
@@ -607,7 +750,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                           : draftColor,
                       onChanged: (c) => setState(() {
                         draftColor = c;
-                        colorValue = c.value;
+                        colorValue = c.toARGB32();
                       }),
                     ),
                     const SizedBox(height: 10),
@@ -725,7 +868,7 @@ class _TopicCardState extends State<_TopicCard> {
     final base = topic.colorValue != null
         ? Color(topic.colorValue!)
         : widget.themeMeta.colors.first;
-    final textColor = Colors.white;
+    final scheme = t.colorScheme;
     final scale = _isPressed ? 0.97 : (_isHovered ? 1.01 : 1.0);
 
     ImageProvider? provider;
@@ -752,95 +895,77 @@ class _TopicCardState extends State<_TopicCard> {
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
             child: Material(
               color: Colors.transparent,
               child: Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [base.withOpacity(0.95), base.withOpacity(0.8)],
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.58),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _isHovered
+                        ? base.withValues(alpha: 0.65)
+                        : scheme.outlineVariant.withValues(alpha: 0.48),
                   ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: base.withOpacity(0.3),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
                 child: Stack(
                   children: [
-                    // Subtle glass overlay
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.white.withOpacity(0.12),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      ),
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(width: 4, color: base),
                     ),
                     Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
                       child: Row(
                         children: [
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(8),
                             child: Container(
-                              width: 56,
-                              height: 56,
+                              width: 52,
+                              height: 52,
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.2),
+                                color: base.withValues(alpha: 0.16),
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.2),
+                                  color: base.withValues(alpha: 0.22),
                                   width: 1,
                                 ),
                               ),
                               child: provider != null
                                   ? Image(image: provider, fit: BoxFit.cover)
-                                  : Icon(
-                                      Icons.folder_rounded,
-                                      color: textColor,
-                                    ),
+                                  : Icon(Icons.folder_rounded, color: base),
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
                                   topic.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: t.textTheme.titleMedium?.copyWith(
-                                    color: textColor,
+                                    color: scheme.onSurface,
                                     fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.3,
                                   ),
                                 ),
                                 const SizedBox(height: 6),
-                                Text(
-                                  '${topic.itemIds.length} items · ${widget.listCount} listas',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: t.textTheme.bodySmall?.copyWith(
-                                    color: textColor.withOpacity(0.85),
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: [
+                                    _TopicMetricChip(
+                                      icon: Icons.library_music_rounded,
+                                      label: '${topic.itemIds.length}',
+                                    ),
+                                    _TopicMetricChip(
+                                      icon: Icons.queue_music_rounded,
+                                      label: '${widget.listCount}',
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -848,16 +973,17 @@ class _TopicCardState extends State<_TopicCard> {
                           PopupMenuButton<_TopicAction>(
                             onSelected: (value) {
                               if (value == _TopicAction.edit) widget.onEdit();
-                              if (value == _TopicAction.delete)
+                              if (value == _TopicAction.delete) {
                                 widget.onDelete();
+                              }
                             },
                             icon: Icon(
                               Icons.more_vert_rounded,
-                              color: textColor.withOpacity(0.9),
+                              color: scheme.onSurfaceVariant,
                             ),
                             color: t.colorScheme.surface,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             itemBuilder: (ctx) => [
                               const PopupMenuItem(
@@ -885,6 +1011,42 @@ class _TopicCardState extends State<_TopicCard> {
 }
 
 enum _TopicAction { edit, delete }
+
+enum _TopicSort { recent, name, items, lists }
+
+class _TopicMetricChip extends StatelessWidget {
+  const _TopicMetricChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _NoGlowScrollBehavior extends ScrollBehavior {
   const _NoGlowScrollBehavior();

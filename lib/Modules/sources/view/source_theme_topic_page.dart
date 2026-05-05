@@ -44,7 +44,16 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
   // ============================
   final SourcesController _sources = Get.find<SourcesController>();
   final MediaActionsController _actions = Get.find<MediaActionsController>();
+  final TextEditingController _listSearchController = TextEditingController();
   String? _topicSizeLabel;
+  String _listQuery = '';
+  _SourceListSort _listSort = _SourceListSort.recent;
+
+  @override
+  void dispose() {
+    _listSearchController.dispose();
+    super.dispose();
+  }
 
   SourceThemeTopic? get _topic {
     for (final t in _sources.topics) {
@@ -72,6 +81,11 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
       return Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppTopBar(
+          leading: IconButton(
+            tooltip: 'Volver',
+            onPressed: Get.back,
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
           title: Text(topic.title),
           onToggleMode: null,
           showLocalConnectAction: false,
@@ -168,18 +182,18 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
     return Row(
       children: [
         Expanded(
-          child: FilledButton.icon(
+          child: FilledButton.tonalIcon(
             onPressed: () => _addItems(topic),
-            icon: const Icon(Icons.add),
-            label: const Text('Agregar item'),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Items'),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         Expanded(
-          child: OutlinedButton.icon(
+          child: FilledButton.tonalIcon(
             onPressed: () => _addTopicPlaylist(topic),
             icon: const Icon(Icons.playlist_add_rounded),
-            label: const Text('Agregar lista'),
+            label: const Text('Subcarpeta'),
           ),
         ),
       ],
@@ -253,44 +267,156 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
     // ============================
     // 📚 DATA: PLAYLISTS
     // ============================
-    if (list.isEmpty) {
-      return Text(
-        'No hay listas aún.',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      );
-    }
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final query = _listQuery.trim().toLowerCase();
+    final filtered = list.where((playlist) {
+      if (query.isEmpty) return true;
+      return playlist.name.toLowerCase().contains(query);
+    }).toList();
+    filtered.sort((a, b) {
+      switch (_listSort) {
+        case _SourceListSort.recent:
+          return b.createdAt.compareTo(a.createdAt);
+        case _SourceListSort.name:
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        case _SourceListSort.items:
+          return b.itemIds.length.compareTo(a.itemIds.length);
+        case _SourceListSort.subfolders:
+          return _sources
+              .playlistsForTopic(topic.id, parentId: b.id)
+              .length
+              .compareTo(
+                _sources.playlistsForTopic(topic.id, parentId: a.id).length,
+              );
+      }
+    });
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Listas',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 8),
-        ...list.map(
-          (pl) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: SourcePlaylistCard(
-              theme: widget.theme,
-              playlist: pl,
-              onOpen: () => Get.toNamed(
-                AppRoutes.sourcePlaylist,
-                preventDuplicates: false,
-                arguments: {
-                  'playlistId': pl.id,
-                  'theme': widget.theme,
-                  'origins': widget.origins,
-                },
+        Row(
+          children: [
+            Text(
+              'Subcarpetas',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
               ),
-              onEdit: () => _openEditPlaylist(pl),
-              onDelete: () => _sources.deleteTopicPlaylist(pl),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '${list.length}',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (list.isNotEmpty) _listToolbar(scheme),
+        if (list.isNotEmpty) const SizedBox(height: 10),
+        if (filtered.isEmpty)
+          Text(
+            list.isEmpty
+                ? 'No hay subcarpetas aún.'
+                : 'No hay subcarpetas con ese nombre.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          )
+        else
+          ...filtered.map(
+            (pl) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: SourcePlaylistCard(
+                theme: widget.theme,
+                playlist: pl,
+                childListCount: _sources
+                    .playlistsForTopic(topic.id, parentId: pl.id)
+                    .length,
+                onOpen: () => Get.toNamed(
+                  AppRoutes.sourcePlaylist,
+                  preventDuplicates: false,
+                  arguments: {
+                    'playlistId': pl.id,
+                    'theme': widget.theme,
+                    'origins': widget.origins,
+                  },
+                ),
+                onEdit: () => _openEditPlaylist(pl),
+                onDelete: () => _sources.deleteTopicPlaylist(pl),
+              ),
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _listToolbar(ColorScheme scheme) {
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 44,
+            child: TextField(
+              controller: _listSearchController,
+              onChanged: (value) => setState(() => _listQuery = value),
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: 'Buscar subcarpeta',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _listQuery.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Limpiar',
+                        onPressed: () {
+                          _listSearchController.clear();
+                          setState(() => _listQuery = '');
+                        },
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                filled: true,
+                fillColor: scheme.surfaceContainerHighest.withValues(
+                  alpha: 0.55,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        PopupMenuButton<_SourceListSort>(
+          tooltip: 'Ordenar',
+          initialValue: _listSort,
+          onSelected: (value) => setState(() => _listSort = value),
+          icon: const Icon(Icons.sort_rounded),
+          itemBuilder: (ctx) => const [
+            PopupMenuItem(
+              value: _SourceListSort.recent,
+              child: Text('Recientes primero'),
+            ),
+            PopupMenuItem(value: _SourceListSort.name, child: Text('Nombre')),
+            PopupMenuItem(
+              value: _SourceListSort.items,
+              child: Text('Más items'),
+            ),
+            PopupMenuItem(
+              value: _SourceListSort.subfolders,
+              child: Text('Más subcarpetas'),
+            ),
+          ],
         ),
       ],
     );
@@ -312,13 +438,15 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
     // 🪄 DIALOGO: AGREGAR ITEMS
     // ============================
     final list = await _candidateItems();
+    if (!mounted) return;
     final selected = <String>{};
+    final sheetColor = Theme.of(context).colorScheme.surface;
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: sheetColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -488,3 +616,5 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
     );
   }
 }
+
+enum _SourceListSort { recent, name, items, subfolders }

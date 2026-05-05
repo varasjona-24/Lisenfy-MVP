@@ -40,14 +40,14 @@ class GuideSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Funciones poco evidentes',
+                  'Manual de uso',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Atajos, gestos y comportamientos utiles que no siempre se ven a primera vista.',
+                  'Puntos clave para cuidar tu biblioteca, organizar contenido y usar funciones avanzadas.',
                   style: theme.textTheme.bodySmall,
                 ),
                 const SizedBox(height: 14),
@@ -141,14 +141,59 @@ class _GuideTopic {
 
 const List<_GuideTopic> _guideTopics = [
   _GuideTopic(
-    icon: Icons.headphones_rounded,
-    title: 'Audio',
-    subtitle: 'Controles y extras del reproductor musical.',
+    icon: Icons.security_rounded,
+    title: 'Biblioteca y respaldo',
+    subtitle: 'Donde vive tu contenido y como evitar perdidas.',
     tips: [
-      'Dentro del player de audio puedes cambiar el estilo de portada desde el icono superior derecho antes de la cola.',
-      'El modo envolvente se activa con el icono de surround y convive con repeticion una vez o en bucle desde la misma pantalla.',
-      'La cola de audio se puede reordenar arrastrando para ajustar el orden de reproduccion.',
+      'Listenfy guarda archivos, portadas, listas y metadata dentro del almacenamiento privado de la app.',
+      'Antes de desinstalar o limpiar datos, crea un respaldo ZIP desde Datos y descargas.',
+      'El respaldo completo puede tardar bastante en bibliotecas grandes porque incluye archivos y metadata.',
+      'Si marcas incluir variantes, tambien se guardan versiones como 8D, instrumental o archivos procesados.',
+    ],
+  ),
+  _GuideTopic(
+    icon: Icons.headphones_rounded,
+    title: 'Musica',
+    subtitle: 'Reproduccion, cola y extras de audio.',
+    tips: [
+      'El player de audio mantiene cola, miniplayer, favoritos, repeticion y reproduccion aleatoria.',
       'El crossfade, ecualizador, temporizador de apagado y volumen por defecto viven en Configuracion > Audio.',
+      'Sonido limpio detecta silencios largos y permite recortar solo los segmentos que elijas.',
+      'Modo 8D e instrumental requieren el backend externo; cuando terminan, se guardan como variantes reutilizables offline.',
+    ],
+  ),
+  _GuideTopic(
+    icon: Icons.edit_note_rounded,
+    title: 'Artistas y colaboraciones',
+    subtitle: 'Metadata necesaria para Atlas y relaciones.',
+    tips: [
+      'Atlas funciona mejor cuando editas artistas y defines region principal, pais y tipo de artista.',
+      'Las portadas de canciones, artistas, playlists y listas tematicas pueden venir de archivo local o busqueda web.',
+      'Si una colaboracion debe contarse para varios artistas, escribela en Artista con patrones como ft., feat., featuring o with.',
+      'Despues del marcador de colaboracion, separa invitados con coma, x o &: Artista ft. Invitado1, Invitado2 & Invitado3.',
+      'Si el titulo sugiere feat o ft pero el campo Artista no lo refleja, al guardar se muestra una advertencia para corregirlo.',
+    ],
+  ),
+  _GuideTopic(
+    icon: Icons.public_rounded,
+    title: 'Atlas',
+    subtitle: 'Organizacion regional de tu musica.',
+    tips: [
+      'Atlas no adivina todo por si solo: depende de la region y pais que tengas en artistas y canciones.',
+      'Si cierras el miniplayer, Continuar debe intentar retomar la estacion, cancion y posicion guardadas localmente.',
+      'Si se borran datos de la app, cookies o almacenamiento interno, las sesiones guardadas pueden perderse.',
+      'Las recomendaciones locales mejoran mientras mas metadata consistente tenga tu biblioteca.',
+    ],
+  ),
+  _GuideTopic(
+    icon: Icons.category_rounded,
+    title: 'Sources',
+    subtitle: 'Tematicas, carpetas y subcarpetas para videos.',
+    tips: [
+      'Sources organiza videos por tematicas; dentro puedes crear carpetas y subcarpetas con portada propia.',
+      'Usa buscador y orden cuando una tematica crece demasiado.',
+      'Una buena estructura es tematica > carpeta > subcarpeta > videos, por ejemplo Peliculas y series > Anime > Temporada 1.',
+      'Las vistas de carpetas son manuales: si un video no aparece, agregalo a la carpeta correspondiente.',
     ],
   ),
   _GuideTopic(
@@ -156,41 +201,33 @@ const List<_GuideTopic> _guideTopics = [
     title: 'Video',
     subtitle: 'Gestos y utilidades del reproductor de video.',
     tips: [
-      'Doble toque en la mitad izquierda o derecha del video retrocede o adelanta 5 segundos.',
+      'Doble toque en la mitad izquierda o derecha del video retrocede o adelanta segundos.',
       'Arrastre vertical con un dedo cambia el volumen; con dos dedos cambia la velocidad.',
       'Doble toque con dos dedos alterna entre play y pausa.',
-      'Al mover la barra de progreso aparece una previsualizacion del frame; ademas puedes guardar una captura desde el icono de camara.',
+      'Al mover la barra de progreso puede aparecer previsualizacion; tambien puedes guardar una captura desde el icono de camara.',
       'En Android, si el video sigue reproduciendose al salir, puede entrar en PiP automaticamente.',
     ],
   ),
   _GuideTopic(
-    icon: Icons.edit_note_rounded,
-    title: 'Edicion y metadata',
-    subtitle: 'Portadas, artistas y ajustes finos de biblioteca.',
+    icon: Icons.cast_connected_rounded,
+    title: 'Connect y transferencias',
+    subtitle: 'Control remoto, imports y compartir offline.',
     tips: [
-      'Las portadas de canciones, artistas, playlists y listas tematicas pueden venir de archivo local o busqueda web, y luego se recortan en cuadrado.',
-      'Si una colaboracion va a contarse en ambos artistas, debe escribirse en el campo Artista con patrones como feat., ft., featuring o with.',
-      'Despues del marcador de colaboracion, los invitados pueden separarse con coma, x o &.',
-      'Si el titulo sugiere feat o ft pero el campo Artista no lo refleja, al guardar se muestra una advertencia para corregirlo.',
+      'Listenfy Connect abre una URL o QR para controlar la reproduccion desde otro dispositivo en la misma red.',
+      'Con colas muy grandes, Connect puede sentirse mas lento porque debe sincronizar mas estado.',
+      'Puedes importar URLs o archivos desde el menu Compartir de Android.',
+      'La transferencia P2P usa QR para enviar archivos y metadata sin depender de internet cuando el dispositivo lo permite.',
     ],
   ),
   _GuideTopic(
-    icon: Icons.archive_rounded,
-    title: 'Datos y recuperacion',
-    subtitle: 'Respaldo, cookies y comportamiento del sistema.',
+    icon: Icons.warning_amber_rounded,
+    title: 'Limites conocidos',
+    subtitle: 'Comportamientos que todavia se estan puliendo.',
     tips: [
-      'El respaldo ZIP actual es completo: incluye audio, video, imagenes y metadata offline, por lo que puede tardar y pesar bastante.',
-      'Si ciertas descargas de YouTube fallan, puedes actualizar cookies.txt desde Configuracion > Datos y descargas.',
-      'En Android, el ahorro de bateria puede ocultar controles en pantalla de bloqueo; desde Settings tienes acceso directo a ese ajuste.',
-    ],
-  ),
-  _GuideTopic(
-    icon: Icons.category_rounded,
-    title: 'Fuentes y listas',
-    subtitle: 'Organizacion extra de la biblioteca.',
-    tips: [
-      'La seccion Fuentes no solo filtra: organiza la biblioteca por tematicas y origenes para armar vistas mas curadas.',
-      'Las listas tematicas admiten sublistas y portada propia, asi que puedes construir jerarquias para navegar tu contenido.',
+      'Bibliotecas de mas de 400 o 500 items pueden hacer mas lenta una pantalla si se cargan todos los elementos a la vez.',
+      'Exportar ZIP puede tardar mucho; restaurar normalmente es mas rapido.',
+      'Algunos videos pueden no reportar duracion correcta si su metadata viene incompleta.',
+      'Si ciertas descargas fallan, actualiza cookies.txt desde Datos y descargas.',
     ],
   ),
 ];

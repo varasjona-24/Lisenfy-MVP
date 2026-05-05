@@ -44,8 +44,18 @@ class _SourceThemeTopicPlaylistPageState
   // ============================
   final SourcesController _sources = Get.find<SourcesController>();
   final MediaActionsController _actions = Get.find<MediaActionsController>();
+  final TextEditingController _subListSearchController =
+      TextEditingController();
 
   String? _playlistSizeLabel;
+  String _subListQuery = '';
+  _SourceSubListSort _subListSort = _SourceSubListSort.recent;
+
+  @override
+  void dispose() {
+    _subListSearchController.dispose();
+    super.dispose();
+  }
 
   SourceThemeTopicPlaylist? get _playlist {
     for (final p in _sources.topicPlaylists) {
@@ -72,6 +82,11 @@ class _SourceThemeTopicPlaylistPageState
       return Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppTopBar(
+          leading: IconButton(
+            tooltip: 'Volver',
+            onPressed: Get.back,
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
           title: Text(playlist.name),
           onToggleMode: null,
           showLocalConnectAction: false,
@@ -118,18 +133,18 @@ class _SourceThemeTopicPlaylistPageState
     return Row(
       children: [
         Expanded(
-          child: FilledButton.icon(
+          child: FilledButton.tonalIcon(
             onPressed: () => _addItems(playlist),
-            icon: const Icon(Icons.add),
-            label: const Text('Agregar item'),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Items'),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         Expanded(
-          child: OutlinedButton.icon(
+          child: FilledButton.tonalIcon(
             onPressed: () => _addSubList(playlist),
             icon: const Icon(Icons.create_new_folder_rounded),
-            label: const Text('Agregar lista'),
+            label: const Text('Subcarpeta'),
           ),
         ),
       ],
@@ -188,44 +203,161 @@ class _SourceThemeTopicPlaylistPageState
     SourceThemeTopicPlaylist playlist,
     List<SourceThemeTopicPlaylist> lists,
   ) {
-    if (lists.isEmpty) {
-      return Text(
-        'No hay listas aún.',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-      );
-    }
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final query = _subListQuery.trim().toLowerCase();
+    final filtered = lists.where((entry) {
+      if (query.isEmpty) return true;
+      return entry.name.toLowerCase().contains(query);
+    }).toList();
+    filtered.sort((a, b) {
+      switch (_subListSort) {
+        case _SourceSubListSort.recent:
+          return b.createdAt.compareTo(a.createdAt);
+        case _SourceSubListSort.name:
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        case _SourceSubListSort.items:
+          return b.itemIds.length.compareTo(a.itemIds.length);
+        case _SourceSubListSort.subfolders:
+          return _sources
+              .playlistsForTopic(playlist.topicId, parentId: b.id)
+              .length
+              .compareTo(
+                _sources
+                    .playlistsForTopic(playlist.topicId, parentId: a.id)
+                    .length,
+              );
+      }
+    });
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Listas',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 8),
-        ...lists.map(
-          (pl) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: SourcePlaylistCard(
-              theme: widget.theme,
-              playlist: pl,
-              onOpen: () => Get.toNamed(
-                AppRoutes.sourcePlaylist,
-                preventDuplicates: false,
-                arguments: {
-                  'playlistId': pl.id,
-                  'theme': widget.theme,
-                  'origins': widget.origins,
-                },
+        Row(
+          children: [
+            Text(
+              'Subcarpetas',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
               ),
-              onEdit: () => _openEditPlaylist(pl),
-              onDelete: () => _sources.deleteTopicPlaylist(pl),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '${lists.length}',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (lists.isNotEmpty) _subListToolbar(scheme),
+        if (lists.isNotEmpty) const SizedBox(height: 10),
+        if (filtered.isEmpty)
+          Text(
+            lists.isEmpty
+                ? 'No hay subcarpetas aún.'
+                : 'No hay subcarpetas con ese nombre.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          )
+        else
+          ...filtered.map(
+            (pl) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: SourcePlaylistCard(
+                theme: widget.theme,
+                playlist: pl,
+                childListCount: _sources
+                    .playlistsForTopic(playlist.topicId, parentId: pl.id)
+                    .length,
+                onOpen: () => Get.toNamed(
+                  AppRoutes.sourcePlaylist,
+                  preventDuplicates: false,
+                  arguments: {
+                    'playlistId': pl.id,
+                    'theme': widget.theme,
+                    'origins': widget.origins,
+                  },
+                ),
+                onEdit: () => _openEditPlaylist(pl),
+                onDelete: () => _sources.deleteTopicPlaylist(pl),
+              ),
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _subListToolbar(ColorScheme scheme) {
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 44,
+            child: TextField(
+              controller: _subListSearchController,
+              onChanged: (value) => setState(() => _subListQuery = value),
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: 'Buscar subcarpeta',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _subListQuery.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Limpiar',
+                        onPressed: () {
+                          _subListSearchController.clear();
+                          setState(() => _subListQuery = '');
+                        },
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                filled: true,
+                fillColor: scheme.surfaceContainerHighest.withValues(
+                  alpha: 0.55,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        PopupMenuButton<_SourceSubListSort>(
+          tooltip: 'Ordenar',
+          initialValue: _subListSort,
+          onSelected: (value) => setState(() => _subListSort = value),
+          icon: const Icon(Icons.sort_rounded),
+          itemBuilder: (ctx) => const [
+            PopupMenuItem(
+              value: _SourceSubListSort.recent,
+              child: Text('Recientes primero'),
+            ),
+            PopupMenuItem(
+              value: _SourceSubListSort.name,
+              child: Text('Nombre'),
+            ),
+            PopupMenuItem(
+              value: _SourceSubListSort.items,
+              child: Text('Más items'),
+            ),
+            PopupMenuItem(
+              value: _SourceSubListSort.subfolders,
+              child: Text('Más subcarpetas'),
+            ),
+          ],
         ),
       ],
     );
@@ -274,13 +406,15 @@ class _SourceThemeTopicPlaylistPageState
   // ============================
   Future<void> _addItems(SourceThemeTopicPlaylist playlist) async {
     final list = await _candidateItems();
+    if (!mounted) return;
     final selected = <String>{};
+    final sheetColor = Theme.of(context).colorScheme.surface;
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: sheetColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -470,3 +604,5 @@ class _SourceThemeTopicPlaylistPageState
     );
   }
 }
+
+enum _SourceSubListSort { recent, name, items, subfolders }

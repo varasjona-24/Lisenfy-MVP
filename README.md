@@ -1,149 +1,188 @@
-<div align="center">
+# Listenfy
 
-<img src="assets/Readme/Banner-prinicipal-github.jpeg" alt="Listenfy banner" width="100%" />
+Listenfy es un gestor multimedia local para Android construido con Flutter. Su foco es privacidad, organizacion manual y herramientas avanzadas para administrar musica y videos dentro de la app.
 
-# Listenfy — Music & Video Player
+No intenta ser solo un reproductor. Funciona mas como una biblioteca personal: importa contenido, guarda metadatos, permite crear listas, organizar por regiones o tematicas, generar variantes de audio y compartir archivos en red local u offline.
 
-**A privacy-first, modular multimedia player for local audio playback and hybrid streaming, designed to run fully on-device without relying on cloud services.**
+## Estado del proyecto
 
-[![Flutter](https://img.shields.io/badge/Built_with-Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
-![Platform](https://img.shields.io/badge/platform-android-blue?style=for-the-badge)
-![Offline](https://img.shields.io/badge/offline-supported-green?style=for-the-badge)
+Version analizada: MVP, abril-mayo de 2026.
 
-## 🧪 Status
+La app es funcional, pero sigue en desarrollo activo. La reproduccion local, listas, imports, respaldo, Sources, Atlas, Listenfy Connect y transferencia P2P existen y son usables. Las areas que todavia necesitan mejora son rendimiento con bibliotecas grandes, compresion de respaldos, documentacion interna y algunas diferencias entre la experiencia de audio y video.
 
-🟡 **Actively developed multimedia player**
+## Que hace Listenfy
 
-*Listenfy combines robust local playback with native audio processing capabilities and a privacy-centric, telemetry-free architecture.*
+### Musica
 
-<br/>
+- Reproduccion local con cola y miniplayer.
+- Listas de reproduccion manuales e inteligentes.
+- Favoritos e historial.
+- Editor de metadatos, artista, portada y relaciones.
+- Editor de letras con sincronizacion manual.
+- Modo 8D mediante backend externo.
+- Extraccion vocal/instrumental mediante backend externo.
+- Sonido limpio para recortar silencios largos.
+- Atlas regional para organizar musica por continente, pais o region.
 
-## 📦 Download
+### Video
 
+- Reproduccion local de videos.
+- Cola con reordenamiento por arrastre.
+- Picture-in-Picture en Android.
+- Gestos de reproduccion: doble toque, volumen, velocidad y saltos.
+- Captura de pantalla desde el reproductor.
+- Orientacion vertical u horizontal.
+- Editor de metadatos basico.
 
-- F-Droid *(coming soon)*
-- Zapstore *(coming soon)*
+### Organizacion
 
-</div>
+- Sources para organizar videos por tematicas, carpetas y subcarpetas.
+- Atlas para organizar musica por region.
+- Relaciones entre artistas, bandas, integrantes y colaboraciones.
+- Portadas locales o buscadas desde la web.
 
----
+### Red e imports
 
-## 🎯 The Vision
+- Importacion por URL usando herramientas compatibles con `yt-dlp`.
+- Importacion por compartir desde otras apps.
+- Listenfy Connect: servidor HTTP local para control remoto en la misma red.
+- Transferencia P2P offline con QR, WiFi Direct/Bluetooth segun disponibilidad.
 
-Many modern media players rely heavily on cloud infrastructure, user tracking, and continuous internet connections. Offline players often lack advanced multimedia processing or functional UI components.
+### Respaldo
 
-Listenfy addresses this by providing a privacy-first hybrid player. It manages local files natively while integrating external sources via downloads. All user data, metadata scanning, and recommendation logic remain strictly on the device.
+- Exportacion ZIP de biblioteca, metadatos, listas y variantes.
+- Restauracion ZIP.
+- Opcion para incluir variantes generadas como 8D o instrumental.
 
----
+Importante: Listenfy guarda la biblioteca dentro del almacenamiento privado de la app. Si desinstalas sin respaldo, puedes perder contenido y metadatos.
 
-## 💡 What makes Listenfy different
+## Arquitectura
 
-- **Offline-First Data Processing:** No external telemetry. Recommendations and listening histories are computed purely on-device.
-- **Native DSP Bridges:** Replaces standard Dart audio limitations by routing data through OpenAL via MethodChannels for advanced spatial adjustments.
-- **Hardware-Responsive UI:** Visualizers are driven by real RMS energy and spectral centroids rather than generic random animations.
-- **Modular Ecosystem:** Built with a Feature-First GetX architecture, cleanly separating the player engine, download managers, and UI components.
+| Componente | Ubicacion | Funcion |
+| --- | --- | --- |
+| App Flutter | `lib/` | UI, reproductores, biblioteca local y controladores GetX |
+| Datos multimedia | Carpeta privada de la app | Archivos importados y variantes generadas |
+| Base local | SQLite/Hive/GetStorage segun modulo | Metadatos, preferencias, historial, listas y relaciones |
+| Backend opcional | Repo `Back` externo | Procesos pesados como 8D, Demucs e integraciones futuras |
+| Listenfy Connect | Servidor HTTP embebido | Control remoto LAN |
+| P2P | Nearby transfer | Transferencia offline con QR |
 
----
+## Uso rapido
 
-## ✨ Key Features
+### Primeros pasos
 
-### 🎵 Core Playback & Media Management
-- **Universal Media Engine:** Gapless playback for standard audio and video formats using `just_audio` and `video_player`.
-- **Local Library Syncing:** Offline file indexing, metadata extraction, and directory tree navigation.
-- **Download Manager:** Centralized tracking for syncing media from external sources to local storage.
+1. Importa musica o video desde archivos locales, URLs o el menu Compartir de Android.
+2. Revisa permisos de almacenamiento, notificaciones y bateria para que el player funcione en segundo plano.
+3. Crea un respaldo ZIP periodicamente desde Ajustes > Datos y descargas.
 
-### 🌐 The "Atlas" World Mode
-- **Experimental map-based discovery interface:** A geographic interface for discovering local streams and frequencies.
-- **Algorithmic Shuffling:** Shuffles available streams specifically to reduce repetitive station looping.
+### Organizar musica para Atlas
 
-### 🎛️ Advanced Audio Processing (Experimental)
-- **Spatial & 8D Audio (WIP):** Uses native DSP to pan and process stereo tracks for spatial audio output.
-- **AI Vocal Extraction:** On-device pipeline to isolate backing instrumentals from local tracks.
-- **Reactive Visualizer:** Spectrums bound to live FFT data running through Flutter’s `CustomPainter` at 60fps.
+Edita un artista y define:
 
----
+- Region principal.
+- Pais, si aplica.
+- Tipo: solista, banda u otro.
+- Integrantes o relaciones.
 
-## 🏗️ Architecture & Technical Overview
+Atlas depende de esos metadatos. Si no etiquetas artistas o regiones, la vista no puede organizar automaticamente la biblioteca.
 
-Listenfy employs a modular structure using Flutter and GetX.
+### Colaboraciones
 
-- **State & DI:** `GetX` handles reactive UI states and dependency injection.
-- **Local Storage:** `Hive` is used for high-speed local NoSQL caching, combined with `GetStorage` for app preferences.
-- **Background Playback:** Audio sessions and lockscreen controls are handled by coupling `just_audio` with `audio_service`.
-- **Networking:** External metadata lookups and file streams are managed via `Dio`.
+Para que una colaboracion se detecte bien, usa el campo Artista con patrones como:
 
-### Native Dependencies: OpenAL
-Standard Dart libraries often introduce latency during complex DSP tasks. Listenfy includes an experimental bridge routing audio streams through **OpenAL via MethodChannels**. This allows spatial positioning, reverb adjustments, and direct audio manipulation on the native OS thread.
-
----
-
-## ⚙️ How It Works
-
-1. **Initialization:** On startup, the app loads local `Hive` caches and verifies read/write system permissions.
-2. **Library Scan:** The `MediaRepository` indexes audio and video files found in local directories.
-3. **Audio Routing:** Audio chunks are sent to the `just_audio` isolate for normal playback or through a MethodChannel to the native OpenAL engine when Spatial Audio is enabled.
-4. **Visual Analysis:** For the visualizer, FFT data is synced to the playing thread and passed to a custom render pipeline.
-
----
-
-## 📸 Screenshots (coming soon)
-
----
-
-## 🚀 Installation & Usage
-
-### Prerequisites
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) `3.10.x` or higher
-- Android Studio / Xcode
-
-### Build from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/your-username/listenfy.git
-cd listenfy
-
-# Fetch dependencies
-flutter pub get
-
-# Compile and run
-flutter run --release
+```text
+Artista principal ft. Invitado1, Invitado2 & Invitado3
 ```
 
-*Note: The application requires local storage and notification permissions to manage background playback.*
+Tambien se aceptan variantes como `feat.`, `featuring` o `with`. Separar invitados con coma, `&` o `x` ayuda a que la app relacione mejor los artistas.
 
----
+### Sonido limpio
 
-## 🛣️ Project Status & Roadmap
+Sonido limpio recorta silencios largos. La funcion detecta silencios mayores a varios segundos y permite seleccionar cuales procesar. El resultado puede ocupar mas espacio, especialmente si se guarda como WAV.
 
-Listenfy is an actively developed multimedia player. Standard playback and local file management are stable. The advanced DSP elements (OpenAL, Spatial Audio, Vocal Extraction) are in active development and highly experimental.
+### Modo 8D e instrumental
 
-**Upcoming Milestones:**
-- [ ] Stabilize the OpenAL MethodChannel bridge for iOS.
-- [ ] Improve performance for on-device karaoke vocal extraction.
-- [ ] Implement reproducible builds for F-Droid submission.
-- [ ] Refine the Atlas map interface for scaling large datasets.
+Estas funciones requieren el backend externo. La app envia el archivo al backend, espera el procesamiento y guarda una variante independiente. Una vez guardada, esa variante puede usarse offline.
 
----
+### Sources
 
-## 🤝 Contributing
+Sources organiza videos por tematicas y carpetas:
 
-Contributions are welcome across UI, state management, and native DSP implementation.
+1. Crea una tematica.
+2. Entra en la tematica y crea carpetas o subcarpetas.
+3. Agrega videos a cada vista.
+4. Usa buscador y orden para navegar bibliotecas grandes.
 
-1. Review the Issue Tracker.
-2. Fork the repository.
-3. Create a feature branch (`git checkout -b feature/issue-name`).
-4. Commit using standard conventional commits.
-5. Submit a Pull Request.
+### Listenfy Connect
 
----
+Desde el reproductor puedes abrir Listenfy Connect y compartir una URL o QR. Otro dispositivo en la misma red puede controlar la sesion local desde el navegador.
 
-## 📜 Third-party licenses
+### Respaldo y migracion
 
-See [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md)
+El respaldo ZIP incluye biblioteca, metadatos, listas, portadas y variantes si marcas esa opcion. En bibliotecas grandes puede tardar bastante. Restaurar suele ser mas rapido que exportar.
 
----
+## Limitaciones conocidas
 
-## 📄 License
+### Criticas
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- Algunas opciones del editor de video todavia pueden mostrar campos pensados para audio.
+- La deteccion de duracion de ciertos videos puede fallar si el archivo no trae metadata clara.
+- La cola de audio ha sido historicamente menos flexible que la cola de video.
+
+### Rendimiento
+
+- Bibliotecas de mas de 400-500 items pueden hacer mas lenta la UI si una vista carga demasiados elementos de golpe.
+- Exportar ZIP con muchos archivos puede tardar mucho porque procesa una biblioteca completa.
+- Listenfy Connect puede sentirse pesado si se transmite o serializa una cola muy grande.
+
+### Documentacion
+
+- Algunas funciones avanzadas aun necesitan textos dentro de la app.
+- Los tiempos reales de 8D, instrumental y respaldo dependen del dispositivo, archivo y backend.
+
+## Roadmap sugerido
+
+### Corto plazo
+
+- Mejorar editor de video para ocultar opciones solo de audio.
+- Optimizar respaldo ZIP con modo almacenamiento sin compresion o procesamiento por lotes.
+- Virtualizar vistas grandes para mejorar rendimiento con bibliotecas grandes.
+- Mejorar historial de imports con vista por fecha/calendario.
+
+### Medio plazo
+
+- Documentar todas las funciones desde Ajustes > Guia rapida.
+- Mejorar recomendaciones locales y base de Listenfy Atlas.
+- Hacer mas consistente la UI entre Sources, artistas, imports y playlists.
+
+### Largo plazo
+
+- Extraer audio de video a MP3.
+- Sincronizacion automatica de letras con API opcional.
+- Modo offline ligero para efectos de audio sin backend.
+- Cliente de escritorio compatible con el formato de respaldo ZIP.
+
+## Desarrollo
+
+### Requisitos
+
+- Flutter SDK compatible con el proyecto.
+- Android Studio y SDK de Android.
+- Backend externo opcional para 8D, instrumental y procesos pesados.
+
+### Comandos basicos
+
+```bash
+flutter pub get
+flutter analyze
+flutter build apk --debug
+```
+
+## Licencia
+
+MIT. Ver [LICENSE](./LICENSE).
+
+## Creditos
+
+- Desarrollo: varasjona-24.
+- Auditoria comunitaria: usuario avanzado de Listenfy, mayo 2026.

@@ -34,7 +34,10 @@ class WorldModePlaybackFacade {
   Future<bool> resumeActiveStation(CountryStationEntity station) async {
     if (!Get.isRegistered<AudioService>()) return false;
     final audio = Get.find<AudioService>();
-    if (!audio.hasSourceLoaded || audio.queueItems.isEmpty) return false;
+    if (audio.queueItems.isEmpty) {
+      final restored = await audio.restorePersistedSession(autoPlay: true);
+      if (!restored || audio.queueItems.isEmpty) return false;
+    }
 
     final stationKeys = station.tracks
         .where((item) => item.hasAudioLocal)
@@ -54,6 +57,11 @@ class WorldModePlaybackFacade {
     }
     final minimumMatches = stationKeys.length == 1 ? 1 : 2;
     if (matches < minimumMatches) return false;
+
+    if (!audio.hasSourceLoaded) {
+      final restored = await audio.restorePersistedSession(autoPlay: true);
+      if (!restored) return false;
+    }
 
     final current = audio.currentItem.value;
     final activeIndex = current == null

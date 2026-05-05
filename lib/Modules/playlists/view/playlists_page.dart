@@ -198,118 +198,65 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     BuildContext context,
     Playlist playlist,
   ) async {
-    final theme = Theme.of(context);
     final items = controller.resolvePlaylistItems(playlist);
-    final localPath = playlist.coverLocalPath?.trim();
-    final localExists =
-        localPath != null &&
-        localPath.isNotEmpty &&
-        File(localPath).existsSync();
-    final thumb = localExists
-        ? localPath
-        : (playlist.coverUrl?.trim().isNotEmpty == true
-              ? playlist.coverUrl
-              : (playlist.coverCleared
-                    ? null
-                    : (items.isNotEmpty
-                          ? items.first.effectiveThumbnail
-                          : null)));
-
-    ImageProvider? provider;
-    if (thumb != null && thumb.isNotEmpty) {
-      provider = thumb.startsWith('http')
-          ? NetworkImage(thumb)
-          : FileImage(File(thumb));
-    }
 
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      isScrollControlled: true,
-      backgroundColor: theme.colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         return SafeArea(
-          child: DraggableScrollableSheet(
-            expand: false,
-            initialChildSize: 0.62,
-            minChildSize: 0.3,
-            maxChildSize: 0.9,
-            builder: (ctx2, scrollController) {
-              return ListView(
-                controller: scrollController,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                children: [
-                  ListTile(
-                    leading: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        child: provider != null
-                            ? Image(image: provider, fit: BoxFit.cover)
-                            : Icon(
-                                Icons.music_note_rounded,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                      ),
-                    ),
-                    title: Text(
-                      playlist.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text('${items.length} canciones'),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.play_arrow_rounded),
-                    title: const Text('Reproducir'),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _playPlaylist(items);
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.skip_next_rounded),
-                    title: const Text('Reproducir siguiente'),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _playNext(items);
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.queue_music_rounded),
-                    title: const Text('Añadir a la cola'),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _addToQueue(items);
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.edit_rounded),
-                    title: const Text('Editar'),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      Get.toNamed(
-                        AppRoutes.editEntity,
-                        arguments: EditEntityArgs.playlist(playlist),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.delete_outline_rounded),
-                    title: const Text('Eliminar lista de reproducción'),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      _confirmDelete(context, playlist);
-                    },
-                  ),
-                ],
-              );
-            },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.play_arrow_rounded),
+                title: const Text('Reproducir'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _playPlaylist(items);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.skip_next_rounded),
+                title: const Text('Reproducir siguiente'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _playNext(items);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.queue_music_rounded),
+                title: const Text('Añadir a la cola'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _addToQueue(items);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit_rounded),
+                title: const Text('Editar'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  Get.toNamed(
+                    AppRoutes.editEntity,
+                    arguments: EditEntityArgs.playlist(playlist),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded),
+                title: const Text('Eliminar lista de reproducción'),
+                textColor: Theme.of(ctx).colorScheme.error,
+                iconColor: Theme.of(ctx).colorScheme.error,
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _confirmDelete(context, playlist);
+                },
+              ),
+            ],
           ),
         );
       },
@@ -690,7 +637,8 @@ class _PlaylistTile extends StatelessWidget {
         ),
         subtitle: Text('${items.length} canciones'),
         trailing: IconButton(
-          icon: const Icon(Icons.more_vert),
+          icon: const Icon(Icons.more_vert_rounded),
+          tooltip: 'Opciones',
           onPressed: onMenu,
         ),
       ),

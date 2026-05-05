@@ -23,6 +23,10 @@ class LocalMediaMetadataService extends GetxService {
   );
 
   Future<LocalAudioMetadata?> readAudioMetadata(String path) async {
+    return readMediaMetadata(path);
+  }
+
+  Future<LocalAudioMetadata?> readMediaMetadata(String path) async {
     final clean = path.replaceFirst('file://', '').trim();
     if (clean.isEmpty) return null;
 

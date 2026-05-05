@@ -451,6 +451,18 @@ class AudioService extends GetxService {
     _notifyHandler();
   }
 
+  Future<void> stopAndHidePreservingSession() async {
+    if (hasSourceLoaded) {
+      _persistSessionSnapshot();
+    }
+    await _player.stop();
+    isPlaying.value = false;
+    isLoading.value = false;
+    state.value = PlaybackState.stopped;
+    _keepLastItem = false;
+    _notifyHandler();
+  }
+
   Future<void> stopFromNotificationClose() async {
     if (hasSourceLoaded) {
       _persistSessionSnapshot();

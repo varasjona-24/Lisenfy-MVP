@@ -170,16 +170,7 @@ class _TopBarOverflowMenu extends StatelessWidget {
       surfaceTintColor: scheme.surfaceContainerHigh,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       constraints: const BoxConstraints(minWidth: 260, maxWidth: 320),
-      icon: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: scheme.outline.withValues(alpha: 0.14)),
-        ),
-        child: Icon(Icons.more_horiz_rounded, color: scheme.onSurface),
-      ),
+      icon: Icon(Icons.more_horiz_rounded, color: scheme.onSurface),
       onSelected: (value) {
         switch (value) {
           case _TopBarMenuAction.worldMode:

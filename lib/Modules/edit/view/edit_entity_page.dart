@@ -54,6 +54,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
   final Set<String> _artistMemberKeys = <String>{};
 
   MediaItem? get _media => _mediaDraft;
+  bool get _isAudioMedia => _media?.hasAudioLocal ?? false;
   ArtistGroup? get _artist => _args.artist;
   Playlist? get _playlist => _args.playlist;
   SourceThemeTopic? get _topic => _args.topic;
@@ -1441,57 +1442,59 @@ class _EditEntityPageState extends State<EditEntityPage> {
                           prefixIcon: Icon(Icons.timer_rounded),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.tonalIcon(
-                          onPressed: _audioCleanupBusy
-                              ? null
-                              : _runAudioCleanupFlow,
-                          icon: _audioCleanupBusy
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.auto_fix_high_rounded),
-                          label: Text(
-                            _audioCleanupBusy
-                                ? 'Procesando...'
-                                : 'Sonido limpio',
+                      if (_isAudioMedia) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.tonalIcon(
+                            onPressed: _audioCleanupBusy
+                                ? null
+                                : _runAudioCleanupFlow,
+                            icon: _audioCleanupBusy
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.auto_fix_high_rounded),
+                            label: Text(
+                              _audioCleanupBusy
+                                  ? 'Procesando...'
+                                  : 'Sonido limpio',
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Detecta silencios mayores a 4 segundos y te permite elegir cuales recortar.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Divider(color: theme.colorScheme.outlineVariant),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.tonalIcon(
-                          onPressed: _openLyricsEditor,
-                          icon: const Icon(Icons.lyrics_rounded),
-                          label: const Text('Editar letras'),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          _lyricsSummaryLabel(),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Detecta silencios mayores a 4 segundos y te permite elegir cuales recortar.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 14),
+                        Divider(color: theme.colorScheme.outlineVariant),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.tonalIcon(
+                            onPressed: _openLyricsEditor,
+                            icon: const Icon(Icons.lyrics_rounded),
+                            label: const Text('Editar letras'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            _lyricsSummaryLabel(),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

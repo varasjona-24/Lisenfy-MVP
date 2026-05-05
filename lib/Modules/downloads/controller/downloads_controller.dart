@@ -506,6 +506,7 @@ class DownloadsController extends GetxStateController<DownloadsState> {
         await sourceFile.copy(destPath);
       }
 
+      final metadata = await _metadata.readMediaMetadata(destPath);
       final importedVariant = MediaVariant(
         kind: v.kind,
         format: v.format,
@@ -515,9 +516,8 @@ class DownloadsController extends GetxStateController<DownloadsState> {
         size: await destFile.length(),
         durationSeconds:
             v.durationSeconds ??
-            (v.kind == MediaVariantKind.audio
-                ? await _probeDurationSeconds(destPath)
-                : null),
+            metadata?.durationSeconds ??
+            await _probeDurationSeconds(destPath),
       );
 
       final importedItem = MediaItem(
@@ -750,14 +750,9 @@ class DownloadsController extends GetxStateController<DownloadsState> {
     if (kind == null) return null;
 
     final id = await _buildStableId(cleanPath);
-    final metadata = kind == MediaVariantKind.audio
-        ? await _metadata.readAudioMetadata(cleanPath)
-        : null;
+    final metadata = await _metadata.readMediaMetadata(cleanPath);
     final durationSeconds =
-        metadata?.durationSeconds ??
-        (kind == MediaVariantKind.audio
-            ? await _probeDurationSeconds(cleanPath)
-            : null);
+        metadata?.durationSeconds ?? await _probeDurationSeconds(cleanPath);
     final fileName = p.basename(cleanPath);
     final prettyFileName = (displayName ?? fileName).trim();
     final fallbackTitle = p

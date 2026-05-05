@@ -72,18 +72,8 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
               children: [
                 _header(theme, title, cover, items.length, totalBytes),
                 const SizedBox(height: 14),
-                _actionRow(items),
+                _actionRow(context, items, playlist, isSmart),
                 const SizedBox(height: 16),
-                if (!isSmart)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _openAddSongs(context, playlist),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Agregar canciones'),
-                    ),
-                  ),
-                if (!isSmart) const SizedBox(height: 10),
                 if (items.isEmpty)
                   Text(
                     'No hay canciones en esta lista.',
@@ -194,23 +184,31 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
     return total;
   }
 
-  Widget _actionRow(List<MediaItem> items) {
-    return Row(
+  Widget _actionRow(
+    BuildContext context,
+    List<MediaItem> items,
+    Playlist? playlist,
+    bool isSmartPlaylist,
+  ) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: [
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: items.isEmpty ? null : () => _play(items, 0),
-            icon: const Icon(Icons.play_arrow_rounded),
-            label: const Text('Reproducir'),
+        if (!isSmartPlaylist)
+          _PlaylistCommandButton(
+            icon: Icons.add_rounded,
+            label: 'Agregar',
+            onPressed: () => _openAddSongs(context, playlist),
           ),
+        _PlaylistCommandButton(
+          icon: Icons.play_arrow_rounded,
+          label: 'Reproducir',
+          onPressed: items.isEmpty ? null : () => _play(items, 0),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: items.isEmpty ? null : () => _playShuffled(items),
-            icon: const Icon(Icons.shuffle_rounded),
-            label: const Text('Aleatorio'),
-          ),
+        _PlaylistCommandButton(
+          icon: Icons.shuffle_rounded,
+          label: 'Aleatorio',
+          onPressed: items.isEmpty ? null : () => _playShuffled(items),
         ),
       ],
     );
@@ -263,33 +261,93 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
 
     final canRemoveFromPlaylist = !isSmartPlaylist && playlist != null;
 
-    return ListTile(
-      onTap: () => _play(queue, index),
-      leading: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: 44,
-          height: 44,
-          color: scheme.surfaceContainerHighest,
-          child: provider != null
-              ? Image(image: provider, fit: BoxFit.cover)
-              : Icon(Icons.music_note_rounded, color: scheme.onSurfaceVariant),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _play(queue, index),
+          borderRadius: BorderRadius.circular(16),
+          child: Ink(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHigh.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.32),
+              ),
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    color: scheme.surfaceContainerHighest,
+                    child: provider != null
+                        ? Image(image: provider, fit: BoxFit.cover)
+                        : Icon(
+                            Icons.music_note_rounded,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.displaySubtitle.trim().isEmpty
+                            ? 'Audio'
+                            : item.displaySubtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.play_arrow_rounded, color: scheme.primary, size: 22),
+                const SizedBox(width: 2),
+                IconButton(
+                  icon: Icon(
+                    Icons.more_horiz_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  tooltip: 'Acciones',
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 34,
+                    height: 34,
+                  ),
+                  splashRadius: 18,
+                  onPressed: () => _openTrackActionSheet(
+                    context: context,
+                    item: item,
+                    queue: queue,
+                    playlist: playlist,
+                    isSmartPlaylist: isSmartPlaylist,
+                    actions: actions,
+                    canRemoveFromPlaylist: canRemoveFromPlaylist,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
-      title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        item.displaySubtitle,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: _trackMenuButton(
-        context: context,
-        item: item,
-        queue: queue,
-        playlist: playlist,
-        isSmartPlaylist: isSmartPlaylist,
-        actions: actions,
-        canRemoveFromPlaylist: canRemoveFromPlaylist,
       ),
     );
   }
@@ -319,48 +377,6 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
         actions: actions,
         canRemoveFromPlaylist: !isSmartPlaylist && playlist != null,
       ),
-    );
-  }
-
-  Widget _trackMenuButton({
-    required BuildContext context,
-    required MediaItem item,
-    required List<MediaItem> queue,
-    required Playlist? playlist,
-    required bool isSmartPlaylist,
-    required MediaActionsController actions,
-    required bool canRemoveFromPlaylist,
-  }) {
-    return PopupMenuButton<_TrackAction>(
-      icon: const Icon(Icons.more_vert),
-      onSelected: (action) => _handleTrackAction(
-        context: context,
-        action: action,
-        item: item,
-        queue: queue,
-        playlist: playlist,
-        isSmartPlaylist: isSmartPlaylist,
-        actions: actions,
-      ),
-      itemBuilder: (ctx) => [
-        if (canRemoveFromPlaylist)
-          const PopupMenuItem<_TrackAction>(
-            value: _TrackAction.removeFromPlaylist,
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.remove_circle_outline_rounded),
-              title: Text('Quitar de esta playlist'),
-            ),
-          ),
-        const PopupMenuItem<_TrackAction>(
-          value: _TrackAction.moreActions,
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.tune_rounded),
-            title: Text('Más acciones'),
-          ),
-        ),
-      ],
     );
   }
 
@@ -536,6 +552,43 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
           controller: controller,
         );
       },
+    );
+  }
+}
+
+class _PlaylistCommandButton extends StatelessWidget {
+  const _PlaylistCommandButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final enabled = onPressed != null;
+
+    return SizedBox(
+      height: 42,
+      child: FilledButton.tonalIcon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+        style: FilledButton.styleFrom(
+          foregroundColor: enabled ? scheme.primary : scheme.onSurfaceVariant,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          visualDensity: VisualDensity.compact,
+          textStyle: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
     );
   }
 }

@@ -27,6 +27,8 @@ class DownloadHistoryController
   Worker? _homeWorker;
   final GetStorage _storage = GetStorage();
   final RxBool gridView = true.obs;
+  final Rx<DateTime> selectedDate = Rx<DateTime>(DateTime.now());
+  final RxBool calendarMode = true.obs;
 
   // ============================
   // 🚀 INIT
@@ -177,12 +179,16 @@ class DownloadHistoryController
 
     // Separate current month items from older ones
     final currentMonthItems = items.where((item) {
-      final dt = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(item));
+      final dt = DateTime.fromMillisecondsSinceEpoch(
+        _latestVariantCreatedAt(item),
+      );
       return dt.year == now.year && dt.month == now.month;
     }).toList();
 
     final olderItems = items.where((item) {
-      final dt = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(item));
+      final dt = DateTime.fromMillisecondsSinceEpoch(
+        _latestVariantCreatedAt(item),
+      );
       return !(dt.year == now.year && dt.month == now.month);
     }).toList();
 
@@ -202,7 +208,9 @@ class DownloadHistoryController
   List<HistoryGroup> _buildDailyGroups(List<MediaItem> items, DateTime now) {
     final Map<String, List<MediaItem>> bucket = {};
     for (final item in items) {
-      final dt = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(item));
+      final dt = DateTime.fromMillisecondsSinceEpoch(
+        _latestVariantCreatedAt(item),
+      );
       final key = _dayKey(dt);
       bucket.putIfAbsent(key, () => []).add(item);
     }
@@ -210,7 +218,9 @@ class DownloadHistoryController
     final keys = bucket.keys.toList()..sort((a, b) => b.compareTo(a));
     return keys.map((k) {
       final firstItem = bucket[k]!.first;
-      final date = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(firstItem));
+      final date = DateTime.fromMillisecondsSinceEpoch(
+        _latestVariantCreatedAt(firstItem),
+      );
       return HistoryGroup(
         id: k,
         label: _dayLabel(date, now),
@@ -224,7 +234,9 @@ class DownloadHistoryController
     // Group 1: By Month
     final Map<String, List<MediaItem>> monthBucket = {};
     for (final item in items) {
-      final dt = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(item));
+      final dt = DateTime.fromMillisecondsSinceEpoch(
+        _latestVariantCreatedAt(item),
+      );
       final monthIndex = dt.month.toString().padLeft(2, '0');
       final key = '${dt.year}-$monthIndex';
       monthBucket.putIfAbsent(key, () => []).add(item);
@@ -234,7 +246,9 @@ class DownloadHistoryController
 
     return monthKeys.map((mKey) {
       final monthItems = monthBucket[mKey]!;
-      final date = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(monthItems.first));
+      final date = DateTime.fromMillisecondsSinceEpoch(
+        _latestVariantCreatedAt(monthItems.first),
+      );
 
       return HistoryGroup(
         id: mKey,
@@ -245,10 +259,15 @@ class DownloadHistoryController
     }).toList();
   }
 
-  List<HistoryGroup> _buildWeeklyGroups(List<MediaItem> items, String monthKey) {
+  List<HistoryGroup> _buildWeeklyGroups(
+    List<MediaItem> items,
+    String monthKey,
+  ) {
     final Map<int, List<MediaItem>> weekBucket = {};
     for (final item in items) {
-      final dt = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(item));
+      final dt = DateTime.fromMillisecondsSinceEpoch(
+        _latestVariantCreatedAt(item),
+      );
       // Calculate week of month roughly
       final weekNum = ((dt.day - 1) / 7).floor() + 1;
       weekBucket.putIfAbsent(weekNum, () => []).add(item);
@@ -258,7 +277,9 @@ class DownloadHistoryController
 
     return weekNums.map((wn) {
       final weekItems = weekBucket[wn]!;
-      final date = DateTime.fromMillisecondsSinceEpoch(_latestVariantCreatedAt(weekItems.first));
+      final date = DateTime.fromMillisecondsSinceEpoch(
+        _latestVariantCreatedAt(weekItems.first),
+      );
 
       return HistoryGroup(
         id: '$monthKey-W$wn',
@@ -302,13 +323,36 @@ class DownloadHistoryController
     if (diff == 0) return 'Hoy';
     if (diff == 1) return 'Ayer';
 
-    final weekdays = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    final weekdays = [
+      '',
+      'Lunes',
+      'Martes',
+      'Miércoles',
+      'Jueves',
+      'Viernes',
+      'Sábado',
+      'Domingo',
+    ];
     final dayName = weekdays[date.weekday];
     return '$dayName ${date.day}/${date.month}';
   }
 
   String _monthLabel(DateTime date, DateTime now) {
-    final months = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    final months = [
+      '',
+      'Enero',
+      'Febrero',
+      'Marzo',
+      'Abril',
+      'Mayo',
+      'Junio',
+      'Julio',
+      'Agosto',
+      'Septiembre',
+      'Octubre',
+      'Noviembre',
+      'Diciembre',
+    ];
     final monthName = months[date.month];
 
     if (date.year == now.year) {
