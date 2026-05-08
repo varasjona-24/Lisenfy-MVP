@@ -15,6 +15,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showSettingsAction;
   final VoidCallback? onSettings;
   final AppMediaMode mode;
+  final List<Widget> extraActions;
 
   const AppTopBar({
     super.key,
@@ -27,6 +28,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.showSettingsAction = true,
     this.onSettings,
     this.mode = AppMediaMode.audio, // ✅ default
+    this.extraActions = const <Widget>[],
   });
 
   @override
@@ -68,6 +70,8 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                 : 'Modo Video (tocar para Audio)',
             onPressed: onToggleMode,
           ),
+
+        ...extraActions,
 
         _TopBarOverflowMenu(
           showLocalConnectAction: showLocalConnectAction,

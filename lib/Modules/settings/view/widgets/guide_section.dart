@@ -163,6 +163,19 @@ const List<_GuideTopic> _guideTopics = [
     ],
   ),
   _GuideTopic(
+    icon: Icons.dashboard_customize_rounded,
+    title: 'Inicio editable',
+    subtitle: 'Personaliza que widgets aparecen en la home.',
+    tips: [
+      'En Home toca el icono de editar inicio en la barra superior para abrir el editor en una ventana aparte.',
+      'Puedes activar, desactivar y reordenar Mis favoritos, Para ti hoy, Mas reproducido, Reproducciones recientes, Destacado, Ultimos imports, Por escuchar y Mix aleatorio.',
+      'Los widgets compatibles permiten alternar entre vista de cards y lista; el editor muestra el modo elegido antes de guardar.',
+      'Tambien puedes agregar secciones conjuntas de Artistas y Listas de reproduccion; cada una conserva su modo de vista.',
+      'Toca Guardar para aplicar los cambios. Restablecer vuelve al layout por defecto dentro del editor.',
+      'En modo video se ocultan automaticamente los widgets que solo aplican a audio, como Para ti hoy.',
+    ],
+  ),
+  _GuideTopic(
     icon: Icons.edit_note_rounded,
     title: 'Artistas y colaboraciones',
     subtitle: 'Metadata necesaria para Atlas y relaciones.',

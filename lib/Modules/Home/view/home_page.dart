@@ -9,12 +9,16 @@ import '../../../app/models/media_item.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import '../../../app/ui/widgets/list/media_horizontal_list.dart';
+import '../../../app/ui/widgets/media/media_history_item_tile.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/routes/app_routes.dart';
+import '../../../app/utils/artist_credit_parser.dart';
 
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
+
+part 'widgets/home_editor_widgets.dart';
 
 /// ===============================================================
 /// HOME PAGE (corregida)
@@ -57,6 +61,17 @@ class HomePage extends GetView<HomeController> {
               : AppMediaMode.video,
           onSearch: controller.onSearch,
           onToggleMode: controller.toggleMode,
+          extraActions: [
+            IconButton(
+              tooltip: 'Editar inicio',
+              icon: const Icon(Icons.dashboard_customize_rounded),
+              onPressed: () => _openHomeEditorSheet(
+                context,
+                controller: controller,
+                mode: mode,
+              ),
+            ),
+          ],
         ),
 
         // ===========================================================
@@ -93,8 +108,20 @@ class HomePage extends GetView<HomeController> {
                                 ),
                                 sliver: SliverList.list(
                                   children: [
+                                    if (!controller
+                                        .usesDefaultHomeWidgetOrder) ...[
+                                      _HomeOrderedSections(
+                                        controller: controller,
+                                        actions: actions,
+                                        mode: mode,
+                                      ),
+                                    ],
                                     // ---- Favoritos ----
-                                    if (controller.favorites.isNotEmpty) ...[
+                                    if (controller.usesDefaultHomeWidgetOrder &&
+                                        controller.enabledHomeWidgets.contains(
+                                          HomeWidgetId.favorites,
+                                        ) &&
+                                        controller.favorites.isNotEmpty) ...[
                                       MediaHorizontalList(
                                         title: 'Mis favoritos',
                                         items: controller.favorites,
@@ -185,7 +212,11 @@ class HomePage extends GetView<HomeController> {
                                     ],
 
                                     // ---- Para ti hoy ----
-                                    if (mode == HomeMode.audio &&
+                                    if (controller.usesDefaultHomeWidgetOrder &&
+                                        controller.enabledHomeWidgets.contains(
+                                          HomeWidgetId.recommendations,
+                                        ) &&
+                                        mode == HomeMode.audio &&
                                         (controller
                                                 .recommendationCollections
                                                 .isNotEmpty ||
@@ -301,7 +332,11 @@ class HomePage extends GetView<HomeController> {
                                     ],
 
                                     // ---- Más reproducido ----
-                                    if (controller.mostPlayed.isNotEmpty) ...[
+                                    if (controller.usesDefaultHomeWidgetOrder &&
+                                        controller.enabledHomeWidgets.contains(
+                                          HomeWidgetId.mostPlayed,
+                                        ) &&
+                                        controller.mostPlayed.isNotEmpty) ...[
                                       _SectionHeader(
                                         title: 'Más reproducido',
                                         onTap: () => Get.toNamed(
@@ -403,7 +438,11 @@ class HomePage extends GetView<HomeController> {
                                     ],
 
                                     // ---- Reproducciones recientes ----
-                                    if (controller.recentlyPlayed.isNotEmpty)
+                                    if (controller.usesDefaultHomeWidgetOrder &&
+                                        controller.enabledHomeWidgets.contains(
+                                          HomeWidgetId.recentlyPlayed,
+                                        ) &&
+                                        controller.recentlyPlayed.isNotEmpty)
                                       MediaHorizontalList(
                                         title: 'Reproducciones recientes',
                                         items: controller.recentlyPlayed,
@@ -493,11 +532,19 @@ class HomePage extends GetView<HomeController> {
                                           );
                                         },
                                       ),
-                                    if (controller.recentlyPlayed.isNotEmpty)
+                                    if (controller.usesDefaultHomeWidgetOrder &&
+                                        controller.enabledHomeWidgets.contains(
+                                          HomeWidgetId.recentlyPlayed,
+                                        ) &&
+                                        controller.recentlyPlayed.isNotEmpty)
                                       const SizedBox(height: 18),
 
                                     // ---- Destacado ----
-                                    if (controller.featured.isNotEmpty) ...[
+                                    if (controller.usesDefaultHomeWidgetOrder &&
+                                        controller.enabledHomeWidgets.contains(
+                                          HomeWidgetId.featured,
+                                        ) &&
+                                        controller.featured.isNotEmpty) ...[
                                       _SectionHeader(
                                         title: 'Destacado',
                                         onTap: () => Get.toNamed(
@@ -592,9 +639,13 @@ class HomePage extends GetView<HomeController> {
                                     ],
 
                                     // ---- Últimos imports ----
-                                    if (controller
-                                        .latestDownloads
-                                        .isNotEmpty) ...[
+                                    if (controller.usesDefaultHomeWidgetOrder &&
+                                        controller.enabledHomeWidgets.contains(
+                                          HomeWidgetId.latestDownloads,
+                                        ) &&
+                                        controller
+                                            .latestDownloads
+                                            .isNotEmpty) ...[
                                       MediaHorizontalList(
                                         title: 'Últimos imports',
                                         items: controller.latestDownloads,
@@ -686,6 +737,11 @@ class HomePage extends GetView<HomeController> {
                                       ),
                                     ],
 
+                                    _CustomHomeSections(
+                                      controller: controller,
+                                      actions: actions,
+                                    ),
+
                                     const SizedBox(height: 24),
                                   ],
                                 ),
@@ -732,6 +788,885 @@ class HomePage extends GetView<HomeController> {
         ),
       );
     });
+  }
+}
+
+class _HomeOrderedSections extends StatelessWidget {
+  const _HomeOrderedSections({
+    required this.controller,
+    required this.actions,
+    required this.mode,
+  });
+
+  final HomeController controller;
+  final MediaActionsController actions;
+  final HomeMode mode;
+
+  @override
+  Widget build(BuildContext context) {
+    final children = <Widget>[];
+    for (final id in controller.visibleHomeWidgetIdsForMode(mode)) {
+      final section = _buildSection(context, id);
+      if (section == null) continue;
+      children.add(section);
+      children.add(const SizedBox(height: 18));
+    }
+    return Column(children: children);
+  }
+
+  Widget? _buildSection(BuildContext context, HomeWidgetId id) {
+    switch (id) {
+      case HomeWidgetId.favorites:
+        return _mediaSection(context, id: id, title: 'Mis favoritos');
+      case HomeWidgetId.recommendations:
+        if (mode != HomeMode.audio) return null;
+        if (controller.recommendationCollections.isEmpty &&
+            !controller.isRecommendationsLoading.value) {
+          return null;
+        }
+        return Column(
+          children: [
+            _SectionHeader(
+              title: 'Para ti hoy',
+              onTap: () => _openList(
+                context,
+                title: 'Para ti hoy',
+                items: controller.fullRecommended,
+              ),
+              trailing: IconButton(
+                splashRadius: 18,
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                onPressed: controller.canRecommendationRefresh.value
+                    ? controller.refreshRecommendations
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (controller.isRecommendationsLoading.value)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 18),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else
+              _RecommendationCollectionsRow(
+                collections: controller.recommendationCollections,
+                onTap: (collection, _) => _openList(
+                  context,
+                  title: collection.title,
+                  items: collection.items,
+                ),
+              ),
+          ],
+        );
+      case HomeWidgetId.mostPlayed:
+        final mostPlayedItems = controller.fullItemsForHomeWidget(id);
+        if (mostPlayedItems.isEmpty) return null;
+        return Column(
+          children: [
+            _SectionHeader(
+              title: 'Más reproducido',
+              onTap: () => _openList(
+                context,
+                title: 'Más reproducido',
+                items: mostPlayedItems,
+                sourceId: HomeWidgetId.mostPlayed,
+              ),
+            ),
+            const SizedBox(height: 10),
+            _MostPlayedRow(
+              items: mostPlayedItems.take(12).toList(),
+              onTap: (item, index) => controller.openMedia(
+                item,
+                mostPlayedItems.indexOf(item),
+                mostPlayedItems,
+              ),
+              onLongPress: (item, _) {
+                actions.showItemActions(
+                  context,
+                  item,
+                  onChanged: controller.loadHome,
+                  onStartMultiSelect: () => _openList(
+                    context,
+                    title: 'Más reproducido',
+                    items: mostPlayedItems,
+                    sourceId: HomeWidgetId.mostPlayed,
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      case HomeWidgetId.recentlyPlayed:
+        return _mediaSection(
+          context,
+          id: id,
+          title: 'Reproducciones recientes',
+        );
+      case HomeWidgetId.featured:
+        return _mediaSection(context, id: id, title: 'Destacado');
+      case HomeWidgetId.latestDownloads:
+        return _mediaSection(context, id: id, title: 'Últimos imports');
+      case HomeWidgetId.notPlayed:
+        return _mediaSection(context, id: id, title: 'Por escuchar');
+      case HomeWidgetId.randomMix:
+        return _mediaSection(context, id: id, title: 'Mix aleatorio');
+    }
+  }
+
+  Widget? _mediaSection(
+    BuildContext context, {
+    required HomeWidgetId id,
+    required String title,
+  }) {
+    final full = controller.fullItemsForHomeWidget(id);
+    final preview = controller.previewItemsForHomeWidget(id);
+    if (preview.isEmpty) return null;
+    if (controller.layoutForHomeWidget(id) == HomeCustomSectionLayout.list &&
+        !id.hasFixedLayout) {
+      return _MediaListSection(
+        title: title,
+        items: full,
+        onHeaderTap: () => _openList(context, title: title, items: full),
+        onTap: (item, index) => controller.openMedia(item, index, full),
+        onLongPress: (item, index) {
+          actions.showItemActions(
+            context,
+            item,
+            onChanged: controller.loadHome,
+          );
+        },
+      );
+    }
+    return MediaHorizontalList(
+      title: title,
+      items: preview,
+      onHeaderTap: () => _openList(context, title: title, items: full),
+      onItemTap: (item, index) => controller.openMedia(item, index, full),
+      onItemLongPress: (item, _, {onStartMultiSelect}) {
+        actions.showItemActions(
+          context,
+          item,
+          onChanged: controller.loadHome,
+          onStartMultiSelect: onStartMultiSelect,
+        );
+      },
+    );
+  }
+
+  void _openList(
+    BuildContext context, {
+    required String title,
+    required List<MediaItem> items,
+    HomeWidgetId? sourceId,
+  }) {
+    Get.toNamed(
+      AppRoutes.homeSectionList,
+      arguments: {
+        'title': title,
+        'items': items,
+        if (sourceId == HomeWidgetId.mostPlayed)
+          'itemTrailingBuilder': (MediaItem item, int _) =>
+              _PlayCountPill(item: item),
+        'onItemTap': (item, index) => controller.openMedia(item, index, items),
+        'onItemLongPress': (item, _, {onStartMultiSelect}) =>
+            actions.showItemActions(
+              context,
+              item,
+              onChanged: controller.loadHome,
+              onStartMultiSelect: onStartMultiSelect,
+            ),
+        'onShuffle': (queue) => controller.openMedia(queue.first, 0, queue),
+      },
+    );
+  }
+}
+
+class _CustomHomeSections extends StatelessWidget {
+  const _CustomHomeSections({required this.controller, required this.actions});
+
+  final HomeController controller;
+  final MediaActionsController actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final children = <Widget>[];
+    for (final section in controller.customHomeSections) {
+      if (section.kind == HomeCustomSectionKind.artist) {
+        final artistSection = _buildArtistSection(context, section);
+        if (artistSection == null) continue;
+        children.add(artistSection);
+        children.add(const SizedBox(height: 18));
+        continue;
+      }
+      if (section.kind == HomeCustomSectionKind.playlist) {
+        final playlistSection = _buildPlaylistSection(context, section);
+        if (playlistSection == null) continue;
+        children.add(playlistSection);
+        children.add(const SizedBox(height: 18));
+        continue;
+      }
+      final items = controller.resolveCustomSectionItems(section);
+      if (items.isEmpty) continue;
+      children.add(_buildSection(context, section, items));
+      children.add(const SizedBox(height: 18));
+    }
+    return Column(children: children);
+  }
+
+  Widget _buildSection(
+    BuildContext context,
+    HomeCustomSection section,
+    List<MediaItem> items,
+  ) {
+    if (section.layout == HomeCustomSectionLayout.list) {
+      return _CustomHomeListSection(
+        section: section,
+        items: items,
+        onHeaderTap: () => _openList(context, section.title, items),
+        onTap: (item, index) => controller.openMedia(item, index, items),
+        onLongPress: (item, index) => actions.showItemActions(
+          context,
+          item,
+          onChanged: controller.loadHome,
+        ),
+      );
+    }
+
+    return MediaHorizontalList(
+      title: section.title,
+      headerTrailing: _ModulePill(section: section),
+      items: items.take(12).toList(growable: false),
+      onHeaderTap: () => _openList(context, section.title, items),
+      onItemTap: (item, index) => controller.openMedia(item, index, items),
+      onItemLongPress: (item, _, {onStartMultiSelect}) {
+        actions.showItemActions(
+          context,
+          item,
+          onChanged: controller.loadHome,
+          onStartMultiSelect: onStartMultiSelect,
+        );
+      },
+    );
+  }
+
+  Widget? _buildArtistSection(BuildContext context, HomeCustomSection section) {
+    final artists = controller.resolveArtistsForCustomSection(section);
+    if (artists.isEmpty) return null;
+    void open(HomeArtistChoice artist) {
+      Get.toNamed(AppRoutes.artistDetail, arguments: {'artistKey': artist.key});
+    }
+
+    if (section.layout == HomeCustomSectionLayout.list) {
+      return _CustomArtistListSection(
+        section: section,
+        artists: artists,
+        onArtistTap: open,
+      );
+    }
+    return _CustomArtistCardsSection(
+      section: section,
+      artists: artists,
+      onArtistTap: open,
+    );
+  }
+
+  Widget? _buildPlaylistSection(
+    BuildContext context,
+    HomeCustomSection section,
+  ) {
+    final playlists = controller.resolvePlaylistsForCustomSection(section);
+    if (playlists.isEmpty) return null;
+    void open(HomePlaylistChoice playlist) {
+      Get.toNamed(
+        AppRoutes.playlistDetail,
+        arguments: {'playlistId': playlist.id},
+      );
+    }
+
+    if (section.layout == HomeCustomSectionLayout.list) {
+      return _CustomPlaylistListSection(
+        section: section,
+        playlists: playlists,
+        onPlaylistTap: open,
+      );
+    }
+    return _CustomPlaylistCardsSection(
+      section: section,
+      playlists: playlists,
+      onPlaylistTap: open,
+    );
+  }
+
+  void _openList(BuildContext context, String title, List<MediaItem> items) {
+    Get.toNamed(
+      AppRoutes.homeSectionList,
+      arguments: {
+        'title': title,
+        'items': items,
+        'onItemTap': (item, index) => controller.openMedia(item, index, items),
+        'onItemLongPress': (item, _, {onStartMultiSelect}) =>
+            actions.showItemActions(
+              context,
+              item,
+              onChanged: controller.loadHome,
+              onStartMultiSelect: onStartMultiSelect,
+            ),
+        'onShuffle': (queue) => controller.openMedia(queue.first, 0, queue),
+      },
+    );
+  }
+}
+
+class _CustomHomeListSection extends StatelessWidget {
+  const _CustomHomeListSection({
+    required this.section,
+    required this.items,
+    required this.onHeaderTap,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final HomeCustomSection section;
+  final List<MediaItem> items;
+  final VoidCallback onHeaderTap;
+  final void Function(MediaItem item, int index) onTap;
+  final void Function(MediaItem item, int index) onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = items.take(5).toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          title: section.title,
+          onTap: onHeaderTap,
+          trailing: _ModulePill(section: section),
+        ),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Column(
+            children: [
+              for (var i = 0; i < preview.length; i++) ...[
+                MediaHistoryItemTile(
+                  item: preview[i],
+                  time: '${i + 1}',
+                  onTap: () => onTap(preview[i], i),
+                  onLongPress: () => onLongPress(preview[i], i),
+                ),
+                if (i != preview.length - 1) const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CustomArtistCardsSection extends StatelessWidget {
+  const _CustomArtistCardsSection({
+    required this.section,
+    required this.artists,
+    required this.onArtistTap,
+  });
+
+  final HomeCustomSection section;
+  final List<HomeArtistChoice> artists;
+  final void Function(HomeArtistChoice artist) onArtistTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          title: section.title,
+          trailing: _ModulePill(section: section),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 152,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            scrollDirection: Axis.horizontal,
+            itemCount: artists.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) => _HomeArtistCard(
+              artist: artists[index],
+              onTap: () => onArtistTap(artists[index]),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CustomArtistListSection extends StatelessWidget {
+  const _CustomArtistListSection({
+    required this.section,
+    required this.artists,
+    required this.onArtistTap,
+  });
+
+  final HomeCustomSection section;
+  final List<HomeArtistChoice> artists;
+  final void Function(HomeArtistChoice artist) onArtistTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = artists.take(8).toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          title: section.title,
+          trailing: _ModulePill(section: section),
+        ),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Column(
+            children: [
+              for (var i = 0; i < preview.length; i++) ...[
+                _HomeArtistTile(
+                  artist: preview[i],
+                  onTap: () => onArtistTap(preview[i]),
+                ),
+                if (i != preview.length - 1) const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CustomPlaylistCardsSection extends StatelessWidget {
+  const _CustomPlaylistCardsSection({
+    required this.section,
+    required this.playlists,
+    required this.onPlaylistTap,
+  });
+
+  final HomeCustomSection section;
+  final List<HomePlaylistChoice> playlists;
+  final void Function(HomePlaylistChoice playlist) onPlaylistTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          title: section.title,
+          trailing: _ModulePill(section: section),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 152,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            scrollDirection: Axis.horizontal,
+            itemCount: playlists.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) => _HomePlaylistCard(
+              playlist: playlists[index],
+              onTap: () => onPlaylistTap(playlists[index]),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CustomPlaylistListSection extends StatelessWidget {
+  const _CustomPlaylistListSection({
+    required this.section,
+    required this.playlists,
+    required this.onPlaylistTap,
+  });
+
+  final HomeCustomSection section;
+  final List<HomePlaylistChoice> playlists;
+  final void Function(HomePlaylistChoice playlist) onPlaylistTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = playlists.take(8).toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          title: section.title,
+          trailing: _ModulePill(section: section),
+        ),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Column(
+            children: [
+              for (var i = 0; i < preview.length; i++) ...[
+                _HomePlaylistTile(
+                  playlist: preview[i],
+                  onTap: () => onPlaylistTap(preview[i]),
+                ),
+                if (i != preview.length - 1) const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HomeArtistCard extends StatelessWidget {
+  const _HomeArtistCard({required this.artist, required this.onTap});
+
+  final HomeArtistChoice artist;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final provider = _artistImageProvider(artist.thumbnail);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: SizedBox(
+        width: 108,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 108,
+              height: 108,
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(16),
+                image: provider != null
+                    ? DecorationImage(image: provider, fit: BoxFit.cover)
+                    : null,
+              ),
+              child: provider == null
+                  ? Icon(Icons.person_rounded, color: scheme.onSurfaceVariant)
+                  : null,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              artist.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              '${artist.count} canciones',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomePlaylistCard extends StatelessWidget {
+  const _HomePlaylistCard({required this.playlist, required this.onTap});
+
+  final HomePlaylistChoice playlist;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final provider = _homeImageProvider(playlist.cover);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: SizedBox(
+        width: 108,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 108,
+              height: 108,
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(16),
+                image: provider != null
+                    ? DecorationImage(image: provider, fit: BoxFit.cover)
+                    : null,
+              ),
+              child: provider == null
+                  ? Icon(
+                      Icons.queue_music_rounded,
+                      color: scheme.onSurfaceVariant,
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              playlist.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              '${playlist.count} canciones',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeArtistTile extends StatelessWidget {
+  const _HomeArtistTile({required this.artist, required this.onTap});
+
+  final HomeArtistChoice artist;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final provider = _artistImageProvider(artist.thumbnail);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: scheme.primaryContainer,
+              backgroundImage: provider,
+              child: provider == null
+                  ? Icon(Icons.person_rounded, color: scheme.onPrimaryContainer)
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    artist.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${artist.count} canciones',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomePlaylistTile extends StatelessWidget {
+  const _HomePlaylistTile({required this.playlist, required this.onTap});
+
+  final HomePlaylistChoice playlist;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final provider = _homeImageProvider(playlist.cover);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+                image: provider != null
+                    ? DecorationImage(image: provider, fit: BoxFit.cover)
+                    : null,
+              ),
+              child: provider == null
+                  ? Icon(
+                      Icons.queue_music_rounded,
+                      color: scheme.onPrimaryContainer,
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    playlist.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${playlist.count} canciones',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+ImageProvider? _artistImageProvider(String? raw) {
+  return _homeImageProvider(raw);
+}
+
+ImageProvider? _homeImageProvider(String? raw) {
+  final value = raw?.trim() ?? '';
+  if (value.isEmpty) return null;
+  return value.startsWith('http')
+      ? NetworkImage(value)
+      : FileImage(File(value)) as ImageProvider;
+}
+
+class _MediaListSection extends StatelessWidget {
+  const _MediaListSection({
+    required this.title,
+    required this.items,
+    required this.onHeaderTap,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final String title;
+  final List<MediaItem> items;
+  final VoidCallback onHeaderTap;
+  final void Function(MediaItem item, int index) onTap;
+  final void Function(MediaItem item, int index) onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = items.take(5).toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(title: title, onTap: onHeaderTap),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Column(
+            children: [
+              for (var i = 0; i < preview.length; i++) ...[
+                MediaHistoryItemTile(
+                  item: preview[i],
+                  time: '${i + 1}',
+                  onTap: () => onTap(preview[i], i),
+                  onLongPress: () => onLongPress(preview[i], i),
+                ),
+                if (i != preview.length - 1) const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ModulePill extends StatelessWidget {
+  const _ModulePill({required this.section});
+
+  final HomeCustomSection section;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      width: section.kind == HomeCustomSectionKind.smart ? null : 34,
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(section.kind.icon, size: 14, color: scheme.onPrimaryContainer),
+          if (section.kind == HomeCustomSectionKind.smart) ...[
+            const SizedBox(width: 4),
+            Text(
+              section.kind.moduleLabel,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: scheme.onPrimaryContainer,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

@@ -9,6 +9,10 @@ class PlaylistStore {
   static const _key = 'playlists';
 
   Future<List<Playlist>> readAll() async {
+    return readAllSync();
+  }
+
+  List<Playlist> readAllSync() {
     final raw = _box.read<List>(_key) ?? <dynamic>[];
     return raw
         .whereType<Map>()
@@ -25,6 +29,19 @@ class PlaylistStore {
       list[idx] = playlist;
     }
     await _box.write(_key, list.map((e) => e.toJson()).toList());
+  }
+
+  Future<void> upsertAll(List<Playlist> playlists) async {
+    if (playlists.isEmpty) return;
+
+    final existing = await readAll();
+    final incomingIds = playlists.map((e) => e.id).toSet();
+    final merged = <Playlist>[
+      ...playlists.reversed,
+      ...existing.where((e) => !incomingIds.contains(e.id)),
+    ];
+
+    await _box.write(_key, merged.map((e) => e.toJson()).toList());
   }
 
   Future<void> remove(String id) async {

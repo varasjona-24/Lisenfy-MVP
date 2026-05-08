@@ -196,8 +196,7 @@ class AudioSection extends StatelessWidget {
                     return InfoTile(
                       icon: Icons.graphic_eq_rounded,
                       title: 'Ecualizador',
-                      subtitle:
-                          equalizer.eqUnavailableMessage.value.isNotEmpty
+                      subtitle: equalizer.eqUnavailableMessage.value.isNotEmpty
                           ? equalizer.eqUnavailableMessage.value
                           : 'Disponible solo en Android.',
                     );
@@ -291,13 +290,10 @@ class AudioSection extends StatelessWidget {
                     _EqPresetGroupSpec(
                       id: 'voz_escena',
                       title: 'Voz y Escena',
-                      subtitle: 'Mejora diálogo, voz o sensación de cine/juego.',
+                      subtitle:
+                          'Mejora diálogo, voz o sensación de cine/juego.',
                       icon: Icons.record_voice_over_rounded,
-                      keys: const [
-                        'podcast',
-                        'movie',
-                        'gaming',
-                      ],
+                      keys: const ['podcast', 'movie', 'gaming'],
                     ),
                     _EqPresetGroupSpec(
                       id: 'extras',
@@ -777,21 +773,31 @@ class _EqPresetGroupTile extends StatelessWidget {
             ),
           ),
           children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: presets.map((entry) {
-                  final isSelected = selectedKey == entry.key;
-                  return ChoiceChip(
-                    label: Text(entry.value),
-                    selected: isSelected,
-                    onSelected: (_) => onSelected(entry.key),
-                  );
-                }).toList(),
-              ),
-            ),
+            ...presets.map((entry) {
+              final isSelected = selectedKey == entry.key;
+              return ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                leading: Icon(
+                  isSelected
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
+                  size: 20,
+                ),
+                title: Text(
+                  entry.value,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+                trailing: isSelected
+                    ? Icon(Icons.check_rounded, color: scheme.primary, size: 20)
+                    : null,
+                onTap: () => onSelected(entry.key),
+              );
+            }),
           ],
         ),
       ),

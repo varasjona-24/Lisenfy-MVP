@@ -32,6 +32,19 @@ class LocalLibraryStore {
     await _box.write(_key, list.map((e) => e.toJson()).toList());
   }
 
+  Future<void> upsertAll(List<MediaItem> items) async {
+    if (items.isEmpty) return;
+
+    final existing = await readAll();
+    final incomingIds = items.map((e) => e.id).toSet();
+    final merged = <MediaItem>[
+      ...items.reversed,
+      ...existing.where((e) => !incomingIds.contains(e.id)),
+    ];
+
+    await _box.write(_key, merged.map((e) => e.toJson()).toList());
+  }
+
   Future<void> remove(String id) async {
     final list = await readAll();
     list.removeWhere((e) => e.id == id);

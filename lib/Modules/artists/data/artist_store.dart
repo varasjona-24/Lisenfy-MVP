@@ -48,6 +48,19 @@ class ArtistStore {
     await _box.write(_key, list.map((e) => e.toJson()).toList());
   }
 
+  Future<void> upsertAll(List<ArtistProfile> profiles) async {
+    if (profiles.isEmpty) return;
+
+    final existing = await readAll();
+    final incomingKeys = profiles.map((e) => e.key).toSet();
+    final merged = <ArtistProfile>[
+      ...profiles.reversed,
+      ...existing.where((e) => !incomingKeys.contains(e.key)),
+    ];
+
+    await _box.write(_key, merged.map((e) => e.toJson()).toList());
+  }
+
   Future<void> remove(String key) async {
     final list = await readAll();
     list.removeWhere((e) => e.key == key);

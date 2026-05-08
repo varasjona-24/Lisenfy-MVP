@@ -1,6 +1,9 @@
 import 'dart:io';
 
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+
+export '../domain/home_layout_models.dart';
 
 import '../../../app/data/local/local_library_store.dart';
 import '../../../app/data/repo/media_repository.dart';
@@ -10,6 +13,8 @@ import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
 import '../../artists/data/artist_store.dart';
 import '../../artists/domain/artist_profile.dart';
+import '../../playlists/data/playlist_store.dart';
+import '../../playlists/domain/playlist.dart';
 import '../../recommendations/domain/recommendation_collection.dart';
 import '../../recommendations/domain/recommendation_models.dart';
 import '../../recommendations/application/usecases/build_recommendation_collections_use_case.dart';
@@ -17,10 +22,10 @@ import '../../recommendations/application/usecases/get_or_build_daily_recommenda
 import '../../recommendations/application/usecases/refresh_daily_recommendations_use_case.dart';
 import '../../recommendations/application/usecases/recommendation_refresh_policy_use_case.dart';
 import '../../recommendations/application/recommendation_feedback_service.dart';
-
-enum HomeMode { audio, video }
+import '../domain/home_layout_models.dart';
 
 class HomeController extends GetxController {
+  final GetStorage _layoutStorage = GetStorage();
   final MediaRepository _repo = Get.find<MediaRepository>();
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
   final BuildRecommendationCollectionsUseCase _buildCollections =
@@ -37,6 +42,9 @@ class HomeController extends GetxController {
       : null;
   final ArtistStore? _artistStore = Get.isRegistered<ArtistStore>()
       ? Get.find<ArtistStore>()
+      : null;
+  final PlaylistStore? _playlistStore = Get.isRegistered<PlaylistStore>()
+      ? Get.find<PlaylistStore>()
       : null;
 
   final Rx<HomeMode> mode = HomeMode.audio.obs;
@@ -61,8 +69,30 @@ class HomeController extends GetxController {
       <String, String>{}.obs;
   final RxList<RecommendationCollection> recommendationCollections =
       <RecommendationCollection>[].obs;
+  final RxBool isHomeEditing = false.obs;
+  final RxList<HomeWidgetId> homeWidgetOrder = <HomeWidgetId>[].obs;
+  final RxList<HomeWidgetId> enabledHomeWidgets = <HomeWidgetId>[].obs;
+  final RxMap<String, HomeCustomSectionLayout> homeWidgetLayouts =
+      <String, HomeCustomSectionLayout>{}.obs;
+  final RxList<HomeCustomSection> customHomeSections =
+      <HomeCustomSection>[].obs;
 
   final RxList<MediaItem> _allItems = <MediaItem>[].obs;
+  final RxList<MediaItem> randomMix = <MediaItem>[].obs;
+  static const _homeWidgetOrderKey = 'home_widget_order';
+  static const _homeWidgetEnabledKey = 'home_widget_enabled';
+  static const _homeWidgetLayoutsKey = 'home_widget_layouts';
+  static const _homeCustomSectionsKey = 'home_custom_sections';
+  static const _defaultHomeWidgets = <HomeWidgetId>[
+    HomeWidgetId.favorites,
+    HomeWidgetId.recommendations,
+    HomeWidgetId.mostPlayed,
+    HomeWidgetId.recentlyPlayed,
+    HomeWidgetId.featured,
+    HomeWidgetId.latestDownloads,
+    HomeWidgetId.notPlayed,
+    HomeWidgetId.randomMix,
+  ];
   static const int _recommendedPreviewLimit = 12;
   static const int _recommendedFullLimit = 80;
   bool _hasArtistLocaleMetadata = false;
@@ -72,7 +102,598 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _restoreHomeLayout();
     loadHome();
+  }
+
+  void _restoreHomeLayout() {
+    final rawOrder = _layoutStorage.read<List>(_homeWidgetOrderKey);
+    final parsedOrder = rawOrder
+        ?.map((e) => HomeWidgetIdX.fromKey(e.toString()))
+        .whereType<HomeWidgetId>()
+        .toList(growable: false);
+    final order = <HomeWidgetId>[
+      ...(parsedOrder ?? const <HomeWidgetId>[]),
+      ..._defaultHomeWidgets.where((id) => parsedOrder?.contains(id) != true),
+    ];
+    homeWidgetOrder.assignAll(order);
+
+    final rawEnabled = _layoutStorage.read<List>(_homeWidgetEnabledKey);
+    final parsedEnabled = rawEnabled
+        ?.map((e) => HomeWidgetIdX.fromKey(e.toString()))
+        .whereType<HomeWidgetId>()
+        .toList(growable: false);
+    enabledHomeWidgets.assignAll(parsedEnabled ?? _defaultHomeWidgets);
+
+    final rawLayouts = _layoutStorage.read<Map>(_homeWidgetLayoutsKey);
+    homeWidgetLayouts.value = <String, HomeCustomSectionLayout>{
+      ...?rawLayouts?.map(
+        (key, value) =>
+            MapEntry(key.toString(), HomeCustomSectionLayoutX.fromRaw(value)),
+      ),
+    };
+
+    final rawCustom = _layoutStorage.read<List>(_homeCustomSectionsKey);
+    final parsedCustom =
+        rawCustom
+            ?.whereType<Map>()
+            .map(
+              (e) => HomeCustomSection.fromJson(Map<String, dynamic>.from(e)),
+            )
+            .where((e) => e.id.isNotEmpty && e.targetId.isNotEmpty)
+            .toList(growable: false) ??
+        const <HomeCustomSection>[];
+    final normalizedCustom = _normalizeCustomHomeSections(parsedCustom);
+    customHomeSections.assignAll(normalizedCustom);
+    if (!_sameCustomSections(parsedCustom, normalizedCustom)) {
+      _persistHomeLayout();
+    }
+  }
+
+  List<HomeCustomSection> _normalizeCustomHomeSections(
+    List<HomeCustomSection> sections,
+  ) {
+    const artistSectionId = 'artists_custom';
+    const playlistSectionId = 'playlists_custom';
+    final artistKeys = <String>{};
+    final playlistIds = <String>{};
+    HomeCustomSectionLayout artistLayout = HomeCustomSectionLayout.cards;
+    HomeCustomSectionLayout playlistLayout = HomeCustomSectionLayout.cards;
+    var foundArtist = false;
+    var foundPlaylist = false;
+    var insertedArtistSection = false;
+    var insertedPlaylistSection = false;
+    final normalized = <HomeCustomSection>[];
+
+    for (final section in sections) {
+      if (section.kind == HomeCustomSectionKind.artist) {
+        if (!foundArtist) {
+          artistLayout = section.layout;
+        }
+        foundArtist = true;
+        artistKeys.addAll(
+          section.targetId
+              .split('|')
+              .map(ArtistCreditParser.normalizeKey)
+              .where((e) => e.isNotEmpty && e != 'unknown'),
+        );
+
+        if (!insertedArtistSection) {
+          normalized.add(
+            HomeCustomSection(
+              id: artistSectionId,
+              kind: HomeCustomSectionKind.artist,
+              targetId: '',
+              title: 'Artistas',
+              layout: artistLayout,
+            ),
+          );
+          insertedArtistSection = true;
+        }
+        continue;
+      }
+
+      if (section.kind == HomeCustomSectionKind.playlist) {
+        if (!foundPlaylist) {
+          playlistLayout = section.layout;
+        }
+        foundPlaylist = true;
+        playlistIds.addAll(
+          section.targetId
+              .split('|')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty),
+        );
+
+        if (!insertedPlaylistSection) {
+          normalized.add(
+            HomeCustomSection(
+              id: playlistSectionId,
+              kind: HomeCustomSectionKind.playlist,
+              targetId: '',
+              title: 'Listas de reproducción',
+              layout: playlistLayout,
+            ),
+          );
+          insertedPlaylistSection = true;
+        }
+        continue;
+      }
+
+      if (section.kind != HomeCustomSectionKind.artist) {
+        normalized.add(section);
+      }
+    }
+
+    return normalized
+        .map((section) {
+          if (section.id == artistSectionId) {
+            if (!foundArtist || artistKeys.isEmpty) return null;
+            return HomeCustomSection(
+              id: artistSectionId,
+              kind: HomeCustomSectionKind.artist,
+              targetId: artistKeys.join('|'),
+              title: 'Artistas',
+              layout: section.layout,
+            );
+          }
+          if (section.id == playlistSectionId) {
+            if (!foundPlaylist || playlistIds.isEmpty) return null;
+            return HomeCustomSection(
+              id: playlistSectionId,
+              kind: HomeCustomSectionKind.playlist,
+              targetId: playlistIds.join('|'),
+              title: 'Listas de reproducción',
+              layout: section.layout,
+            );
+          }
+          return section;
+        })
+        .whereType<HomeCustomSection>()
+        .where((section) => section.targetId.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  bool _sameCustomSections(
+    List<HomeCustomSection> a,
+    List<HomeCustomSection> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final left = a[i];
+      final right = b[i];
+      if (left.id != right.id ||
+          left.kind != right.kind ||
+          left.targetId != right.targetId ||
+          left.title != right.title ||
+          left.layout != right.layout) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  List<HomeWidgetId> visibleHomeWidgetIdsForMode(HomeMode currentMode) {
+    return homeWidgetOrder
+        .where((id) => enabledHomeWidgets.contains(id))
+        .where((id) => currentMode == HomeMode.audio || !id.audioOnly)
+        .toList(growable: false);
+  }
+
+  bool get usesDefaultHomeWidgetOrder {
+    return false;
+  }
+
+  HomeCustomSectionLayout layoutForHomeWidget(HomeWidgetId id) {
+    if (id.hasFixedLayout) return HomeCustomSectionLayout.cards;
+    return homeWidgetLayouts[id.key] ?? HomeCustomSectionLayout.cards;
+  }
+
+  void toggleHomeWidgetLayout(HomeWidgetId id) {
+    if (id.hasFixedLayout) return;
+    final current = layoutForHomeWidget(id);
+    homeWidgetLayouts[id.key] = current == HomeCustomSectionLayout.cards
+        ? HomeCustomSectionLayout.list
+        : HomeCustomSectionLayout.cards;
+    _persistHomeLayout();
+  }
+
+  void toggleHomeEditing() {
+    isHomeEditing.value = !isHomeEditing.value;
+  }
+
+  void toggleHomeWidget(HomeWidgetId id) {
+    if (enabledHomeWidgets.contains(id)) {
+      enabledHomeWidgets.remove(id);
+    } else {
+      enabledHomeWidgets.add(id);
+    }
+    _persistHomeLayout();
+  }
+
+  void moveHomeWidget(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= homeWidgetOrder.length) return;
+    if (newIndex < 0 || newIndex > homeWidgetOrder.length) return;
+    if (newIndex > oldIndex) newIndex -= 1;
+    final item = homeWidgetOrder.removeAt(oldIndex);
+    homeWidgetOrder.insert(newIndex, item);
+    _persistHomeLayout();
+  }
+
+  void moveHomeWidgetForMode(HomeMode currentMode, int oldIndex, int newIndex) {
+    final modeItems = homeWidgetOrder
+        .where((id) => currentMode == HomeMode.audio || !id.audioOnly)
+        .toList(growable: true);
+    if (oldIndex < 0 || oldIndex >= modeItems.length) return;
+    if (newIndex < 0 || newIndex > modeItems.length) return;
+    if (newIndex > oldIndex) newIndex -= 1;
+
+    final moved = modeItems.removeAt(oldIndex);
+    modeItems.insert(newIndex, moved);
+
+    var modeIndex = 0;
+    final nextOrder = <HomeWidgetId>[];
+    for (final id in homeWidgetOrder) {
+      if (currentMode == HomeMode.video && id.audioOnly) {
+        nextOrder.add(id);
+      } else {
+        nextOrder.add(modeItems[modeIndex]);
+        modeIndex++;
+      }
+    }
+
+    homeWidgetOrder.assignAll(nextOrder);
+    _persistHomeLayout();
+  }
+
+  void resetHomeLayout() {
+    homeWidgetOrder.assignAll(_defaultHomeWidgets);
+    enabledHomeWidgets.assignAll(_defaultHomeWidgets);
+    homeWidgetLayouts.value = <String, HomeCustomSectionLayout>{};
+    customHomeSections.clear();
+    _persistHomeLayout();
+  }
+
+  void applyHomeLayoutSnapshot({
+    required List<HomeWidgetId> order,
+    required List<HomeWidgetId> enabled,
+    required Map<String, HomeCustomSectionLayout> layouts,
+    required List<HomeCustomSection> customSections,
+  }) {
+    homeWidgetOrder.assignAll(order);
+    enabledHomeWidgets.assignAll(enabled);
+    homeWidgetLayouts.value = Map<String, HomeCustomSectionLayout>.from(
+      layouts,
+    );
+    customHomeSections.assignAll(_normalizeCustomHomeSections(customSections));
+    isHomeEditing.value = false;
+    _persistHomeLayout();
+  }
+
+  void addCustomPlaylistSection({
+    required String playlistId,
+    required String title,
+  }) {
+    final cleanId = playlistId.trim();
+    if (cleanId.isEmpty) return;
+    customHomeSections.assignAll(
+      _normalizeCustomHomeSections(customHomeSections.toList(growable: false)),
+    );
+    const sectionId = 'playlists_custom';
+    final index = customHomeSections.indexWhere((e) => e.id == sectionId);
+    if (index >= 0) {
+      final current = customHomeSections[index];
+      final ids = current.targetId
+          .split('|')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toSet();
+      ids.add(cleanId);
+      customHomeSections[index] = HomeCustomSection(
+        id: current.id,
+        kind: HomeCustomSectionKind.playlist,
+        targetId: ids.join('|'),
+        title: 'Listas de reproducción',
+        layout: current.layout,
+      );
+      _persistHomeLayout();
+      return;
+    }
+
+    customHomeSections.add(
+      HomeCustomSection(
+        id: sectionId,
+        kind: HomeCustomSectionKind.playlist,
+        targetId: cleanId,
+        title: 'Listas de reproducción',
+      ),
+    );
+    _persistHomeLayout();
+  }
+
+  void addCustomArtistSection({
+    required String artistKey,
+    required String title,
+  }) {
+    final cleanKey = ArtistCreditParser.normalizeKey(artistKey);
+    if (cleanKey.isEmpty || cleanKey == 'unknown') return;
+    customHomeSections.assignAll(
+      _normalizeCustomHomeSections(customHomeSections.toList(growable: false)),
+    );
+    const sectionId = 'artists_custom';
+    final index = customHomeSections.indexWhere((e) => e.id == sectionId);
+    if (index >= 0) {
+      final current = customHomeSections[index];
+      final keys = current.targetId
+          .split('|')
+          .map(ArtistCreditParser.normalizeKey)
+          .where((e) => e.isNotEmpty && e != 'unknown')
+          .toSet();
+      keys.add(cleanKey);
+      customHomeSections[index] = HomeCustomSection(
+        id: current.id,
+        kind: HomeCustomSectionKind.artist,
+        targetId: keys.join('|'),
+        title: 'Artistas',
+        layout: current.layout,
+      );
+      _persistHomeLayout();
+      return;
+    }
+
+    customHomeSections.add(
+      HomeCustomSection(
+        id: sectionId,
+        kind: HomeCustomSectionKind.artist,
+        targetId: cleanKey,
+        title: 'Artistas',
+      ),
+    );
+    _persistHomeLayout();
+  }
+
+  void addSmartHomeSection({required String targetId, required String title}) {
+    final cleanId = targetId.trim();
+    if (cleanId.isEmpty) return;
+    customHomeSections.removeWhere(
+      (section) =>
+          section.kind == HomeCustomSectionKind.smart &&
+          section.targetId == cleanId,
+    );
+    customHomeSections.add(
+      HomeCustomSection(
+        id: 'smart_$cleanId',
+        kind: HomeCustomSectionKind.smart,
+        targetId: cleanId,
+        title: title.trim().isEmpty ? 'Sugerida' : title.trim(),
+      ),
+    );
+    _persistHomeLayout();
+  }
+
+  void toggleCustomSectionLayout(String id) {
+    final index = customHomeSections.indexWhere((section) => section.id == id);
+    if (index < 0) return;
+    final current = customHomeSections[index];
+    final nextLayout = current.layout == HomeCustomSectionLayout.cards
+        ? HomeCustomSectionLayout.list
+        : HomeCustomSectionLayout.cards;
+    customHomeSections[index] = current.copyWith(layout: nextLayout);
+    _persistHomeLayout();
+  }
+
+  void removeCustomHomeSection(String id) {
+    customHomeSections.removeWhere((section) => section.id == id);
+    _persistHomeLayout();
+  }
+
+  Future<List<Playlist>> loadPlaylistChoices() async {
+    return await _playlistStore?.readAll() ?? const <Playlist>[];
+  }
+
+  List<HomePlaylistChoice> playlistChoices() {
+    final playlists = _playlistStore?.readAllSync() ?? const <Playlist>[];
+    return playlists
+        .map(
+          (playlist) => HomePlaylistChoice(
+            id: playlist.id,
+            name: playlist.name,
+            count: playlist.itemIds.length,
+            cover: _playlistCover(playlist),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  List<HomeArtistChoice> artistChoices() {
+    final buckets = <String, ({String name, int count, String? thumbnail})>{};
+    final profiles = <String, ArtistProfile>{
+      for (final profile
+          in _artistStore?.readAllSync() ?? const <ArtistProfile>[])
+        ArtistCreditParser.normalizeKey(profile.key): profile,
+    };
+    for (final item in _allItems) {
+      if (!item.variants.any((v) => v.kind == MediaVariantKind.audio)) {
+        continue;
+      }
+      for (final name in ArtistCreditParser.parse(item.subtitle).allArtists) {
+        final key = ArtistCreditParser.normalizeKey(name);
+        if (key.isEmpty || key == 'unknown') continue;
+        final current = buckets[key];
+        buckets[key] = (
+          name: current?.name ?? name,
+          count: (current?.count ?? 0) + 1,
+          thumbnail: current?.thumbnail ?? item.effectiveThumbnail,
+        );
+      }
+    }
+    final list = buckets.entries
+        .map((entry) {
+          final profile = profiles[entry.key];
+          return HomeArtistChoice(
+            key: entry.key,
+            name: profile?.displayName ?? entry.value.name,
+            count: entry.value.count,
+            thumbnail: _artistProfileThumbnail(profile),
+          );
+        })
+        .toList(growable: false);
+    return list..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  String? _artistProfileThumbnail(ArtistProfile? profile) {
+    final local = profile?.thumbnailLocalPath?.trim();
+    if (local != null && local.isNotEmpty) return local;
+    final remote = profile?.thumbnail?.trim();
+    if (remote != null && remote.isNotEmpty) return remote;
+    return null;
+  }
+
+  String? _playlistCover(Playlist playlist) {
+    if (playlist.coverCleared) return null;
+    final local = playlist.coverLocalPath?.trim();
+    if (local != null && local.isNotEmpty) return local;
+    final remote = playlist.coverUrl?.trim();
+    if (remote != null && remote.isNotEmpty) return remote;
+    return null;
+  }
+
+  List<MediaItem> resolveCustomSectionItems(HomeCustomSection section) {
+    if (section.kind == HomeCustomSectionKind.playlist) {
+      return _resolvePlaylistItems(section.targetId);
+    }
+    if (section.kind == HomeCustomSectionKind.smart) {
+      return _resolveSmartSectionItems(section.targetId);
+    }
+    final target = ArtistCreditParser.normalizeKey(section.targetId);
+    return _allItems
+        .where((item) {
+          if (!item.variants.any((v) => v.kind == MediaVariantKind.audio)) {
+            return false;
+          }
+          return ArtistCreditParser.parse(item.subtitle).allArtists.any(
+            (name) => ArtistCreditParser.normalizeKey(name) == target,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  List<HomeArtistChoice> resolveArtistsForCustomSection(
+    HomeCustomSection section,
+  ) {
+    if (section.kind != HomeCustomSectionKind.artist) {
+      return const <HomeArtistChoice>[];
+    }
+    final keys = section.targetId
+        .split('|')
+        .map(ArtistCreditParser.normalizeKey)
+        .where((e) => e.isNotEmpty && e != 'unknown')
+        .toSet();
+    if (keys.isEmpty) return const <HomeArtistChoice>[];
+    return artistChoices()
+        .where((artist) => keys.contains(artist.key))
+        .toList(growable: false);
+  }
+
+  List<HomePlaylistChoice> resolvePlaylistsForCustomSection(
+    HomeCustomSection section,
+  ) {
+    if (section.kind != HomeCustomSectionKind.playlist) {
+      return const <HomePlaylistChoice>[];
+    }
+    final ids = section.targetId
+        .split('|')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    if (ids.isEmpty) return const <HomePlaylistChoice>[];
+    return playlistChoices()
+        .where((playlist) => ids.contains(playlist.id))
+        .toList(growable: false);
+  }
+
+  List<MediaItem> previewItemsForHomeWidget(HomeWidgetId id) {
+    return fullItemsForHomeWidget(id).take(12).toList(growable: false);
+  }
+
+  List<MediaItem> fullItemsForHomeWidget(HomeWidgetId id) {
+    return switch (id) {
+      HomeWidgetId.favorites => fullFavorites,
+      HomeWidgetId.mostPlayed => fullMostPlayed,
+      HomeWidgetId.recentlyPlayed => fullRecentlyPlayed,
+      HomeWidgetId.featured => fullFeatured,
+      HomeWidgetId.latestDownloads => fullLatestDownloads,
+      HomeWidgetId.notPlayed => _resolveSmartSectionItems('not_played'),
+      HomeWidgetId.randomMix => randomMix,
+      HomeWidgetId.recommendations => fullRecommended,
+    };
+  }
+
+  List<MediaItem> _resolveSmartSectionItems(String targetId) {
+    final audio = _allItems
+        .where(
+          (item) => item.variants.any((v) => v.kind == MediaVariantKind.audio),
+        )
+        .toList(growable: false);
+    switch (targetId) {
+      case 'not_played':
+        return audio.where((item) => item.playCount == 0).take(80).toList();
+      case 'rediscover':
+        final items =
+            audio
+                .where((item) => (item.lastPlayedAt ?? 0) > 0)
+                .toList(growable: true)
+              ..sort(
+                (a, b) => (a.lastPlayedAt ?? 0).compareTo(b.lastPlayedAt ?? 0),
+              );
+        return items.take(80).toList(growable: false);
+      case 'random_mix':
+        final items = audio.toList(growable: true)..shuffle();
+        return items.take(80).toList(growable: false);
+      default:
+        return const <MediaItem>[];
+    }
+  }
+
+  List<MediaItem> _resolvePlaylistItems(String playlistId) {
+    final rawPlaylists = _layoutStorage.read<List>('playlists');
+    Playlist? playlist;
+    for (final raw in rawPlaylists ?? const <dynamic>[]) {
+      if (raw is! Map) continue;
+      final parsed = Playlist.fromJson(Map<String, dynamic>.from(raw));
+      if (parsed.id == playlistId) {
+        playlist = parsed;
+        break;
+      }
+    }
+    final ids = playlist?.itemIds.toSet() ?? const <String>{};
+    if (ids.isEmpty) return const <MediaItem>[];
+    return _allItems
+        .where((item) {
+          final publicId = item.publicId.trim();
+          final key = publicId.isNotEmpty ? publicId : item.id.trim();
+          return ids.contains(key);
+        })
+        .toList(growable: false);
+  }
+
+  void _persistHomeLayout() {
+    _layoutStorage.write(
+      _homeWidgetOrderKey,
+      homeWidgetOrder.map((e) => e.key).toList(growable: false),
+    );
+    _layoutStorage.write(
+      _homeWidgetEnabledKey,
+      enabledHomeWidgets.map((e) => e.key).toList(growable: false),
+    );
+    _layoutStorage.write(
+      _homeWidgetLayoutsKey,
+      homeWidgetLayouts.map((key, value) => MapEntry(key, value.key)),
+    );
+    _layoutStorage.write(
+      _homeCustomSectionsKey,
+      customHomeSections.map((e) => e.toJson()).toList(growable: false),
+    );
   }
 
   Future<void> loadHome() async {
@@ -141,6 +762,17 @@ class HomeController extends GetxController {
         maxItems: 12,
       ),
     );
+
+    // Generate and cache random mix
+    final audio =
+        filtered
+            .where(
+              (item) =>
+                  item.variants.any((v) => v.kind == MediaVariantKind.audio),
+            )
+            .toList(growable: true)
+          ..shuffle();
+    randomMix.assignAll(audio.take(80).toList(growable: false));
   }
 
   List<MediaItem> _buildFeatured({

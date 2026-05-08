@@ -228,25 +228,31 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
     Playlist? playlist,
     bool isSmartPlaylist,
   ) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    return Row(
       children: [
         if (!isSmartPlaylist)
-          _PlaylistCommandButton(
-            icon: Icons.add_rounded,
-            label: 'Agregar',
-            onPressed: () => _openAddSongs(context, playlist),
+          Expanded(
+            child: _PlaylistCommandButton(
+              icon: Icons.add_rounded,
+              label: 'Agregar',
+              onPressed: () => _openAddSongs(context, playlist),
+            ),
           ),
-        _PlaylistCommandButton(
-          icon: Icons.play_arrow_rounded,
-          label: 'Reproducir',
-          onPressed: items.isEmpty ? null : () => _play(items, 0),
+        if (!isSmartPlaylist) const SizedBox(width: 10),
+        Expanded(
+          child: _PlaylistCommandButton(
+            icon: Icons.play_arrow_rounded,
+            label: 'Reproducir',
+            onPressed: items.isEmpty ? null : () => _play(items, 0),
+          ),
         ),
-        _PlaylistCommandButton(
-          icon: Icons.shuffle_rounded,
-          label: 'Aleatorio',
-          onPressed: items.isEmpty ? null : () => _playShuffled(items),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlaylistCommandButton(
+            icon: Icons.shuffle_rounded,
+            label: 'Aleatorio',
+            onPressed: items.isEmpty ? null : () => _playShuffled(items),
+          ),
         ),
       ],
     );
@@ -358,8 +364,6 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
                     ],
                   ),
                 ),
-                Icon(Icons.play_arrow_rounded, color: scheme.primary, size: 22),
-                const SizedBox(width: 2),
                 IconButton(
                   icon: Icon(
                     Icons.more_horiz_rounded,
@@ -583,20 +587,46 @@ class _PlaylistCommandButton extends StatelessWidget {
     final scheme = theme.colorScheme;
     final enabled = onPressed != null;
 
-    return SizedBox(
-      height: 42,
-      child: FilledButton.tonalIcon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 18),
-        label: Text(label),
-        style: FilledButton.styleFrom(
-          foregroundColor: enabled ? scheme.primary : scheme.onSurfaceVariant,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          visualDensity: VisualDensity.compact,
-          textStyle: theme.textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w700,
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onPressed,
+        child: Container(
+          height: 48,
+          decoration: BoxDecoration(
+            color: enabled
+                ? scheme.primaryContainer.withValues(alpha: 0.32)
+                : scheme.surfaceContainerHighest.withValues(alpha: 0.22),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: enabled
+                  ? scheme.primary.withValues(alpha: 0.34)
+                  : scheme.outlineVariant.withValues(alpha: 0.22),
+            ),
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 19,
+                color: enabled ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: enabled ? scheme.onSurface : scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

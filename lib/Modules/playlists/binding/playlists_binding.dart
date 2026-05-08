@@ -18,6 +18,8 @@ class PlaylistsBinding extends Bindings {
       Get.put(PlaylistStore(Get.find<GetStorage>()), permanent: true);
     }
 
-    Get.put(PlaylistsController());
+    if (!Get.isRegistered<PlaylistsController>()) {
+      Get.put(PlaylistsController());
+    }
   }
 }

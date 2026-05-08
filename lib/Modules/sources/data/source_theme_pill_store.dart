@@ -36,6 +36,19 @@ class SourceThemePillStore {
     await _box.write(_key, list.map((e) => e.toJson()).toList());
   }
 
+  Future<void> upsertAll(List<SourceThemePill> pills) async {
+    if (pills.isEmpty) return;
+
+    final existing = await readAll();
+    final incomingIds = pills.map((e) => e.id).toSet();
+    final merged = <SourceThemePill>[
+      ...pills.reversed,
+      ...existing.where((e) => !incomingIds.contains(e.id)),
+    ];
+
+    await _box.write(_key, merged.map((e) => e.toJson()).toList());
+  }
+
   // ============================
   // 🗑️ DELETE
   // ============================

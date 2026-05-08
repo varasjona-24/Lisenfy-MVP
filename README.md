@@ -8,7 +8,7 @@ No intenta ser solo un reproductor. Funciona mas como una biblioteca personal: i
 
 Version analizada: MVP, abril-mayo de 2026.
 
-La app es funcional, pero sigue en desarrollo activo. La reproduccion local, listas, imports, respaldo, Sources, Atlas, Listenfy Connect y transferencia P2P existen y son usables. Las areas que todavia necesitan mejora son rendimiento con bibliotecas grandes, compresion de respaldos, documentacion interna y algunas diferencias entre la experiencia de audio y video.
+La app es funcional, pero sigue en desarrollo activo. La reproduccion local, listas, imports, respaldo, Sources, Atlas, inicio editable, Listenfy Connect y transferencia P2P existen y son usables. Las areas que todavia necesitan mejora son rendimiento con bibliotecas grandes, compresion de respaldos, documentacion interna y algunas diferencias entre la experiencia de audio y video.
 
 ## Que hace Listenfy
 
@@ -40,6 +40,7 @@ La app es funcional, pero sigue en desarrollo activo. La reproduccion local, lis
 - Atlas para organizar musica por region.
 - Relaciones entre artistas, bandas, integrantes y colaboraciones.
 - Portadas locales o buscadas desde la web.
+- Inicio editable con widgets activables/desactivables por usuario.
 
 ### Red e imports
 
@@ -74,6 +75,20 @@ Importante: Listenfy guarda la biblioteca dentro del almacenamiento privado de l
 1. Importa musica o video desde archivos locales, URLs o el menu Compartir de Android.
 2. Revisa permisos de almacenamiento, notificaciones y bateria para que el player funcione en segundo plano.
 3. Crea un respaldo ZIP periodicamente desde Ajustes > Datos y descargas.
+
+### Inicio editable
+
+La pantalla de inicio permite personalizar que secciones aparecen. En Home toca el icono de editar inicio en la barra superior para abrir el editor en una ventana aparte.
+
+Desde ese editor puedes:
+
+- Activar o desactivar Mis favoritos, Para ti hoy, Mas reproducido, Reproducciones recientes, Destacado, Ultimos imports, Por escuchar y Mix aleatorio.
+- Reordenar los widgets principales.
+- Cambiar entre vista de cards y vista de lista en los widgets compatibles.
+- Agregar secciones conjuntas de Artistas y Listas de reproduccion.
+- Quitar secciones personalizadas o cambiar su modo de vista.
+
+El editor muestra el modo elegido antes de aplicar los cambios. Toca **Guardar** para confirmar o **Restablecer** para volver al layout por defecto dentro del editor. La configuracion se guarda localmente con `GetStorage`, por lo que se conserva al cerrar y volver a abrir la app. En modo video, los widgets que solo aplican a audio, como **Para ti hoy**, se ocultan automaticamente.
 
 ### Organizar musica para Atlas
 
@@ -140,6 +155,7 @@ El respaldo ZIP incluye biblioteca, metadatos, listas, portadas y variantes si m
 ### Corto plazo
 
 - Mejorar editor de video para ocultar opciones solo de audio.
+- Ampliar el inicio editable con tamanos de widgets.
 - Optimizar respaldo ZIP con modo almacenamiento sin compresion o procesamiento por lotes.
 - Virtualizar vistas grandes para mejorar rendimiento con bibliotecas grandes.
 - Mejorar historial de imports con vista por fecha/calendario.

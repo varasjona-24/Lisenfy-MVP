@@ -36,6 +36,19 @@ class SourceThemeTopicStore {
     await _box.write(_key, list.map((e) => e.toJson()).toList());
   }
 
+  Future<void> upsertAll(List<SourceThemeTopic> topics) async {
+    if (topics.isEmpty) return;
+
+    final existing = await readAll();
+    final incomingIds = topics.map((e) => e.id).toSet();
+    final merged = <SourceThemeTopic>[
+      ...topics.reversed,
+      ...existing.where((e) => !incomingIds.contains(e.id)),
+    ];
+
+    await _box.write(_key, merged.map((e) => e.toJson()).toList());
+  }
+
   // ============================
   // 🗑️ DELETE
   // ============================

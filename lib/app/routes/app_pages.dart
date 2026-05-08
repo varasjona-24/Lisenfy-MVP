@@ -157,6 +157,7 @@ abstract class AppPages {
     // Details
     GetPage(
       name: AppRoutes.artistDetail,
+      binding: ArtistsBinding(),
       page: () {
         final args = Get.arguments;
         final artistKey = switch (args) {
@@ -169,6 +170,7 @@ abstract class AppPages {
     ),
     GetPage(
       name: AppRoutes.playlistDetail,
+      binding: PlaylistsBinding(),
       page: () {
         final isSmart = Get.arguments?['isSmart'] ?? false;
         if (isSmart) {

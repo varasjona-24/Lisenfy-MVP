@@ -39,6 +39,19 @@ class SourceThemeTopicPlaylistStore {
     await _box.write(_key, list.map((e) => e.toJson()).toList());
   }
 
+  Future<void> upsertAll(List<SourceThemeTopicPlaylist> playlists) async {
+    if (playlists.isEmpty) return;
+
+    final existing = await readAll();
+    final incomingIds = playlists.map((e) => e.id).toSet();
+    final merged = <SourceThemeTopicPlaylist>[
+      ...playlists.reversed,
+      ...existing.where((e) => !incomingIds.contains(e.id)),
+    ];
+
+    await _box.write(_key, merged.map((e) => e.toJson()).toList());
+  }
+
   // ============================
   // 🗑️ DELETE
   // ============================

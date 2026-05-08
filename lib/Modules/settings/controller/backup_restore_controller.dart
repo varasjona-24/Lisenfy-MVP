@@ -33,16 +33,6 @@ import '../../../Modules/recommendations/data/recommendation_feedback_store.dart
 import '../../../Modules/recommendations/application/recommendation_feedback_service.dart';
 import '../../../Modules/recommendations/domain/contracts/recommendation_engine.dart';
 
-// Función top-level para poder ejecutarse en un Isolate (hilo separado)
-// NOTA: Se pasa la ROTA del archivo (String) y no los bytes (List<int>)
-// para evitar que Dart congele la UI clonando megabytes en memoria entre Isolates.
-Future<void> _extractZipIsolate(Map<String, dynamic> params) async {
-  final path = params['path'] as String;
-  final outDir = params['outDir'] as String;
-  // Extrae en modo stream para evitar cargar el ZIP completo en memoria.
-  await extractFileToDisk(path, outDir, bufferSize: 64 * 1024);
-}
-
 // Comprime un directorio en ZIP fuera del hilo principal para evitar ANR.
 void _createZipIsolate(Map<String, dynamic> params) {
   final sourceDir = params['sourceDir'] as String;
@@ -52,6 +42,168 @@ void _createZipIsolate(Map<String, dynamic> params) {
   encoder.create(zipPath);
   encoder.addDirectory(Directory(sourceDir), includeDirName: false);
   encoder.close();
+}
+
+class _ZipBackupEntry {
+  const _ZipBackupEntry({
+    required this.name,
+    required this.compressionMethod,
+    required this.compressedSize,
+    required this.uncompressedSize,
+    required this.localHeaderOffset,
+    required this.isDirectory,
+  });
+
+  final String name;
+  final int compressionMethod;
+  final int compressedSize;
+  final int uncompressedSize;
+  final int localHeaderOffset;
+  final bool isDirectory;
+}
+
+class _ZipBackupIndex {
+  const _ZipBackupIndex(this.entries);
+
+  final Map<String, _ZipBackupEntry> entries;
+
+  _ZipBackupEntry? find(String name) => entries[_normalizeZipName(name)];
+}
+
+int _readUint16Le(Uint8List bytes, int offset) =>
+    ByteData.sublistView(bytes, offset, offset + 2).getUint16(0, Endian.little);
+
+int _readUint32Le(Uint8List bytes, int offset) =>
+    ByteData.sublistView(bytes, offset, offset + 4).getUint32(0, Endian.little);
+
+String _normalizeZipName(String name) {
+  var clean = name.replaceAll('\\', '/').trim();
+  while (clean.startsWith('/')) {
+    clean = clean.substring(1);
+  }
+  clean = p.posix.normalize(clean);
+  return clean == '.' ? '' : clean;
+}
+
+Future<_ZipBackupIndex> _readZipBackupIndex(String zipPath) async {
+  final file = File(zipPath);
+  final length = await file.length();
+  final tailLength = length < 66000 ? length : 66000;
+  final tailStart = length - tailLength;
+
+  final raf = await file.open(mode: FileMode.read);
+  try {
+    await raf.setPosition(tailStart);
+    final tail = Uint8List.fromList(await raf.read(tailLength));
+
+    var eocdOffset = -1;
+    for (var i = tail.length - 22; i >= 0; i--) {
+      if (_readUint32Le(tail, i) == 0x06054b50) {
+        eocdOffset = i;
+        break;
+      }
+    }
+    if (eocdOffset < 0) {
+      throw Exception('ZIP central directory not found');
+    }
+
+    final centralDirectorySize = _readUint32Le(tail, eocdOffset + 12);
+    final centralDirectoryOffset = _readUint32Le(tail, eocdOffset + 16);
+    if (centralDirectorySize == 0xffffffff ||
+        centralDirectoryOffset == 0xffffffff) {
+      throw Exception('ZIP64 backups are not supported yet');
+    }
+
+    await raf.setPosition(centralDirectoryOffset);
+    final centralDirectory = Uint8List.fromList(
+      await raf.read(centralDirectorySize),
+    );
+
+    final entries = <String, _ZipBackupEntry>{};
+    var offset = 0;
+    while (offset + 46 <= centralDirectory.length) {
+      final signature = _readUint32Le(centralDirectory, offset);
+      if (signature != 0x02014b50) break;
+
+      final compressionMethod = _readUint16Le(centralDirectory, offset + 10);
+      final compressedSize = _readUint32Le(centralDirectory, offset + 20);
+      final uncompressedSize = _readUint32Le(centralDirectory, offset + 24);
+      final fileNameLength = _readUint16Le(centralDirectory, offset + 28);
+      final extraLength = _readUint16Le(centralDirectory, offset + 30);
+      final commentLength = _readUint16Le(centralDirectory, offset + 32);
+      final localHeaderOffset = _readUint32Le(centralDirectory, offset + 42);
+
+      final nameStart = offset + 46;
+      final nameEnd = nameStart + fileNameLength;
+      if (nameEnd > centralDirectory.length) break;
+
+      final name = _normalizeZipName(
+        utf8.decode(centralDirectory.sublist(nameStart, nameEnd)),
+      );
+      if (name.isNotEmpty) {
+        entries[name] = _ZipBackupEntry(
+          name: name,
+          compressionMethod: compressionMethod,
+          compressedSize: compressedSize,
+          uncompressedSize: uncompressedSize,
+          localHeaderOffset: localHeaderOffset,
+          isDirectory: name.endsWith('/'),
+        );
+      }
+
+      offset = nameEnd + extraLength + commentLength;
+    }
+
+    return _ZipBackupIndex(entries);
+  } finally {
+    await raf.close();
+  }
+}
+
+Future<void> _extractZipBackupEntry({
+  required String zipPath,
+  required _ZipBackupEntry entry,
+  required String outputPath,
+}) async {
+  if (entry.isDirectory) {
+    await Directory(outputPath).create(recursive: true);
+    return;
+  }
+
+  final file = File(zipPath);
+  final raf = await file.open(mode: FileMode.read);
+  late final int dataStart;
+  try {
+    await raf.setPosition(entry.localHeaderOffset);
+    final header = Uint8List.fromList(await raf.read(30));
+    if (header.length < 30 || _readUint32Le(header, 0) != 0x04034b50) {
+      throw Exception('Invalid ZIP local header for ${entry.name}');
+    }
+    final fileNameLength = _readUint16Le(header, 26);
+    final extraLength = _readUint16Le(header, 28);
+    dataStart = entry.localHeaderOffset + 30 + fileNameLength + extraLength;
+  } finally {
+    await raf.close();
+  }
+
+  final output = File(outputPath);
+  await output.parent.create(recursive: true);
+  final sink = output.openWrite();
+  try {
+    final source = file.openRead(dataStart, dataStart + entry.compressedSize);
+    if (entry.compressionMethod == ZipFile.zipCompressionStore) {
+      await source.pipe(sink);
+    } else if (entry.compressionMethod == ZipFile.zipCompressionDeflate) {
+      await source.transform(ZLibCodec(raw: true).decoder).pipe(sink);
+    } else {
+      throw Exception(
+        'Unsupported ZIP compression method ${entry.compressionMethod}',
+      );
+    }
+  } catch (_) {
+    await sink.close();
+    rethrow;
+  }
 }
 
 class _BackupEstimate {
@@ -1128,14 +1280,21 @@ class BackupRestoreController extends GetxController {
       );
       await tempDir.create(recursive: true);
 
-      currentOperation.value =
-          'Extrayendo archivos pesados (puede tardar unos segundos)...';
+      currentOperation.value = 'Leyendo indice del backup...';
       progress.value = 0.15;
 
-      // Realizar la descompresión y escritura de disco en un Isolate secundario
-      // para evitar que el hilo de la UI de Android/Flutter (Main Thread)
-      // colapse provocando un cierre forzado ANR (Application Not Responding).
-      await compute(_extractZipIsolate, {'path': path, 'outDir': tempDir.path});
+      final zipIndex = await _readZipBackupIndex(path);
+      final manifestEntry = zipIndex.find('manifest.json');
+      if (manifestEntry == null) {
+        throw Exception('Manifest not found');
+      }
+
+      currentOperation.value = 'Extrayendo manifiesto...';
+      await _extractZipBackupEntry(
+        zipPath: path,
+        entry: manifestEntry,
+        outputPath: p.join(tempDir.path, 'manifest.json'),
+      );
 
       progress.value = 0.3;
 
@@ -1166,11 +1325,14 @@ class BackupRestoreController extends GetxController {
       Future<void> restoreFile(String? rel) async {
         final clean = rel?.trim() ?? '';
         if (clean.isEmpty) return;
-        final src = File(p.join(tempDir.path, 'files', clean));
-        if (!await src.exists()) return;
+        final entry = zipIndex.find(p.posix.join('files', clean));
+        if (entry == null) return;
         final dest = File(p.join(appDir.path, clean));
-        await dest.parent.create(recursive: true);
-        await src.copy(dest.path);
+        await _extractZipBackupEntry(
+          zipPath: path,
+          entry: entry,
+          outputPath: dest.path,
+        );
       }
 
       currentOperation.value = 'Restaurando canciones...';
@@ -1178,6 +1340,7 @@ class BackupRestoreController extends GetxController {
 
       final libraryStore = Get.find<LocalLibraryStore>();
       var restoredItems = 0;
+      final itemsToRestore = <MediaItem>[];
       Future<void> restoreItem(Map<String, dynamic> data, int i) async {
         if (i % 10 == 0) {
           await _yieldUi();
@@ -1206,7 +1369,7 @@ class BackupRestoreController extends GetxController {
         data['variants'] = updatedVariants;
 
         final item = MediaItem.fromJson(data);
-        await libraryStore.upsert(item);
+        itemsToRestore.add(item);
         restoredItems++;
       }
 
@@ -1224,18 +1387,22 @@ class BackupRestoreController extends GetxController {
           await restoreItem(Map<String, dynamic>.from(raw), i);
         }
       }
+      currentOperation.value = 'Guardando canciones restauradas...';
+      await libraryStore.upsertAll(itemsToRestore);
+      itemsToRestore.clear();
 
       currentOperation.value = 'Restaurando Playlists & Artistas...';
       progress.value = 0.75;
 
       final playlistStore = Get.find<PlaylistStore>();
+      final playlistsToRestore = <Playlist>[];
       Future<void> restorePlaylist(Map<String, dynamic> data, int index) async {
         final coverRel = (data['coverLocalPath'] as String?)?.trim();
         if (coverRel != null && coverRel.isNotEmpty) {
           await restoreFile(coverRel);
           data['coverLocalPath'] = resolveRel(coverRel);
         }
-        await playlistStore.upsert(Playlist.fromJson(data));
+        playlistsToRestore.add(Playlist.fromJson(data));
       }
 
       if (useStreamingManifest) {
@@ -1252,15 +1419,18 @@ class BackupRestoreController extends GetxController {
           await restorePlaylist(Map<String, dynamic>.from(raw), i);
         }
       }
+      await playlistStore.upsertAll(playlistsToRestore);
+      playlistsToRestore.clear();
 
       final artistStore = Get.find<ArtistStore>();
+      final artistsToRestore = <ArtistProfile>[];
       Future<void> restoreArtist(Map<String, dynamic> data, int index) async {
         final thumbRel = (data['thumbnailLocalPath'] as String?)?.trim();
         if (thumbRel != null && thumbRel.isNotEmpty) {
           await restoreFile(thumbRel);
           data['thumbnailLocalPath'] = resolveRel(thumbRel);
         }
-        await artistStore.upsert(ArtistProfile.fromJson(data));
+        artistsToRestore.add(ArtistProfile.fromJson(data));
       }
 
       if (useStreamingManifest) {
@@ -1273,13 +1443,16 @@ class BackupRestoreController extends GetxController {
           await restoreArtist(Map<String, dynamic>.from(raw), i);
         }
       }
+      await artistStore.upsertAll(artistsToRestore);
+      artistsToRestore.clear();
 
       currentOperation.value = 'Restaurando Fuentes...';
       progress.value = 0.85;
 
       final pillStore = Get.find<SourceThemePillStore>();
+      final pillsToRestore = <SourceThemePill>[];
       Future<void> restorePill(Map<String, dynamic> data, int index) async {
-        await pillStore.upsert(SourceThemePill.fromJson(data));
+        pillsToRestore.add(SourceThemePill.fromJson(data));
       }
 
       if (useStreamingManifest) {
@@ -1296,15 +1469,18 @@ class BackupRestoreController extends GetxController {
           await restorePill(Map<String, dynamic>.from(raw), i);
         }
       }
+      await pillStore.upsertAll(pillsToRestore);
+      pillsToRestore.clear();
 
       final topicStore = Get.find<SourceThemeTopicStore>();
+      final topicsToRestore = <SourceThemeTopic>[];
       Future<void> restoreTopic(Map<String, dynamic> data, int index) async {
         final coverRel = (data['coverLocalPath'] as String?)?.trim();
         if (coverRel != null && coverRel.isNotEmpty) {
           await restoreFile(coverRel);
           data['coverLocalPath'] = resolveRel(coverRel);
         }
-        await topicStore.upsert(SourceThemeTopic.fromJson(data));
+        topicsToRestore.add(SourceThemeTopic.fromJson(data));
       }
 
       if (useStreamingManifest) {
@@ -1321,8 +1497,11 @@ class BackupRestoreController extends GetxController {
           await restoreTopic(Map<String, dynamic>.from(raw), i);
         }
       }
+      await topicStore.upsertAll(topicsToRestore);
+      topicsToRestore.clear();
 
       final topicPlaylistStore = Get.find<SourceThemeTopicPlaylistStore>();
+      final topicPlaylistsToRestore = <SourceThemeTopicPlaylist>[];
       Future<void> restoreTopicPlaylist(
         Map<String, dynamic> data,
         int index,
@@ -1332,9 +1511,7 @@ class BackupRestoreController extends GetxController {
           await restoreFile(coverRel);
           data['coverLocalPath'] = resolveRel(coverRel);
         }
-        await topicPlaylistStore.upsert(
-          SourceThemeTopicPlaylist.fromJson(data),
-        );
+        topicPlaylistsToRestore.add(SourceThemeTopicPlaylist.fromJson(data));
       }
 
       if (useStreamingManifest) {
@@ -1352,6 +1529,8 @@ class BackupRestoreController extends GetxController {
           await restoreTopicPlaylist(Map<String, dynamic>.from(raw), i);
         }
       }
+      await topicPlaylistStore.upsertAll(topicPlaylistsToRestore);
+      topicPlaylistsToRestore.clear();
 
       if (!useStreamingManifest && manifest != null) {
         if (Get.isRegistered<RecommendationStore>()) {

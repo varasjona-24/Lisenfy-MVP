@@ -22,6 +22,8 @@ class ArtistsBinding extends Bindings {
       Get.put(ArtistStore(Get.find<GetStorage>()), permanent: true);
     }
 
-    Get.put(ArtistsController());
+    if (!Get.isRegistered<ArtistsController>()) {
+      Get.put(ArtistsController());
+    }
   }
 }

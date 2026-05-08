@@ -6,6 +6,7 @@ import '../../../app/data/network/dio_client.dart';
 import '../../../app/data/repo/media_repository.dart';
 import 'package:listenfy/Modules/home/controller/home_controller.dart';
 import '../../artists/data/artist_store.dart';
+import '../../playlists/data/playlist_store.dart';
 import '../../sources/data/source_theme_topic_store.dart';
 import '../../sources/data/source_theme_topic_playlist_store.dart';
 import '../../recommendations/data/recommendation_store.dart';
@@ -57,6 +58,9 @@ class HomeBinding extends Bindings {
     }
     if (!Get.isRegistered<ArtistStore>()) {
       Get.put(ArtistStore(Get.find<GetStorage>()), permanent: true);
+    }
+    if (!Get.isRegistered<PlaylistStore>()) {
+      Get.put(PlaylistStore(Get.find<GetStorage>()), permanent: true);
     }
     if (!Get.isRegistered<DioClient>()) {
       Get.put(DioClient(), permanent: true);
