@@ -52,31 +52,38 @@ class PlaylistsPage extends GetView<PlaylistsController> {
                         onRefresh: controller.load,
                         child: ScrollConfiguration(
                           behavior: const _NoGlowScrollBehavior(),
-                          child: SingleChildScrollView(
+                          child: CustomScrollView(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: EdgeInsets.only(
-                              top: AppSpacing.md,
-                              bottom: kBottomNavigationBarHeight + 18,
-                              left: AppSpacing.md,
-                              right: AppSpacing.md,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _header(theme),
-                                const SizedBox(height: 10),
-                                _summaryRow(
-                                  theme: theme,
-                                  total: total,
-                                  onAdd: () => _createPlaylist(context),
+                            slivers: [
+                              SliverPadding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppSpacing.md,
+                                  AppSpacing.md,
+                                  AppSpacing.md,
+                                  AppSpacing.lg,
                                 ),
-                                const SizedBox(height: AppSpacing.lg),
-                                _myPlaylistsHeader(theme, list.length),
-                                const SizedBox(height: 10),
-                                _myPlaylists(list),
-                                const SizedBox(height: AppSpacing.lg),
-                              ],
-                            ),
+                                sliver: SliverList.list(
+                                  children: [
+                                    _header(theme),
+                                    const SizedBox(height: 10),
+                                    _summaryRow(
+                                      theme: theme,
+                                      total: total,
+                                      onAdd: () => _createPlaylist(context),
+                                    ),
+                                    const SizedBox(height: AppSpacing.lg),
+                                    _myPlaylistsHeader(theme, list.length),
+                                    const SizedBox(height: 10),
+                                  ],
+                                ),
+                              ),
+                              _myPlaylistsSliver(list),
+                              const SliverToBoxAdapter(
+                                child: SizedBox(
+                                  height: kBottomNavigationBarHeight + 18,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -161,20 +168,28 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     );
   }
 
-  Widget _myPlaylists(List<Playlist> list) {
+  Widget _myPlaylistsSliver(List<Playlist> list) {
     if (list.isEmpty) {
-      return Text(
-        'Crea tu primera lista para organizar tu música.',
-        style: Get.textTheme.bodyMedium?.copyWith(
-          color: Get.theme.colorScheme.onSurfaceVariant,
+      return SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        sliver: SliverToBoxAdapter(
+          child: Text(
+            'Crea tu primera lista para organizar tu música.',
+            style: Get.textTheme.bodyMedium?.copyWith(
+              color: Get.theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
       );
     }
 
-    return Column(
-      children: [
-        for (final playlist in list)
-          Padding(
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      sliver: SliverList.builder(
+        itemCount: list.length,
+        itemBuilder: (context, index) {
+          final playlist = list[index];
+          return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: _PlaylistTile(
               playlist: playlist,
@@ -185,8 +200,9 @@ class PlaylistsPage extends GetView<PlaylistsController> {
               ),
               onMenu: () => _openPlaylistActions(Get.context!, playlist),
             ),
-          ),
-      ],
+          );
+        },
+      ),
     );
   }
 

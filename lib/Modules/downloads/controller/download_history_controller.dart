@@ -29,12 +29,12 @@ class DownloadHistoryController
   final GetStorage _storage = GetStorage();
   final RxBool gridView = true.obs;
   final Rx<DateTime> selectedDate = Rx<DateTime>(DateTime.now());
-  final RxBool calendarMode = true.obs;
   final Rx<DateTime> visibleMonth = Rx<DateTime>(
     DateTime(DateTime.now().year, DateTime.now().month),
   );
-  final Rx<String> dateFilterRange = Rx<String>('all');
+  final Rx<String> dateFilterRange = Rx<String>('byDay');
   final Rx<DateTimeRange?> customDateRange = Rx<DateTimeRange?>(null);
+  final RxMap<String, int> dayImportCounts = <String, int>{}.obs;
 
   // ============================
   // 🚀 INIT
@@ -43,8 +43,6 @@ class DownloadHistoryController
   void onInit() {
     super.onInit();
     gridView.value = _storage.read('download_history_grid_view') ?? true;
-    calendarMode.value =
-        _storage.read('download_history_calendar_mode') ?? true;
     final home = _homeController;
     if (home != null) {
       _syncFilterWithHome();
@@ -69,13 +67,14 @@ class DownloadHistoryController
 
     try {
       final downloaded = await _loadHistoryItemsUseCase();
-      // Al cargar de nuevo, el rango de fechas se reinicia a 'all',
+      // Al cargar de nuevo, el rango de fechas se reinicia a 'byDay',
       // así que baseItems == allItems.
       final projected = _project(
         baseItems: downloaded,
         filter: state.value.filter,
         query: state.value.query,
       );
+      _refreshDayImportCounts(projected.filteredItems);
       _ensureSelectedDate(projected.filteredItems);
 
       emit(
@@ -110,6 +109,7 @@ class DownloadHistoryController
       filter: next,
       query: state.value.query,
     );
+    _refreshDayImportCounts(projected.filteredItems);
     _ensureSelectedDate(projected.filteredItems);
     emit(
       state.value.copyWith(
@@ -128,6 +128,7 @@ class DownloadHistoryController
       filter: state.value.filter,
       query: value,
     );
+    _refreshDayImportCounts(projected.filteredItems);
     _ensureSelectedDate(projected.filteredItems);
     emit(
       state.value.copyWith(
@@ -151,11 +152,6 @@ class DownloadHistoryController
   void toggleGridView() {
     gridView.value = !gridView.value;
     _storage.write('download_history_grid_view', gridView.value);
-  }
-
-  void toggleCalendarMode() {
-    calendarMode.value = !calendarMode.value;
-    _storage.write('download_history_calendar_mode', calendarMode.value);
   }
 
   void selectDate(DateTime date) {
@@ -183,15 +179,7 @@ class DownloadHistoryController
   }
 
   int importCountForDay(DateTime date) {
-    final key = _dayKey(date);
-    var count = 0;
-    for (final item in state.value.filteredItems) {
-      final ts = _latestVariantCreatedAt(item);
-      if (ts <= 0) continue;
-      final dt = DateTime.fromMillisecondsSinceEpoch(ts);
-      if (_dayKey(dt) == key) count++;
-    }
-    return count;
+    return dayImportCounts[_dayKey(date)] ?? 0;
   }
 
   List<MediaItem> selectedDateItems() {
@@ -483,13 +471,7 @@ class DownloadHistoryController
   }
 
   bool hasImportsOnDay(DateTime day) {
-    final key = _dayKey(day);
-    return state.value.filteredItems.any((item) {
-      final ts = _latestVariantCreatedAt(item);
-      if (ts <= 0) return false;
-      final dt = DateTime.fromMillisecondsSinceEpoch(ts);
-      return _dayKey(dt) == key;
-    });
+    return (dayImportCounts[_dayKey(day)] ?? 0) > 0;
   }
 
   // ============================
@@ -526,7 +508,9 @@ class DownloadHistoryController
           return !dt.isBefore(startOfMonth) && dt.isBefore(startOfNextMonth);
         }).toList();
         break;
-      default: // 'all'
+      case 'byDay':
+      case 'all':
+      default:
         newBase = state.value.allItems;
     }
 
@@ -535,6 +519,7 @@ class DownloadHistoryController
       filter: state.value.filter,
       query: state.value.query,
     );
+    _refreshDayImportCounts(projected.filteredItems);
     _ensureSelectedDate(projected.filteredItems);
     emit(
       state.value.copyWith(
@@ -554,9 +539,9 @@ class DownloadHistoryController
   // 📋 SIMPLE DAY GROUPING
   // ============================
   /// Agrupa items por día de forma simple: {fechaKey -> items}
-  Map<String, List<MediaItem>> itemsGroupedByDay() {
+  Map<String, List<MediaItem>> itemsGroupedByDay([List<MediaItem>? source]) {
     final Map<String, List<MediaItem>> groups = {};
-    for (final item in state.value.filteredItems) {
+    for (final item in source ?? state.value.filteredItems) {
       final ts = _latestVariantCreatedAt(item);
       if (ts <= 0) continue;
       final dt = DateTime.fromMillisecondsSinceEpoch(ts);
@@ -610,6 +595,7 @@ class DownloadHistoryController
       filter: state.value.filter,
       query: state.value.query,
     );
+    _refreshDayImportCounts(projected.filteredItems);
     _ensureSelectedDate(projected.filteredItems);
     emit(
       state.value.copyWith(
@@ -624,6 +610,18 @@ class DownloadHistoryController
     final range = customDateRange.value;
     if (range == null) return 'Seleccionar rango';
     return '${dayLabelSimple(range.start)} - ${dayLabelSimple(range.end)}';
+  }
+
+  void _refreshDayImportCounts(List<MediaItem> items) {
+    final counts = <String, int>{};
+    for (final item in items) {
+      final ts = _latestVariantCreatedAt(item);
+      if (ts <= 0) continue;
+      final dt = DateTime.fromMillisecondsSinceEpoch(ts);
+      final key = _dayKey(dt);
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    dayImportCounts.assignAll(counts);
   }
 }
 

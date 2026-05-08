@@ -1231,17 +1231,17 @@ String buildLocalConnectWebPage() {
       ];
       for (const hint of groupHints) {
         if (normalized.includes(hint)) {
-          return "banda / grupo";
+          return "dueto, banda o grupo musical";
         }
       }
 
-      return "artista solista";
+      return "solista, DJ o Músico";
     }
 
     function formatArtistKind(kind) {
       const value = String(kind || "").trim().toLowerCase();
-      if (value === "band") return "Banda";
-      if (value === "singer") return "Artista";
+      if (value === "band") return "Dueto, banda o grupo musical";
+      if (value === "singer") return "Solista, DJ o Músico";
       return "";
     }
 

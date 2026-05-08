@@ -45,6 +45,7 @@ class AudioService extends GetxService {
   final Rx<PlaybackState> state = PlaybackState.stopped.obs;
   final RxBool isPlaying = false.obs;
   final RxBool isLoading = false.obs;
+  final RxBool miniPlayerDismissed = false.obs;
   final RxDouble speed = 1.0.obs;
   final RxDouble volume = 1.0.obs;
   final RxInt crossfadeSeconds = 0.obs;
@@ -71,6 +72,12 @@ class AudioService extends GetxService {
   bool _resumePromptPendingCache = false;
 
   bool get resumePromptPending => _resumePromptPendingCache;
+
+  void _showMiniPlayerForPlayback() {
+    if (miniPlayerDismissed.value) {
+      miniPlayerDismissed.value = false;
+    }
+  }
 
   bool get eqSupported => Platform.isAndroid && _androidEqualizer != null;
   int? get androidAudioSessionId => _player.androidAudioSessionId;
@@ -265,19 +272,9 @@ class AudioService extends GetxService {
     bool forceReload = false,
     Duration initialPosition = Duration.zero,
   }) async {
-    final incomingQueue = queue;
-    if (!forceReload &&
-        hasSourceLoaded &&
-        _queueItems.isNotEmpty &&
-        incomingQueue != null &&
-        incomingQueue.isNotEmpty &&
-        _sameQueueById(incomingQueue, _queueItems)) {
-      final target = (queueIndex ?? 0).clamp(0, _queueItems.length - 1).toInt();
-      await _transitionToIndex(target, autoPlay: autoPlay);
-      return;
-    }
+    _showMiniPlayerForPlayback();
 
-    // Cambio de variante en la misma cola sin regenerar orden/shuffle.
+    final incomingQueue = queue;
     if (forceReload &&
         hasSourceLoaded &&
         _queueItems.isNotEmpty &&
@@ -285,14 +282,26 @@ class AudioService extends GetxService {
         incomingQueue.isNotEmpty &&
         _sameQueueById(incomingQueue, _queueItems)) {
       final target = (queueIndex ?? 0).clamp(0, _queueItems.length - 1).toInt();
-      if (_sameItem(_queueItems[target], item)) {
-        await _reloadVariantInCurrentQueue(
+      if (_sameItem(_queueItems[target], item) &&
+          currentVariant.value?.sameIdentityAs(variant) != true) {
+        await _reloadVariantInCurrentQueueFromStart(
           targetIndex: target,
+          selectedItem: item,
           selectedVariant: variant,
           autoPlay: autoPlay,
         );
         return;
       }
+    }
+
+    if (hasSourceLoaded &&
+        _queueItems.isNotEmpty &&
+        incomingQueue != null &&
+        incomingQueue.isNotEmpty &&
+        _sameQueueById(incomingQueue, _queueItems)) {
+      final target = (queueIndex ?? 0).clamp(0, _queueItems.length - 1).toInt();
+      await _transitionToIndex(target, autoPlay: autoPlay);
+      return;
     }
 
     if (!forceReload &&
@@ -360,8 +369,9 @@ class AudioService extends GetxService {
     }
   }
 
-  Future<void> _reloadVariantInCurrentQueue({
+  Future<void> _reloadVariantInCurrentQueueFromStart({
     required int targetIndex,
+    required MediaItem selectedItem,
     required MediaVariant selectedVariant,
     required bool autoPlay,
   }) async {
@@ -371,43 +381,45 @@ class AudioService extends GetxService {
       throw Exception('Variante inválida para reproducir.');
     }
 
-    final nextQueueVariants = List<MediaVariant>.from(_queueVariants);
-    nextQueueVariants[targetIndex] = selectedVariant;
-    final targetItem = _queueItems[targetIndex];
-    final currentPosition = this.currentPosition;
-
     isLoading.value = true;
     state.value = PlaybackState.loading;
 
     try {
+      final nextQueueItems = List<MediaItem>.from(_queueItems);
+      final nextQueueVariants = List<MediaVariant>.from(_queueVariants);
+      nextQueueItems[targetIndex] = selectedItem;
+      nextQueueVariants[targetIndex] = selectedVariant;
+
       final sources = <AudioSource>[];
-      for (var i = 0; i < _queueItems.length; i++) {
+      for (var i = 0; i < nextQueueItems.length; i++) {
         sources.add(
           AudioSource.uri(
-            _resolvePlayableUri(_queueItems[i], nextQueueVariants[i]),
+            _resolvePlayableUri(nextQueueItems[i], nextQueueVariants[i]),
           ),
         );
       }
 
-      _beginTrackPositionLifecycle(currentPosition);
+      _beginTrackPositionLifecycle(Duration.zero);
       await _player.setAudioSources(
         sources,
         initialIndex: targetIndex,
-        initialPosition: currentPosition,
+        initialPosition: Duration.zero,
       );
 
+      _queueItems = nextQueueItems;
       _queueVariants = nextQueueVariants;
       _activeIndex = targetIndex;
 
       for (var i = 0; i < _linearItems.length; i++) {
-        if (_sameItem(_linearItems[i], targetItem)) {
+        if (_sameItem(_linearItems[i], selectedItem)) {
+          _linearItems[i] = selectedItem;
           _linearVariants[i] = selectedVariant;
         }
       }
 
-      currentItem.value = _queueItems[targetIndex];
-      currentVariant.value = _queueVariants[targetIndex];
-      _persistLastItem(_queueItems[targetIndex], _queueVariants[targetIndex]);
+      currentItem.value = selectedItem;
+      currentVariant.value = selectedVariant;
+      _persistLastItem(selectedItem, selectedVariant);
       _keepLastItem = true;
 
       if (autoPlay) {
@@ -459,6 +471,7 @@ class AudioService extends GetxService {
       return;
     }
     if (hasSourceLoaded) {
+      _showMiniPlayerForPlayback();
       await _player.play();
     }
   }
@@ -467,6 +480,7 @@ class AudioService extends GetxService {
 
   Future<void> resume() async {
     if (!hasSourceLoaded) return;
+    _showMiniPlayerForPlayback();
     await _player.play();
   }
 
@@ -489,16 +503,21 @@ class AudioService extends GetxService {
   }
 
   Future<void> stopAndHidePreservingSession() async {
-    if (hasSourceLoaded) {
-      _persistSessionSnapshot();
-    }
-    await _player.stop();
-    _publishPosition(Duration.zero);
+    final shouldPersist = hasSourceLoaded;
+
+    miniPlayerDismissed.value = true;
     isPlaying.value = false;
     isLoading.value = false;
     state.value = PlaybackState.stopped;
     _keepLastItem = false;
     _notifyHandler();
+
+    await Future<void>.delayed(Duration.zero);
+    if (shouldPersist) {
+      _persistSessionSnapshot();
+    }
+    await _player.stop();
+    _publishPosition(Duration.zero);
   }
 
   Future<void> stopFromNotificationClose() async {
@@ -507,6 +526,7 @@ class AudioService extends GetxService {
     }
     _resumePromptPendingCache = true;
     _storage.write(_resumePromptPendingKey, true);
+    miniPlayerDismissed.value = true;
 
     await _player.stop();
     _publishPosition(Duration.zero);
@@ -547,17 +567,75 @@ class AudioService extends GetxService {
     await _seekToIndex(target, autoPlay: true);
   }
 
-  Future<void> jumpToQueueIndex(
-    int index, {
-    Duration initialPosition = Duration.zero,
-  }) async {
+  Future<void> jumpToQueueIndex(int index) async {
     if (_queueItems.isEmpty) return;
     if (index < 0 || index >= _queueItems.length) return;
-    await _transitionToIndex(
-      index,
-      autoPlay: true,
-      initialPosition: initialPosition,
+    await _transitionToIndex(index, autoPlay: true);
+  }
+
+  Future<void> reorderQueue(int oldIndex, int newIndex) async {
+    if (_queueItems.isEmpty || _queueItems.length != _queueVariants.length) {
+      return;
+    }
+    if (oldIndex < 0 || oldIndex >= _queueItems.length) return;
+    if (newIndex < 0 || newIndex > _queueItems.length) return;
+
+    if (newIndex > oldIndex) newIndex -= 1;
+    if (oldIndex == newIndex) return;
+
+    final wasPlaying = _player.playing;
+    final pos = currentPosition;
+    var activeIndex = currentQueueIndex;
+
+    final movedItem = _queueItems.removeAt(oldIndex);
+    final movedVariant = _queueVariants.removeAt(oldIndex);
+    _queueItems.insert(newIndex, movedItem);
+    _queueVariants.insert(newIndex, movedVariant);
+
+    if (activeIndex == oldIndex) {
+      activeIndex = newIndex;
+    } else if (oldIndex < newIndex &&
+        activeIndex > oldIndex &&
+        activeIndex <= newIndex) {
+      activeIndex -= 1;
+    } else if (oldIndex > newIndex &&
+        activeIndex >= newIndex &&
+        activeIndex < oldIndex) {
+      activeIndex += 1;
+    }
+    _activeIndex = activeIndex.clamp(0, _queueItems.length - 1).toInt();
+
+    if (!_shuffleEnabled) {
+      _linearItems = List<MediaItem>.from(_queueItems);
+      _linearVariants = List<MediaVariant>.from(_queueVariants);
+    }
+
+    final sources = <AudioSource>[];
+    for (var i = 0; i < _queueItems.length; i++) {
+      sources.add(
+        AudioSource.uri(_resolvePlayableUri(_queueItems[i], _queueVariants[i])),
+      );
+    }
+
+    _beginTrackPositionLifecycle(pos);
+    await _player.setAudioSources(
+      sources,
+      initialIndex: _activeIndex,
+      initialPosition: pos,
     );
+
+    currentItem.value = _queueItems[_activeIndex];
+    currentVariant.value = _queueVariants[_activeIndex];
+    _persistLastItem(_queueItems[_activeIndex], _queueVariants[_activeIndex]);
+    _keepLastItem = true;
+
+    if (wasPlaying) {
+      await _player.play();
+    } else {
+      await _player.pause();
+    }
+    _persistSessionSnapshot();
+    _notifyHandler();
   }
 
   Future<void> setSpeed(double value) async {
@@ -579,14 +657,10 @@ class AudioService extends GetxService {
     _storage.write(_crossfadeSecondsKey, safe);
   }
 
-  Future<void> _transitionToIndex(
-    int target, {
-    required bool autoPlay,
-    Duration initialPosition = Duration.zero,
-  }) async {
+  Future<void> _transitionToIndex(int target, {required bool autoPlay}) async {
     final wasPlaying = _player.playing;
     final shouldFade = wasPlaying && crossfadeSeconds.value > 0;
-    _beginTrackPositionLifecycle(initialPosition);
+    _beginTrackPositionLifecycle(Duration.zero);
     if (shouldFade) {
       await _fadeTo(
         0.0,
@@ -594,7 +668,7 @@ class AudioService extends GetxService {
       );
     }
 
-    await _player.seek(initialPosition, index: target);
+    await _player.seek(Duration.zero, index: target);
     _activeIndex = target;
 
     if (autoPlay || wasPlaying) {
@@ -856,6 +930,7 @@ class AudioService extends GetxService {
 
       final shouldAutoPlay = autoPlayOverride ?? wasPlaying;
       if (shouldAutoPlay) {
+        _showMiniPlayerForPlayback();
         await _player.play();
       } else {
         await _player.pause();
@@ -870,6 +945,9 @@ class AudioService extends GetxService {
   }
 
   Future<bool> restorePersistedSession({required bool autoPlay}) async {
+    if (autoPlay) {
+      _showMiniPlayerForPlayback();
+    }
     final ok = await _restoreSessionIfAny(autoPlayOverride: autoPlay);
     if (ok) {
       _resumePromptPendingCache = false;

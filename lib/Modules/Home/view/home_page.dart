@@ -75,40 +75,46 @@ class HomePage extends GetView<HomeController> {
                         onRefresh: controller.loadHome,
                         child: ScrollConfiguration(
                           behavior: const _NoGlowScrollBehavior(),
-                          child: SingleChildScrollView(
+                          child: CustomScrollView(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: EdgeInsets.only(
-                              top: AppSpacing.md,
+                            slivers: [
+                              SliverPadding(
+                                padding: EdgeInsets.only(
+                                  top: AppSpacing.md,
 
-                              // ✅ espacio real para que nada quede debajo del nav
-                              // - BottomNavigationBarHeight: altura base
-                              // - safeBottom: notch iOS
-                              // - 18: aire extra visual
-                              bottom:
-                                  kBottomNavigationBarHeight + safeBottom + 18,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // ---- Favoritos ----
-                                if (controller.favorites.isNotEmpty) ...[
-                                  MediaHorizontalList(
-                                    title: 'Mis favoritos',
-                                    items: controller.favorites,
-                                    onHeaderTap: () => Get.toNamed(
-                                      AppRoutes.homeSectionList,
-                                      arguments: {
-                                        'title': 'Mis favoritos',
-                                        'items': controller.fullFavorites,
-                                        'onItemTap': (item, index) =>
-                                            controller.openMedia(
-                                              item,
-                                              index,
-                                              controller.fullFavorites,
-                                            ),
-                                        'onItemLongPress':
-                                            (item, _, {onStartMultiSelect}) =>
-                                                actions.showItemActions(
+                                  // ✅ espacio real para que nada quede debajo del nav
+                                  // - BottomNavigationBarHeight: altura base
+                                  // - safeBottom: notch iOS
+                                  // - 18: aire extra visual
+                                  bottom:
+                                      kBottomNavigationBarHeight +
+                                      safeBottom +
+                                      18,
+                                ),
+                                sliver: SliverList.list(
+                                  children: [
+                                    // ---- Favoritos ----
+                                    if (controller.favorites.isNotEmpty) ...[
+                                      MediaHorizontalList(
+                                        title: 'Mis favoritos',
+                                        items: controller.favorites,
+                                        onHeaderTap: () => Get.toNamed(
+                                          AppRoutes.homeSectionList,
+                                          arguments: {
+                                            'title': 'Mis favoritos',
+                                            'items': controller.fullFavorites,
+                                            'onItemTap': (item, index) =>
+                                                controller.openMedia(
+                                                  item,
+                                                  index,
+                                                  controller.fullFavorites,
+                                                ),
+                                            'onItemLongPress':
+                                                (
+                                                  item,
+                                                  _, {
+                                                  onStartMultiSelect,
+                                                }) => actions.showItemActions(
                                                   context,
                                                   item,
                                                   onChanged:
@@ -116,18 +122,21 @@ class HomePage extends GetView<HomeController> {
                                                   onStartMultiSelect:
                                                       onStartMultiSelect,
                                                 ),
-                                        'onShuffle': (queue) => controller
-                                            .openMedia(queue.first, 0, queue),
-                                      },
-                                    ),
-                                    onItemTap: (item, index) =>
-                                        controller.openMedia(
-                                          item,
-                                          index,
-                                          controller.fullFavorites,
+                                            'onShuffle': (queue) =>
+                                                controller.openMedia(
+                                                  queue.first,
+                                                  0,
+                                                  queue,
+                                                ),
+                                          },
                                         ),
-                                    onItemLongPress:
-                                        (item, _, {onStartMultiSelect}) {
+                                        onItemTap: (item, index) =>
+                                            controller.openMedia(
+                                              item,
+                                              index,
+                                              controller.fullFavorites,
+                                            ),
+                                        onItemLongPress: (item, _, {onStartMultiSelect}) {
                                           actions.showItemActions(
                                             context,
                                             item,
@@ -171,88 +180,32 @@ class HomePage extends GetView<HomeController> {
                                             ),
                                           );
                                         },
-                                  ),
-                                  const SizedBox(height: 18),
-                                ],
+                                      ),
+                                      const SizedBox(height: 18),
+                                    ],
 
-                                // ---- Para ti hoy ----
-                                if (mode == HomeMode.audio &&
-                                    (controller
-                                            .recommendationCollections
-                                            .isNotEmpty ||
-                                        controller
-                                            .isRecommendationsLoading
-                                            .value)) ...[
-                                  _SectionHeader(
-                                    title: 'Para ti hoy',
-                                    onTap: () => Get.toNamed(
-                                      AppRoutes.homeSectionList,
-                                      arguments: {
-                                        'title': 'Para ti hoy',
-                                        'items': controller.fullRecommended,
-                                        'itemHintBuilder':
-                                            controller.recommendationHintFor,
-                                        'onItemTap': (item, index) =>
-                                            controller.openMedia(
-                                              item,
-                                              index,
-                                              controller.fullRecommended,
-                                            ),
-                                        'onItemLongPress':
-                                            (item, _, {onStartMultiSelect}) =>
-                                                actions.showItemActions(
-                                                  context,
-                                                  item,
-                                                  onChanged:
-                                                      controller.loadHome,
-                                                  onStartMultiSelect:
-                                                      onStartMultiSelect,
-                                                ),
-                                        'onShuffle': (queue) => controller
-                                            .openMedia(queue.first, 0, queue),
-                                      },
-                                    ),
-                                    trailing: IconButton(
-                                      splashRadius: 18,
-                                      icon: const Icon(
-                                        Icons.refresh_rounded,
-                                        size: 20,
-                                      ),
-                                      onPressed:
-                                          controller
-                                              .canRecommendationRefresh
-                                              .value
-                                          ? controller.refreshRecommendations
-                                          : null,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  if (controller.isRecommendationsLoading.value)
-                                    const Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        vertical: 18,
-                                      ),
-                                      child: Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                    )
-                                  else
-                                    _RecommendationCollectionsRow(
-                                      collections:
-                                          controller.recommendationCollections,
-                                      onTap: (collection, _) {
-                                        Get.toNamed(
+                                    // ---- Para ti hoy ----
+                                    if (mode == HomeMode.audio &&
+                                        (controller
+                                                .recommendationCollections
+                                                .isNotEmpty ||
+                                            controller
+                                                .isRecommendationsLoading
+                                                .value)) ...[
+                                      _SectionHeader(
+                                        title: 'Para ti hoy',
+                                        onTap: () => Get.toNamed(
                                           AppRoutes.homeSectionList,
                                           arguments: {
-                                            'title': collection.title,
-                                            'items': collection.items,
+                                            'title': 'Para ti hoy',
+                                            'items': controller.fullRecommended,
                                             'itemHintBuilder': controller
                                                 .recommendationHintFor,
                                             'onItemTap': (item, index) =>
                                                 controller.openMedia(
                                                   item,
                                                   index,
-                                                  collection.items,
+                                                  controller.fullRecommended,
                                                 ),
                                             'onItemLongPress':
                                                 (
@@ -274,60 +227,84 @@ class HomePage extends GetView<HomeController> {
                                                   queue,
                                                 ),
                                           },
-                                        );
-                                      },
-                                    ),
-                                  const SizedBox(height: 18),
-                                ],
-
-                                // ---- Más reproducido ----
-                                if (controller.mostPlayed.isNotEmpty) ...[
-                                  _SectionHeader(
-                                    title: 'Más reproducido',
-                                    onTap: () => Get.toNamed(
-                                      AppRoutes.homeSectionList,
-                                      arguments: {
-                                        'title': 'Más reproducido',
-                                        'items': controller.fullMostPlayed,
-                                        'itemTrailingBuilder':
-                                            (MediaItem item, int _) =>
-                                                _PlayCountPill(item: item),
-                                        'onItemTap': (item, index) =>
-                                            controller.openMedia(
-                                              item,
-                                              index,
-                                              controller.fullMostPlayed,
-                                            ),
-                                        'onItemLongPress':
-                                            (item, _, {onStartMultiSelect}) =>
-                                                actions.showItemActions(
-                                                  context,
-                                                  item,
-                                                  onChanged:
-                                                      controller.loadHome,
-                                                  onStartMultiSelect:
-                                                      onStartMultiSelect,
-                                                ),
-                                        'onShuffle': (queue) => controller
-                                            .openMedia(queue.first, 0, queue),
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _MostPlayedRow(
-                                    items: controller.mostPlayed,
-                                    onTap: (item, index) =>
-                                        controller.openMedia(
-                                          item,
-                                          index,
-                                          controller.fullMostPlayed,
                                         ),
-                                    onLongPress: (item, _) {
-                                      actions.showItemActions(
-                                        context,
-                                        item,
-                                        onChanged: controller.loadHome,
-                                        onStartMultiSelect: () => Get.toNamed(
+                                        trailing: IconButton(
+                                          splashRadius: 18,
+                                          icon: const Icon(
+                                            Icons.refresh_rounded,
+                                            size: 20,
+                                          ),
+                                          onPressed:
+                                              controller
+                                                  .canRecommendationRefresh
+                                                  .value
+                                              ? controller
+                                                    .refreshRecommendations
+                                              : null,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      if (controller
+                                          .isRecommendationsLoading
+                                          .value)
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: 18,
+                                          ),
+                                          child: Center(
+                                            child: CircularProgressIndicator(),
+                                          ),
+                                        )
+                                      else
+                                        _RecommendationCollectionsRow(
+                                          collections: controller
+                                              .recommendationCollections,
+                                          onTap: (collection, _) {
+                                            Get.toNamed(
+                                              AppRoutes.homeSectionList,
+                                              arguments: {
+                                                'title': collection.title,
+                                                'items': collection.items,
+                                                'itemHintBuilder': controller
+                                                    .recommendationHintFor,
+                                                'onItemTap': (item, index) =>
+                                                    controller.openMedia(
+                                                      item,
+                                                      index,
+                                                      collection.items,
+                                                    ),
+                                                'onItemLongPress':
+                                                    (
+                                                      item,
+                                                      _, {
+                                                      onStartMultiSelect,
+                                                    }) =>
+                                                        actions.showItemActions(
+                                                          context,
+                                                          item,
+                                                          onChanged: controller
+                                                              .loadHome,
+                                                          onStartMultiSelect:
+                                                              onStartMultiSelect,
+                                                        ),
+                                                'onShuffle': (queue) =>
+                                                    controller.openMedia(
+                                                      queue.first,
+                                                      0,
+                                                      queue,
+                                                    ),
+                                              },
+                                            );
+                                          },
+                                        ),
+                                      const SizedBox(height: 18),
+                                    ],
+
+                                    // ---- Más reproducido ----
+                                    if (controller.mostPlayed.isNotEmpty) ...[
+                                      _SectionHeader(
+                                        title: 'Más reproducido',
+                                        onTap: () => Get.toNamed(
                                           AppRoutes.homeSectionList,
                                           arguments: {
                                             'title': 'Más reproducido',
@@ -360,35 +337,94 @@ class HomePage extends GetView<HomeController> {
                                                   0,
                                                   queue,
                                                 ),
-                                            'startInSelectionMode': true,
-                                            'initialSelectionItemId': item.id,
                                           },
                                         ),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(height: 18),
-                                ],
-
-                                // ---- Reproducciones recientes ----
-                                if (controller.recentlyPlayed.isNotEmpty)
-                                  MediaHorizontalList(
-                                    title: 'Reproducciones recientes',
-                                    items: controller.recentlyPlayed,
-                                    onHeaderTap: () => Get.toNamed(
-                                      AppRoutes.homeSectionList,
-                                      arguments: {
-                                        'title': 'Reproducciones recientes',
-                                        'items': controller.fullRecentlyPlayed,
-                                        'onItemTap': (item, index) =>
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _MostPlayedRow(
+                                        items: controller.mostPlayed,
+                                        onTap: (item, index) =>
                                             controller.openMedia(
                                               item,
                                               index,
-                                              controller.fullRecentlyPlayed,
+                                              controller.fullMostPlayed,
                                             ),
-                                        'onItemLongPress':
-                                            (item, _, {onStartMultiSelect}) =>
-                                                actions.showItemActions(
+                                        onLongPress: (item, _) {
+                                          actions.showItemActions(
+                                            context,
+                                            item,
+                                            onChanged: controller.loadHome,
+                                            onStartMultiSelect: () => Get.toNamed(
+                                              AppRoutes.homeSectionList,
+                                              arguments: {
+                                                'title': 'Más reproducido',
+                                                'items':
+                                                    controller.fullMostPlayed,
+                                                'itemTrailingBuilder':
+                                                    (MediaItem item, int _) =>
+                                                        _PlayCountPill(
+                                                          item: item,
+                                                        ),
+                                                'onItemTap': (item, index) =>
+                                                    controller.openMedia(
+                                                      item,
+                                                      index,
+                                                      controller.fullMostPlayed,
+                                                    ),
+                                                'onItemLongPress':
+                                                    (
+                                                      item,
+                                                      _, {
+                                                      onStartMultiSelect,
+                                                    }) =>
+                                                        actions.showItemActions(
+                                                          context,
+                                                          item,
+                                                          onChanged: controller
+                                                              .loadHome,
+                                                          onStartMultiSelect:
+                                                              onStartMultiSelect,
+                                                        ),
+                                                'onShuffle': (queue) =>
+                                                    controller.openMedia(
+                                                      queue.first,
+                                                      0,
+                                                      queue,
+                                                    ),
+                                                'startInSelectionMode': true,
+                                                'initialSelectionItemId':
+                                                    item.id,
+                                              },
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 18),
+                                    ],
+
+                                    // ---- Reproducciones recientes ----
+                                    if (controller.recentlyPlayed.isNotEmpty)
+                                      MediaHorizontalList(
+                                        title: 'Reproducciones recientes',
+                                        items: controller.recentlyPlayed,
+                                        onHeaderTap: () => Get.toNamed(
+                                          AppRoutes.homeSectionList,
+                                          arguments: {
+                                            'title': 'Reproducciones recientes',
+                                            'items':
+                                                controller.fullRecentlyPlayed,
+                                            'onItemTap': (item, index) =>
+                                                controller.openMedia(
+                                                  item,
+                                                  index,
+                                                  controller.fullRecentlyPlayed,
+                                                ),
+                                            'onItemLongPress':
+                                                (
+                                                  item,
+                                                  _, {
+                                                  onStartMultiSelect,
+                                                }) => actions.showItemActions(
                                                   context,
                                                   item,
                                                   onChanged:
@@ -396,18 +432,21 @@ class HomePage extends GetView<HomeController> {
                                                   onStartMultiSelect:
                                                       onStartMultiSelect,
                                                 ),
-                                        'onShuffle': (queue) => controller
-                                            .openMedia(queue.first, 0, queue),
-                                      },
-                                    ),
-                                    onItemTap: (item, index) =>
-                                        controller.openMedia(
-                                          item,
-                                          index,
-                                          controller.fullRecentlyPlayed,
+                                            'onShuffle': (queue) =>
+                                                controller.openMedia(
+                                                  queue.first,
+                                                  0,
+                                                  queue,
+                                                ),
+                                          },
                                         ),
-                                    onItemLongPress:
-                                        (item, _, {onStartMultiSelect}) {
+                                        onItemTap: (item, index) =>
+                                            controller.openMedia(
+                                              item,
+                                              index,
+                                              controller.fullRecentlyPlayed,
+                                            ),
+                                        onItemLongPress: (item, _, {onStartMultiSelect}) {
                                           actions.showItemActions(
                                             context,
                                             item,
@@ -453,28 +492,131 @@ class HomePage extends GetView<HomeController> {
                                             ),
                                           );
                                         },
-                                  ),
-                                if (controller.recentlyPlayed.isNotEmpty)
-                                  const SizedBox(height: 18),
+                                      ),
+                                    if (controller.recentlyPlayed.isNotEmpty)
+                                      const SizedBox(height: 18),
 
-                                // ---- Destacado ----
-                                if (controller.featured.isNotEmpty) ...[
-                                  _SectionHeader(
-                                    title: 'Destacado',
-                                    onTap: () => Get.toNamed(
-                                      AppRoutes.homeSectionList,
-                                      arguments: {
-                                        'title': 'Destacado',
-                                        'items': controller.fullFeatured,
-                                        'onItemTap': (item, index) =>
+                                    // ---- Destacado ----
+                                    if (controller.featured.isNotEmpty) ...[
+                                      _SectionHeader(
+                                        title: 'Destacado',
+                                        onTap: () => Get.toNamed(
+                                          AppRoutes.homeSectionList,
+                                          arguments: {
+                                            'title': 'Destacado',
+                                            'items': controller.fullFeatured,
+                                            'onItemTap': (item, index) =>
+                                                controller.openMedia(
+                                                  item,
+                                                  index,
+                                                  controller.fullFeatured,
+                                                ),
+                                            'onItemLongPress':
+                                                (
+                                                  item,
+                                                  _, {
+                                                  onStartMultiSelect,
+                                                }) => actions.showItemActions(
+                                                  context,
+                                                  item,
+                                                  onChanged:
+                                                      controller.loadHome,
+                                                  onStartMultiSelect:
+                                                      onStartMultiSelect,
+                                                ),
+                                            'onShuffle': (queue) =>
+                                                controller.openMedia(
+                                                  queue.first,
+                                                  0,
+                                                  queue,
+                                                ),
+                                          },
+                                        ),
+                                        trailing: null,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _FeaturedList(
+                                        items: controller.featured,
+                                        onTap: (item, index) =>
                                             controller.openMedia(
                                               item,
                                               index,
                                               controller.fullFeatured,
                                             ),
-                                        'onItemLongPress':
-                                            (item, _, {onStartMultiSelect}) =>
-                                                actions.showItemActions(
+                                        onLongPress: (item, _) =>
+                                            actions.showItemActions(
+                                              context,
+                                              item,
+                                              onChanged: controller.loadHome,
+                                              onStartMultiSelect: () => Get.toNamed(
+                                                AppRoutes.homeSectionList,
+                                                arguments: {
+                                                  'title': 'Destacado',
+                                                  'items':
+                                                      controller.fullFeatured,
+                                                  'onItemTap': (item, index) =>
+                                                      controller.openMedia(
+                                                        item,
+                                                        index,
+                                                        controller.fullFeatured,
+                                                      ),
+                                                  'onItemLongPress':
+                                                      (
+                                                        item,
+                                                        _, {
+                                                        onStartMultiSelect,
+                                                      }) => actions
+                                                          .showItemActions(
+                                                            context,
+                                                            item,
+                                                            onChanged:
+                                                                controller
+                                                                    .loadHome,
+                                                            onStartMultiSelect:
+                                                                onStartMultiSelect,
+                                                          ),
+                                                  'onShuffle': (queue) =>
+                                                      controller.openMedia(
+                                                        queue.first,
+                                                        0,
+                                                        queue,
+                                                      ),
+                                                  'startInSelectionMode': true,
+                                                  'initialSelectionItemId':
+                                                      item.id,
+                                                },
+                                              ),
+                                            ),
+                                      ),
+                                      const SizedBox(height: 18),
+                                    ],
+
+                                    // ---- Últimos imports ----
+                                    if (controller
+                                        .latestDownloads
+                                        .isNotEmpty) ...[
+                                      MediaHorizontalList(
+                                        title: 'Últimos imports',
+                                        items: controller.latestDownloads,
+                                        onHeaderTap: () => Get.toNamed(
+                                          AppRoutes.homeSectionList,
+                                          arguments: {
+                                            'title': 'Últimos imports',
+                                            'items':
+                                                controller.fullLatestDownloads,
+                                            'onItemTap': (item, index) =>
+                                                controller.openMedia(
+                                                  item,
+                                                  index,
+                                                  controller
+                                                      .fullLatestDownloads,
+                                                ),
+                                            'onItemLongPress':
+                                                (
+                                                  item,
+                                                  _, {
+                                                  onStartMultiSelect,
+                                                }) => actions.showItemActions(
                                                   context,
                                                   item,
                                                   onChanged:
@@ -482,103 +624,21 @@ class HomePage extends GetView<HomeController> {
                                                   onStartMultiSelect:
                                                       onStartMultiSelect,
                                                 ),
-                                        'onShuffle': (queue) => controller
-                                            .openMedia(queue.first, 0, queue),
-                                      },
-                                    ),
-                                    trailing: null,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _FeaturedList(
-                                    items: controller.featured,
-                                    onTap: (item, index) =>
-                                        controller.openMedia(
-                                          item,
-                                          index,
-                                          controller.fullFeatured,
+                                            'onShuffle': (queue) =>
+                                                controller.openMedia(
+                                                  queue.first,
+                                                  0,
+                                                  queue,
+                                                ),
+                                          },
                                         ),
-                                    onLongPress: (item, _) =>
-                                        actions.showItemActions(
-                                          context,
-                                          item,
-                                          onChanged: controller.loadHome,
-                                          onStartMultiSelect: () => Get.toNamed(
-                                            AppRoutes.homeSectionList,
-                                            arguments: {
-                                              'title': 'Destacado',
-                                              'items': controller.fullFeatured,
-                                              'onItemTap': (item, index) =>
-                                                  controller.openMedia(
-                                                    item,
-                                                    index,
-                                                    controller.fullFeatured,
-                                                  ),
-                                              'onItemLongPress':
-                                                  (
-                                                    item,
-                                                    _, {
-                                                    onStartMultiSelect,
-                                                  }) => actions.showItemActions(
-                                                    context,
-                                                    item,
-                                                    onChanged:
-                                                        controller.loadHome,
-                                                    onStartMultiSelect:
-                                                        onStartMultiSelect,
-                                                  ),
-                                              'onShuffle': (queue) =>
-                                                  controller.openMedia(
-                                                    queue.first,
-                                                    0,
-                                                    queue,
-                                                  ),
-                                              'startInSelectionMode': true,
-                                              'initialSelectionItemId': item.id,
-                                            },
-                                          ),
-                                        ),
-                                  ),
-                                  const SizedBox(height: 18),
-                                ],
-
-                                // ---- Últimos imports ----
-                                if (controller.latestDownloads.isNotEmpty) ...[
-                                  MediaHorizontalList(
-                                    title: 'Últimos imports',
-                                    items: controller.latestDownloads,
-                                    onHeaderTap: () => Get.toNamed(
-                                      AppRoutes.homeSectionList,
-                                      arguments: {
-                                        'title': 'Últimos imports',
-                                        'items': controller.fullLatestDownloads,
-                                        'onItemTap': (item, index) =>
+                                        onItemTap: (item, index) =>
                                             controller.openMedia(
                                               item,
                                               index,
                                               controller.fullLatestDownloads,
                                             ),
-                                        'onItemLongPress':
-                                            (item, _, {onStartMultiSelect}) =>
-                                                actions.showItemActions(
-                                                  context,
-                                                  item,
-                                                  onChanged:
-                                                      controller.loadHome,
-                                                  onStartMultiSelect:
-                                                      onStartMultiSelect,
-                                                ),
-                                        'onShuffle': (queue) => controller
-                                            .openMedia(queue.first, 0, queue),
-                                      },
-                                    ),
-                                    onItemTap: (item, index) =>
-                                        controller.openMedia(
-                                          item,
-                                          index,
-                                          controller.fullLatestDownloads,
-                                        ),
-                                    onItemLongPress:
-                                        (item, _, {onStartMultiSelect}) {
+                                        onItemLongPress: (item, _, {onStartMultiSelect}) {
                                           actions.showItemActions(
                                             context,
                                             item,
@@ -623,12 +683,14 @@ class HomePage extends GetView<HomeController> {
                                             ),
                                           );
                                         },
-                                  ),
-                                ],
+                                      ),
+                                    ],
 
-                                const SizedBox(height: 24),
-                              ],
-                            ),
+                                    const SizedBox(height: 24),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),

@@ -1153,7 +1153,7 @@ class _IncomingNearbyDescriptor {
     final subtitle = ((json['subtitle'] as String?) ?? '').trim();
     final country = (json['country'] as String?)?.trim();
     final durationRaw = json['durationSeconds'];
-    final duration = durationRaw is num ? durationRaw.toInt() : null;
+    final duration = MediaItem.normalizeDurationSeconds(durationRaw);
     final lyrics = (json['lyrics'] as String?)?.trim();
     final lyricsLanguage = (json['lyricsLanguage'] as String?)?.trim();
     final coverBase64 = (json['coverBase64'] as String?)?.trim();

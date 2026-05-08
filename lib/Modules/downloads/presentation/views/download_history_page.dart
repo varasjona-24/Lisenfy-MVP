@@ -8,7 +8,6 @@ import '../../../../app/routes/app_routes.dart';
 import '../../../../app/ui/themes/app_spacing.dart';
 import '../../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
-import '../../../../app/ui/widgets/media/media_history_group_section.dart';
 import '../../../../app/ui/widgets/media/media_history_item_tile.dart';
 import '../../../../app/ui/widgets/media/media_item_grid.dart';
 import '../../../home/controller/home_controller.dart';
@@ -42,14 +41,11 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
         child: Obx(() {
           final vm = controller.state.value;
           final isGrid = controller.gridView.value;
-          final isCalendar = controller.calendarMode.value;
           final dateRange = controller.dateFilterRange.value;
 
-          final selectedDayItems = isCalendar
-              ? (dateRange == 'all'
-                    ? controller.selectedDateItems()
-                    : controller.state.value.filteredItems)
-              : const <MediaItem>[];
+          final selectedItems = dateRange == 'byDay'
+              ? controller.selectedDateItems()
+              : controller.state.value.filteredItems;
 
           if (vm.status.isLoading && vm.groups.isEmpty) {
             return const Center(child: CircularProgressIndicator());
@@ -110,6 +106,7 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
             onRefresh: controller.loadHistory,
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
+              cacheExtent: 900,
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
@@ -132,20 +129,6 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                                 ),
                               ),
                             ),
-                            IconButton(
-                              onPressed: controller.toggleCalendarMode,
-                              style: IconButton.styleFrom(
-                                backgroundColor: scheme.surfaceContainerHigh,
-                              ),
-                              icon: Icon(
-                                isCalendar
-                                    ? Icons.calendar_month_rounded
-                                    : Icons.view_agenda_rounded,
-                                color: scheme.primary,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
                             IconButton(
                               onPressed: controller.toggleGridView,
                               style: IconButton.styleFrom(
@@ -171,79 +154,20 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                           selected: vm.filter,
                           onSelect: controller.setFilter,
                         ),
-                        if (isCalendar) ...[
-                          const SizedBox(height: 16),
-                          _BankingCalendarSection(controller: controller),
-                        ],
+                        const SizedBox(height: 16),
+                        _BankingCalendarSection(controller: controller),
                         const SizedBox(height: 24),
                       ],
                     ),
                   ),
                 ),
-                if (isCalendar)
-                  ..._calendarSlivers(
-                    context: context,
-                    items: selectedDayItems,
-                    isGrid: isGrid,
-                    onTap: (item) => openItem(item, selectedDayItems),
-                    onLongPress: (item) => showActions(item, selectedDayItems),
-                  )
-                else if (vm.groups.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.history_rounded,
-                            size: 64,
-                            color: scheme.outlineVariant.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No se encontraron registros.',
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.md,
-                      0,
-                      AppSpacing.md,
-                      AppSpacing.xl,
-                    ),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        final group = vm.groups[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 24),
-                          child: MediaHistoryGroupSection(
-                            group: group,
-                            expandedSections: vm.expandedSections,
-                            onToggle: controller.toggleSection,
-                            onTap: (item) {
-                              final list = vm.filteredItems.toList();
-                              openItem(item, list);
-                            },
-                            onLongPress: (item) => showActions(
-                              item,
-                              vm.filteredItems.toList(growable: false),
-                            ),
-                            timeBuilder: controller.formatTime,
-                            fallbackIcon: Icons.cloud_download_rounded,
-                            gridMode: isGrid,
-                          ),
-                        );
-                      }, childCount: vm.groups.length),
-                    ),
-                  ),
+                ..._calendarSlivers(
+                  context: context,
+                  items: selectedItems,
+                  isGrid: isGrid,
+                  onTap: (item) => openItem(item, selectedItems),
+                  onLongPress: (item) => showActions(item, selectedItems),
+                ),
               ],
             ),
           );
@@ -289,7 +213,7 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
       ];
     }
 
-    final groupedByDay = controller.itemsGroupedByDay();
+    final groupedByDay = controller.itemsGroupedByDay(items);
     final sortedDays = groupedByDay.keys.toList()
       ..sort((a, b) => b.compareTo(a));
 
@@ -386,33 +310,62 @@ class _BankingCalendarSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Date Range Filter Buttons
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 8),
+          child: Text(
+            'Filtro de fecha',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: scheme.onSurface,
+            ),
+          ),
+        ),
         Obx(() {
           final currentFilter = controller.dateFilterRange.value;
-          return Wrap(
-            spacing: 8,
-            children: [
-              _FilterButton(
-                label: 'Todo',
-                isActive: currentFilter == 'all',
-                onPressed: () => controller.filterByRange('all'),
+          return DropdownButtonFormField<String>(
+            initialValue: currentFilter,
+            isExpanded: true,
+            decoration: InputDecoration(
+              prefixIcon: Icon(Icons.date_range_rounded, color: scheme.primary),
+              filled: true,
+              fillColor: scheme.surfaceContainerHigh,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
               ),
-              _FilterButton(
-                label: 'Última semana',
-                isActive: currentFilter == 'lastWeek',
-                onPressed: () => controller.filterByRange('lastWeek'),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
               ),
-              _FilterButton(
-                label: 'Último mes',
-                isActive: currentFilter == 'lastMonth',
-                onPressed: () => controller.filterByRange('lastMonth'),
+            ),
+            items: [
+              const DropdownMenuItem(value: 'byDay', child: Text('Por día')),
+              const DropdownMenuItem(value: 'all', child: Text('Todo')),
+              const DropdownMenuItem(
+                value: 'lastWeek',
+                child: Text('Última semana'),
               ),
-              _FilterButton(
-                label: 'Personalizado',
-                isActive: currentFilter == 'custom',
-                onPressed: () => _showDateRangePicker(context),
+              const DropdownMenuItem(
+                value: 'lastMonth',
+                child: Text('Último mes'),
+              ),
+              DropdownMenuItem(
+                value: 'custom',
+                child: Text(
+                  currentFilter == 'custom'
+                      ? 'Personalizado (${controller.customDateRangeLabel()})'
+                      : 'Personalizado',
+                ),
               ),
             ],
+            onChanged: (value) {
+              if (value == null) return;
+              if (value == 'custom') {
+                _showDateRangePicker(context);
+                return;
+              }
+              controller.filterByRange(value);
+            },
           );
         }),
         const SizedBox(height: 16),
@@ -428,6 +381,7 @@ class _BankingCalendarSection extends StatelessWidget {
             currentDay: DateTime.now(),
             weekendDays: const [6, 7],
             calendarFormat: CalendarFormat.month,
+            availableGestures: AvailableGestures.horizontalSwipe,
             startingDayOfWeek: StartingDayOfWeek.monday,
             headerStyle: HeaderStyle(
               formatButtonVisible: false,
@@ -715,56 +669,5 @@ class _BankingCalendarSection extends StatelessWidget {
       }
       controller.setCustomDateRange(picked.start, picked.end);
     }
-  }
-}
-
-class _FilterButton extends StatelessWidget {
-  const _FilterButton({
-    required this.label,
-    required this.isActive,
-    required this.onPressed,
-  });
-
-  final String label;
-  final bool isActive;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: isActive ? scheme.primary : scheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(8),
-            border: isActive
-                ? null
-                : Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.3),
-                    width: 1,
-                  ),
-          ),
-          child: Text(
-            label,
-            style:
-                theme.textTheme.labelSmall?.copyWith(
-                  color: isActive ? scheme.onPrimary : scheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                ) ??
-                TextStyle(
-                  color: isActive ? scheme.onPrimary : scheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ),
-      ),
-    );
   }
 }

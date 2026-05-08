@@ -120,7 +120,7 @@ class ArtistDetailPage extends GetView<ArtistsController> {
       final thumb = resolved.thumbnailLocalPath ?? resolved.thumbnail;
       final country = (resolved.country ?? '').trim();
       final countryFlag = CountryCatalog.flagFromIso(resolved.countryCode);
-      final typeLabel = isBand ? 'Banda' : 'Cantante';
+      final typeLabel = resolved.kind.label;
       final typeCountryLine = country.isNotEmpty
           ? '$typeLabel - ${countryFlag.isEmpty ? country : '$countryFlag $country'}'
           : typeLabel;
@@ -214,7 +214,7 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                   const SizedBox(height: 20),
                 ],
                 _SongSection(
-                  title: isBand ? 'Canciones de la banda' : 'Canciones',
+                  title: isBand ? 'Canciones del grupo musical' : 'Canciones',
                   subtitle: '${primarySongs.length} como artista principal',
                   items: primarySongs,
                   onPlay: (item) => home.openMedia(
@@ -231,7 +231,7 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                         AppRoutes.homeSectionList,
                         arguments: {
                           'title': isBand
-                              ? 'Canciones de la banda'
+                              ? 'Canciones del grupo musical'
                               : 'Canciones',
                           'items': primarySongs,
                           'onItemTap': (MediaItem tapped, int index) =>
@@ -271,7 +271,7 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                   const SizedBox(height: 20),
                   _SongSection(
                     title: isBand
-                        ? 'Colaboraciones de la banda'
+                        ? 'Colaboraciones del grupo musical'
                         : 'Colaboraciones',
                     subtitle: '${collaborationSongs.length} como invitado',
                     items: collaborationSongs,
@@ -289,7 +289,7 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                           AppRoutes.homeSectionList,
                           arguments: {
                             'title': isBand
-                                ? 'Colaboraciones de la banda'
+                                ? 'Colaboraciones del grupo musical'
                                 : 'Colaboraciones',
                             'items': collaborationSongs,
                             'onItemTap': (MediaItem tapped, int index) =>
@@ -542,7 +542,7 @@ class _MemberArtistCard extends StatelessWidget {
               ),
             ),
             Text(
-              'Cantante',
+              ArtistProfileKind.singer.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(

@@ -263,37 +263,59 @@ class MediaItem {
   // ============================
   // 🧩 HELPERS
   // ============================
-  static int? _parseDurationToSeconds(dynamic raw) {
+  static const int _maxPlausibleDurationSeconds = 12 * 60 * 60;
+
+  static int? normalizeDurationSeconds(dynamic raw) {
     if (raw == null) return null;
 
     if (raw is num) {
-      var v = raw.toInt();
-      if (v > 100000) v = (v / 1000).round(); // ms -> s
-      return v >= 0 ? v : null;
+      return _normalizeDurationNumber(raw);
     }
 
     if (raw is String) {
       final s = raw.trim();
       if (s.isEmpty) return null;
 
-      if (s.contains(':')) {
-        final parts = s.split(':').map((p) => int.tryParse(p.trim())).toList();
-        if (parts.any((e) => e == null)) return null;
+      final clockDuration = _parseClockDuration(s);
+      if (clockDuration != null) return clockDuration;
 
-        if (parts.length == 3) {
-          return parts[0]! * 3600 + parts[1]! * 60 + parts[2]!;
-        }
-        if (parts.length == 2) {
-          return parts[0]! * 60 + parts[1]!;
-        }
-      }
-
-      var v = int.tryParse(s);
-      if (v == null) return null;
-      if (v > 100000) v = (v / 1000).round();
-      return v >= 0 ? v : null;
+      final parsed = num.tryParse(s);
+      if (parsed == null) return null;
+      return _normalizeDurationNumber(parsed);
     }
 
+    return null;
+  }
+
+  static int? _normalizeDurationNumber(num raw) {
+    var v = raw.toDouble();
+    if (v <= 0 || v.isNaN || v.isInfinite) return null;
+
+    while (v > _maxPlausibleDurationSeconds) {
+      v = v / 1000;
+    }
+
+    final seconds = v.round();
+    return seconds > 0 ? seconds : null;
+  }
+
+  static int? _parseDurationToSeconds(dynamic raw) {
+    return normalizeDurationSeconds(raw);
+  }
+
+  static int? _parseClockDuration(String raw) {
+    final s = raw.trim();
+    if (s.isEmpty || !s.contains(':')) return null;
+
+    final parts = s.split(':').map((p) => int.tryParse(p.trim())).toList();
+    if (parts.any((e) => e == null)) return null;
+
+    if (parts.length == 3) {
+      return parts[0]! * 3600 + parts[1]! * 60 + parts[2]!;
+    }
+    if (parts.length == 2) {
+      return parts[0]! * 60 + parts[1]!;
+    }
     return null;
   }
 

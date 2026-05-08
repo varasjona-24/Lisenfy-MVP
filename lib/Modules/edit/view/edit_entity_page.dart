@@ -936,14 +936,14 @@ class _EditEntityPageState extends State<EditEntityPage> {
                     labelText: 'Clasificacion',
                     prefixIcon: Icon(Icons.category_rounded),
                   ),
-                  items: const [
+                  items: [
                     DropdownMenuItem(
                       value: ArtistProfileKind.singer,
-                      child: Text('Cantante'),
+                      child: Text(ArtistProfileKind.singer.label),
                     ),
                     DropdownMenuItem(
                       value: ArtistProfileKind.band,
-                      child: Text('Banda'),
+                      child: Text(ArtistProfileKind.band.label),
                     ),
                   ],
                   onChanged: (value) {
@@ -967,7 +967,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Busca integrantes por nombre y selecciónalos para esta banda.',
+                    'Busca integrantes por nombre y selecciónalos para este dueto, banda o grupo musical.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -1060,11 +1060,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            subtitle: Text(
-                              entry.kind == ArtistProfileKind.band
-                                  ? 'Banda'
-                                  : 'Cantante',
-                            ),
+                            subtitle: Text(entry.kind.label),
                             onTap: () {
                               setState(() {
                                 if (isSelected) {

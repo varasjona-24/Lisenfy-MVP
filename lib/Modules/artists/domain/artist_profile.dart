@@ -8,6 +8,16 @@ extension ArtistProfileKindX on ArtistProfileKind {
     ArtistProfileKind.band => 'band',
   };
 
+  String get label => switch (this) {
+    ArtistProfileKind.singer => 'Musico',
+    ArtistProfileKind.band => 'Grupo musical',
+  };
+
+  String get sectionLabel => switch (this) {
+    ArtistProfileKind.singer => 'Solistas, DJ o Músicos',
+    ArtistProfileKind.band => 'Duetos, bandas o grupos musicales',
+  };
+
   static ArtistProfileKind fromRaw(dynamic raw) {
     final key = (raw ?? '').toString().trim().toLowerCase();
     if (key == 'band') return ArtistProfileKind.band;

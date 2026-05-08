@@ -41,28 +41,36 @@ class ArtistsPage extends GetView<ArtistsController> {
                         onRefresh: controller.load,
                         child: ScrollConfiguration(
                           behavior: const _NoGlowScrollBehavior(),
-                          child: SingleChildScrollView(
+                          child: CustomScrollView(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: EdgeInsets.only(
-                              top: AppSpacing.md,
-                              bottom: kBottomNavigationBarHeight + 18,
-                              left: AppSpacing.md,
-                              right: AppSpacing.md,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _header(theme),
-                                const SizedBox(height: AppSpacing.md),
-                                _recentArtists(theme),
-                                const SizedBox(height: AppSpacing.lg),
-                                _searchField(theme),
-                                const SizedBox(height: AppSpacing.md),
-                                _summaryRow(theme, context),
-                                const SizedBox(height: AppSpacing.md),
-                                _artistList(),
-                              ],
-                            ),
+                            slivers: [
+                              SliverPadding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppSpacing.md,
+                                  AppSpacing.md,
+                                  AppSpacing.md,
+                                  AppSpacing.md,
+                                ),
+                                sliver: SliverList.list(
+                                  children: [
+                                    _header(theme),
+                                    const SizedBox(height: AppSpacing.md),
+                                    _recentArtists(theme),
+                                    const SizedBox(height: AppSpacing.lg),
+                                    _searchField(theme),
+                                    const SizedBox(height: AppSpacing.md),
+                                    _summaryRow(theme, context),
+                                    const SizedBox(height: AppSpacing.md),
+                                  ],
+                                ),
+                              ),
+                              ..._artistSlivers(),
+                              const SliverToBoxAdapter(
+                                child: SizedBox(
+                                  height: kBottomNavigationBarHeight + 18,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -186,88 +194,98 @@ class ArtistsPage extends GetView<ArtistsController> {
     });
   }
 
-  Widget _artistList() {
-    return Obx(() {
-      final list = controller.filtered;
-      if (list.isEmpty) {
-        return Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Text(
-              'No hay artistas disponibles.',
-              style: Get.textTheme.bodyMedium?.copyWith(
-                color: Get.theme.colorScheme.onSurfaceVariant,
+  List<Widget> _artistSlivers() {
+    final list = controller.filtered;
+    if (list.isEmpty) {
+      return [
+        SliverToBoxAdapter(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Text(
+                'No hay artistas disponibles.',
+                style: Get.textTheme.bodyMedium?.copyWith(
+                  color: Get.theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
-        );
-      }
+        ),
+      ];
+    }
 
-      final bands = list
-          .where((artist) => artist.kind == ArtistProfileKind.band)
-          .toList(growable: false);
-      final singers = list
-          .where((artist) => artist.kind != ArtistProfileKind.band)
-          .toList(growable: false);
+    final bands = list
+        .where((artist) => artist.kind == ArtistProfileKind.band)
+        .toList(growable: false);
+    final singers = list
+        .where((artist) => artist.kind != ArtistProfileKind.band)
+        .toList(growable: false);
 
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (bands.isNotEmpty) ...[
-            _ArtistSectionHeader(
-              title: 'Bandas',
-              count: bands.length,
-              minimized: controller.bandsMinimized.value,
-              onToggle: controller.toggleBandsMinimized,
+    return [
+      if (bands.isNotEmpty) ...[
+        _artistSectionHeaderSliver(
+          title: ArtistProfileKind.band.sectionLabel,
+          count: bands.length,
+          minimized: controller.bandsMinimized.value,
+          onToggle: controller.toggleBandsMinimized,
+        ),
+        if (!controller.bandsMinimized.value) _artistListSliver(bands),
+      ],
+      if (singers.isNotEmpty) ...[
+        if (bands.isNotEmpty)
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+        _artistSectionHeaderSliver(
+          title: ArtistProfileKind.singer.sectionLabel,
+          count: singers.length,
+          minimized: controller.singersMinimized.value,
+          onToggle: controller.toggleSingersMinimized,
+        ),
+        if (!controller.singersMinimized.value) _artistListSliver(singers),
+      ],
+    ];
+  }
+
+  Widget _artistSectionHeaderSliver({
+    required String title,
+    required int count,
+    required bool minimized,
+    required VoidCallback onToggle,
+  }) {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, 8),
+      sliver: SliverToBoxAdapter(
+        child: _ArtistSectionHeader(
+          title: title,
+          count: count,
+          minimized: minimized,
+          onToggle: onToggle,
+        ),
+      ),
+    );
+  }
+
+  Widget _artistListSliver(List<ArtistGroup> artists) {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      sliver: SliverList.builder(
+        itemCount: artists.length,
+        itemBuilder: (context, index) {
+          final artist = artists[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _ArtistCard(
+              artist: artist,
+              onOpen: () =>
+                  Get.toNamed(AppRoutes.artistDetail, arguments: artist.key),
+              onEdit: () => Get.toNamed(
+                AppRoutes.editEntity,
+                arguments: EditEntityArgs.artist(artist),
+              ),
             ),
-            const SizedBox(height: 8),
-            if (!controller.bandsMinimized.value)
-              for (final artist in bands) ...[
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _ArtistCard(
-                    artist: artist,
-                    onOpen: () => Get.toNamed(
-                      AppRoutes.artistDetail,
-                      arguments: artist.key,
-                    ),
-                    onEdit: () => Get.toNamed(
-                      AppRoutes.editEntity,
-                      arguments: EditEntityArgs.artist(artist),
-                    ),
-                  ),
-                ),
-              ],
-          ],
-          if (singers.isNotEmpty) ...[
-            if (bands.isNotEmpty) const SizedBox(height: 8),
-            _ArtistSectionHeader(
-              title: 'Cantantes',
-              count: singers.length,
-              minimized: controller.singersMinimized.value,
-              onToggle: controller.toggleSingersMinimized,
-            ),
-            const SizedBox(height: 8),
-            if (!controller.singersMinimized.value)
-              for (final artist in singers)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _ArtistCard(
-                    artist: artist,
-                    onOpen: () => Get.toNamed(
-                      AppRoutes.artistDetail,
-                      arguments: artist.key,
-                    ),
-                    onEdit: () => Get.toNamed(
-                      AppRoutes.editEntity,
-                      arguments: EditEntityArgs.artist(artist),
-                    ),
-                  ),
-                ),
-          ],
-        ],
-      );
-    });
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _openSortSheet(BuildContext context) async {
@@ -460,9 +478,7 @@ class _ArtistCard extends StatelessWidget {
     final thumb = artist.thumbnailLocalPath ?? artist.thumbnail;
     final country = (artist.country ?? '').trim();
     final flag = CountryCatalog.flagFromIso(artist.countryCode);
-    final typeLabel = artist.kind == ArtistProfileKind.band
-        ? 'Banda'
-        : 'Cantante';
+    final typeLabel = artist.kind.label;
     final typeCountryLine = country.isNotEmpty
         ? '$typeLabel - ${flag.isEmpty ? country : '$flag $country'}'
         : typeLabel;
@@ -508,9 +524,7 @@ class _ArtistCoverCard extends StatelessWidget {
     final thumb = artist.thumbnailLocalPath ?? artist.thumbnail;
     final country = (artist.country ?? '').trim();
     final flag = CountryCatalog.flagFromIso(artist.countryCode);
-    final typeLabel = artist.kind == ArtistProfileKind.band
-        ? 'Banda'
-        : 'Cantante';
+    final typeLabel = artist.kind.label;
     final typeCountryLine = country.isNotEmpty
         ? '$typeLabel - ${flag.isEmpty ? country : '$flag $country'}'
         : typeLabel;

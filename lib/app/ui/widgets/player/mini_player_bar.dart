@@ -26,7 +26,9 @@ class MiniPlayerBar extends StatelessWidget {
           (Get.isDialogOpen ?? false) ||
           route == AppRoutes.entry ||
           route == AppRoutes.audioPlayer ||
-          route == AppRoutes.videoPlayer) {
+          route == AppRoutes.audioQueue ||
+          route == AppRoutes.videoPlayer ||
+          route == AppRoutes.videoQueue) {
         return const SizedBox.shrink();
       }
 
@@ -41,7 +43,8 @@ class MiniPlayerBar extends StatelessWidget {
       }
 
       final audioActive =
-          audio.state.value != PlaybackState.stopped || audio.keepLastItem;
+          !audio.miniPlayerDismissed.value &&
+          (audio.state.value != PlaybackState.stopped || audio.keepLastItem);
 
       // El mini player es exclusivo de audio.
       // El video se pausa al salir del reproductor, no necesita mini player.

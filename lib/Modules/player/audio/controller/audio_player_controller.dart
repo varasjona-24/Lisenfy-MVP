@@ -502,28 +502,23 @@ class AudioPlayerController extends GetxController {
     required bool allowResumePrompt,
   }) async {
     if (index < 0 || index >= queue.length) return;
-    if (index == currentIndex.value) return;
     if (recordSkip) {
       await _recordTransitionSkipIfNeeded();
     }
 
-    final targetItem = queue[index];
-    final resumePosition = allowResumePrompt
-        ? await _resolveStartPositionForItem(targetItem)
-        : Duration.zero;
     _ignorePositionPersistUntil = DateTime.now().add(
       const Duration(milliseconds: 900),
     );
 
-    if (!isShuffling.value && audioService.hasSourceLoaded) {
-      await audioService.stop();
-      _ignorePositionPersistUntil = DateTime.now().add(
-        const Duration(milliseconds: 900),
-      );
+    currentIndex.value = index;
+    if (audioService.hasSourceLoaded &&
+        _sameQueue(queue, audioService.queueItems)) {
+      await audioService.jumpToQueueIndex(index);
+      _syncFromService();
+      return;
     }
 
-    currentIndex.value = index;
-    await _playCurrent(forceReload: true, resumePosition: resumePosition);
+    await _playCurrent(forceReload: true, resumePosition: Duration.zero);
   }
 
   Future<void> next({bool recordSkip = true}) async {
@@ -584,6 +579,15 @@ class AudioPlayerController extends GetxController {
   Future<void> reorderQueue(int oldIndex, int newIndex) async {
     if (oldIndex < 0 || oldIndex >= queue.length) return;
     if (newIndex < 0 || newIndex > queue.length) return;
+
+    final serviceCanReorder =
+        audioService.hasSourceLoaded &&
+        _sameQueue(queue, audioService.queueItems);
+    if (serviceCanReorder) {
+      await audioService.reorderQueue(oldIndex, newIndex);
+      _syncFromService();
+      return;
+    }
 
     if (newIndex > oldIndex) newIndex -= 1;
 
@@ -654,6 +658,17 @@ class AudioPlayerController extends GetxController {
     } else {
       duration.value = Duration.zero;
     }
+  }
+
+  bool _sameQueue(List<MediaItem> a, List<MediaItem> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id == b[i].id) continue;
+      final ap = a[i].publicId.trim();
+      final bp = b[i].publicId.trim();
+      if (ap.isEmpty || bp.isEmpty || ap != bp) return false;
+    }
+    return true;
   }
 
   Future<void> setSpatialMode(SpatialAudioMode mode) async {

@@ -878,7 +878,7 @@ class _IncomingShareMetadata {
     return _IncomingShareMetadata(
       audioFileNameLower: audioFileName?.toLowerCase(),
       audioSizeBytes: sizeRaw is num ? sizeRaw.toInt() : null,
-      durationSeconds: durationRaw is num ? durationRaw.toInt() : null,
+      durationSeconds: MediaItem.normalizeDurationSeconds(durationRaw),
       coverBase64: (coverBase64 == null || coverBase64.isEmpty)
           ? null
           : coverBase64,

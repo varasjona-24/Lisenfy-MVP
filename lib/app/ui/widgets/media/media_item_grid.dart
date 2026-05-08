@@ -59,6 +59,7 @@ class MediaItemGrid extends StatelessWidget {
           shrinkWrap: shrinkWrap,
           physics: physics,
           itemCount: items.length,
+          addAutomaticKeepAlives: false,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: AppGridTheme.getCrossAxisCount(
               constraints.maxWidth,
@@ -140,6 +141,7 @@ class MediaItemSliverGrid extends StatelessWidget {
             delegate: SliverChildBuilderDelegate(
               (context, index) => _buildTile(index),
               childCount: items.length,
+              addAutomaticKeepAlives: false,
             ),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: AppGridTheme.getCrossAxisCount(

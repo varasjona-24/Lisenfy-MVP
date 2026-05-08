@@ -15,13 +15,16 @@ class MediaGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossAxisCount = AppGridTheme.getCrossAxisCount(constraints.maxWidth);
+        final crossAxisCount = AppGridTheme.getCrossAxisCount(
+          constraints.maxWidth,
+        );
 
         return AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           child: GridView.builder(
             key: ValueKey(crossAxisCount),
             padding: const EdgeInsets.all(AppSpacing.md),
+            addAutomaticKeepAlives: false,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
               crossAxisSpacing: AppGridTheme.spacing,
