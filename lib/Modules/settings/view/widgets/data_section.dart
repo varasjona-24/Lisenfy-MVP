@@ -179,8 +179,10 @@ class DataSection extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Incluye toda la media offline (audio, video e imágenes). '
-                              'Puede tardar varios minutos y generar archivos ZIP pesados.',
+                              'Incluye toda la media offline (audio, video, imágenes) '
+                              'y la configuración de la pantalla de inicio (orden y '
+                              'widgets). Los archivos se empaquetan sin comprimir '
+                              '(modo STORE) para mayor velocidad.',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 height: 1.25,
                               ),

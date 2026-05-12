@@ -354,6 +354,13 @@ class HomeController extends GetxController {
     _persistHomeLayout();
   }
 
+  /// Vuelve a leer la configuraci\u00f3n de widgets desde GetStorage y la aplica
+  /// a los observables reactivos. \u00datil tras restaurar un respaldo (backup),
+  /// donde el storage fue actualizado pero el controller ya estaba en memoria.
+  void reloadLayoutFromStorage() {
+    _restoreHomeLayout();
+  }
+
   void applyHomeLayoutSnapshot({
     required List<HomeWidgetId> order,
     required List<HomeWidgetId> enabled,

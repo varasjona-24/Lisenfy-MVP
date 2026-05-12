@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive_io.dart';
@@ -33,13 +34,17 @@ import '../../../Modules/recommendations/data/recommendation_feedback_store.dart
 import '../../../Modules/recommendations/application/recommendation_feedback_service.dart';
 import '../../../Modules/recommendations/domain/contracts/recommendation_engine.dart';
 
-// Comprime un directorio en ZIP fuera del hilo principal para evitar ANR.
+// Empaqueta un directorio en ZIP (sin compresión / STORE) fuera del hilo
+// principal para evitar ANR. STORE es mucho más rápido que Deflate porque no
+// necesita trabajo de CPU; el resultado es portátil y puede compartirse o
+// restaurarse exactamente igual que un ZIP comprimido.
 void _createZipIsolate(Map<String, dynamic> params) {
   final sourceDir = params['sourceDir'] as String;
   final zipPath = params['zipPath'] as String;
 
   final encoder = ZipFileEncoder();
-  encoder.create(zipPath);
+  // level: 0 → método STORE (sin compresión), el más rápido posible.
+  encoder.create(zipPath, level: 0);
   encoder.addDirectory(Directory(sourceDir), includeDirName: false);
   encoder.close();
 }
@@ -276,7 +281,9 @@ class BackupRestoreController extends GetxController {
     final confirmed = await _showActionDialog(
       title: 'Respaldo completo',
       subtitle:
-          'Incluye toda tu media offline (audio, video e imágenes) junto con la librería.',
+          'Incluye toda tu media offline (audio, video e imágenes), '
+          'la configuración de pantalla de inicio y la librería. '
+          'Los archivos se empaquetan sin comprimir (modo STORE) para mayor velocidad.',
       icon: Icons.archive_rounded,
       accent: Colors.orange,
       notes: [
@@ -287,7 +294,7 @@ class BackupRestoreController extends GetxController {
         'Archivos incluidos en la estimación: ${estimate.includedFiles}.',
         if (estimate.missingFiles > 0)
           'Archivos no encontrados (no se incluirán): ${estimate.missingFiles}.',
-        'Puede tardar varios minutos si tienes muchos archivos.',
+        'El empaquetado sin compresión es rápido pero genera ZIPs del mismo tamaño que los archivos originales.',
         'No cierres la app durante el proceso.',
       ],
       confirmText: 'Continuar',
@@ -1140,7 +1147,7 @@ class BackupRestoreController extends GetxController {
         topicPlaylistsJson.add(data);
       }
 
-      currentOperation.value = 'Comprimiendo archivo ZIP...';
+      currentOperation.value = 'Empaquetando archivo ZIP (sin comprimir)...';
       progress.value = 0.8;
 
       Map<String, dynamic> recommendationPayload = const {};
@@ -1154,6 +1161,25 @@ class BackupRestoreController extends GetxController {
             await Get.find<RecommendationFeedbackStore>().exportBackupPayload();
       }
 
+      // ── Configuración de widgets de pantalla de inicio ───────────────────
+      final homeStorage = GetStorage();
+      const homeWidgetOrderKey = 'home_widget_order';
+      const homeWidgetEnabledKey = 'home_widget_enabled';
+      const homeWidgetLayoutsKey = 'home_widget_layouts';
+      const homeCustomSectionsKey = 'home_custom_sections';
+
+      final homeLayoutPayload = <String, dynamic>{
+        homeWidgetOrderKey:
+            homeStorage.read<List>(homeWidgetOrderKey) ?? const [],
+        homeWidgetEnabledKey:
+            homeStorage.read<List>(homeWidgetEnabledKey) ?? const [],
+        homeWidgetLayoutsKey:
+            homeStorage.read<Map>(homeWidgetLayoutsKey) ?? const {},
+        homeCustomSectionsKey:
+            homeStorage.read<List>(homeCustomSectionsKey) ?? const [],
+      };
+      // ─────────────────────────────────────────────────────────────────────
+
       final manifest = <String, dynamic>{
         'version': 1,
         'createdAt': DateTime.now().toIso8601String(),
@@ -1166,6 +1192,7 @@ class BackupRestoreController extends GetxController {
         'sourceThemePills': pills.map((e) => e.toJson()).toList(),
         'sourceThemeTopics': topicsJson,
         'sourceThemeTopicPlaylists': topicPlaylistsJson,
+        'homeLayout': homeLayoutPayload,
         ...recommendationPayload,
         ...recommendationFeedbackPayload,
       };
@@ -1547,6 +1574,34 @@ class BackupRestoreController extends GetxController {
             await Get.find<RecommendationFeedbackService>().reloadFromStore();
           }
         }
+
+        // ── Restaurar configuración de widgets de pantalla de inicio ─────────
+        final rawHomeLayout = manifest['homeLayout'];
+        if (rawHomeLayout is Map) {
+          final GetStorage homeStorage = GetStorage();
+          const homeWidgetOrderKey = 'home_widget_order';
+          const homeWidgetEnabledKey = 'home_widget_enabled';
+          const homeWidgetLayoutsKey = 'home_widget_layouts';
+          const homeCustomSectionsKey = 'home_custom_sections';
+
+          final orderRaw = rawHomeLayout[homeWidgetOrderKey];
+          if (orderRaw is List && orderRaw.isNotEmpty) {
+            await homeStorage.write(homeWidgetOrderKey, orderRaw);
+          }
+          final enabledRaw = rawHomeLayout[homeWidgetEnabledKey];
+          if (enabledRaw is List && enabledRaw.isNotEmpty) {
+            await homeStorage.write(homeWidgetEnabledKey, enabledRaw);
+          }
+          final layoutsRaw = rawHomeLayout[homeWidgetLayoutsKey];
+          if (layoutsRaw is Map && layoutsRaw.isNotEmpty) {
+            await homeStorage.write(homeWidgetLayoutsKey, layoutsRaw);
+          }
+          final customRaw = rawHomeLayout[homeCustomSectionsKey];
+          if (customRaw is List && customRaw.isNotEmpty) {
+            await homeStorage.write(homeCustomSectionsKey, customRaw);
+          }
+        }
+        // ─────────────────────────────────────────────────────────────────────
       } else {
         debugPrint(
           'Backup import restored $restoredItems items using streaming manifest mode.',
@@ -1563,6 +1618,12 @@ class BackupRestoreController extends GetxController {
         await Get.find<DownloadsController>().load();
       }
       if (Get.isRegistered<HomeController>()) {
+        // 1) Primero forzamos que el controller relea el layout del storage
+        //    (orden, widgets habilitados, layouts, secciones personalizadas).
+        //    Si esto se omite, el controller mantiene su estado en memoria y
+        //    la configuraci\u00f3n restaurada no se ve hasta reiniciar la app.
+        Get.find<HomeController>().reloadLayoutFromStorage();
+        // 2) Luego recargamos los datos de media.
         await Get.find<HomeController>().loadHome();
       }
       if (Get.isRegistered<ArtistsController>()) {
@@ -1776,8 +1837,11 @@ class BackupRestoreController extends GetxController {
       }
     }
 
+    // En modo STORE el ZIP resultante tiene prácticamente el mismo tamaño que
+    // el contenido original (sin compresión), más overhead de cabeceras (~300 B
+    // por archivo). Usamos eso como estimación para que el diálogo sea preciso.
     final estimatedZipBytes =
-        contentBytes + (1024 * 1024) + (includedFiles * 256);
+        contentBytes + (1024 * 1024) + (includedFiles * 300);
 
     return _BackupEstimate(
       contentBytes: contentBytes,
