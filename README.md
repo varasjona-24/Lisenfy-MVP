@@ -15,7 +15,7 @@ No cloud, no tracking, no algorithms. Just your files, your metadata, your rules
 
 ---
 
-## Key Features (The Real Ones)
+## Key Features 
 
 Listenfy goes far beyond simple playback. It's a complete local media management system.
 
@@ -119,7 +119,7 @@ Listenfy goes far beyond simple playback. It's a complete local media management
 
 ## Screenshots
 
-TODO: Add actual screenshots here (calendar view, Atlas, Sources, player, backup dialog, etc.)
+Coming Soon
 
 ---
 
