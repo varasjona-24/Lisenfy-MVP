@@ -138,14 +138,6 @@ cd Lisenfy-MVP
 flutter pub get
 flutter run --release
 ```
-
-### Optional Backend (for 8D / vocal extraction)
-
-The backend repository is here: varasjona-24/Back
-It requires Python, Demucs, and ffmpeg. Follow its README.
-
----
-
 ## User Manual
 
 A full user manual is integrated inside the app (Settings -> Help).
