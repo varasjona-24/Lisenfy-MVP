@@ -157,6 +157,8 @@ const List<_GuideTopic> _guideTopics = [
     subtitle: 'Reproduccion, cola y extras de audio.',
     tips: [
       'El player de audio mantiene cola, miniplayer, favoritos, repeticion y reproduccion aleatoria.',
+      'Si cierras el miniplayer mientras suena una cancion, Listenfy conserva la cola para continuar despues; si pausas primero y luego lo cierras, esa sesion no se restaura al volver a abrir la app.',
+      'Si notas latencia o un corte breve al cambiar de cancion, pausa primero y luego elige la siguiente pista; ayuda especialmente con colas grandes, archivos pesados o Connect activo.',
       'El crossfade, ecualizador, temporizador de apagado y volumen por defecto viven en Configuracion > Audio.',
       'Sonido limpio detecta silencios largos y permite recortar solo los segmentos que elijas.',
       'Modo 8D e instrumental requieren el backend externo; cuando terminan, se guardan como variantes reutilizables offline.',
@@ -228,6 +230,7 @@ const List<_GuideTopic> _guideTopics = [
     tips: [
       'Listenfy Connect abre una URL o QR para controlar la reproduccion desde otro dispositivo en la misma red.',
       'Con colas muy grandes, Connect puede sentirse mas lento porque debe sincronizar mas estado.',
+      'Si un cambio de pista remoto se siente retrasado, pausa desde el telefono o desde Connect antes de elegir otra cancion.',
       'Puedes importar URLs o archivos desde el menu Compartir de Android.',
       'La transferencia P2P usa QR para enviar archivos y metadata sin depender de internet cuando el dispositivo lo permite.',
     ],

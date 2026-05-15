@@ -21,13 +21,7 @@ class LocalConnectPlaybackSync {
   static final RegExp _parenChunkPattern = RegExp(r'\([^)]*\)|\[[^\]]*\]');
 
   String queueSignature() {
-    final ids = _audioService.queueItems
-        .map(
-          (item) =>
-              '${item.id}:${item.title}:${item.displaySubtitle}:${item.effectiveThumbnail ?? ''}',
-        )
-        .join('|');
-    return '$ids#${_audioService.currentQueueIndex}';
+    return '${_audioService.queueRevision}:${_audioService.queueLength}:${_audioService.currentQueueIndex}';
   }
 
   String trackSignature() {
@@ -53,6 +47,9 @@ class LocalConnectPlaybackSync {
         current?.effectiveDurationSeconds;
     final positionMs = _audioService.currentPosition.inMilliseconds;
     final artistProfileCache = <String, Map<String, dynamic>?>{};
+    final queue = includeQueue ? _audioService.queueItems : const <MediaItem>[];
+    final currentQueueIndex = _audioService.currentQueueIndex;
+    final queueLength = includeQueue ? queue.length : _audioService.queueLength;
 
     return <String, dynamic>{
       'track': _trackToJson(current, artistProfileCache: artistProfileCache),
@@ -66,7 +63,7 @@ class LocalConnectPlaybackSync {
         'shuffleEnabled': _audioService.shuffleEnabled,
       },
       if (includeQueue)
-        'queue': _audioService.queueItems
+        'queue': queue
             .map(
               (item) => _queueItemToJson(
                 item,
@@ -74,10 +71,9 @@ class LocalConnectPlaybackSync {
               ),
             )
             .toList(),
-      'currentQueueIndex': _audioService.currentQueueIndex,
-      'hasNext':
-          _audioService.currentQueueIndex < _audioService.queueItems.length - 1,
-      'hasPrevious': _audioService.currentQueueIndex > 0,
+      'currentQueueIndex': currentQueueIndex,
+      'hasNext': currentQueueIndex < queueLength - 1,
+      'hasPrevious': currentQueueIndex > 0,
     };
   }
 

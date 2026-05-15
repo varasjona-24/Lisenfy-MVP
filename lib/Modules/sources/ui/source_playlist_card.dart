@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
+import '../../../app/controllers/navigation_controller.dart';
 import '../domain/source_theme.dart';
 import '../domain/source_theme_topic_playlist.dart';
 
@@ -148,7 +150,10 @@ class _SourcePlaylistCardState extends State<SourcePlaylistCard> {
                             ),
                           ),
                           PopupMenuButton<_SourcePlaylistAction>(
+                            onOpened: () => _setOverlayOpen(true),
+                            onCanceled: () => _setOverlayOpen(false),
                             onSelected: (value) {
+                              _setOverlayOpen(false);
                               if (value == _SourcePlaylistAction.edit) {
                                 widget.onEdit();
                               }
@@ -190,6 +195,11 @@ class _SourcePlaylistCardState extends State<SourcePlaylistCard> {
 }
 
 enum _SourcePlaylistAction { edit, delete }
+
+void _setOverlayOpen(bool value) {
+  if (!Get.isRegistered<NavigationController>()) return;
+  Get.find<NavigationController>().setOverlayOpen(value);
+}
 
 class _SourcePlaylistMetricChip extends StatelessWidget {
   const _SourcePlaylistMetricChip({required this.icon, required this.label});

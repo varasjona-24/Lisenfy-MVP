@@ -93,11 +93,7 @@ class AudioPlayerController extends GetxController {
       _handlingCompleted = true;
       try {
         final modeAtCompletion = repeatMode.value;
-        await _recordSessionForCurrent(
-          markCompleted: true,
-          forceProgress: 1.0,
-          resetSessionAfterRecord: true,
-        );
+        _recordCompletedSessionInBackground();
 
         if (modeAtCompletion == RepeatMode.once) {
           await audioService.seek(Duration.zero);
@@ -115,7 +111,8 @@ class AudioPlayerController extends GetxController {
         }
 
         if (_settings.autoPlayNext.value) {
-          await next(recordSkip: false);
+          await audioService.next(withTransition: true);
+          _syncFromService();
         } else {
           await audioService.pause();
         }
@@ -868,12 +865,31 @@ class AudioPlayerController extends GetxController {
   }
 
   Future<void> _runAutoNextTransition() async {
-    await _recordSessionForCurrent(
-      markCompleted: true,
-      forceProgress: 1.0,
-      resetSessionAfterRecord: true,
-    );
+    _recordCompletedSessionInBackground();
     await audioService.next(withTransition: true);
+  }
+
+  void _recordCompletedSessionInBackground() {
+    final item = audioService.currentItem.value;
+    if (item == null) return;
+
+    final key = _stableTrackKey(item);
+    if (_completionLoggedTrackKey == key) return;
+
+    _captureSessionProgress();
+    _completionLoggedTrackKey = key;
+    _countedCurrentSession = false;
+    _sessionMaxProgress = 0;
+
+    unawaited(
+      Future<void>.delayed(const Duration(milliseconds: 700), () {
+        return _applyPlaybackMetrics(
+          item,
+          sessionProgress: 1.0,
+          markCompleted: true,
+        );
+      }),
+    );
   }
 
   Future<void> _runRepeatSingleOnce() async {
@@ -1034,11 +1050,13 @@ class AudioPlayerController extends GetxController {
         duration.value >= const Duration(seconds: 20);
     final skipThreshold = minDurationForStrictSkip ? 0.90 : 0.75;
     final shouldSkip = progress < skipThreshold;
+    final shouldMarkCompleted = !shouldSkip;
 
     await _recordSessionForCurrent(
+      markCompleted: shouldMarkCompleted,
       forceSkip: shouldSkip,
-      forceProgress: progress,
-      resetSessionAfterRecord: shouldSkip,
+      forceProgress: shouldMarkCompleted ? 1.0 : progress,
+      resetSessionAfterRecord: true,
     );
   }
 

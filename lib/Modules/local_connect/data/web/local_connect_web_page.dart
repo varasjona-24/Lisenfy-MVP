@@ -2286,8 +2286,9 @@ String buildLocalConnectWebPage() {
       if (state.sessionPollTimer) return;
       state.sessionPollTimer = setInterval(() => {
         if (!state.token) return;
+        if (state.wsConnected && !state.syncUnstable) return;
         loadSession();
-      }, 2000);
+      }, 8000);
     }
 
     function startHealthMonitor() {

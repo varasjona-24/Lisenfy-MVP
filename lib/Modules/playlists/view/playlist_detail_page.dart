@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../app/controllers/media_actions_controller.dart';
+import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
@@ -403,6 +404,10 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
     required MediaActionsController actions,
     required bool canRemoveFromPlaylist,
   }) async {
+    final nav = Get.isRegistered<NavigationController>()
+        ? Get.find<NavigationController>()
+        : null;
+    nav?.setOverlayOpen(true);
     final action = await showModalBottomSheet<_TrackAction>(
       context: context,
       showDragHandle: true,
@@ -427,7 +432,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
           ),
         );
       },
-    );
+    ).whenComplete(() => nav?.setOverlayOpen(false));
     if (action == null || !context.mounted) return;
     await _handleTrackAction(
       context: context,

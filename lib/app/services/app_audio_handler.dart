@@ -18,6 +18,7 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     required bool hasSourceLoaded,
     required Duration position,
     required double speed,
+    required int queueIndex,
   }) async {
     final processingState = buffering
         ? AudioProcessingState.buffering
@@ -43,6 +44,7 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         processingState: processingState,
         playing: playing,
         updatePosition: position,
+        queueIndex: queueIndex,
         speed: speed,
       ),
     );
@@ -107,5 +109,4 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
 
   @override
   Future<void> playMediaItem(MediaItem mediaItem) async {}
-
 }

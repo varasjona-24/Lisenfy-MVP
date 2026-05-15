@@ -43,6 +43,8 @@ class LocalConnectServerService extends GetxService {
   String _lastTrackSignature = '';
   String _lastPlaybackSignature = '';
   String _lastQueueSignature = '';
+  String _lastStateSignature = '';
+  DateTime _lastMaintenanceAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   final RxBool isRunning = false.obs;
   final RxString serverUrl = ''.obs;
@@ -93,8 +95,7 @@ class LocalConnectServerService extends GetxService {
 
       _playbackTicker?.cancel();
       _playbackTicker = Timer.periodic(const Duration(milliseconds: 450), (_) {
-        _pairingManager.cleanupExpired();
-        _refreshState();
+        _runPeriodicMaintenance();
         _tickPlaybackSync();
       });
 
@@ -763,11 +764,14 @@ class LocalConnectServerService extends GetxService {
   }) {
     final pairedClientIds = _authorizedSocketClients.toList();
     final staleClientIds = <String>[];
+    final isProgressUpdate = type == 'progressUpdated';
     for (final clientId in pairedClientIds) {
-      final touched = _pairingManager.touchClient(
-        clientId: clientId,
-        isConnected: _socketByClientId.containsKey(clientId),
-      );
+      final touched = isProgressUpdate
+          ? _pairingManager.findSessionByClientId(clientId)
+          : _pairingManager.touchClient(
+              clientId: clientId,
+              isConnected: _socketByClientId.containsKey(clientId),
+            );
       if (touched == null) {
         staleClientIds.add(clientId);
         continue;
@@ -970,9 +974,31 @@ class LocalConnectServerService extends GetxService {
     }
   }
 
+  void _runPeriodicMaintenance() {
+    final now = DateTime.now();
+    if (now.difference(_lastMaintenanceAt) < const Duration(seconds: 10)) {
+      return;
+    }
+    _lastMaintenanceAt = now;
+    _pairingManager.cleanupExpired();
+    _refreshState();
+  }
+
   void _refreshState() {
-    pendingRequests.assignAll(_pairingManager.pendingRequests);
-    sessions.assignAll(_pairingManager.sessions);
+    final nextPending = _pairingManager.pendingRequests;
+    final nextSessions = _pairingManager.sessions;
+    final nextSignature = [
+      for (final request in nextPending)
+        '${request.id}:${request.clientId}:${request.requestedAt.millisecondsSinceEpoch}',
+      '#',
+      for (final session in nextSessions)
+        '${session.clientId}:${session.expiresAt.millisecondsSinceEpoch}:${session.isConnected}',
+    ].join('|');
+
+    if (nextSignature == _lastStateSignature) return;
+    _lastStateSignature = nextSignature;
+    pendingRequests.assignAll(nextPending);
+    sessions.assignAll(nextSessions);
   }
 
   void _onPendingRequestsChanged(List<LocalConnectPairingRequest> requests) {

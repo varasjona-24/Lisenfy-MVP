@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../app/controllers/media_actions_controller.dart';
+import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/models/media_item.dart';
+import '../../../app/services/audio_service.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
@@ -50,6 +52,14 @@ class _SourceThemeTopicPlaylistPageState
   String? _playlistSizeLabel;
   String _subListQuery = '';
   _SourceSubListSort _subListSort = _SourceSubListSort.recent;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Get.isRegistered<AudioService>()) {
+      Get.find<AudioService>().pauseAndHideMiniPlayer();
+    }
+  }
 
   @override
   void dispose() {
@@ -599,6 +609,10 @@ class _SourceThemeTopicPlaylistPageState
     SourceThemeTopicPlaylist playlist,
     MediaItem item,
   ) async {
+    final nav = Get.isRegistered<NavigationController>()
+        ? Get.find<NavigationController>()
+        : null;
+    nav?.setOverlayOpen(true);
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -631,7 +645,7 @@ class _SourceThemeTopicPlaylistPageState
           ),
         );
       },
-    );
+    ).whenComplete(() => nav?.setOverlayOpen(false));
   }
 
   // ============================

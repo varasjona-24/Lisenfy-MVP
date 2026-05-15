@@ -14,6 +14,7 @@ import '../../../app/ui/themes/app_grid_theme.dart';
 import '../../../app/ui/widgets/media/media_item_grid.dart';
 
 import '../../../app/routes/app_routes.dart';
+import '../../../app/services/audio_service.dart';
 import '../../home/controller/home_controller.dart';
 import '../../edit/controller/edit_entity_controller.dart';
 import '../controller/sources_controller.dart';
@@ -55,6 +56,14 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
   _TopicSort _topicSort = _TopicSort.recent;
   Future<List<MediaItem>>? _itemsFuture;
   HomeMode? _itemsFutureMode;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Get.isRegistered<AudioService>()) {
+      Get.find<AudioService>().pauseAndHideMiniPlayer();
+    }
+  }
 
   @override
   void dispose() {

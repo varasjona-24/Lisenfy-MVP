@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../app/controllers/media_actions_controller.dart';
+import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/models/media_item.dart';
+import '../../../app/services/audio_service.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/themes/app_spacing.dart';
@@ -48,6 +50,14 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
   String? _topicSizeLabel;
   String _listQuery = '';
   _SourceListSort _listSort = _SourceListSort.recent;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Get.isRegistered<AudioService>()) {
+      Get.find<AudioService>().pauseAndHideMiniPlayer();
+    }
+  }
 
   @override
   void dispose() {
@@ -609,6 +619,10 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
   }
 
   Future<void> _showItemActions(SourceThemeTopic topic, MediaItem item) async {
+    final nav = Get.isRegistered<NavigationController>()
+        ? Get.find<NavigationController>()
+        : null;
+    nav?.setOverlayOpen(true);
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -641,7 +655,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           ),
         );
       },
-    );
+    ).whenComplete(() => nav?.setOverlayOpen(false));
   }
 
   Future<void> _openEditPlaylist(SourceThemeTopicPlaylist playlist) async {
