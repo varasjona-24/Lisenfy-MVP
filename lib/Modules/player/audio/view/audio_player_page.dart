@@ -41,6 +41,7 @@ class AudioPlayerPage extends StatefulWidget {
 
 class _AudioPlayerPageState extends State<AudioPlayerPage> {
   late final AudioPlayerController controller;
+  double _verticalDragDistance = 0;
 
   IconData _coverStyleIcon(CoverStyle style) {
     return switch (style) {
@@ -76,209 +77,230 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: AppGradientBackground(
-        child: SafeArea(
-          child: Obx(() {
-            final queue = controller.queue;
-            final idx = controller.currentIndex.value;
-            final coverStyle = controller.normalizeCoverStyle(
-              controller.coverStyle.value,
-            );
-            final item = (queue.isNotEmpty && idx >= 0 && idx < queue.length)
-                ? queue[idx]
-                : null;
-            final currentItem = controller.audioService.currentItem.value;
-            final currentVariant = controller.audioService.currentVariant.value;
-            final sameCurrentItem =
-                currentItem != null &&
-                (currentItem.id == item?.id ||
-                    (currentItem.publicId.trim().isNotEmpty &&
-                        currentItem.publicId.trim() == item?.publicId.trim()));
-            final isInstrumentalMode =
-                sameCurrentItem && (currentVariant?.isInstrumental ?? false);
-            final isSpatial8dMode =
-                sameCurrentItem && (currentVariant?.isSpatial8d ?? false);
-
-            if (item == null) {
-              return const Center(child: Text('No hay nada reproduciéndose'));
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onVerticalDragStart: (_) => _verticalDragDistance = 0,
+          onVerticalDragUpdate: (details) {
+            _verticalDragDistance += details.primaryDelta ?? 0;
+          },
+          onVerticalDragEnd: (details) {
+            final velocity = details.primaryVelocity ?? 0;
+            if (_verticalDragDistance > 96 || velocity > 720) {
+              Get.back();
             }
+            _verticalDragDistance = 0;
+          },
+          child: SafeArea(
+            child: Obx(() {
+              final queue = controller.queue;
+              final idx = controller.currentIndex.value;
+              final coverStyle = controller.normalizeCoverStyle(
+                controller.coverStyle.value,
+              );
+              final item = (queue.isNotEmpty && idx >= 0 && idx < queue.length)
+                  ? queue[idx]
+                  : null;
+              final currentItem = controller.audioService.currentItem.value;
+              final currentVariant =
+                  controller.audioService.currentVariant.value;
+              final sameCurrentItem =
+                  currentItem != null &&
+                  (currentItem.id == item?.id ||
+                      (currentItem.publicId.trim().isNotEmpty &&
+                          currentItem.publicId.trim() ==
+                              item?.publicId.trim()));
+              final isInstrumentalMode =
+                  sameCurrentItem && (currentVariant?.isInstrumental ?? false);
+              final isSpatial8dMode =
+                  sameCurrentItem && (currentVariant?.isSpatial8d ?? false);
 
-            return Column(
-              children: [
-                // ───────────────── Top Bar ─────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: Get.back,
-                      ),
-                      Expanded(
-                        child: Text(
-                          item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.titleSmall,
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Ver cola',
-                        icon: const Icon(Icons.playlist_play),
-                        onPressed: () => Get.toNamed(AppRoutes.audioQueue),
-                      ),
-                    ],
-                  ),
-                ),
+              if (item == null) {
+                return const Center(child: Text('No hay nada reproduciéndose'));
+              }
 
-                const Spacer(),
-
-                // ───────────────── Cover ─────────────────
-                CoverArt(controller: controller, item: item),
-
-                const SizedBox(height: 24),
-
-                // ───────────────── Info ─────────────────
-                Text(
-                  item.title,
-                  style: theme.textTheme.titleLarge,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(item.subtitle, style: theme.textTheme.bodyMedium),
-
-                const SizedBox(height: 24),
-
-                // ───────────────── Progress ─────────────────
-                const ProgressBar(),
-                const SizedBox(height: 10),
-
-                // ───────────────── Quick actions (balanced row) ─────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest
-                          .withValues(alpha: 0.38),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: theme.colorScheme.outline.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Column(
+              return Column(
+                children: [
+                  // ───────────────── Top Bar ─────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _PlayerQuickActionTile(
-                                icon: _coverStyleIcon(coverStyle),
-                                label: 'Visual',
-                                value: _coverStyleLabel(coverStyle),
-                                onTap: () => openPlayerVisualStyleSheet(
-                                  currentStyle: coverStyle,
-                                  options: AudioPlayerController
-                                      .availableCoverStyles,
-                                  onSelected: controller.setCoverStyle,
-                                ),
-                              ),
-                            ),
-                            _ActionDivider(color: theme.colorScheme.outline),
-                            Expanded(
-                              child: _PlayerQuickActionTile(
-                                icon: Icons.lyrics_rounded,
-                                label: 'Letras',
-                                value: null,
-                                onTap: () => openPlayerLyricsSheet(
-                                  item,
-                                  heightFactor: 0.72,
-                                ),
-                              ),
-                            ),
-                            _ActionDivider(color: theme.colorScheme.outline),
-                            Expanded(
-                              child: _PlayerQuickActionTile(
-                                icon: Icons.graphic_eq_rounded,
-                                label: 'Modo',
-                                value: isInstrumentalMode
-                                    ? 'Instrumental'
-                                    : isSpatial8dMode
-                                    ? '8D'
-                                    : 'Normal',
-                                onTap: () => openPlayerInstrumentalSheet(item),
-                              ),
-                            ),
-                          ],
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: Get.back,
                         ),
-                        Divider(
-                          color: theme.colorScheme.outline.withValues(
-                            alpha: 0.16,
+                        Expanded(
+                          child: Text(
+                            item.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.titleSmall,
                           ),
-                          height: 1,
                         ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Obx(() {
-                                final stereoOn =
-                                    controller.spatialMode.value ==
-                                    SpatialAudioMode.virtualizer;
-                                final lockedByBinaural =
-                                    controller.isSpatialModeLocked;
-                                final effectiveOn =
-                                    stereoOn || lockedByBinaural;
-                                return _PlayerQuickActionTile(
-                                  icon: Icons.surround_sound_rounded,
-                                  label: 'Estéreo',
-                                  value: effectiveOn ? 'On' : 'Off',
-                                  active: effectiveOn,
-                                  onTap: lockedByBinaural
-                                      ? null
-                                      : () => controller.setSpatialMode(
-                                          stereoOn
-                                              ? SpatialAudioMode.off
-                                              : SpatialAudioMode.virtualizer,
-                                        ),
-                                );
-                              }),
-                            ),
-                            _ActionDivider(color: theme.colorScheme.outline),
-                            Expanded(
-                              child: Obx(() {
-                                final repeatMode = controller.repeatMode.value;
-                                final repeatActive =
-                                    repeatMode != RepeatMode.off;
-                                final repeatOne = repeatMode == RepeatMode.once;
-                                return _PlayerQuickActionTile(
-                                  icon: repeatOne
-                                      ? Icons.repeat_one_rounded
-                                      : Icons.repeat_rounded,
-                                  label: 'Repetir',
-                                  value: repeatOne
-                                      ? 'Solo esta'
-                                      : repeatActive
-                                      ? 'Una vez'
-                                      : 'Off',
-                                  active: repeatActive,
-                                  onTap: controller.cycleRepeatMode,
-                                );
-                              }),
-                            ),
-                          ],
+                        IconButton(
+                          tooltip: 'Ver cola',
+                          icon: const Icon(Icons.playlist_play),
+                          onPressed: () => Get.toNamed(AppRoutes.audioQueue),
                         ),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                const SizedBox(height: 12),
 
-                // ───────────────── Controls ─────────────────
-                const PlaybackControls(),
+                  const Spacer(),
 
-                const Spacer(),
-              ],
-            );
-          }),
+                  // ───────────────── Cover ─────────────────
+                  CoverArt(controller: controller, item: item),
+
+                  const SizedBox(height: 24),
+
+                  // ───────────────── Info ─────────────────
+                  Text(
+                    item.title,
+                    style: theme.textTheme.titleLarge,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(item.subtitle, style: theme.textTheme.bodyMedium),
+
+                  const SizedBox(height: 24),
+
+                  // ───────────────── Progress ─────────────────
+                  const ProgressBar(),
+                  const SizedBox(height: 10),
+
+                  // ───────────────── Quick actions (balanced row) ─────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.38),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: theme.colorScheme.outline.withValues(
+                            alpha: 0.2,
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _PlayerQuickActionTile(
+                                  icon: _coverStyleIcon(coverStyle),
+                                  label: 'Visual',
+                                  value: _coverStyleLabel(coverStyle),
+                                  onTap: () => openPlayerVisualStyleSheet(
+                                    currentStyle: coverStyle,
+                                    options: AudioPlayerController
+                                        .availableCoverStyles,
+                                    onSelected: controller.setCoverStyle,
+                                  ),
+                                ),
+                              ),
+                              _ActionDivider(color: theme.colorScheme.outline),
+                              Expanded(
+                                child: _PlayerQuickActionTile(
+                                  icon: Icons.lyrics_rounded,
+                                  label: 'Letras',
+                                  value: null,
+                                  onTap: () => openPlayerLyricsSheet(
+                                    item,
+                                    heightFactor: 0.72,
+                                  ),
+                                ),
+                              ),
+                              _ActionDivider(color: theme.colorScheme.outline),
+                              Expanded(
+                                child: _PlayerQuickActionTile(
+                                  icon: Icons.graphic_eq_rounded,
+                                  label: 'Modo',
+                                  value: isInstrumentalMode
+                                      ? 'Instrumental'
+                                      : isSpatial8dMode
+                                      ? '8D'
+                                      : 'Normal',
+                                  onTap: () =>
+                                      openPlayerInstrumentalSheet(item),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Divider(
+                            color: theme.colorScheme.outline.withValues(
+                              alpha: 0.16,
+                            ),
+                            height: 1,
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Obx(() {
+                                  final stereoOn =
+                                      controller.spatialMode.value ==
+                                      SpatialAudioMode.virtualizer;
+                                  final lockedByBinaural =
+                                      controller.isSpatialModeLocked;
+                                  final effectiveOn =
+                                      stereoOn || lockedByBinaural;
+                                  return _PlayerQuickActionTile(
+                                    icon: Icons.surround_sound_rounded,
+                                    label: 'Estéreo',
+                                    value: effectiveOn ? 'On' : 'Off',
+                                    active: effectiveOn,
+                                    onTap: lockedByBinaural
+                                        ? null
+                                        : () => controller.setSpatialMode(
+                                            stereoOn
+                                                ? SpatialAudioMode.off
+                                                : SpatialAudioMode.virtualizer,
+                                          ),
+                                  );
+                                }),
+                              ),
+                              _ActionDivider(color: theme.colorScheme.outline),
+                              Expanded(
+                                child: Obx(() {
+                                  final repeatMode =
+                                      controller.repeatMode.value;
+                                  final repeatActive =
+                                      repeatMode != RepeatMode.off;
+                                  final repeatOne =
+                                      repeatMode == RepeatMode.once;
+                                  return _PlayerQuickActionTile(
+                                    icon: repeatOne
+                                        ? Icons.repeat_one_rounded
+                                        : Icons.repeat_rounded,
+                                    label: 'Repetir',
+                                    value: repeatOne
+                                        ? 'Solo esta'
+                                        : repeatActive
+                                        ? 'Una vez'
+                                        : 'Off',
+                                    active: repeatActive,
+                                    onTap: controller.cycleRepeatMode,
+                                  );
+                                }),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
+
+                  // ───────────────── Controls ─────────────────
+                  const PlaybackControls(),
+
+                  const Spacer(),
+                ],
+              );
+            }),
+          ),
         ),
       ),
     );
