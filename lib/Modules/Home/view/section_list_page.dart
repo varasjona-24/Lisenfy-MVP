@@ -612,7 +612,9 @@ class _SectionListPageState extends State<SectionListPage> {
           sliver: MediaItemSliverGrid(
             items: _items,
             hintBuilder: widget.itemHintBuilder,
-            coverOverlayBuilder: widget.itemTrailingBuilder,
+            coverOverlayBuilder: widget.sourceId == HomeWidgetId.mostPlayed
+                ? (item, index) => _PlayCountCoverBadge(item: item)
+                : null,
             onTap: (item, index) async {
               await _openItem(item, index);
               if (mounted) setState(() {});
@@ -887,6 +889,43 @@ class _MediaRow extends StatelessWidget {
 }
 
 enum _FeedbackAction { selectMultiple, interested, hideTrack, hideArtist }
+
+class _PlayCountCoverBadge extends StatelessWidget {
+  const _PlayCountCoverBadge({required this.item});
+
+  final MediaItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: scheme.scrim.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.38)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.remove_red_eye_rounded, size: 13, color: scheme.primary),
+          Text(
+            '${item.playCount}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: scheme.onSurface,
+              fontWeight: FontWeight.w900,
+              height: 0.95,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _SortOption extends StatelessWidget {
   const _SortOption({

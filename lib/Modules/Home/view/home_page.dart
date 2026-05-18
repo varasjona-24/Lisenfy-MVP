@@ -1879,7 +1879,8 @@ class _SectionHeader extends StatelessWidget {
           children: [
             Expanded(child: Text(title, style: titleStyle)),
             if (trailing != null) ...[trailing!, const SizedBox(width: 8)],
-            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+            if (onTap != null)
+              Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
           ],
         ),
       ),

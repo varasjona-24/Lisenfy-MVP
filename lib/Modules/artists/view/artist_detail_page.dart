@@ -6,6 +6,7 @@ import 'package:get_storage/get_storage.dart';
 
 import '../../../app/models/media_item.dart';
 import '../../../app/controllers/media_actions_controller.dart';
+import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
 import 'package:listenfy/Modules/home/controller/home_controller.dart';
@@ -577,18 +578,99 @@ class _SongSection extends StatefulWidget {
 
 class _SongSectionState extends State<_SongSection> {
   bool _gridMode = false;
+  HomeMediaSort _sort = HomeMediaSort.title;
+  bool _sortAscending = true;
   final GetStorage _storage = GetStorage();
 
   @override
   void initState() {
     super.initState();
     _gridMode = _storage.read('artist_detail_grid_view') ?? false;
+    _sort = _readSort();
+    _sortAscending = _storage.read('artist_detail_song_sort_ascending') ?? true;
+  }
+
+  HomeMediaSort _readSort() {
+    final raw = (_storage.read('artist_detail_song_sort') as String?)?.trim();
+    for (final option in _sortOptions) {
+      if (option.key == raw) return option;
+    }
+    return HomeMediaSort.title;
+  }
+
+  List<HomeMediaSort> get _sortOptions => const [
+    HomeMediaSort.title,
+    HomeMediaSort.artist,
+    HomeMediaSort.importedAt,
+    HomeMediaSort.size,
+    HomeMediaSort.plays,
+    HomeMediaSort.duration,
+    HomeMediaSort.recent,
+  ];
+
+  List<MediaItem> get _sortedItems {
+    final list = widget.items.toList(growable: true);
+    int compareString(String a, String b) =>
+        a.toLowerCase().compareTo(b.toLowerCase());
+
+    list.sort((a, b) {
+      final result = switch (_sort) {
+        HomeMediaSort.title => compareString(a.title, b.title),
+        HomeMediaSort.artist => compareString(
+          a.displaySubtitle,
+          b.displaySubtitle,
+        ),
+        HomeMediaSort.importedAt => _latestVariantCreatedAt(
+          a,
+        ).compareTo(_latestVariantCreatedAt(b)),
+        HomeMediaSort.size => _localSizeBytes(a).compareTo(_localSizeBytes(b)),
+        HomeMediaSort.plays => a.playCount.compareTo(b.playCount),
+        HomeMediaSort.duration => (a.effectiveDurationSeconds ?? 0).compareTo(
+          b.effectiveDurationSeconds ?? 0,
+        ),
+        HomeMediaSort.recent => (a.lastPlayedAt ?? 0).compareTo(
+          b.lastPlayedAt ?? 0,
+        ),
+      };
+      if (result != 0) return _sortAscending ? result : -result;
+      return compareString(a.title, b.title);
+    });
+    return list;
+  }
+
+  int _latestVariantCreatedAt(MediaItem item) {
+    var maxTs = 0;
+    for (final variant in item.variants) {
+      if (variant.localPath?.trim().isNotEmpty != true) continue;
+      if (variant.createdAt > maxTs) maxTs = variant.createdAt;
+    }
+    return maxTs;
+  }
+
+  int _localSizeBytes(MediaItem item) {
+    var total = 0;
+    for (final variant in item.variants) {
+      if (variant.localPath?.trim().isNotEmpty != true) continue;
+      total += variant.size ?? 0;
+    }
+    return total;
+  }
+
+  void _setSort(HomeMediaSort value) {
+    setState(() => _sort = value);
+    _storage.write('artist_detail_song_sort', value.key);
+  }
+
+  void _setSortAscending(bool value) {
+    setState(() => _sortAscending = value);
+    _storage.write('artist_detail_song_sort_ascending', value);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (widget.items.isEmpty) return const SizedBox.shrink();
+    final items = _sortedItems;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -615,6 +697,11 @@ class _SongSectionState extends State<_SongSection> {
                 _gridMode ? Icons.grid_view_rounded : Icons.view_list_rounded,
               ),
             ),
+            IconButton(
+              tooltip: 'Ordenar',
+              onPressed: () => _openSortSheet(context),
+              icon: const Icon(Icons.sort_rounded),
+            ),
           ],
         ),
         Text(
@@ -626,7 +713,7 @@ class _SongSectionState extends State<_SongSection> {
         const SizedBox(height: 8),
         if (_gridMode)
           MediaItemGrid(
-            items: widget.items,
+            items: items,
             onTap: (item, index) => widget.onPlay(item),
             onLongPress: (item, index) => widget.onMore(item),
             shrinkWrap: true,
@@ -636,13 +723,169 @@ class _SongSectionState extends State<_SongSection> {
             mainAxisSpacing: AppGridTheme.spacing,
           )
         else
-          for (final item in widget.items)
+          for (final item in items)
             _SongTile(
               item: item,
               onPlay: () => widget.onPlay(item),
               onLongPress: () => widget.onMore(item),
             ),
       ],
+    );
+  }
+
+  Future<void> _openSortSheet(BuildContext context) async {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final nav = Get.isRegistered<NavigationController>()
+        ? Get.find<NavigationController>()
+        : null;
+    nav?.setOverlayOpen(true);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: scheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            void updateSort(HomeMediaSort value) {
+              _setSort(value);
+              setSheetState(() {});
+            }
+
+            void updateDirection(bool value) {
+              _setSortAscending(value);
+              setSheetState(() {});
+            }
+
+            return SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ordenar canciones',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    for (final option in _sortOptions)
+                      _ArtistSongSortOption(
+                        icon: option.icon,
+                        label: option.label,
+                        selected: _sort == option,
+                        onTap: () => updateSort(option),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Divider(
+                        color: scheme.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    _ArtistSongSortOption(
+                      icon: Icons.south_rounded,
+                      label: _directionLabel(ascending: false),
+                      selected: !_sortAscending,
+                      onTap: () => updateDirection(false),
+                    ),
+                    _ArtistSongSortOption(
+                      icon: Icons.north_rounded,
+                      label: _directionLabel(ascending: true),
+                      selected: _sortAscending,
+                      onTap: () => updateDirection(true),
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text('Aceptar'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(() => nav?.setOverlayOpen(false));
+  }
+
+  String _directionLabel({required bool ascending}) {
+    return switch (_sort) {
+      HomeMediaSort.title || HomeMediaSort.artist => ascending ? 'A-Z' : 'Z-A',
+      HomeMediaSort.importedAt || HomeMediaSort.recent =>
+        ascending ? 'Más antiguo primero' : 'Más reciente primero',
+      HomeMediaSort.plays ||
+      HomeMediaSort.size ||
+      HomeMediaSort.duration => ascending ? 'Menor a mayor' : 'Mayor a menor',
+    };
+  }
+}
+
+class _ArtistSongSortOption extends StatelessWidget {
+  const _ArtistSongSortOption({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected
+                ? scheme.primaryContainer
+                : scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? scheme.primary : scheme.outlineVariant,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 19,
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (selected) Icon(Icons.check_rounded, color: scheme.primary),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
