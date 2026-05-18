@@ -628,7 +628,7 @@ class _SongSectionState extends State<_SongSection> {
           MediaItemGrid(
             items: widget.items,
             onTap: (item, index) => widget.onPlay(item),
-            onMore: (item, index) => widget.onMore(item),
+            onLongPress: (item, index) => widget.onMore(item),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             childAspectRatio: AppGridTheme.childAspectRatio,
@@ -640,7 +640,7 @@ class _SongSectionState extends State<_SongSection> {
             _SongTile(
               item: item,
               onPlay: () => widget.onPlay(item),
-              onMore: () => widget.onMore(item),
+              onLongPress: () => widget.onMore(item),
             ),
       ],
     );
@@ -651,12 +651,12 @@ class _SongTile extends StatelessWidget {
   const _SongTile({
     required this.item,
     required this.onPlay,
-    required this.onMore,
+    required this.onLongPress,
   });
 
   final MediaItem item;
   final VoidCallback onPlay;
-  final VoidCallback onMore;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -695,11 +695,8 @@ class _SongTile extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.more_vert),
-          onPressed: onMore,
-        ),
         onTap: onPlay,
+        onLongPress: onLongPress,
       ),
     );
   }

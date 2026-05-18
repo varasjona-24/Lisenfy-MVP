@@ -17,6 +17,7 @@ import '../../downloads/controller/downloads_controller.dart';
 import '../../home/controller/home_controller.dart';
 import '../../player/audio/controller/audio_player_controller.dart';
 import '../../playlists/controller/playlists_controller.dart';
+import '../../playlists/data/playlist_store.dart';
 import '../../playlists/domain/playlist.dart';
 import '../../sources/controller/sources_controller.dart';
 import '../../sources/domain/source_theme_topic.dart';
@@ -125,12 +126,23 @@ class MediaCleanupAnalysis {
   final AudioSilenceAnalysis analysis;
 }
 
+class MediaDataTransferResult {
+  const MediaDataTransferResult({
+    required this.updatedTarget,
+    required this.playlistsUpdated,
+  });
+
+  final MediaItem updatedTarget;
+  final int playlistsUpdated;
+}
+
 class EditEntityController extends GetxController {
   final MediaRepository _repo = Get.find<MediaRepository>();
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
   final AudioCleanupService _audioCleanup = Get.find<AudioCleanupService>();
   final ArtistsController _artists = Get.find<ArtistsController>();
   final PlaylistsController _playlists = Get.find<PlaylistsController>();
+  final PlaylistStore _playlistStore = Get.find<PlaylistStore>();
   final SourcesController _sources = Get.find<SourcesController>();
 
   Future<String?> cacheRemoteToLocal({
@@ -354,6 +366,115 @@ class EditEntityController extends GetxController {
     if (Get.isRegistered<SourcesController>()) {
       await Get.find<SourcesController>().refreshAll();
     }
+  }
+
+  String _libraryKeyFor(MediaItem item) {
+    final publicId = item.publicId.trim();
+    return publicId.isNotEmpty ? publicId : item.id.trim();
+  }
+
+  Future<List<MediaItem>> transferCandidateMedia(MediaItem source) async {
+    final latest = await resolveLatestMedia(source);
+    final sourceKey = _libraryKeyFor(latest);
+    final all = await _store.readAll();
+    return all
+        .where((item) {
+          if (item.id == latest.id) return false;
+          if (_libraryKeyFor(item) == sourceKey) return false;
+          return item.hasAudioLocal || item.hasVideoLocal;
+        })
+        .toList(growable: false)
+      ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+  }
+
+  Future<MediaDataTransferResult?> transferMediaData({
+    required MediaItem source,
+    required MediaItem target,
+  }) async {
+    final latestSource = await resolveLatestMedia(source);
+    final latestTarget = await resolveLatestMedia(target);
+    if (latestSource.id == latestTarget.id) return null;
+
+    final updatedTarget = latestTarget.copyWith(
+      title: latestSource.title,
+      subtitle: latestSource.subtitle,
+      country: latestSource.country,
+      thumbnail: latestSource.thumbnail,
+      thumbnailLocalPath: latestSource.thumbnailLocalPath,
+      lyrics: latestSource.lyrics,
+      lyricsLanguage: latestSource.lyricsLanguage,
+      translations: latestSource.translations == null
+          ? null
+          : Map<String, String>.from(latestSource.translations!),
+      timedLyrics: latestSource.timedLyrics == null
+          ? null
+          : Map<String, List<TimedLyricCue>>.from(latestSource.timedLyrics!),
+      isFavorite: latestSource.isFavorite,
+      playCount: latestSource.playCount,
+      lastPlayedAt: latestSource.lastPlayedAt,
+      skipCount: latestSource.skipCount,
+      fullListenCount: latestSource.fullListenCount,
+      avgListenProgress: latestSource.avgListenProgress,
+      lastCompletedAt: latestSource.lastCompletedAt,
+    );
+
+    await _store.upsert(updatedTarget);
+    final playlistsUpdated = await _replaceMediaInPlaylists(
+      source: latestSource,
+      target: updatedTarget,
+    );
+    _refreshLivePlaybackItem(updatedTarget);
+    await _refreshDependentControllers();
+
+    return MediaDataTransferResult(
+      updatedTarget: updatedTarget,
+      playlistsUpdated: playlistsUpdated,
+    );
+  }
+
+  Future<int> _replaceMediaInPlaylists({
+    required MediaItem source,
+    required MediaItem target,
+  }) async {
+    final sourceKey = _libraryKeyFor(source);
+    final targetKey = _libraryKeyFor(target);
+    if (sourceKey.isEmpty || targetKey.isEmpty || sourceKey == targetKey) {
+      return 0;
+    }
+
+    final playlists = await _playlistStore.readAll();
+    var changed = 0;
+    for (final playlist in playlists) {
+      if (!playlist.itemIds.contains(sourceKey)) continue;
+
+      final ids = <String>[];
+      for (final id in playlist.itemIds) {
+        final next = id == sourceKey ? targetKey : id;
+        if (!ids.contains(next)) ids.add(next);
+      }
+
+      final addedAt = Map<String, int>.from(playlist.itemAddedAt);
+      final sourceAddedAt = addedAt.remove(sourceKey);
+      if (sourceAddedAt != null) {
+        addedAt.putIfAbsent(targetKey, () => sourceAddedAt);
+      }
+
+      await _playlistStore.upsert(
+        playlist.copyWith(
+          itemIds: ids,
+          itemAddedAt: addedAt,
+          updatedAt: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+      changed++;
+    }
+    return changed;
+  }
+
+  Future<void> deleteMediaFromLibrary(MediaItem item) async {
+    final latest = await resolveLatestMedia(item);
+    await _store.remove(latest.id);
+    await _refreshDependentControllers();
   }
 
   Future<bool> saveMedia({

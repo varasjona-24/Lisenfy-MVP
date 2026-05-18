@@ -89,7 +89,9 @@ class MediaItemGrid extends StatelessWidget {
       onTap: () => selectionMode
           ? (onSelectionTap ?? onTap).call(item, index)
           : onTap(item, index),
-      onLongPress: onLongPress == null ? null : () => onLongPress!(item, index),
+      onLongPress: onLongPress == null && onMore == null
+          ? null
+          : () => (onLongPress ?? onMore)!(item, index),
       onMore: onMore == null ? null : () => onMore!(item, index),
     );
   }
@@ -170,7 +172,9 @@ class MediaItemSliverGrid extends StatelessWidget {
       onTap: () => selectionMode
           ? (onSelectionTap ?? onTap).call(item, index)
           : onTap(item, index),
-      onLongPress: onLongPress == null ? null : () => onLongPress!(item, index),
+      onLongPress: onLongPress == null && onMore == null
+          ? null
+          : () => (onLongPress ?? onMore)!(item, index),
       onMore: onMore == null ? null : () => onMore!(item, index),
     );
   }
@@ -261,22 +265,6 @@ class MediaGridTile extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (!selectionMode && onMore != null)
-                          SizedBox(
-                            width: 28,
-                            height: 28,
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
-                              icon: const Icon(
-                                Icons.more_vert_rounded,
-                                size: 18,
-                              ),
-                              tooltip: 'Más opciones',
-                              color: scheme.onSurfaceVariant,
-                              onPressed: onMore,
-                            ),
-                          ),
                       ],
                     ),
                     if (hint.isNotEmpty) ...[

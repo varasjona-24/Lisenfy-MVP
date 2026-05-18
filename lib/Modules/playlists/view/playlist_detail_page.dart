@@ -112,7 +112,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
                     crossAxisSpacing: AppGridTheme.spacing,
                     mainAxisSpacing: AppGridTheme.spacing,
                     onTap: (item, index) => _play(items, index),
-                    onMore: (item, index) => _openTrackActionSheet(
+                    onLongPress: (item, index) => _openTrackActionSheet(
                       context: context,
                       item: item,
                       queue: items,
@@ -435,6 +435,15 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _play(queue, index),
+          onLongPress: () => _openTrackActionSheet(
+            context: context,
+            item: item,
+            queue: queue,
+            playlist: playlist,
+            isSmartPlaylist: isSmartPlaylist,
+            actions: actions,
+            canRemoveFromPlaylist: canRemoveFromPlaylist,
+          ),
           borderRadius: BorderRadius.circular(16),
           child: Ink(
             padding: const EdgeInsets.all(10),
@@ -486,28 +495,6 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
                         ),
                       ),
                     ],
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.more_horiz_rounded,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                  tooltip: 'Acciones',
-                  visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints.tightFor(
-                    width: 34,
-                    height: 34,
-                  ),
-                  splashRadius: 18,
-                  onPressed: () => _openTrackActionSheet(
-                    context: context,
-                    item: item,
-                    queue: queue,
-                    playlist: playlist,
-                    isSmartPlaylist: isSmartPlaylist,
-                    actions: actions,
-                    canRemoveFromPlaylist: canRemoveFromPlaylist,
                   ),
                 ),
               ],

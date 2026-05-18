@@ -30,14 +30,16 @@ class SourceMediaListItem extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        onLongPress: onLongPress,
+        onLongPress: onLongPress ?? onMore,
         borderRadius: BorderRadius.circular(16),
         child: Ink(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: scheme.surfaceContainerHigh.withOpacity(.72),
+            color: scheme.surfaceContainerHigh.withValues(alpha: 0.72),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: scheme.outlineVariant.withOpacity(.32)),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.32),
+            ),
           ),
           child: Row(
             children: [
@@ -71,7 +73,9 @@ class SourceMediaListItem extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant.withOpacity(.86),
+                          color: scheme.onSurfaceVariant.withValues(
+                            alpha: 0.86,
+                          ),
                           letterSpacing: 0.1,
                         ),
                       ),
@@ -80,29 +84,7 @@ class SourceMediaListItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(
-                Icons.play_arrow_rounded,
-                color: scheme.primary,
-                size: 22,
-              ),
-              if (onMore != null) ...[
-                const SizedBox(width: 2),
-                IconButton(
-                  tooltip: 'Acciones',
-                  onPressed: onMore,
-                  icon: Icon(
-                    Icons.more_horiz_rounded,
-                    color: scheme.onSurfaceVariant,
-                    size: 20,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints.tightFor(
-                    width: 34,
-                    height: 34,
-                  ),
-                  splashRadius: 18,
-                ),
-              ],
+              Icon(Icons.play_arrow_rounded, color: scheme.primary, size: 22),
             ],
           ),
         ),
@@ -179,14 +161,10 @@ class _SourceMediaThumb extends StatelessWidget {
                 width: 18,
                 height: 18,
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(.55),
+                  color: Colors.black.withValues(alpha: 0.55),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  fallbackIcon,
-                  size: 11,
-                  color: Colors.white,
-                ),
+                child: Icon(fallbackIcon, size: 11, color: Colors.white),
               ),
             ),
           ],

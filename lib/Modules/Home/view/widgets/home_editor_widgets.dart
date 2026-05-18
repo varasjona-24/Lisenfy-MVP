@@ -128,6 +128,76 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
     });
   }
 
+  void _removeCustomSectionTarget(HomeCustomSection section, String target) {
+    final index = _customSections.indexWhere((entry) => entry.id == section.id);
+    if (index < 0) return;
+
+    final nextTargets = section.targetId
+        .split('|')
+        .map(
+          (entry) => section.kind == HomeCustomSectionKind.artist
+              ? ArtistCreditParser.normalizeKey(entry)
+              : entry.trim(),
+        )
+        .where((entry) => entry.isNotEmpty && entry != target)
+        .toList(growable: false);
+
+    setState(() {
+      if (nextTargets.isEmpty) {
+        _customSections.removeAt(index);
+      } else {
+        _customSections[index] = section.copyWith(
+          targetId: nextTargets.join('|'),
+        );
+      }
+    });
+  }
+
+  List<_CustomSectionTargetInfo> _targetsForCustomSection(
+    HomeCustomSection section,
+  ) {
+    final rawTargets = section.targetId
+        .split('|')
+        .map((entry) => entry.trim())
+        .where((entry) => entry.isNotEmpty)
+        .toList(growable: false);
+
+    if (section.kind == HomeCustomSectionKind.playlist) {
+      final byId = {
+        for (final playlist in controller.playlistChoices())
+          playlist.id: playlist,
+      };
+      return rawTargets
+          .map((id) {
+            final playlist = byId[id];
+            return _CustomSectionTargetInfo(
+              id: id,
+              label: playlist?.name ?? 'Playlist',
+            );
+          })
+          .toList(growable: false);
+    }
+
+    if (section.kind == HomeCustomSectionKind.artist) {
+      final byKey = {
+        for (final artist in controller.artistChoices()) artist.key: artist,
+      };
+      return rawTargets
+          .map(ArtistCreditParser.normalizeKey)
+          .where((key) => key.isNotEmpty && key != 'unknown')
+          .map((key) {
+            final artist = byKey[key];
+            return _CustomSectionTargetInfo(
+              id: key,
+              label: artist?.name ?? key,
+            );
+          })
+          .toList(growable: false);
+    }
+
+    return const <_CustomSectionTargetInfo>[];
+  }
+
   Set<String> _selectedPlaylistIds() {
     HomeCustomSection? section;
     for (final entry in _customSections) {
@@ -347,38 +417,70 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
                   if (_customSections.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     ..._customSections.map((section) {
-                      return ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(section.kind.icon, color: scheme.primary),
-                        title: Text(
-                          section.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Vista: ${section.layout.label}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
+                      final targets = _targetsForCustomSection(section);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            IconButton(
-                              tooltip: 'Cambiar vista',
-                              onPressed: () =>
-                                  _toggleCustomSectionLayout(section.id),
-                              icon: Icon(section.layout.icon),
+                            ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                section.kind.icon,
+                                color: scheme.primary,
+                              ),
+                              title: Text(
+                                section.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              subtitle: Text(
+                                'Vista: ${section.layout.label}',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Cambiar vista',
+                                    onPressed: () =>
+                                        _toggleCustomSectionLayout(section.id),
+                                    icon: Icon(section.layout.icon),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Quitar seccion',
+                                    onPressed: () =>
+                                        _removeCustomSection(section.id),
+                                    icon: const Icon(Icons.close_rounded),
+                                  ),
+                                ],
+                              ),
                             ),
-                            IconButton(
-                              tooltip: 'Quitar',
-                              onPressed: () => _removeCustomSection(section.id),
-                              icon: const Icon(Icons.close_rounded),
-                            ),
+                            if (targets.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 40),
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    for (final target in targets)
+                                      InputChip(
+                                        label: Text(target.label),
+                                        onDeleted: () =>
+                                            _removeCustomSectionTarget(
+                                              section,
+                                              target.id,
+                                            ),
+                                      ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
                       );
@@ -448,6 +550,13 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
       _addArtistSection(artistKey: key);
     }
   }
+}
+
+class _CustomSectionTargetInfo {
+  const _CustomSectionTargetInfo({required this.id, required this.label});
+
+  final String id;
+  final String label;
 }
 
 class _HomePlaylistPickerSheet extends StatefulWidget {

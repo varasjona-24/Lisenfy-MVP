@@ -359,7 +359,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
         return _SearchItemTile(
           item: item,
           onTap: () => _home.openMedia(item, index, list),
-          onMore: () => _openItemActions(context, item, list),
+          onLongPress: () => _openItemActions(context, item, list),
         );
       },
     );
@@ -379,7 +379,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
         AppSpacing.lg,
       ),
       onTap: (item, index) => _home.openMedia(item, index, list),
-      onMore: (item, index) => _openItemActions(context, item, list),
+      onLongPress: (item, index) => _openItemActions(context, item, list),
     );
   }
 
@@ -428,12 +428,12 @@ class _SearchItemTile extends StatelessWidget {
   const _SearchItemTile({
     required this.item,
     required this.onTap,
-    required this.onMore,
+    required this.onLongPress,
   });
 
   final MediaItem item;
   final VoidCallback onTap;
-  final VoidCallback onMore;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -455,6 +455,7 @@ class _SearchItemTile extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
@@ -494,12 +495,6 @@ class _SearchItemTile extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.more_vert_rounded),
-                tooltip: 'Más opciones',
-                color: scheme.onSurfaceVariant,
-                onPressed: onMore,
               ),
             ],
           ),

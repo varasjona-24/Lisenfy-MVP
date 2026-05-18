@@ -47,6 +47,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
   bool _thumbCleared = false;
   int? _colorValue;
   bool _audioCleanupBusy = false;
+  bool _dataTransferBusy = false;
   MediaItem? _mediaDraft;
   ArtistProfileKind _artistKind = ArtistProfileKind.singer;
   ArtistMainRegion _artistMainRegion = ArtistMainRegion.none;
@@ -429,10 +430,15 @@ class _EditEntityPageState extends State<EditEntityPage> {
       useSafeArea: true,
       builder: (context) {
         final theme = Theme.of(context);
+        final scheme = theme.colorScheme;
 
         return StatefulBuilder(
           builder: (context, setModalState) {
             final selectedCount = selected.where((v) => v).length;
+            final selectedDurationMs = <int>[
+              for (int i = 0; i < segments.length; i++)
+                if (selected[i]) segments[i].durationMs,
+            ].fold<int>(0, (sum, value) => sum + value);
 
             return Padding(
               padding: EdgeInsets.fromLTRB(
@@ -457,18 +463,41 @@ class _EditEntityPageState extends State<EditEntityPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      'Sonido limpio',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Se detectaron silencios mayores a 4 segundos. Marca los que deseas recortar.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: scheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.auto_fix_high_rounded,
+                            color: scheme.onPrimaryContainer,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Sonido limpio',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                'Elige que silencios recortar.',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     _AudioSilenceTimeline(
@@ -479,41 +508,109 @@ class _EditEntityPageState extends State<EditEntityPage> {
                       endLabel: _formatClockFromMs(analysis.durationMs),
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      'Detectados: ${segments.length} - Seleccionados: $selectedCount',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        Chip(
+                          avatar: const Icon(
+                            Icons.graphic_eq_rounded,
+                            size: 18,
+                          ),
+                          label: Text('${segments.length} detectados'),
+                        ),
+                        Chip(
+                          avatar: const Icon(
+                            Icons.check_circle_rounded,
+                            size: 18,
+                          ),
+                          label: Text('$selectedCount seleccionados'),
+                        ),
+                        Chip(
+                          avatar: const Icon(Icons.cut_rounded, size: 18),
+                          label: Text(
+                            '${_formatSecondsFromMs(selectedDurationMs)} a recortar',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        TextButton.icon(
+                          onPressed: () {
+                            setModalState(() {
+                              for (var i = 0; i < selected.length; i++) {
+                                selected[i] = true;
+                              }
+                            });
+                          },
+                          icon: const Icon(Icons.select_all_rounded),
+                          label: const Text('Todo'),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          onPressed: () {
+                            setModalState(() {
+                              for (var i = 0; i < selected.length; i++) {
+                                selected[i] = false;
+                              }
+                            });
+                          },
+                          icon: const Icon(Icons.deselect_rounded),
+                          label: const Text('Nada'),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 6),
                     Expanded(
                       child: ListView.separated(
                         itemCount: segments.length,
-                        separatorBuilder: (context, _) => Divider(
-                          height: 1,
-                          color: theme.colorScheme.outlineVariant,
-                        ),
+                        separatorBuilder: (context, _) =>
+                            const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final segment = segments[index];
-                          return CheckboxListTile(
-                            value: selected[index],
-                            contentPadding: EdgeInsets.zero,
-                            controlAffinity: ListTileControlAffinity.leading,
-                            onChanged: (v) {
-                              setModalState(() {
-                                selected[index] = v ?? false;
-                              });
-                            },
-                            title: Text(
-                              '${_formatClockFromMs(segment.startMs)} - ${_formatClockFromMs(segment.endMs)}',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
+                          final checked = selected[index];
+                          return Material(
+                            color: checked
+                                ? scheme.primaryContainer.withValues(
+                                    alpha: 0.45,
+                                  )
+                                : scheme.surfaceContainerHighest.withValues(
+                                    alpha: 0.42,
+                                  ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(
+                                color: checked
+                                    ? scheme.primary.withValues(alpha: 0.65)
+                                    : scheme.outlineVariant,
                               ),
                             ),
-                            subtitle: Text(
-                              'Duracion: ${_formatSecondsFromMs(segment.durationMs)} - Nivel medio: ${segment.meanDb.toStringAsFixed(1)} dB',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                            clipBehavior: Clip.antiAlias,
+                            child: CheckboxListTile(
+                              value: checked,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 2,
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              onChanged: (v) {
+                                setModalState(() {
+                                  selected[index] = v ?? false;
+                                });
+                              },
+                              title: Text(
+                                '${_formatClockFromMs(segment.startMs)} - ${_formatClockFromMs(segment.endMs)}',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              subtitle: Text(
+                                'Duracion: ${_formatSecondsFromMs(segment.durationMs)} - Nivel medio: ${segment.meanDb.toStringAsFixed(1)} dB',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                ),
                               ),
                             ),
                           );
@@ -531,7 +628,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: FilledButton(
+                          child: FilledButton.icon(
                             onPressed: selectedCount == 0
                                 ? null
                                 : () {
@@ -541,7 +638,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
                                     }
                                     Navigator.of(context).pop(picked);
                                   },
-                            child: const Text('Aplicar limpieza'),
+                            icon: const Icon(Icons.content_cut_rounded),
+                            label: const Text('Crear version limpia'),
                           ),
                         ),
                       ],
@@ -640,6 +738,119 @@ class _EditEntityPageState extends State<EditEntityPage> {
         });
       }
     }
+  }
+
+  Future<void> _runDataTransferFlow() async {
+    if (!_isMedia || _media == null || _dataTransferBusy) return;
+    setState(() => _dataTransferBusy = true);
+    try {
+      final candidates = await _controller.transferCandidateMedia(_media!);
+      if (!mounted) return;
+      if (candidates.isEmpty) {
+        Get.snackbar(
+          'Transferencia de datos',
+          'No hay otra cancion disponible para recibir los datos.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+
+      final target = await _showTransferTargetSheet(candidates);
+      if (!mounted || target == null) return;
+
+      final confirmed = await _confirmDataTransfer(target);
+      if (!mounted || confirmed != true) return;
+
+      final source = _media!;
+      final result = await _controller.transferMediaData(
+        source: source,
+        target: target,
+      );
+      if (!mounted || result == null) return;
+
+      Get.snackbar(
+        'Transferencia completada',
+        'Datos movidos a "${result.updatedTarget.title}". Playlists actualizadas: ${result.playlistsUpdated}.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+
+      final deleteSource = await _confirmDeleteTransferredSource(source);
+      if (!mounted) return;
+      if (deleteSource == true) {
+        await _controller.deleteMediaFromLibrary(source);
+        if (mounted) {
+          Get.back();
+          Get.snackbar(
+            'Biblioteca',
+            'Version anterior eliminada de la biblioteca.',
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _dataTransferBusy = false);
+    }
+  }
+
+  Future<MediaItem?> _showTransferTargetSheet(List<MediaItem> candidates) {
+    return showModalBottomSheet<MediaItem>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _TransferTargetSheet(candidates: candidates),
+    );
+  }
+
+  Future<bool?> _confirmDataTransfer(MediaItem target) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Transferir datos'),
+          content: Text(
+            'Se copiara titulo, artista, portada, letras, favoritos, estadisticas y playlists a "${target.title}". El archivo de destino se mantiene.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Transferir'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<bool?> _confirmDeleteTransferredSource(MediaItem source) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Eliminar version anterior'),
+          content: Text(
+            '¿Deseas eliminar "${source.title}" de tu biblioteca? Esta accion no elimina la version nueva.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('No'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Si, eliminar'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _save() async {
@@ -1440,35 +1651,31 @@ class _EditEntityPageState extends State<EditEntityPage> {
                       ),
                       if (_isAudioMedia) ...[
                         const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.tonalIcon(
-                            onPressed: _audioCleanupBusy
-                                ? null
-                                : _runAudioCleanupFlow,
-                            icon: _audioCleanupBusy
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.auto_fix_high_rounded),
-                            label: Text(
-                              _audioCleanupBusy
-                                  ? 'Procesando...'
-                                  : 'Sonido limpio',
-                            ),
-                          ),
+                        _ExtraActionCard(
+                          icon: Icons.auto_fix_high_rounded,
+                          title: 'Sonido limpio',
+                          subtitle:
+                              'Detecta silencios largos y crea una variante limpia sin tocar el archivo original.',
+                          busy: _audioCleanupBusy,
+                          busyLabel: 'Procesando...',
+                          actionLabel: 'Analizar silencios',
+                          onPressed: _runAudioCleanupFlow,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Detecta silencios mayores a 4 segundos y te permite elegir cuales recortar.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
+                        const SizedBox(height: 14),
+                        Divider(color: theme.colorScheme.outlineVariant),
+                        const SizedBox(height: 10),
+                      ],
+                      _ExtraActionCard(
+                        icon: Icons.compare_arrows_rounded,
+                        title: 'Transferencia de datos',
+                        subtitle:
+                            'Pasa metadata, portada, playlists y estadisticas de esta version a otra cancion.',
+                        busy: _dataTransferBusy,
+                        busyLabel: 'Transfiriendo...',
+                        actionLabel: 'Transferir a otra cancion',
+                        onPressed: _runDataTransferFlow,
+                      ),
+                      if (_isAudioMedia) ...[
                         const SizedBox(height: 14),
                         Divider(color: theme.colorScheme.outlineVariant),
                         const SizedBox(height: 10),
@@ -1585,6 +1792,246 @@ class _AudioSilenceTimeline extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _ExtraActionCard extends StatelessWidget {
+  const _ExtraActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.busy,
+    required this.busyLabel,
+    required this.actionLabel,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool busy;
+  final String busyLabel;
+  final String actionLabel;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: scheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              onPressed: busy ? null : onPressed,
+              icon: busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(icon),
+              label: Text(busy ? busyLabel : actionLabel),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TransferTargetSheet extends StatefulWidget {
+  const _TransferTargetSheet({required this.candidates});
+
+  final List<MediaItem> candidates;
+
+  @override
+  State<_TransferTargetSheet> createState() => _TransferTargetSheetState();
+}
+
+class _TransferTargetSheetState extends State<_TransferTargetSheet> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<MediaItem> get _filtered {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return widget.candidates;
+    return widget.candidates
+        .where((item) {
+          return item.title.toLowerCase().contains(query) ||
+              item.displaySubtitle.toLowerCase().contains(query);
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final items = _filtered;
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.82,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.compare_arrows_rounded),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Elegir cancion destino',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cerrar'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _searchCtrl,
+                    onChanged: (value) => setState(() => _query = value),
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar por cancion o artista',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _query.trim().isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _query = '');
+                              },
+                            ),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Chip(
+                    avatar: const Icon(Icons.library_music_rounded, size: 18),
+                    label: Text('${widget.candidates.length} disponibles'),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: items.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No se encontraron canciones.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      itemCount: items.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        final thumb = item.effectiveThumbnail?.trim() ?? '';
+                        final provider = thumb.isEmpty
+                            ? null
+                            : (thumb.startsWith('http')
+                                  ? NetworkImage(thumb)
+                                  : FileImage(File(thumb)) as ImageProvider);
+                        return Material(
+                          color: scheme.surface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(color: scheme.outlineVariant),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: ListTile(
+                            onTap: () => Navigator.of(context).pop(item),
+                            leading: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: provider == null
+                                    ? ColoredBox(
+                                        color: scheme.surfaceContainerHighest,
+                                        child: const Icon(
+                                          Icons.music_note_rounded,
+                                        ),
+                                      )
+                                    : Image(image: provider, fit: BoxFit.cover),
+                              ),
+                            ),
+                            title: Text(
+                              item.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              item.displaySubtitle.isEmpty
+                                  ? 'Artista desconocido'
+                                  : item.displaySubtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

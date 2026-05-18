@@ -140,11 +140,14 @@ class HomeCustomSection {
     );
   }
 
-  HomeCustomSection copyWith({HomeCustomSectionLayout? layout}) {
+  HomeCustomSection copyWith({
+    String? targetId,
+    HomeCustomSectionLayout? layout,
+  }) {
     return HomeCustomSection(
       id: id,
       kind: kind,
-      targetId: targetId,
+      targetId: targetId ?? this.targetId,
       title: title,
       layout: layout ?? this.layout,
     );

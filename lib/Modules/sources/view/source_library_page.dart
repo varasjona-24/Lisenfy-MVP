@@ -328,6 +328,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
           borderRadius: BorderRadius.circular(widget.onlyOffline ? 18 : 12),
         ),
         child: ListTile(
+          onLongPress: () => _openGridItemActions(item, queue, mode),
           contentPadding: widget.onlyOffline
               ? const EdgeInsets.symmetric(horizontal: 12, vertical: 4)
               : EdgeInsets.zero,
@@ -364,58 +365,6 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                   _playSourceItem(item, queue, mode);
                 },
               ),
-              IconButton(
-                icon: const Icon(Icons.more_vert_rounded),
-                tooltip: 'Acciones',
-                onPressed: () async {
-                  await _actions.showItemActions(
-                    context,
-                    item,
-                    onChanged: () async {
-                      await _sources.refreshAll();
-                      if (mounted) setState(() {});
-                    },
-                    onStartMultiSelect: () {
-                      Get.toNamed(
-                        AppRoutes.homeSectionList,
-                        arguments: {
-                          'title': widget.title,
-                          'items': queue,
-                          'onItemTap': (MediaItem tapped, int index) {
-                            _playSourceItem(tapped, queue, mode);
-                          },
-                          'onItemLongPress':
-                              (
-                                MediaItem target,
-                                int _, {
-                                VoidCallback? onStartMultiSelect,
-                              }) => _actions.showItemActions(
-                                context,
-                                target,
-                                onChanged: () async {
-                                  await _sources.refreshAll();
-                                  if (mounted) setState(() {});
-                                },
-                                onStartMultiSelect: onStartMultiSelect,
-                              ),
-                          'onDeleteSelected': (List<MediaItem> selected) async {
-                            await _actions.confirmDeleteMultiple(
-                              context,
-                              selected,
-                              onChanged: () async {
-                                await _sources.refreshAll();
-                                if (mounted) setState(() {});
-                              },
-                            );
-                          },
-                          'startInSelectionMode': true,
-                          'initialSelectionItemId': item.id,
-                        },
-                      );
-                    },
-                  );
-                },
-              ),
             ],
           ),
         ),
@@ -435,7 +384,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
           ? Icons.music_note_rounded
           : Icons.videocam_rounded,
       onTap: (item, index) => _playSourceItem(item, queue, mode),
-      onMore: (item, index) => _openGridItemActions(item, queue, mode),
+      onLongPress: (item, index) => _openGridItemActions(item, queue, mode),
     );
   }
 
