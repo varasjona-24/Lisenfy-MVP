@@ -779,13 +779,15 @@ class _EditEntityPageState extends State<EditEntityPage> {
       if (deleteSource == true) {
         await _controller.deleteMediaFromLibrary(source);
         if (mounted) {
-          Get.back();
+          Get.back(result: true);
           Get.snackbar(
             'Biblioteca',
             'Version anterior eliminada de la biblioteca.',
             snackPosition: SnackPosition.BOTTOM,
           );
         }
+      } else if (mounted) {
+        Get.back(result: true);
       }
     } finally {
       if (mounted) setState(() => _dataTransferBusy = false);

@@ -8,6 +8,7 @@ import '../../themes/app_grid_theme.dart';
 
 typedef MediaGridItemCallback = void Function(MediaItem item, int index);
 typedef MediaGridTextBuilder = String? Function(MediaItem item, int index);
+typedef MediaGridWidgetBuilder = Widget? Function(MediaItem item, int index);
 typedef MediaGridBoolBuilder = bool Function(MediaItem item, int index);
 
 class MediaItemGrid extends StatelessWidget {
@@ -19,6 +20,7 @@ class MediaItemGrid extends StatelessWidget {
     this.onMore,
     this.hintBuilder,
     this.footerBuilder,
+    this.coverOverlayBuilder,
     this.selectedBuilder,
     this.selectableBuilder,
     this.selectionMode = false,
@@ -38,6 +40,7 @@ class MediaItemGrid extends StatelessWidget {
   final MediaGridItemCallback? onMore;
   final MediaGridTextBuilder? hintBuilder;
   final MediaGridTextBuilder? footerBuilder;
+  final MediaGridWidgetBuilder? coverOverlayBuilder;
   final MediaGridBoolBuilder? selectedBuilder;
   final MediaGridBoolBuilder? selectableBuilder;
   final bool selectionMode;
@@ -82,6 +85,7 @@ class MediaItemGrid extends StatelessWidget {
       item: item,
       hintText: hintBuilder?.call(item, index),
       footerText: footerBuilder?.call(item, index),
+      coverOverlay: coverOverlayBuilder?.call(item, index),
       selected: selectedBuilder?.call(item, index) ?? false,
       selectable: selectableBuilder?.call(item, index) ?? true,
       selectionMode: selectionMode,
@@ -106,6 +110,7 @@ class MediaItemSliverGrid extends StatelessWidget {
     this.onMore,
     this.hintBuilder,
     this.footerBuilder,
+    this.coverOverlayBuilder,
     this.selectedBuilder,
     this.selectableBuilder,
     this.selectionMode = false,
@@ -123,6 +128,7 @@ class MediaItemSliverGrid extends StatelessWidget {
   final MediaGridItemCallback? onMore;
   final MediaGridTextBuilder? hintBuilder;
   final MediaGridTextBuilder? footerBuilder;
+  final MediaGridWidgetBuilder? coverOverlayBuilder;
   final MediaGridBoolBuilder? selectedBuilder;
   final MediaGridBoolBuilder? selectableBuilder;
   final bool selectionMode;
@@ -165,6 +171,7 @@ class MediaItemSliverGrid extends StatelessWidget {
       item: item,
       hintText: hintBuilder?.call(item, index),
       footerText: footerBuilder?.call(item, index),
+      coverOverlay: coverOverlayBuilder?.call(item, index),
       selected: selectedBuilder?.call(item, index) ?? false,
       selectable: selectableBuilder?.call(item, index) ?? true,
       selectionMode: selectionMode,
@@ -189,6 +196,7 @@ class MediaGridTile extends StatelessWidget {
     this.onMore,
     this.hintText,
     this.footerText,
+    this.coverOverlay,
     this.selected = false,
     this.selectable = true,
     this.selectionMode = false,
@@ -201,6 +209,7 @@ class MediaGridTile extends StatelessWidget {
   final VoidCallback? onMore;
   final String? hintText;
   final String? footerText;
+  final Widget? coverOverlay;
   final bool selected;
   final bool selectable;
   final bool selectionMode;
@@ -331,6 +340,8 @@ class MediaGridTile extends StatelessWidget {
             ),
           ),
         ),
+        if (!selectionMode && coverOverlay != null)
+          Positioned(right: 6, bottom: 6, child: coverOverlay!),
         if (selectionMode)
           Positioned(
             top: 4,

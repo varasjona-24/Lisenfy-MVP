@@ -74,6 +74,9 @@ class HomeController extends GetxController {
   final RxList<HomeWidgetId> enabledHomeWidgets = <HomeWidgetId>[].obs;
   final RxMap<String, HomeCustomSectionLayout> homeWidgetLayouts =
       <String, HomeCustomSectionLayout>{}.obs;
+  final RxMap<String, HomeMediaSort> homeWidgetSorts =
+      <String, HomeMediaSort>{}.obs;
+  final RxMap<String, bool> homeWidgetSortAscending = <String, bool>{}.obs;
   final RxList<HomeCustomSection> customHomeSections =
       <HomeCustomSection>[].obs;
 
@@ -82,6 +85,8 @@ class HomeController extends GetxController {
   static const _homeWidgetOrderKey = 'home_widget_order';
   static const _homeWidgetEnabledKey = 'home_widget_enabled';
   static const _homeWidgetLayoutsKey = 'home_widget_layouts';
+  static const _homeWidgetSortsKey = 'home_widget_sorts';
+  static const _homeWidgetSortAscendingKey = 'home_widget_sort_ascending';
   static const _homeCustomSectionsKey = 'home_custom_sections';
   static const _defaultHomeWidgets = <HomeWidgetId>[
     HomeWidgetId.favorites,
@@ -130,6 +135,26 @@ class HomeController extends GetxController {
       ...?rawLayouts?.map(
         (key, value) =>
             MapEntry(key.toString(), HomeCustomSectionLayoutX.fromRaw(value)),
+      ),
+    };
+
+    final rawSorts = _layoutStorage.read<Map>(_homeWidgetSortsKey);
+    homeWidgetSorts.value = <String, HomeMediaSort>{
+      ...?rawSorts?.map((key, value) {
+        final sort = HomeMediaSortX.fromKey(value.toString());
+        return MapEntry(
+          key.toString(),
+          sort ?? defaultSortForHomeWidgetKey(key.toString()),
+        );
+      }),
+    };
+
+    final rawSortAscending = _layoutStorage.read<Map>(
+      _homeWidgetSortAscendingKey,
+    );
+    homeWidgetSortAscending.value = <String, bool>{
+      ...?rawSortAscending?.map(
+        (key, value) => MapEntry(key.toString(), value == true),
       ),
     };
 
@@ -289,6 +314,83 @@ class HomeController extends GetxController {
     return homeWidgetLayouts[id.key] ?? HomeCustomSectionLayout.cards;
   }
 
+  HomeMediaSort defaultSortForHomeWidget(HomeWidgetId id) {
+    return switch (id) {
+      HomeWidgetId.latestDownloads => HomeMediaSort.importedAt,
+      HomeWidgetId.mostPlayed => HomeMediaSort.plays,
+      HomeWidgetId.recentlyPlayed => HomeMediaSort.recent,
+      HomeWidgetId.randomMix => HomeMediaSort.title,
+      HomeWidgetId.favorites ||
+      HomeWidgetId.recommendations ||
+      HomeWidgetId.featured ||
+      HomeWidgetId.notPlayed => HomeMediaSort.title,
+    };
+  }
+
+  HomeMediaSort defaultSortForHomeWidgetKey(String key) {
+    final id = HomeWidgetIdX.fromKey(key);
+    return id == null ? HomeMediaSort.title : defaultSortForHomeWidget(id);
+  }
+
+  bool defaultSortAscendingForHomeWidget(HomeWidgetId id) {
+    return switch (id) {
+      HomeWidgetId.latestDownloads ||
+      HomeWidgetId.mostPlayed ||
+      HomeWidgetId.recentlyPlayed => false,
+      _ => true,
+    };
+  }
+
+  List<HomeMediaSort> sortOptionsForHomeWidget(HomeWidgetId id) {
+    return switch (id) {
+      HomeWidgetId.latestDownloads => const [HomeMediaSort.importedAt],
+      HomeWidgetId.mostPlayed => const [HomeMediaSort.plays],
+      HomeWidgetId.recentlyPlayed => const [HomeMediaSort.recent],
+      HomeWidgetId.randomMix => const <HomeMediaSort>[],
+      HomeWidgetId.favorites ||
+      HomeWidgetId.recommendations ||
+      HomeWidgetId.featured => const [
+        HomeMediaSort.title,
+        HomeMediaSort.artist,
+        HomeMediaSort.importedAt,
+        HomeMediaSort.size,
+        HomeMediaSort.plays,
+        HomeMediaSort.duration,
+        HomeMediaSort.recent,
+      ],
+      HomeWidgetId.notPlayed => const [
+        HomeMediaSort.title,
+        HomeMediaSort.artist,
+        HomeMediaSort.importedAt,
+        HomeMediaSort.size,
+        HomeMediaSort.duration,
+      ],
+    };
+  }
+
+  HomeMediaSort sortForHomeWidget(HomeWidgetId id) {
+    final options = sortOptionsForHomeWidget(id);
+    final selected = homeWidgetSorts[id.key] ?? defaultSortForHomeWidget(id);
+    if (options.isEmpty || options.contains(selected)) return selected;
+    return options.first;
+  }
+
+  bool sortAscendingForHomeWidget(HomeWidgetId id) {
+    return homeWidgetSortAscending[id.key] ??
+        defaultSortAscendingForHomeWidget(id);
+  }
+
+  void setHomeWidgetSort(HomeWidgetId id, HomeMediaSort sort) {
+    if (!sortOptionsForHomeWidget(id).contains(sort)) return;
+    homeWidgetSorts[id.key] = sort;
+    _persistHomeLayout();
+  }
+
+  void setHomeWidgetSortAscending(HomeWidgetId id, bool ascending) {
+    homeWidgetSortAscending[id.key] = ascending;
+    _persistHomeLayout();
+  }
+
   void toggleHomeWidgetLayout(HomeWidgetId id) {
     if (id.hasFixedLayout) return;
     final current = layoutForHomeWidget(id);
@@ -350,6 +452,8 @@ class HomeController extends GetxController {
     homeWidgetOrder.assignAll(_defaultHomeWidgets);
     enabledHomeWidgets.assignAll(_defaultHomeWidgets);
     homeWidgetLayouts.value = <String, HomeCustomSectionLayout>{};
+    homeWidgetSorts.clear();
+    homeWidgetSortAscending.clear();
     customHomeSections.clear();
     _persistHomeLayout();
   }
@@ -494,6 +598,46 @@ class HomeController extends GetxController {
     _persistHomeLayout();
   }
 
+  void removeTargetFromCustomHomeSection({
+    required String sectionId,
+    required String targetId,
+  }) {
+    final index = customHomeSections.indexWhere(
+      (section) => section.id == sectionId,
+    );
+    if (index < 0) return;
+
+    final section = customHomeSections[index];
+    final normalizedTarget = section.kind == HomeCustomSectionKind.artist
+        ? ArtistCreditParser.normalizeKey(targetId)
+        : targetId.trim();
+    if (normalizedTarget.isEmpty || normalizedTarget == 'unknown') return;
+
+    final nextTargets = section.targetId
+        .split('|')
+        .map(
+          (entry) => section.kind == HomeCustomSectionKind.artist
+              ? ArtistCreditParser.normalizeKey(entry)
+              : entry.trim(),
+        )
+        .where(
+          (entry) =>
+              entry.isNotEmpty &&
+              entry != 'unknown' &&
+              entry != normalizedTarget,
+        )
+        .toList(growable: false);
+
+    if (nextTargets.isEmpty) {
+      customHomeSections.removeAt(index);
+    } else {
+      customHomeSections[index] = section.copyWith(
+        targetId: nextTargets.join('|'),
+      );
+    }
+    _persistHomeLayout();
+  }
+
   Future<List<Playlist>> loadPlaylistChoices() async {
     return await _playlistStore?.readAll() ?? const <Playlist>[];
   }
@@ -624,7 +768,7 @@ class HomeController extends GetxController {
   }
 
   List<MediaItem> fullItemsForHomeWidget(HomeWidgetId id) {
-    return switch (id) {
+    final items = switch (id) {
       HomeWidgetId.favorites => fullFavorites,
       HomeWidgetId.mostPlayed => fullMostPlayed,
       HomeWidgetId.recentlyPlayed => fullRecentlyPlayed,
@@ -634,6 +778,42 @@ class HomeController extends GetxController {
       HomeWidgetId.randomMix => randomMix,
       HomeWidgetId.recommendations => fullRecommended,
     };
+    return _applyHomeWidgetSort(id, items);
+  }
+
+  List<MediaItem> _applyHomeWidgetSort(HomeWidgetId id, List<MediaItem> input) {
+    final options = sortOptionsForHomeWidget(id);
+    if (options.isEmpty) return input.toList(growable: false);
+
+    final sort = sortForHomeWidget(id);
+    final ascending = sortAscendingForHomeWidget(id);
+    final list = input.toList(growable: true);
+    int compareString(String a, String b) =>
+        a.toLowerCase().compareTo(b.toLowerCase());
+
+    list.sort((a, b) {
+      final result = switch (sort) {
+        HomeMediaSort.title => compareString(a.title, b.title),
+        HomeMediaSort.artist => compareString(
+          a.displaySubtitle,
+          b.displaySubtitle,
+        ),
+        HomeMediaSort.importedAt => _latestVariantCreatedAt(
+          a,
+        ).compareTo(_latestVariantCreatedAt(b)),
+        HomeMediaSort.size => _localSizeBytes(a).compareTo(_localSizeBytes(b)),
+        HomeMediaSort.plays => a.playCount.compareTo(b.playCount),
+        HomeMediaSort.duration => (a.effectiveDurationSeconds ?? 0).compareTo(
+          b.effectiveDurationSeconds ?? 0,
+        ),
+        HomeMediaSort.recent => (a.lastPlayedAt ?? 0).compareTo(
+          b.lastPlayedAt ?? 0,
+        ),
+      };
+      if (result != 0) return ascending ? result : -result;
+      return compareString(a.title, b.title);
+    });
+    return list;
   }
 
   List<MediaItem> _resolveSmartSectionItems(String targetId) {
@@ -696,6 +876,14 @@ class HomeController extends GetxController {
     _layoutStorage.write(
       _homeWidgetLayoutsKey,
       homeWidgetLayouts.map((key, value) => MapEntry(key, value.key)),
+    );
+    _layoutStorage.write(
+      _homeWidgetSortsKey,
+      homeWidgetSorts.map((key, value) => MapEntry(key, value.key)),
+    );
+    _layoutStorage.write(
+      _homeWidgetSortAscendingKey,
+      Map<String, bool>.from(homeWidgetSortAscending),
     );
     _layoutStorage.write(
       _homeCustomSectionsKey,
@@ -833,6 +1021,15 @@ class HomeController extends GetxController {
       if (v.createdAt > maxTs) maxTs = v.createdAt;
     }
     return maxTs;
+  }
+
+  int _localSizeBytes(MediaItem item) {
+    var total = 0;
+    for (final variant in item.variants) {
+      if (variant.localPath?.trim().isNotEmpty != true) continue;
+      total += variant.size ?? 0;
+    }
+    return total;
   }
 
   void toggleMode() {

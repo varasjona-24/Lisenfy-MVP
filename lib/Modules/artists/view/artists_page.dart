@@ -339,6 +339,26 @@ class ArtistsPage extends GetView<ArtistsController> {
                         onTap: () => controller.setSort(ArtistSort.count),
                       ),
                       _SortOption(
+                        label: 'Reproducciones',
+                        selected: sort == ArtistSort.plays,
+                        onTap: () => controller.setSort(ArtistSort.plays),
+                      ),
+                      _SortOption(
+                        label: 'Actividad reciente',
+                        selected: sort == ArtistSort.recent,
+                        onTap: () => controller.setSort(ArtistSort.recent),
+                      ),
+                      _SortOption(
+                        label: 'País',
+                        selected: sort == ArtistSort.country,
+                        onTap: () => controller.setSort(ArtistSort.country),
+                      ),
+                      _SortOption(
+                        label: 'Región',
+                        selected: sort == ArtistSort.region,
+                        onTap: () => controller.setSort(ArtistSort.region),
+                      ),
+                      _SortOption(
                         label: 'Aleatorio',
                         selected: sort == ArtistSort.random,
                         onTap: () => controller.setSort(ArtistSort.random),
@@ -351,12 +371,12 @@ class ArtistsPage extends GetView<ArtistsController> {
                         ),
                       ),
                       _SortOption(
-                        label: 'Tamaño: de mayor a menor',
+                        label: _artistDirectionLabel(sort, ascending: false),
                         selected: !asc,
                         onTap: () => controller.setSortAscending(false),
                       ),
                       _SortOption(
-                        label: 'Tamaño: de menor a mayor',
+                        label: _artistDirectionLabel(sort, ascending: true),
                         selected: asc,
                         onTap: () => controller.setSortAscending(true),
                       ),
@@ -416,6 +436,19 @@ class ArtistsPage extends GetView<ArtistsController> {
         });
       },
     ).whenComplete(() => nav?.setOverlayOpen(false));
+  }
+
+  String _artistDirectionLabel(ArtistSort sort, {required bool ascending}) {
+    return switch (sort) {
+      ArtistSort.name ||
+      ArtistSort.country ||
+      ArtistSort.region => ascending ? 'A-Z' : 'Z-A',
+      ArtistSort.recent =>
+        ascending ? 'Menos reciente primero' : 'Más reciente primero',
+      ArtistSort.count ||
+      ArtistSort.plays => ascending ? 'Menor a mayor' : 'Mayor a menor',
+      ArtistSort.random => ascending ? 'Aleatorio' : 'Aleatorio',
+    };
   }
 }
 

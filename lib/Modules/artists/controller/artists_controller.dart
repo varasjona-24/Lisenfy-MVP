@@ -12,7 +12,7 @@ import '../../../app/utils/artist_credit_parser.dart';
 import '../data/artist_store.dart';
 import '../domain/artist_profile.dart';
 
-enum ArtistSort { name, count, random }
+enum ArtistSort { name, count, plays, recent, country, region, random }
 
 class ArtistGroup {
   final String key;
@@ -262,6 +262,28 @@ class ArtistsController extends GetxController {
       case ArtistSort.count:
         list.sort((a, b) => a.count.compareTo(b.count));
         break;
+      case ArtistSort.plays:
+        list.sort((a, b) => _artistPlayCount(a).compareTo(_artistPlayCount(b)));
+        break;
+      case ArtistSort.recent:
+        list.sort(
+          (a, b) => _artistLastPlayedAt(a).compareTo(_artistLastPlayedAt(b)),
+        );
+        break;
+      case ArtistSort.country:
+        list.sort(
+          (a, b) => _artistCountryLabel(
+            a,
+          ).toLowerCase().compareTo(_artistCountryLabel(b).toLowerCase()),
+        );
+        break;
+      case ArtistSort.region:
+        list.sort(
+          (a, b) => a.mainRegion.label.toLowerCase().compareTo(
+            b.mainRegion.label.toLowerCase(),
+          ),
+        );
+        break;
       case ArtistSort.random:
         list.shuffle(Random());
         break;
@@ -274,6 +296,24 @@ class ArtistsController extends GetxController {
       return list.reversed.toList();
     }
     return list;
+  }
+
+  int _artistPlayCount(ArtistGroup artist) {
+    return artist.items.fold<int>(0, (sum, item) => sum + item.playCount);
+  }
+
+  int _artistLastPlayedAt(ArtistGroup artist) {
+    return artist.items
+        .map((item) => item.lastPlayedAt ?? 0)
+        .fold<int>(0, (a, b) => a > b ? a : b);
+  }
+
+  String _artistCountryLabel(ArtistGroup artist) {
+    final country = (artist.country ?? '').trim();
+    if (country.isNotEmpty) return country;
+    final code = (artist.countryCode ?? '').trim();
+    if (code.isNotEmpty) return code;
+    return 'Sin país';
   }
 
   void _refreshRecentArtists(List<ArtistGroup> source) {

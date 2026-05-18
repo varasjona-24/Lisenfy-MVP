@@ -832,7 +832,10 @@ class _HomeOrderedSections extends StatelessWidget {
               onTap: () => _openList(
                 context,
                 title: 'Para ti hoy',
-                items: controller.fullRecommended,
+                items: controller.fullItemsForHomeWidget(
+                  HomeWidgetId.recommendations,
+                ),
+                sourceId: HomeWidgetId.recommendations,
               ),
               trailing: IconButton(
                 splashRadius: 18,
@@ -927,7 +930,8 @@ class _HomeOrderedSections extends StatelessWidget {
       return _MediaListSection(
         title: title,
         items: full,
-        onHeaderTap: () => _openList(context, title: title, items: full),
+        onHeaderTap: () =>
+            _openList(context, title: title, items: full, sourceId: id),
         onTap: (item, index) => controller.openMedia(item, index, full),
         onLongPress: (item, index) {
           actions.showItemActions(
@@ -941,7 +945,8 @@ class _HomeOrderedSections extends StatelessWidget {
     return MediaHorizontalList(
       title: title,
       items: preview,
-      onHeaderTap: () => _openList(context, title: title, items: full),
+      onHeaderTap: () =>
+          _openList(context, title: title, items: full, sourceId: id),
       onItemTap: (item, index) => controller.openMedia(item, index, full),
       onItemLongPress: (item, _, {onStartMultiSelect}) {
         actions.showItemActions(
@@ -965,6 +970,7 @@ class _HomeOrderedSections extends StatelessWidget {
       arguments: {
         'title': title,
         'items': items,
+        if (sourceId != null) 'sourceId': sourceId,
         if (sourceId == HomeWidgetId.mostPlayed)
           'itemTrailingBuilder': (MediaItem item, int _) =>
               _PlayCountPill(item: item),
@@ -1023,7 +1029,13 @@ class _CustomHomeSections extends StatelessWidget {
       return _CustomHomeListSection(
         section: section,
         items: items,
-        onHeaderTap: () => _openList(context, section.title, items),
+        onHeaderTap: () => _openList(
+          context,
+          section.title,
+          items,
+          itemsRefreshBuilder: () =>
+              controller.resolveCustomSectionItems(section),
+        ),
         onTap: (item, index) => controller.openMedia(item, index, items),
         onLongPress: (item, index) => actions.showItemActions(
           context,
@@ -1037,7 +1049,13 @@ class _CustomHomeSections extends StatelessWidget {
       title: section.title,
       headerTrailing: _ModulePill(section: section),
       items: items.take(12).toList(growable: false),
-      onHeaderTap: () => _openList(context, section.title, items),
+      onHeaderTap: () => _openList(
+        context,
+        section.title,
+        items,
+        itemsRefreshBuilder: () =>
+            controller.resolveCustomSectionItems(section),
+      ),
       onItemTap: (item, index) => controller.openMedia(item, index, items),
       onItemLongPress: (item, _, {onStartMultiSelect}) {
         actions.showItemActions(
@@ -1057,17 +1075,32 @@ class _CustomHomeSections extends StatelessWidget {
       Get.toNamed(AppRoutes.artistDetail, arguments: {'artistKey': artist.key});
     }
 
+    void remove(HomeArtistChoice artist) {
+      _confirmRemoveCustomItem(
+        context: context,
+        label: artist.name,
+        onConfirm: () {
+          controller.removeTargetFromCustomHomeSection(
+            sectionId: section.id,
+            targetId: artist.key,
+          );
+        },
+      );
+    }
+
     if (section.layout == HomeCustomSectionLayout.list) {
       return _CustomArtistListSection(
         section: section,
         artists: artists,
         onArtistTap: open,
+        onArtistLongPress: remove,
       );
     }
     return _CustomArtistCardsSection(
       section: section,
       artists: artists,
       onArtistTap: open,
+      onArtistLongPress: remove,
     );
   }
 
@@ -1084,21 +1117,66 @@ class _CustomHomeSections extends StatelessWidget {
       );
     }
 
+    void remove(HomePlaylistChoice playlist) {
+      _confirmRemoveCustomItem(
+        context: context,
+        label: playlist.name,
+        onConfirm: () {
+          controller.removeTargetFromCustomHomeSection(
+            sectionId: section.id,
+            targetId: playlist.id,
+          );
+        },
+      );
+    }
+
     if (section.layout == HomeCustomSectionLayout.list) {
       return _CustomPlaylistListSection(
         section: section,
         playlists: playlists,
         onPlaylistTap: open,
+        onPlaylistLongPress: remove,
       );
     }
     return _CustomPlaylistCardsSection(
       section: section,
       playlists: playlists,
       onPlaylistTap: open,
+      onPlaylistLongPress: remove,
     );
   }
 
-  void _openList(BuildContext context, String title, List<MediaItem> items) {
+  Future<void> _confirmRemoveCustomItem({
+    required BuildContext context,
+    required String label,
+    required VoidCallback onConfirm,
+  }) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Quitar item'),
+        content: Text('¿Desea eliminar "$label" de la lista?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) onConfirm();
+  }
+
+  void _openList(
+    BuildContext context,
+    String title,
+    List<MediaItem> items, {
+    List<MediaItem> Function()? itemsRefreshBuilder,
+  }) {
     Get.toNamed(
       AppRoutes.homeSectionList,
       arguments: {
@@ -1112,7 +1190,8 @@ class _CustomHomeSections extends StatelessWidget {
               onChanged: controller.loadHome,
               onStartMultiSelect: onStartMultiSelect,
             ),
-        'onShuffle': (queue) => controller.openMedia(queue.first, 0, queue),
+        if (itemsRefreshBuilder != null)
+          'itemsRefreshBuilder': itemsRefreshBuilder,
       },
     );
   }
@@ -1171,11 +1250,13 @@ class _CustomArtistCardsSection extends StatelessWidget {
     required this.section,
     required this.artists,
     required this.onArtistTap,
+    required this.onArtistLongPress,
   });
 
   final HomeCustomSection section;
   final List<HomeArtistChoice> artists;
   final void Function(HomeArtistChoice artist) onArtistTap;
+  final void Function(HomeArtistChoice artist) onArtistLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1197,6 +1278,7 @@ class _CustomArtistCardsSection extends StatelessWidget {
             itemBuilder: (context, index) => _HomeArtistCard(
               artist: artists[index],
               onTap: () => onArtistTap(artists[index]),
+              onLongPress: () => onArtistLongPress(artists[index]),
             ),
           ),
         ),
@@ -1210,11 +1292,13 @@ class _CustomArtistListSection extends StatelessWidget {
     required this.section,
     required this.artists,
     required this.onArtistTap,
+    required this.onArtistLongPress,
   });
 
   final HomeCustomSection section;
   final List<HomeArtistChoice> artists;
   final void Function(HomeArtistChoice artist) onArtistTap;
+  final void Function(HomeArtistChoice artist) onArtistLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1235,6 +1319,7 @@ class _CustomArtistListSection extends StatelessWidget {
                 _HomeArtistTile(
                   artist: preview[i],
                   onTap: () => onArtistTap(preview[i]),
+                  onLongPress: () => onArtistLongPress(preview[i]),
                 ),
                 if (i != preview.length - 1) const SizedBox(height: 8),
               ],
@@ -1251,11 +1336,13 @@ class _CustomPlaylistCardsSection extends StatelessWidget {
     required this.section,
     required this.playlists,
     required this.onPlaylistTap,
+    required this.onPlaylistLongPress,
   });
 
   final HomeCustomSection section;
   final List<HomePlaylistChoice> playlists;
   final void Function(HomePlaylistChoice playlist) onPlaylistTap;
+  final void Function(HomePlaylistChoice playlist) onPlaylistLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1277,6 +1364,7 @@ class _CustomPlaylistCardsSection extends StatelessWidget {
             itemBuilder: (context, index) => _HomePlaylistCard(
               playlist: playlists[index],
               onTap: () => onPlaylistTap(playlists[index]),
+              onLongPress: () => onPlaylistLongPress(playlists[index]),
             ),
           ),
         ),
@@ -1290,11 +1378,13 @@ class _CustomPlaylistListSection extends StatelessWidget {
     required this.section,
     required this.playlists,
     required this.onPlaylistTap,
+    required this.onPlaylistLongPress,
   });
 
   final HomeCustomSection section;
   final List<HomePlaylistChoice> playlists;
   final void Function(HomePlaylistChoice playlist) onPlaylistTap;
+  final void Function(HomePlaylistChoice playlist) onPlaylistLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1315,6 +1405,7 @@ class _CustomPlaylistListSection extends StatelessWidget {
                 _HomePlaylistTile(
                   playlist: preview[i],
                   onTap: () => onPlaylistTap(preview[i]),
+                  onLongPress: () => onPlaylistLongPress(preview[i]),
                 ),
                 if (i != preview.length - 1) const SizedBox(height: 8),
               ],
@@ -1327,10 +1418,15 @@ class _CustomPlaylistListSection extends StatelessWidget {
 }
 
 class _HomeArtistCard extends StatelessWidget {
-  const _HomeArtistCard({required this.artist, required this.onTap});
+  const _HomeArtistCard({
+    required this.artist,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   final HomeArtistChoice artist;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1341,6 +1437,7 @@ class _HomeArtistCard extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
+      onLongPress: onLongPress,
       child: SizedBox(
         width: 108,
         child: Column(
@@ -1385,10 +1482,15 @@ class _HomeArtistCard extends StatelessWidget {
 }
 
 class _HomePlaylistCard extends StatelessWidget {
-  const _HomePlaylistCard({required this.playlist, required this.onTap});
+  const _HomePlaylistCard({
+    required this.playlist,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   final HomePlaylistChoice playlist;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1399,6 +1501,7 @@ class _HomePlaylistCard extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
+      onLongPress: onLongPress,
       child: SizedBox(
         width: 108,
         child: Column(
@@ -1446,10 +1549,15 @@ class _HomePlaylistCard extends StatelessWidget {
 }
 
 class _HomeArtistTile extends StatelessWidget {
-  const _HomeArtistTile({required this.artist, required this.onTap});
+  const _HomeArtistTile({
+    required this.artist,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   final HomeArtistChoice artist;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1460,6 +1568,7 @@ class _HomeArtistTile extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -1499,7 +1608,6 @@ class _HomeArtistTile extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
           ],
         ),
       ),
@@ -1508,10 +1616,15 @@ class _HomeArtistTile extends StatelessWidget {
 }
 
 class _HomePlaylistTile extends StatelessWidget {
-  const _HomePlaylistTile({required this.playlist, required this.onTap});
+  const _HomePlaylistTile({
+    required this.playlist,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   final HomePlaylistChoice playlist;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1522,6 +1635,7 @@ class _HomePlaylistTile extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -1570,7 +1684,6 @@ class _HomePlaylistTile extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
           ],
         ),
       ),

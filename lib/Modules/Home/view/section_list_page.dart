@@ -9,6 +9,7 @@ import 'package:get_storage/get_storage.dart';
 import '../../../app/data/local/local_library_store.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/controllers/media_actions_controller.dart';
+import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
@@ -29,6 +30,8 @@ class SectionListPage extends StatefulWidget {
     this.onHideTrack,
     this.onHideArtist,
     this.onDeleteSelected,
+    this.itemsRefreshBuilder,
+    this.sourceId,
     this.startInSelectionMode = false,
     this.initialSelectionItemId,
   });
@@ -49,6 +52,8 @@ class SectionListPage extends StatefulWidget {
   final FutureOr<void> Function(MediaItem item, int index)? onHideTrack;
   final FutureOr<void> Function(MediaItem item, int index)? onHideArtist;
   final FutureOr<void> Function(List<MediaItem> items)? onDeleteSelected;
+  final FutureOr<List<MediaItem>> Function()? itemsRefreshBuilder;
+  final HomeWidgetId? sourceId;
   final bool startInSelectionMode;
   final String? initialSelectionItemId;
 
@@ -146,7 +151,39 @@ class _SectionListPageState extends State<SectionListPage> {
 
   bool _canSelect(MediaItem item) => item.isOfflineStored;
 
+  HomeController? get _homeController =>
+      Get.isRegistered<HomeController>() ? Get.find<HomeController>() : null;
+
+  bool get _canSortSource {
+    final sourceId = widget.sourceId;
+    final home = _homeController;
+    return sourceId != null &&
+        home != null &&
+        home.sortOptionsForHomeWidget(sourceId).isNotEmpty;
+  }
+
+  void _refreshFromSourceSort() {
+    final sourceId = widget.sourceId;
+    final home = _homeController;
+    if (sourceId == null || home == null) return;
+    setState(() {
+      _items = home.fullItemsForHomeWidget(sourceId);
+      _selectedIds.removeWhere((id) => !_items.any((item) => item.id == id));
+    });
+  }
+
   Future<void> _refreshItemsFromStore() async {
+    final builder = widget.itemsRefreshBuilder;
+    if (builder != null) {
+      final refreshed = await builder();
+      if (!mounted) return;
+      setState(() {
+        _items = List<MediaItem>.from(refreshed);
+        _selectedIds.removeWhere((id) => !_items.any((item) => item.id == id));
+      });
+      return;
+    }
+
     final current = List<MediaItem>.from(_items);
     if (current.isEmpty) return;
 
@@ -169,7 +206,8 @@ class _SectionListPageState extends State<SectionListPage> {
     }
 
     final refreshed = current
-        .map((item) => resolve(item) ?? item)
+        .map(resolve)
+        .whereType<MediaItem>()
         .toList(growable: false);
 
     if (!mounted) return;
@@ -312,6 +350,12 @@ class _SectionListPageState extends State<SectionListPage> {
                         : Icons.view_list_rounded,
                   ),
                 ),
+                if (_canSortSource)
+                  IconButton(
+                    tooltip: 'Ordenar',
+                    onPressed: () => _openSortSheet(context),
+                    icon: const Icon(Icons.sort_rounded),
+                  ),
                 IconButton(
                   tooltip: 'Seleccionar varios',
                   onPressed: _items.any(_canSelect)
@@ -368,6 +412,121 @@ class _SectionListPageState extends State<SectionListPage> {
     );
   }
 
+  Future<void> _openSortSheet(BuildContext context) async {
+    final sourceId = widget.sourceId;
+    final home = _homeController;
+    if (sourceId == null || home == null) return;
+
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final nav = Get.isRegistered<NavigationController>()
+        ? Get.find<NavigationController>()
+        : null;
+    nav?.setOverlayOpen(true);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: scheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return Obx(() {
+          final selected = home.sortForHomeWidget(sourceId);
+          final asc = home.sortAscendingForHomeWidget(sourceId);
+          final options = home.sortOptionsForHomeWidget(sourceId);
+
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ordenar',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  for (final option in options)
+                    _SortOption(
+                      icon: option.icon,
+                      label: option.label,
+                      selected: selected == option,
+                      onTap: () {
+                        home.setHomeWidgetSort(sourceId, option);
+                        _refreshFromSourceSort();
+                      },
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Divider(
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  _SortOption(
+                    icon: Icons.south_rounded,
+                    label: _directionLabel(home, sourceId, ascending: false),
+                    selected: !asc,
+                    onTap: () {
+                      home.setHomeWidgetSortAscending(sourceId, false);
+                      _refreshFromSourceSort();
+                    },
+                  ),
+                  _SortOption(
+                    icon: Icons.north_rounded,
+                    label: _directionLabel(home, sourceId, ascending: true),
+                    selected: asc,
+                    onTap: () {
+                      home.setHomeWidgetSortAscending(sourceId, true);
+                      _refreshFromSourceSort();
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('Aceptar'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
+      },
+    ).whenComplete(() => nav?.setOverlayOpen(false));
+  }
+
+  String _directionLabel(
+    HomeController home,
+    HomeWidgetId sourceId, {
+    required bool ascending,
+  }) {
+    final sort = home.sortForHomeWidget(sourceId);
+    return switch (sort) {
+      HomeMediaSort.title || HomeMediaSort.artist => ascending ? 'A-Z' : 'Z-A',
+      HomeMediaSort.importedAt || HomeMediaSort.recent =>
+        ascending ? 'Más antiguo primero' : 'Más reciente primero',
+      HomeMediaSort.plays ||
+      HomeMediaSort.size ||
+      HomeMediaSort.duration => ascending ? 'Menor a mayor' : 'Mayor a menor',
+    };
+  }
+
+  Future<void> _openItem(MediaItem item, int index) async {
+    final sourceId = widget.sourceId;
+    final home = _homeController;
+    if (sourceId != null && home != null) {
+      await home.openMedia(item, index, _items);
+      return;
+    }
+    await widget.onItemTap(item, index);
+  }
+
   Widget _buildDefaultListView(ThemeData theme) {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(
@@ -398,7 +557,7 @@ class _SectionListPageState extends State<SectionListPage> {
               _toggleItemSelection(item);
               return;
             }
-            await widget.onItemTap(item, itemIndex);
+            await _openItem(item, itemIndex);
             if (mounted) setState(() {});
           },
           onLongPress: () async {
@@ -453,8 +612,9 @@ class _SectionListPageState extends State<SectionListPage> {
           sliver: MediaItemSliverGrid(
             items: _items,
             hintBuilder: widget.itemHintBuilder,
+            coverOverlayBuilder: widget.itemTrailingBuilder,
             onTap: (item, index) async {
-              await widget.onItemTap(item, index);
+              await _openItem(item, index);
               if (mounted) setState(() {});
             },
             onLongPress: (item, index) async {
@@ -727,6 +887,67 @@ class _MediaRow extends StatelessWidget {
 }
 
 enum _FeedbackAction { selectMultiple, interested, hideTrack, hideArtist }
+
+class _SortOption extends StatelessWidget {
+  const _SortOption({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected
+                ? scheme.primaryContainer
+                : scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? scheme.primary : scheme.outlineVariant,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 19,
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (selected) Icon(Icons.check_rounded, color: scheme.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _Thumb extends StatelessWidget {
   const _Thumb({required this.thumb});

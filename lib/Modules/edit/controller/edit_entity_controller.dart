@@ -323,13 +323,18 @@ class EditEntityController extends GetxController {
     final cleanedDurationSeconds = result.cleanedDurationMs > 0
         ? (result.cleanedDurationMs / 1000).round()
         : null;
+    final importCreatedAt =
+        latest.localAudioVariant?.createdAt ??
+        latest.variants
+            .map((variant) => variant.createdAt)
+            .fold<int>(0, (a, b) => a > b ? a : b);
 
     final cleanedVariant = MediaVariant(
       kind: MediaVariantKind.audio,
       format: format.isEmpty ? 'wav' : format,
       fileName: p.basename(outputPath),
       localPath: outputPath,
-      createdAt: DateTime.now().millisecondsSinceEpoch,
+      createdAt: importCreatedAt,
       size: await outFile.length(),
       durationSeconds: cleanedDurationSeconds,
     );
@@ -342,7 +347,7 @@ class EditEntityController extends GetxController {
 
     final updated = latest.copyWith(
       variants: [cleanedVariant, ...existing],
-      durationSeconds: cleanedDurationSeconds ?? latest.durationSeconds,
+      durationSeconds: latest.durationSeconds,
     );
 
     await _store.upsert(updated);

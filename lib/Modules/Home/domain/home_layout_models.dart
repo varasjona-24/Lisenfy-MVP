@@ -60,6 +60,39 @@ extension HomeWidgetIdX on HomeWidgetId {
   }
 }
 
+enum HomeMediaSort { title, artist, importedAt, size, plays, duration, recent }
+
+extension HomeMediaSortX on HomeMediaSort {
+  String get key => name;
+
+  String get label => switch (this) {
+    HomeMediaSort.title => 'Nombre de canción',
+    HomeMediaSort.artist => 'Nombre del artista',
+    HomeMediaSort.importedAt => 'Tiempo añadido',
+    HomeMediaSort.size => 'Tamaño',
+    HomeMediaSort.plays => 'Reproducciones',
+    HomeMediaSort.duration => 'Duración',
+    HomeMediaSort.recent => 'Última reproducción',
+  };
+
+  IconData get icon => switch (this) {
+    HomeMediaSort.title => Icons.sort_by_alpha_rounded,
+    HomeMediaSort.artist => Icons.person_rounded,
+    HomeMediaSort.importedAt => Icons.download_done_rounded,
+    HomeMediaSort.size => Icons.sd_storage_rounded,
+    HomeMediaSort.plays => Icons.play_circle_rounded,
+    HomeMediaSort.duration => Icons.timer_rounded,
+    HomeMediaSort.recent => Icons.history_rounded,
+  };
+
+  static HomeMediaSort? fromKey(String key) {
+    for (final value in HomeMediaSort.values) {
+      if (value.key == key) return value;
+    }
+    return null;
+  }
+}
+
 enum HomeCustomSectionKind { playlist, artist, smart }
 
 enum HomeCustomSectionLayout { cards, list }

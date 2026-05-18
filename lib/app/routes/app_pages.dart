@@ -96,6 +96,8 @@ abstract class AppPages {
           onHideTrack: args['onHideTrack'],
           onHideArtist: args['onHideArtist'],
           onDeleteSelected: args['onDeleteSelected'],
+          itemsRefreshBuilder: args['itemsRefreshBuilder'],
+          sourceId: args['sourceId'],
           startInSelectionMode: args['startInSelectionMode'] == true,
           initialSelectionItemId: args['initialSelectionItemId'],
         );
