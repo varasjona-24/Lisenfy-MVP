@@ -6,8 +6,11 @@ import 'package:get_storage/get_storage.dart';
 
 import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
+import '../../../app/utils/artist_credit_parser.dart';
 import '../data/playlist_store.dart';
 import '../domain/playlist.dart';
+
+enum PlaylistTrackSort { addedAt, title, artist, size, plays, duration }
 
 class SmartPlaylist {
   SmartPlaylist({
@@ -32,6 +35,8 @@ class PlaylistsController extends GetxController {
 
   final RxBool isLoading = false.obs;
   final RxBool detailGridView = false.obs;
+  final Rx<PlaylistTrackSort> trackSort = PlaylistTrackSort.addedAt.obs;
+  final RxBool trackSortAscending = false.obs;
   final RxList<Playlist> playlists = <Playlist>[].obs;
   final RxList<SmartPlaylist> smartPlaylists = <SmartPlaylist>[].obs;
 
@@ -41,6 +46,9 @@ class PlaylistsController extends GetxController {
   void onInit() {
     super.onInit();
     detailGridView.value = _storage.read('playlist_detail_grid_view') ?? false;
+    trackSort.value = _readTrackSort();
+    trackSortAscending.value =
+        _storage.read('playlist_track_sort_ascending') ?? false;
     load();
   }
 
@@ -81,7 +89,11 @@ class PlaylistsController extends GetxController {
         result.add(item);
       }
     }
-    return result;
+    return _applyTrackSort(result, playlist: playlist);
+  }
+
+  List<MediaItem> sortTrackItems(List<MediaItem> items) {
+    return _applyTrackSort(items);
   }
 
   SmartPlaylist? getSmartById(String id) {
@@ -159,11 +171,17 @@ class PlaylistsController extends GetxController {
     final current = getPlaylistById(id);
     if (current == null || items.isEmpty) return;
     final ids = current.itemIds.toSet();
+    final addedAt = Map<String, int>.from(current.itemAddedAt);
+    final now = DateTime.now().millisecondsSinceEpoch;
     for (final item in items) {
-      ids.add(_keyForItem(item));
+      final key = _keyForItem(item);
+      if (ids.add(key)) {
+        addedAt[key] = now;
+      }
     }
     final updated = current.copyWith(
       itemIds: ids.toList(),
+      itemAddedAt: addedAt,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
     await _store.upsert(updated);
@@ -174,8 +192,10 @@ class PlaylistsController extends GetxController {
     final current = getPlaylistById(id);
     if (current == null) return;
     final key = _keyForItem(item);
+    final addedAt = Map<String, int>.from(current.itemAddedAt)..remove(key);
     final updated = current.copyWith(
       itemIds: current.itemIds.where((e) => e != key).toList(),
+      itemAddedAt: addedAt,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
     await _store.upsert(updated);
@@ -243,5 +263,84 @@ class PlaylistsController extends GetxController {
   void toggleDetailGridView() {
     detailGridView.value = !detailGridView.value;
     _storage.write('playlist_detail_grid_view', detailGridView.value);
+  }
+
+  void setTrackSort(PlaylistTrackSort value) {
+    trackSort.value = value;
+    _storage.write('playlist_track_sort', value.name);
+  }
+
+  void setTrackSortAscending(bool value) {
+    trackSortAscending.value = value;
+    _storage.write('playlist_track_sort_ascending', value);
+  }
+
+  PlaylistTrackSort _readTrackSort() {
+    final raw = (_storage.read('playlist_track_sort') as String?)?.trim();
+    for (final option in PlaylistTrackSort.values) {
+      if (option.name == raw) return option;
+    }
+    return PlaylistTrackSort.addedAt;
+  }
+
+  List<MediaItem> _applyTrackSort(List<MediaItem> input, {Playlist? playlist}) {
+    if (trackSort.value == PlaylistTrackSort.addedAt && playlist == null) {
+      return List<MediaItem>.from(input);
+    }
+
+    final list = List<MediaItem>.from(input);
+    final sort = trackSort.value;
+    list.sort((a, b) {
+      final result = switch (sort) {
+        PlaylistTrackSort.title => _compareText(a.title, b.title),
+        PlaylistTrackSort.artist => _compareText(
+          _primaryArtist(a),
+          _primaryArtist(b),
+        ),
+        PlaylistTrackSort.size => _mediaSize(a).compareTo(_mediaSize(b)),
+        PlaylistTrackSort.plays => a.playCount.compareTo(b.playCount),
+        PlaylistTrackSort.duration => _duration(a).compareTo(_duration(b)),
+        PlaylistTrackSort.addedAt => _addedAt(
+          a,
+          playlist,
+        ).compareTo(_addedAt(b, playlist)),
+      };
+      if (result != 0) return result;
+      return _compareText(a.title, b.title);
+    });
+
+    if (!trackSortAscending.value) {
+      return list.reversed.toList(growable: false);
+    }
+    return list;
+  }
+
+  int _addedAt(MediaItem item, Playlist? playlist) {
+    final key = _keyForItem(item);
+    final explicit = playlist?.itemAddedAt[key] ?? 0;
+    if (explicit > 0) return explicit;
+    final index = playlist?.itemIds.indexOf(key) ?? -1;
+    if (index < 0) return 0;
+    return (playlist?.createdAt ?? 0) + index;
+  }
+
+  int _duration(MediaItem item) {
+    return item.effectiveDurationSeconds ?? 0;
+  }
+
+  int _mediaSize(MediaItem item) {
+    final variant = item.localAudioVariant ?? item.localVideoVariant;
+    return variant?.size ?? 0;
+  }
+
+  String _primaryArtist(MediaItem item) {
+    final credits = ArtistCreditParser.parse(item.displaySubtitle);
+    final artist = ArtistCreditParser.cleanName(credits.primaryArtist);
+    if (artist.isNotEmpty) return artist;
+    return item.displaySubtitle;
+  }
+
+  int _compareText(String a, String b) {
+    return a.trim().toLowerCase().compareTo(b.trim().toLowerCase());
   }
 }

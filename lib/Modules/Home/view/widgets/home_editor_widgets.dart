@@ -5,13 +5,17 @@ Future<void> _openHomeEditorSheet(
   required HomeController controller,
   required HomeMode mode,
 }) async {
+  final nav = Get.isRegistered<NavigationController>()
+      ? Get.find<NavigationController>()
+      : null;
+  nav?.setOverlayOpen(true);
   await showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
     useSafeArea: true,
     builder: (_) => _HomeWidgetEditor(controller: controller, mode: mode),
-  );
+  ).whenComplete(() => nav?.setOverlayOpen(false));
 }
 
 class _HomeWidgetEditor extends StatefulWidget {
@@ -122,6 +126,38 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
     setState(() {
       _customSections.removeWhere((section) => section.id == id);
     });
+  }
+
+  Set<String> _selectedPlaylistIds() {
+    HomeCustomSection? section;
+    for (final entry in _customSections) {
+      if (entry.id == 'playlists_custom') {
+        section = entry;
+        break;
+      }
+    }
+    if (section == null) return <String>{};
+    return section.targetId
+        .split('|')
+        .map((entry) => entry.trim())
+        .where((entry) => entry.isNotEmpty)
+        .toSet();
+  }
+
+  Set<String> _selectedArtistKeys() {
+    HomeCustomSection? section;
+    for (final entry in _customSections) {
+      if (entry.id == 'artists_custom') {
+        section = entry;
+        break;
+      }
+    }
+    if (section == null) return <String>{};
+    return section.targetId
+        .split('|')
+        .map(ArtistCreditParser.normalizeKey)
+        .where((entry) => entry.isNotEmpty && entry != 'unknown')
+        .toSet();
   }
 
   void _addPlaylistSection({required String playlistId}) {
@@ -358,221 +394,497 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
   }
 
   Future<void> _showPlaylistPicker(BuildContext context) async {
-    final playlists = await controller.loadPlaylistChoices();
+    final existing = _selectedPlaylistIds();
+    final playlists = controller
+        .playlistChoices()
+        .where((playlist) => !existing.contains(playlist.id))
+        .toList(growable: false);
     if (!context.mounted) return;
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    await showModalBottomSheet<void>(
+    final selected = await showModalBottomSheet<List<String>>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) {
-        final searchQuery = ValueNotifier<String>('');
-
-        return SafeArea(
-          child: StatefulBuilder(
-            builder: (context, setState) {
-              final filtered = searchQuery.value.isEmpty
-                  ? playlists
-                  : playlists
-                        .where(
-                          (p) => p.name.toLowerCase().contains(
-                            searchQuery.value.toLowerCase(),
-                          ),
-                        )
-                        .toList();
-
-              return Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: TextField(
-                      onChanged: (value) {
-                        searchQuery.value = value;
-                        setState(() {});
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Buscar playlist...',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: filtered.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No se encontraron playlists',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, __) =>
-                                const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final playlist = filtered[index];
-                              final cover = playlist.coverCleared
-                                  ? null
-                                  : (playlist.coverLocalPath
-                                                ?.trim()
-                                                .isNotEmpty ==
-                                            true
-                                        ? playlist.coverLocalPath!.trim()
-                                        : playlist.coverUrl?.trim());
-                              final provider = _homeImageProvider(cover);
-                              return ListTile(
-                                leading: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: scheme.primaryContainer,
-                                    borderRadius: BorderRadius.circular(10),
-                                    image: provider != null
-                                        ? DecorationImage(
-                                            image: provider,
-                                            fit: BoxFit.cover,
-                                          )
-                                        : null,
-                                  ),
-                                  child: provider == null
-                                      ? Icon(
-                                          Icons.queue_music_rounded,
-                                          color: scheme.onPrimaryContainer,
-                                        )
-                                      : null,
-                                ),
-                                title: Text(playlist.name),
-                                subtitle: Text(
-                                  '${playlist.itemIds.length} canción${playlist.itemIds.length != 1 ? 'es' : ''}',
-                                ),
-                                onTap: () {
-                                  _addPlaylistSection(playlistId: playlist.id);
-                                  Navigator.of(context).pop();
-                                },
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              );
-            },
-          ),
+        return _HomePlaylistPickerSheet(
+          playlists: playlists,
+          totalCount: controller.playlistChoices().length,
         );
       },
     );
+    if (selected == null || selected.isEmpty || !mounted) return;
+    for (final id in selected) {
+      _addPlaylistSection(playlistId: id);
+    }
   }
 
   Future<void> _showArtistPicker(BuildContext context) async {
-    final artists = controller.artistChoices();
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final existing = _selectedArtistKeys();
+    final allArtists = controller.artistChoices();
+    final artists = allArtists
+        .where((artist) => !existing.contains(artist.key))
+        .toList(growable: false);
 
-    await showModalBottomSheet<void>(
+    final selected = await showModalBottomSheet<List<String>>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) {
-        final searchQuery = ValueNotifier<String>('');
-
-        return SafeArea(
-          child: StatefulBuilder(
-            builder: (context, setState) {
-              final filtered = searchQuery.value.isEmpty
-                  ? artists
-                  : artists
-                        .where(
-                          (a) =>
-                              a.name.toLowerCase().contains(
-                                searchQuery.value.toLowerCase(),
-                              ) ||
-                              a.key.toLowerCase().contains(
-                                searchQuery.value.toLowerCase(),
-                              ),
-                        )
-                        .toList();
-
-              return Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: TextField(
-                      onChanged: (value) {
-                        searchQuery.value = value;
-                        setState(() {});
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Buscar artista...',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: filtered.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No se encontraron artistas',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, __) =>
-                                const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final artist = filtered[index];
-                              final thumb = artist.thumbnail;
-                              final hasImage =
-                                  thumb != null && thumb.isNotEmpty;
-
-                              return ListTile(
-                                leading: hasImage
-                                    ? CircleAvatar(
-                                        backgroundImage:
-                                            thumb.startsWith('http')
-                                            ? NetworkImage(thumb)
-                                                  as ImageProvider
-                                            : FileImage(File(thumb))
-                                                  as ImageProvider,
-                                        radius: 20,
-                                      )
-                                    : CircleAvatar(
-                                        radius: 20,
-                                        backgroundColor:
-                                            scheme.primaryContainer,
-                                        child: Icon(
-                                          Icons.person_rounded,
-                                          color: scheme.onPrimaryContainer,
-                                        ),
-                                      ),
-                                title: Text(artist.name),
-                                subtitle: Text(
-                                  '${artist.count} canción${artist.count != 1 ? 'es' : ''}',
-                                ),
-                                onTap: () {
-                                  _addArtistSection(artistKey: artist.key);
-                                  Navigator.of(context).pop();
-                                },
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              );
-            },
-          ),
+        return _HomeArtistPickerSheet(
+          artists: artists,
+          totalCount: allArtists.length,
         );
       },
+    );
+    if (selected == null || selected.isEmpty || !mounted) return;
+    for (final key in selected) {
+      _addArtistSection(artistKey: key);
+    }
+  }
+}
+
+class _HomePlaylistPickerSheet extends StatefulWidget {
+  const _HomePlaylistPickerSheet({
+    required this.playlists,
+    required this.totalCount,
+  });
+
+  final List<HomePlaylistChoice> playlists;
+  final int totalCount;
+
+  @override
+  State<_HomePlaylistPickerSheet> createState() =>
+      _HomePlaylistPickerSheetState();
+}
+
+class _HomePlaylistPickerSheetState extends State<_HomePlaylistPickerSheet> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  final Set<String> _selected = <String>{};
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<HomePlaylistChoice> get _filtered {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return widget.playlists;
+    return widget.playlists
+        .where((playlist) => playlist.name.toLowerCase().contains(query))
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _filtered;
+    final query = _query.trim();
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.82,
+        child: Column(
+          children: [
+            _HomePickerHeader(
+              icon: Icons.queue_music_rounded,
+              title: 'Agregar playlists',
+              searchController: _searchCtrl,
+              searchHint: 'Buscar playlist',
+              query: _query,
+              onQueryChanged: (value) => setState(() => _query = value),
+              onClear: () {
+                _searchCtrl.clear();
+                setState(() => _query = '');
+              },
+              chips: [
+                _HomePickerChipData(
+                  icon: Icons.library_music_rounded,
+                  label: '${widget.playlists.length} disponibles',
+                ),
+                _HomePickerChipData(
+                  icon: Icons.check_circle_rounded,
+                  label: '${_selected.length} seleccionadas',
+                ),
+                if (query.isNotEmpty)
+                  _HomePickerChipData(
+                    icon: Icons.filter_alt_rounded,
+                    label: '${items.length} resultados',
+                  ),
+              ],
+            ),
+            Expanded(
+              child: items.isEmpty
+                  ? _HomePickerEmptyText(
+                      text: query.isEmpty
+                          ? widget.totalCount == 0
+                                ? 'No hay playlists disponibles.'
+                                : 'Todas las playlists ya estan en inicio.'
+                          : 'No se encontraron playlists.',
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      itemCount: items.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final playlist = items[index];
+                        return _HomeChoiceTile(
+                          selected: _selected.contains(playlist.id),
+                          title: playlist.name,
+                          subtitle:
+                              '${playlist.count} cancion${playlist.count != 1 ? 'es' : ''}',
+                          image: playlist.cover,
+                          fallbackIcon: Icons.queue_music_rounded,
+                          onTap: () => _toggle(playlist.id),
+                        );
+                      },
+                    ),
+            ),
+            _HomePickerSubmitButton(
+              selectedCount: _selected.length,
+              emptyLabel: 'Selecciona playlists',
+              activeLabel: 'Agregar ${_selected.length} seleccionadas',
+              onPressed: _selected.isEmpty
+                  ? null
+                  : () => Navigator.of(context).pop(_selected.toList()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _toggle(String id) {
+    setState(() {
+      if (!_selected.remove(id)) {
+        _selected.add(id);
+      }
+    });
+  }
+}
+
+class _HomeArtistPickerSheet extends StatefulWidget {
+  const _HomeArtistPickerSheet({
+    required this.artists,
+    required this.totalCount,
+  });
+
+  final List<HomeArtistChoice> artists;
+  final int totalCount;
+
+  @override
+  State<_HomeArtistPickerSheet> createState() => _HomeArtistPickerSheetState();
+}
+
+class _HomeArtistPickerSheetState extends State<_HomeArtistPickerSheet> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  final Set<String> _selected = <String>{};
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<HomeArtistChoice> get _filtered {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return widget.artists;
+    return widget.artists
+        .where(
+          (artist) =>
+              artist.name.toLowerCase().contains(query) ||
+              artist.key.toLowerCase().contains(query),
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _filtered;
+    final query = _query.trim();
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.82,
+        child: Column(
+          children: [
+            _HomePickerHeader(
+              icon: Icons.person_add_alt_rounded,
+              title: 'Agregar artistas',
+              searchController: _searchCtrl,
+              searchHint: 'Buscar artista',
+              query: _query,
+              onQueryChanged: (value) => setState(() => _query = value),
+              onClear: () {
+                _searchCtrl.clear();
+                setState(() => _query = '');
+              },
+              chips: [
+                _HomePickerChipData(
+                  icon: Icons.groups_rounded,
+                  label: '${widget.artists.length} disponibles',
+                ),
+                _HomePickerChipData(
+                  icon: Icons.check_circle_rounded,
+                  label: '${_selected.length} seleccionados',
+                ),
+                if (query.isNotEmpty)
+                  _HomePickerChipData(
+                    icon: Icons.filter_alt_rounded,
+                    label: '${items.length} resultados',
+                  ),
+              ],
+            ),
+            Expanded(
+              child: items.isEmpty
+                  ? _HomePickerEmptyText(
+                      text: query.isEmpty
+                          ? widget.totalCount == 0
+                                ? 'No hay artistas disponibles.'
+                                : 'Todos los artistas ya estan en inicio.'
+                          : 'No se encontraron artistas.',
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      itemCount: items.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final artist = items[index];
+                        return _HomeChoiceTile(
+                          selected: _selected.contains(artist.key),
+                          title: artist.name,
+                          subtitle:
+                              '${artist.count} cancion${artist.count != 1 ? 'es' : ''}',
+                          image: artist.thumbnail,
+                          fallbackIcon: Icons.person_rounded,
+                          circleImage: true,
+                          onTap: () => _toggle(artist.key),
+                        );
+                      },
+                    ),
+            ),
+            _HomePickerSubmitButton(
+              selectedCount: _selected.length,
+              emptyLabel: 'Selecciona artistas',
+              activeLabel: 'Agregar ${_selected.length} seleccionados',
+              onPressed: _selected.isEmpty
+                  ? null
+                  : () => Navigator.of(context).pop(_selected.toList()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _toggle(String key) {
+    setState(() {
+      if (!_selected.remove(key)) {
+        _selected.add(key);
+      }
+    });
+  }
+}
+
+class _HomePickerHeader extends StatelessWidget {
+  const _HomePickerHeader({
+    required this.icon,
+    required this.title,
+    required this.searchController,
+    required this.searchHint,
+    required this.query,
+    required this.onQueryChanged,
+    required this.onClear,
+    required this.chips,
+  });
+
+  final IconData icon;
+  final String title;
+  final TextEditingController searchController;
+  final String searchHint;
+  final String query;
+  final ValueChanged<String> onQueryChanged;
+  final VoidCallback onClear;
+  final List<_HomePickerChipData> chips;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: searchController,
+            onChanged: onQueryChanged,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: query.trim().isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: onClear,
+                    ),
+              hintText: searchHint,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final chip in chips)
+                Chip(
+                  avatar: Icon(chip.icon, size: 18),
+                  label: Text(chip.label),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomePickerChipData {
+  const _HomePickerChipData({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+}
+
+class _HomePickerEmptyText extends StatelessWidget {
+  const _HomePickerEmptyText({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ),
+    );
+  }
+}
+
+class _HomePickerSubmitButton extends StatelessWidget {
+  const _HomePickerSubmitButton({
+    required this.selectedCount,
+    required this.emptyLabel,
+    required this.activeLabel,
+    required this.onPressed,
+  });
+
+  final int selectedCount;
+  final String emptyLabel;
+  final String activeLabel;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: onPressed,
+          icon: const Icon(Icons.add_rounded),
+          label: Text(selectedCount == 0 ? emptyLabel : activeLabel),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeChoiceTile extends StatelessWidget {
+  const _HomeChoiceTile({
+    required this.selected,
+    required this.title,
+    required this.subtitle,
+    required this.image,
+    required this.fallbackIcon,
+    required this.onTap,
+    this.circleImage = false,
+  });
+
+  final bool selected;
+  final String title;
+  final String subtitle;
+  final String? image;
+  final IconData fallbackIcon;
+  final VoidCallback onTap;
+  final bool circleImage;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final provider = _homeImageProvider(image);
+    return Material(
+      color: selected
+          ? scheme.primaryContainer.withValues(alpha: 0.5)
+          : scheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: selected ? scheme.primary : scheme.outlineVariant,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        onTap: onTap,
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(circleImage ? 24 : 10),
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: provider == null
+                ? ColoredBox(
+                    color: scheme.surfaceContainerHighest,
+                    child: Icon(fallbackIcon),
+                  )
+                : Image(image: provider, fit: BoxFit.cover),
+          ),
+        ),
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: Checkbox(value: selected, onChanged: (_) => onTap()),
+      ),
     );
   }
 }

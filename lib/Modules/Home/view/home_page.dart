@@ -13,6 +13,7 @@ import '../../../app/ui/widgets/media/media_history_item_tile.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/controllers/media_actions_controller.dart';
+import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 

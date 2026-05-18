@@ -10,6 +10,7 @@ import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/utils/country_catalog.dart';
 import '../../../app/routes/app_routes.dart';
+import '../../../app/controllers/navigation_controller.dart';
 import 'package:listenfy/Modules/home/controller/home_controller.dart';
 import '../controller/artists_controller.dart';
 import '../domain/artist_profile.dart';
@@ -291,6 +292,10 @@ class ArtistsPage extends GetView<ArtistsController> {
   Future<void> _openSortSheet(BuildContext context) async {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final nav = Get.isRegistered<NavigationController>()
+        ? Get.find<NavigationController>()
+        : null;
+    nav?.setOverlayOpen(true);
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -410,7 +415,7 @@ class ArtistsPage extends GetView<ArtistsController> {
           );
         });
       },
-    );
+    ).whenComplete(() => nav?.setOverlayOpen(false));
   }
 }
 

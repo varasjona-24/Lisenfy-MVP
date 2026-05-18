@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
@@ -46,6 +47,7 @@ class _SourceThemeTopicPlaylistPageState
   // ============================
   final SourcesController _sources = Get.find<SourcesController>();
   final MediaActionsController _actions = Get.find<MediaActionsController>();
+  final GetStorage _storage = GetStorage();
   final TextEditingController _subListSearchController =
       TextEditingController();
 
@@ -56,6 +58,7 @@ class _SourceThemeTopicPlaylistPageState
   @override
   void initState() {
     super.initState();
+    _subListSort = _readSubListSort();
     if (Get.isRegistered<AudioService>()) {
       Get.find<AudioService>().pauseAndHideMiniPlayer();
     }
@@ -388,7 +391,13 @@ class _SourceThemeTopicPlaylistPageState
         PopupMenuButton<_SourceSubListSort>(
           tooltip: 'Ordenar',
           initialValue: _subListSort,
-          onSelected: (value) => setState(() => _subListSort = value),
+          onOpened: _markOverlayOpen,
+          onCanceled: _markOverlayClosed,
+          onSelected: (value) {
+            _markOverlayClosed();
+            setState(() => _subListSort = value);
+            _storage.write('source_playlist_collection_sort', value.name);
+          },
           icon: const Icon(Icons.sort_rounded),
           itemBuilder: (ctx) => const [
             PopupMenuItem(
@@ -411,6 +420,27 @@ class _SourceThemeTopicPlaylistPageState
         ),
       ],
     );
+  }
+
+  _SourceSubListSort _readSubListSort() {
+    final raw = (_storage.read('source_playlist_collection_sort') as String?)
+        ?.trim();
+    for (final option in _SourceSubListSort.values) {
+      if (option.name == raw) return option;
+    }
+    return _SourceSubListSort.recent;
+  }
+
+  void _markOverlayOpen() {
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setOverlayOpen(true);
+    }
+  }
+
+  void _markOverlayClosed() {
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setOverlayOpen(false);
+    }
   }
 
   // ============================

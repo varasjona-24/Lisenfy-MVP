@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 import '../../../app/data/local/local_library_store.dart';
 import '../../../app/data/repo/media_repository.dart';
@@ -54,6 +55,7 @@ class ArtistsController extends GetxController {
   final MediaRepository _repo = Get.find<MediaRepository>();
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
   final ArtistStore _artistStore = Get.find<ArtistStore>();
+  final GetStorage _storage = GetStorage();
 
   final RxList<ArtistGroup> artists = <ArtistGroup>[].obs;
   final RxList<ArtistGroup> recentArtists = <ArtistGroup>[].obs;
@@ -90,6 +92,8 @@ class ArtistsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    sort.value = _readSort();
+    sortAscending.value = _storage.read('artists_sort_ascending') ?? true;
     load();
   }
 
@@ -224,14 +228,24 @@ class ArtistsController extends GetxController {
 
   void setSort(ArtistSort value) {
     sort.value = value;
+    _storage.write('artists_sort', value.name);
     artists.assignAll(_applySort(artists));
     _refreshRecentArtists(artists);
   }
 
   void setSortAscending(bool value) {
     sortAscending.value = value;
+    _storage.write('artists_sort_ascending', value);
     artists.assignAll(_applySort(artists));
     _refreshRecentArtists(artists);
+  }
+
+  ArtistSort _readSort() {
+    final raw = (_storage.read('artists_sort') as String?)?.trim();
+    for (final option in ArtistSort.values) {
+      if (option.name == raw) return option;
+    }
+    return ArtistSort.name;
   }
 
   void toggleBandsMinimized() {

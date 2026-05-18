@@ -42,7 +42,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
 
       final title = isSmart ? smart?.title : playlist?.name;
       final items = isSmart
-          ? (smart?.items ?? const <MediaItem>[])
+          ? controller.sortTrackItems(smart?.items ?? const <MediaItem>[])
           : (playlist != null
                 ? controller.resolvePlaylistItems(playlist)
                 : const <MediaItem>[]);
@@ -271,6 +271,11 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
           ),
         ),
         IconButton(
+          tooltip: 'Ordenar',
+          onPressed: () => _openSortSheet(Get.context!),
+          icon: const Icon(Icons.sort_rounded),
+        ),
+        IconButton(
           tooltip: controller.detailGridView.value
               ? 'Vista de cuadrícula'
               : 'Vista de lista',
@@ -283,6 +288,124 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
         ),
       ],
     );
+  }
+
+  Future<void> _openSortSheet(BuildContext context) async {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final nav = Get.isRegistered<NavigationController>()
+        ? Get.find<NavigationController>()
+        : null;
+    nav?.setOverlayOpen(true);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: scheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      builder: (ctx) {
+        return Obx(() {
+          final sort = controller.trackSort.value;
+          final asc = controller.trackSortAscending.value;
+
+          return SafeArea(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ordenar por',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _PlaylistSortOption(
+                      label: 'Tiempo añadido a la lista',
+                      selected: sort == PlaylistTrackSort.addedAt,
+                      onTap: () =>
+                          controller.setTrackSort(PlaylistTrackSort.addedAt),
+                    ),
+                    _PlaylistSortOption(
+                      label: 'Nombre de cancion',
+                      selected: sort == PlaylistTrackSort.title,
+                      onTap: () =>
+                          controller.setTrackSort(PlaylistTrackSort.title),
+                    ),
+                    _PlaylistSortOption(
+                      label: 'Nombre del artista',
+                      selected: sort == PlaylistTrackSort.artist,
+                      onTap: () =>
+                          controller.setTrackSort(PlaylistTrackSort.artist),
+                    ),
+                    _PlaylistSortOption(
+                      label: 'Tamano',
+                      selected: sort == PlaylistTrackSort.size,
+                      onTap: () =>
+                          controller.setTrackSort(PlaylistTrackSort.size),
+                    ),
+                    _PlaylistSortOption(
+                      label: 'Reproducciones',
+                      selected: sort == PlaylistTrackSort.plays,
+                      onTap: () =>
+                          controller.setTrackSort(PlaylistTrackSort.plays),
+                    ),
+                    _PlaylistSortOption(
+                      label: 'Duracion',
+                      selected: sort == PlaylistTrackSort.duration,
+                      onTap: () =>
+                          controller.setTrackSort(PlaylistTrackSort.duration),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Divider(
+                        color: scheme.outlineVariant.withValues(alpha: 0.5),
+                        height: 1,
+                      ),
+                    ),
+                    _PlaylistSortOption(
+                      label: 'Mayor a menor / recientes primero',
+                      selected: !asc,
+                      onTap: () => controller.setTrackSortAscending(false),
+                    ),
+                    _PlaylistSortOption(
+                      label: 'Menor a mayor / antiguos primero',
+                      selected: asc,
+                      onTap: () => controller.setTrackSortAscending(true),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          side: BorderSide(color: scheme.outlineVariant),
+                        ),
+                        child: Text(
+                          'Cerrar',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        });
+      },
+    ).whenComplete(() => nav?.setOverlayOpen(false));
   }
 
   Widget _trackTile(
@@ -548,6 +671,9 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
 
   Future<void> _openAddSongs(BuildContext context, Playlist? playlist) async {
     if (playlist == null) return;
+    final nav = Get.isRegistered<NavigationController>()
+        ? Get.find<NavigationController>()
+        : null;
     final existing = playlist.itemIds.toSet();
     final allItems = controller.libraryAudio.where((item) {
       final key = item.publicId.trim().isNotEmpty
@@ -556,6 +682,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
       return !existing.contains(key);
     }).toList();
 
+    nav?.setOverlayOpen(true);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -571,7 +698,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
           controller: controller,
         );
       },
-    );
+    ).whenComplete(() => nav?.setOverlayOpen(false));
   }
 }
 
@@ -629,6 +756,63 @@ class _PlaylistCommandButton extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlaylistSortOption extends StatelessWidget {
+  const _PlaylistSortOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected
+                ? scheme.primary.withValues(alpha: 0.10)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: selected ? scheme.primary : scheme.onSurface,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked,
+                color: selected ? scheme.primary : scheme.outline,
+                size: 24,
               ),
             ],
           ),

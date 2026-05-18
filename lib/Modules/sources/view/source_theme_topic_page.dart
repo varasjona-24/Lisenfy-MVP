@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
@@ -46,6 +47,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
   // ============================
   final SourcesController _sources = Get.find<SourcesController>();
   final MediaActionsController _actions = Get.find<MediaActionsController>();
+  final GetStorage _storage = GetStorage();
   final TextEditingController _listSearchController = TextEditingController();
   String? _topicSizeLabel;
   String _listQuery = '';
@@ -54,6 +56,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
   @override
   void initState() {
     super.initState();
+    _listSort = _readListSort();
     if (Get.isRegistered<AudioService>()) {
       Get.find<AudioService>().pauseAndHideMiniPlayer();
     }
@@ -445,7 +448,13 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
         PopupMenuButton<_SourceListSort>(
           tooltip: 'Ordenar',
           initialValue: _listSort,
-          onSelected: (value) => setState(() => _listSort = value),
+          onOpened: _markOverlayOpen,
+          onCanceled: _markOverlayClosed,
+          onSelected: (value) {
+            _markOverlayClosed();
+            setState(() => _listSort = value);
+            _storage.write('source_topic_collection_sort', value.name);
+          },
           icon: const Icon(Icons.sort_rounded),
           itemBuilder: (ctx) => const [
             PopupMenuItem(
@@ -465,6 +474,27 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
         ),
       ],
     );
+  }
+
+  _SourceListSort _readListSort() {
+    final raw = (_storage.read('source_topic_collection_sort') as String?)
+        ?.trim();
+    for (final option in _SourceListSort.values) {
+      if (option.name == raw) return option;
+    }
+    return _SourceListSort.recent;
+  }
+
+  void _markOverlayOpen() {
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setOverlayOpen(true);
+    }
+  }
+
+  void _markOverlayClosed() {
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setOverlayOpen(false);
+    }
   }
 
   Future<List<MediaItem>> _loadItems(SourceThemeTopic topic) async {

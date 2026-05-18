@@ -2,8 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 import '../../../app/controllers/media_actions_controller.dart';
+import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/ui/themes/app_spacing.dart';
@@ -11,6 +13,8 @@ import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/media/media_item_grid.dart';
 import '../controller/home_controller.dart';
+
+enum _SongLibrarySort { importedAt, title, artist, size, plays, duration }
 
 class AppSongsSearchPage extends StatefulWidget {
   const AppSongsSearchPage({super.key});
@@ -23,9 +27,19 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
   final HomeController _home = Get.find<HomeController>();
   final MediaActionsController _actions = Get.find<MediaActionsController>();
   final TextEditingController _searchCtrl = TextEditingController();
+  final GetStorage _storage = GetStorage();
 
   String _query = '';
   bool _gridView = false;
+  late _SongLibrarySort _sort;
+  late bool _sortAscending;
+
+  @override
+  void initState() {
+    super.initState();
+    _sort = _readSort();
+    _sortAscending = _storage.read('song_library_sort_ascending') ?? false;
+  }
 
   @override
   void dispose() {
@@ -73,6 +87,11 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Ordenar',
+                      onPressed: () => _openSortSheet(context),
+                      icon: const Icon(Icons.sort_rounded),
                     ),
                     IconButton(
                       tooltip: _gridView ? 'Ver como lista' : 'Ver cuadrícula',
@@ -154,8 +173,26 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
       return title.contains(q) || subtitle.contains(q);
     }).toList();
 
-    items.sort((a, b) => _importedAt(b).compareTo(_importedAt(a)));
+    _sortItems(items);
     return items;
+  }
+
+  void _sortItems(List<MediaItem> items) {
+    items.sort((a, b) {
+      final result = switch (_sort) {
+        _SongLibrarySort.importedAt => _importedAt(a).compareTo(_importedAt(b)),
+        _SongLibrarySort.title => _compareText(a.title, b.title),
+        _SongLibrarySort.artist => _compareText(_artist(a), _artist(b)),
+        _SongLibrarySort.size => _size(a).compareTo(_size(b)),
+        _SongLibrarySort.plays => a.playCount.compareTo(b.playCount),
+        _SongLibrarySort.duration => _duration(a).compareTo(_duration(b)),
+      };
+      if (result != 0) return result;
+      return _compareText(a.title, b.title);
+    });
+    if (!_sortAscending) {
+      items.setAll(0, items.reversed.toList(growable: false));
+    }
   }
 
   int _importedAt(MediaItem item) {
@@ -163,6 +200,148 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
     return item.variants
         .map((v) => v.createdAt)
         .fold<int>(0, (maxValue, value) => value > maxValue ? value : maxValue);
+  }
+
+  int _size(MediaItem item) {
+    final variant = item.localAudioVariant ?? item.localVideoVariant;
+    return variant?.size ?? 0;
+  }
+
+  int _duration(MediaItem item) => item.effectiveDurationSeconds ?? 0;
+
+  String _artist(MediaItem item) {
+    final parsed = item.displaySubtitle.trim();
+    return parsed.isEmpty ? 'Artista desconocido' : parsed;
+  }
+
+  int _compareText(String a, String b) {
+    return a.trim().toLowerCase().compareTo(b.trim().toLowerCase());
+  }
+
+  _SongLibrarySort _readSort() {
+    final raw = (_storage.read('song_library_sort') as String?)?.trim();
+    for (final option in _SongLibrarySort.values) {
+      if (option.name == raw) return option;
+    }
+    return _SongLibrarySort.importedAt;
+  }
+
+  void _setSort(_SongLibrarySort value) {
+    setState(() => _sort = value);
+    _storage.write('song_library_sort', value.name);
+  }
+
+  void _setSortAscending(bool value) {
+    setState(() => _sortAscending = value);
+    _storage.write('song_library_sort_ascending', value);
+  }
+
+  Future<void> _openSortSheet(BuildContext context) async {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final nav = Get.isRegistered<NavigationController>()
+        ? Get.find<NavigationController>()
+        : null;
+    nav?.setOverlayOpen(true);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: scheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, modalSetState) {
+            void selectSort(_SongLibrarySort value) {
+              _setSort(value);
+              modalSetState(() {});
+            }
+
+            void selectDirection(bool value) {
+              _setSortAscending(value);
+              modalSetState(() {});
+            }
+
+            return SafeArea(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Ordenar por',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _SongSortOption(
+                        label: 'Tiempo importado',
+                        selected: _sort == _SongLibrarySort.importedAt,
+                        onTap: () => selectSort(_SongLibrarySort.importedAt),
+                      ),
+                      _SongSortOption(
+                        label: 'Nombre de cancion',
+                        selected: _sort == _SongLibrarySort.title,
+                        onTap: () => selectSort(_SongLibrarySort.title),
+                      ),
+                      _SongSortOption(
+                        label: 'Nombre del artista',
+                        selected: _sort == _SongLibrarySort.artist,
+                        onTap: () => selectSort(_SongLibrarySort.artist),
+                      ),
+                      _SongSortOption(
+                        label: 'Tamano',
+                        selected: _sort == _SongLibrarySort.size,
+                        onTap: () => selectSort(_SongLibrarySort.size),
+                      ),
+                      _SongSortOption(
+                        label: 'Reproducciones',
+                        selected: _sort == _SongLibrarySort.plays,
+                        onTap: () => selectSort(_SongLibrarySort.plays),
+                      ),
+                      _SongSortOption(
+                        label: 'Duracion',
+                        selected: _sort == _SongLibrarySort.duration,
+                        onTap: () => selectSort(_SongLibrarySort.duration),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Divider(
+                          color: scheme.outlineVariant.withValues(alpha: 0.5),
+                          height: 1,
+                        ),
+                      ),
+                      _SongSortOption(
+                        label: 'Mayor a menor / recientes primero',
+                        selected: !_sortAscending,
+                        onTap: () => selectDirection(false),
+                      ),
+                      _SongSortOption(
+                        label: 'Menor a mayor / antiguos primero',
+                        selected: _sortAscending,
+                        onTap: () => selectDirection(true),
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          child: const Text('Cerrar'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(() => nav?.setOverlayOpen(false));
   }
 
   Widget _buildListResults(ThemeData theme, List<MediaItem> list) {
@@ -174,7 +353,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
         AppSpacing.lg,
       ),
       itemCount: list.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final item = list[index];
         return _SearchItemTile(
@@ -321,6 +500,62 @@ class _SearchItemTile extends StatelessWidget {
                 tooltip: 'Más opciones',
                 color: scheme.onSurfaceVariant,
                 onPressed: onMore,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SongSortOption extends StatelessWidget {
+  const _SongSortOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected
+                ? scheme.primary.withValues(alpha: 0.10)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: selected ? scheme.primary : scheme.onSurface,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked,
+                color: selected ? scheme.primary : scheme.outline,
+                size: 24,
               ),
             ],
           ),

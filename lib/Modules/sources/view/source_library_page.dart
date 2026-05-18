@@ -2,9 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 import '../../../app/models/media_item.dart';
 import '../../../app/controllers/media_actions_controller.dart';
+import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
@@ -50,6 +52,7 @@ class SourceLibraryPage extends StatefulWidget {
 class _SourceLibraryPageState extends State<SourceLibraryPage> {
   final SourcesController _sources = Get.find<SourcesController>();
   final MediaActionsController _actions = Get.find<MediaActionsController>();
+  final GetStorage _storage = GetStorage();
   final TextEditingController _topicSearchController = TextEditingController();
   bool _gridView = false;
   String _topicQuery = '';
@@ -60,6 +63,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
   @override
   void initState() {
     super.initState();
+    _topicSort = _readTopicSort();
     if (Get.isRegistered<AudioService>()) {
       Get.find<AudioService>().pauseAndHideMiniPlayer();
     }
@@ -639,7 +643,13 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
             PopupMenuButton<_TopicSort>(
               tooltip: 'Ordenar',
               initialValue: _topicSort,
-              onSelected: (value) => setState(() => _topicSort = value),
+              onOpened: _markOverlayOpen,
+              onCanceled: _markOverlayClosed,
+              onSelected: (value) {
+                _markOverlayClosed();
+                setState(() => _topicSort = value);
+                _storage.write('source_library_collection_sort', value.name);
+              },
               icon: const Icon(Icons.sort_rounded),
               itemBuilder: (ctx) => const [
                 PopupMenuItem(
@@ -661,6 +671,27 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
         ),
       ],
     );
+  }
+
+  _TopicSort _readTopicSort() {
+    final raw = (_storage.read('source_library_collection_sort') as String?)
+        ?.trim();
+    for (final option in _TopicSort.values) {
+      if (option.name == raw) return option;
+    }
+    return _TopicSort.recent;
+  }
+
+  void _markOverlayOpen() {
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setOverlayOpen(true);
+    }
+  }
+
+  void _markOverlayClosed() {
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setOverlayOpen(false);
+    }
   }
 
   Widget _topicList(SourceTheme themeMeta) {

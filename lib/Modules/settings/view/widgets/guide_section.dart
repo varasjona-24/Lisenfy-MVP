@@ -178,6 +178,18 @@ const List<_GuideTopic> _guideTopics = [
     ],
   ),
   _GuideTopic(
+    icon: Icons.query_stats_rounded,
+    title: 'Wrapped y estadisticas',
+    subtitle: 'Resumen de escucha, imports y tendencias locales.',
+    tips: [
+      'Desde Datos y descargas puedes abrir Revisa tus estadisticas para ver tu resumen tipo Wrapped.',
+      'Las metricas de musica separan canciones, favoritos, artistas, regiones de Atlas, completadas y saltadas temprano.',
+      'Las metricas de imports separan canciones y videos, muestran artistas mas descargados, top de imports, mes fuerte y semana fuerte.',
+      'Las regiones dependen de la metadata de pais y region usada por Atlas; mientras mas consistente sea, mejor sera el resumen.',
+      'Al exportar y restaurar el ZIP tambien se conserva la metadata que alimenta estas estadisticas.',
+    ],
+  ),
+  _GuideTopic(
     icon: Icons.edit_note_rounded,
     title: 'Artistas y colaboraciones',
     subtitle: 'Metadata necesaria para Atlas y relaciones.',
