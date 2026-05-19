@@ -386,14 +386,11 @@ class MediaActionsController extends GetxController {
                             color: scheme.surfaceContainerHigh,
                             child: hasThumb
                                 ? (isLocal
-                                    ? Image.file(
-                                        File(thumb),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Image.network(
-                                        thumb,
-                                        fit: BoxFit.cover,
-                                      ))
+                                      ? Image.file(
+                                          File(thumb),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Image.network(thumb, fit: BoxFit.cover))
                                 : Icon(
                                     selected.localVideoVariant != null
                                         ? Icons.videocam_rounded
@@ -438,7 +435,7 @@ class MediaActionsController extends GetxController {
                   // Actions section
                   _ActionItem(
                     icon: Icons.edit_rounded,
-                    label: 'Editar canción',
+                    label: 'Editar',
                     onTap: () {
                       pendingAction = () async {
                         final latest = await _resolveLatest(selected);
@@ -534,6 +531,7 @@ class MediaActionsController extends GetxController {
     nav?.setOverlayOpen(false);
   }
 }
+
 class _ActionItem extends StatelessWidget {
   const _ActionItem({
     required this.icon,
@@ -567,11 +565,7 @@ class _ActionItem extends StatelessWidget {
                   color: (color ?? scheme.primary).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  color: color ?? scheme.primary,
-                  size: 22,
-                ),
+                child: Icon(icon, color: color ?? scheme.primary, size: 22),
               ),
               const SizedBox(width: 16),
               Expanded(

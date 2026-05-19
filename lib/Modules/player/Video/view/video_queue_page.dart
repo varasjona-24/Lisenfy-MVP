@@ -171,16 +171,16 @@ class _VideoQueuePageState extends State<VideoQueuePage>
       if (looksLikeUrl) {
         image = Image.network(
           thumb,
-          width: 48,
-          height: 48,
+          width: 64,
+          height: 36,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => _thumbFallback(theme),
         );
       } else {
         image = Image.file(
           File(thumb),
-          width: 48,
-          height: 48,
+          width: 64,
+          height: 36,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => _thumbFallback(theme),
         );
@@ -190,8 +190,8 @@ class _VideoQueuePageState extends State<VideoQueuePage>
     }
 
     return SizedBox(
-      width: 48,
-      height: 48,
+      width: 64,
+      height: 42,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -224,8 +224,8 @@ class _VideoQueuePageState extends State<VideoQueuePage>
 
   Widget _thumbFallback(ThemeData theme) {
     return Container(
-      width: 48,
-      height: 48,
+      width: 64,
+      height: 36,
       color: theme.colorScheme.surfaceContainerHighest,
       alignment: Alignment.center,
       child: Icon(Icons.videocam, color: theme.colorScheme.onSurfaceVariant),

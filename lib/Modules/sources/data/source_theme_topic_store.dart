@@ -15,6 +15,10 @@ class SourceThemeTopicStore {
   // 📚 READ
   // ============================
   Future<List<SourceThemeTopic>> readAll() async {
+    return readAllSync();
+  }
+
+  List<SourceThemeTopic> readAllSync() {
     final raw = _box.read<List>(_key) ?? <dynamic>[];
     return raw
         .whereType<Map>()

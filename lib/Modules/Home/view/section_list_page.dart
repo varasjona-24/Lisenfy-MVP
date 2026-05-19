@@ -11,6 +11,7 @@ import '../../../app/models/media_item.dart';
 import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/ui/themes/app_spacing.dart';
+import '../../../app/ui/themes/app_grid_theme.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/ui/widgets/media/media_item_grid.dart';
@@ -34,6 +35,8 @@ class SectionListPage extends StatefulWidget {
     this.sourceId,
     this.startInSelectionMode = false,
     this.initialSelectionItemId,
+    this.forceGrid = false,
+    this.rectangularGrid = false,
   });
 
   final String title;
@@ -56,6 +59,8 @@ class SectionListPage extends StatefulWidget {
   final HomeWidgetId? sourceId;
   final bool startInSelectionMode;
   final String? initialSelectionItemId;
+  final bool forceGrid;
+  final bool rectangularGrid;
 
   @override
   State<SectionListPage> createState() => _SectionListPageState();
@@ -72,7 +77,9 @@ class _SectionListPageState extends State<SectionListPage> {
   @override
   void initState() {
     super.initState();
-    _gridMode = _storage.read('section_list_grid_view') ?? false;
+    _gridMode = widget.forceGrid
+        ? true
+        : (_storage.read('section_list_grid_view') ?? false);
     _items = List<MediaItem>.from(widget.items);
     if (widget.startInSelectionMode) {
       _selectionMode = true;
@@ -336,20 +343,23 @@ class _SectionListPageState extends State<SectionListPage> {
                 ),
               ]
             : [
-                IconButton(
-                  tooltip: _gridMode ? 'Vista de cuadrícula' : 'Vista de lista',
-                  onPressed: () {
-                    setState(() {
-                      _gridMode = !_gridMode;
-                      _storage.write('section_list_grid_view', _gridMode);
-                    });
-                  },
-                  icon: Icon(
-                    _gridMode
-                        ? Icons.grid_view_rounded
-                        : Icons.view_list_rounded,
+                if (!widget.forceGrid)
+                  IconButton(
+                    tooltip: _gridMode
+                        ? 'Vista de cuadrícula'
+                        : 'Vista de lista',
+                    onPressed: () {
+                      setState(() {
+                        _gridMode = !_gridMode;
+                        _storage.write('section_list_grid_view', _gridMode);
+                      });
+                    },
+                    icon: Icon(
+                      _gridMode
+                          ? Icons.grid_view_rounded
+                          : Icons.view_list_rounded,
+                    ),
                   ),
-                ),
                 if (_canSortSource)
                   IconButton(
                     tooltip: 'Ordenar',
@@ -611,6 +621,14 @@ class _SectionListPageState extends State<SectionListPage> {
           ),
           sliver: MediaItemSliverGrid(
             items: _items,
+            childAspectRatio: widget.rectangularGrid
+                ? 0.95
+                : AppGridTheme.childAspectRatio,
+            coverAspectRatio: widget.rectangularGrid ? 16 / 9 : 1,
+            crossAxisCount: widget.rectangularGrid ? 2 : null,
+            fallbackIcon: widget.rectangularGrid
+                ? Icons.videocam_rounded
+                : Icons.music_note_rounded,
             hintBuilder: widget.itemHintBuilder,
             coverOverlayBuilder: widget.sourceId == HomeWidgetId.mostPlayed
                 ? (item, index) => _PlayCountCoverBadge(item: item)
@@ -654,6 +672,14 @@ class _SectionListPageState extends State<SectionListPage> {
           ),
           sliver: MediaItemSliverGrid(
             items: _items,
+            childAspectRatio: widget.rectangularGrid
+                ? 0.95
+                : AppGridTheme.childAspectRatio,
+            coverAspectRatio: widget.rectangularGrid ? 16 / 9 : 1,
+            crossAxisCount: widget.rectangularGrid ? 2 : null,
+            fallbackIcon: widget.rectangularGrid
+                ? Icons.videocam_rounded
+                : Icons.music_note_rounded,
             selectionMode: true,
             selectedBuilder: (item, index) => _selectedIds.contains(item.id),
             selectableBuilder: (item, index) => _canSelect(item),

@@ -79,13 +79,9 @@ class SourcesController extends GetxController {
     }
 
     if (forceKind != null) {
-      items = items.where(
-        (e) => e.variants.any((v) => v.kind == forceKind),
-      );
+      items = items.where((e) => e.variants.any((v) => v.kind == forceKind));
     } else if (modeKind != null) {
-      items = items.where(
-        (e) => e.variants.any((v) => v.kind == modeKind),
-      );
+      items = items.where((e) => e.variants.any((v) => v.kind == modeKind));
     }
 
     final list = items.toList();
@@ -398,111 +394,97 @@ class SourcesController extends GetxController {
   // 🔄 REFRESCO GENERAL
   // ============================
   Future<void> refreshAll() async {
-    await Future.wait([
-      _loadPills(),
-      _loadTopics(),
-      _loadTopicPlaylists(),
-    ]);
+    await Future.wait([_loadPills(), _loadTopics(), _loadTopicPlaylists()]);
   }
 
   // ============================
   // 🎛️ CATÁLOGO DE TEMATICAS
   // ============================
   List<SourceTheme> get themes => [
-        SourceTheme(
-          id: 'offline',
-          title: 'Biblioteca offline',
-          subtitle: 'Todo lo guardado dentro de la app',
-          icon: Icons.offline_pin_rounded,
-          colors: const [Color(0xFF0F5132), Color(0xFF2E8B57)],
-          onlyOffline: true,
-        ),
-        SourceTheme(
-          id: 'movies',
-          title: 'Películas y series',
-          subtitle: 'Descargas y catálogos de video',
-          icon: Icons.local_movies_rounded,
-          colors: const [Color(0xFF2C2F7A), Color(0xFF5D6BE0)],
-          defaultOrigins: [
-            SourceOrigin.youtube,
-            SourceOrigin.vimeo,
-            SourceOrigin.mega,
-            SourceOrigin.vk,
-          ],
-          forceKind: MediaVariantKind.video,
-        ),
-        SourceTheme(
-          id: 'tutorials',
-          title: 'Tutoriales',
-          subtitle: 'Guías, cursos y prácticas',
-          icon: Icons.handyman_rounded,
-          colors: const [Color(0xFF1E4D6B), Color(0xFF3E8BC9)],
-          defaultOrigins: [
-            SourceOrigin.youtube,
-            SourceOrigin.vimeo,
-            SourceOrigin.reddit,
-          ],
-          forceKind: MediaVariantKind.video,
-        ),
-        SourceTheme(
-          id: 'podcasts',
-          title: 'Podcasts y vlogs',
-          subtitle: 'Charlas y contenido hablado',
-          icon: Icons.mic_rounded,
-          colors: const [Color(0xFF5B2C2C), Color(0xFFD36A6A)],
-          defaultOrigins: [
-            SourceOrigin.youtube,
-            SourceOrigin.instagram,
-            SourceOrigin.facebook,
-            SourceOrigin.telegram,
-          ],
-          forceKind: MediaVariantKind.video,
-        ),
-        SourceTheme(
-          id: 'social',
-          title: 'Redes sociales',
-          subtitle: 'Contenido social y trending',
-          icon: Icons.people_alt_rounded,
-          colors: const [Color(0xFF3A2F57), Color(0xFF8C6FD9)],
-          defaultOrigins: [
-            SourceOrigin.instagram,
-            SourceOrigin.facebook,
-            SourceOrigin.x,
-            SourceOrigin.reddit,
-            SourceOrigin.threads,
-            SourceOrigin.snapchat,
-            SourceOrigin.telegram,
-            SourceOrigin.pinterest,
-            SourceOrigin.vk,
-            SourceOrigin.amino,
-          ],
-          forceKind: MediaVariantKind.video,
-        ),
-        SourceTheme(
-          id: 'education',
-          title: 'Contenido educativo',
-          subtitle: 'Clases y material formativo',
-          icon: Icons.school_rounded,
-          colors: const [Color(0xFF1F4A3D), Color(0xFF4FB286)],
-          defaultOrigins: [
-            SourceOrigin.youtube,
-            SourceOrigin.vimeo,
-            SourceOrigin.blogger,
-          ],
-          forceKind: MediaVariantKind.video,
-        ),
-        SourceTheme(
-          id: 'files',
-          title: 'Archivos personales',
-          subtitle: 'Imports desde tu dispositivo',
-          icon: Icons.folder_rounded,
-          colors: const [Color(0xFF3F2A1A), Color(0xFFB07A4E)],
-          defaultOrigins: [
-            SourceOrigin.device,
-          ],
-          forceKind: MediaVariantKind.video,
-        ),
-      ];
+    SourceTheme(
+      id: 'movies',
+      title: 'Películas y series',
+      subtitle: 'Descargas y catálogos de video',
+      icon: Icons.local_movies_rounded,
+      colors: const [Color(0xFF2C2F7A), Color(0xFF5D6BE0)],
+      defaultOrigins: [
+        SourceOrigin.youtube,
+        SourceOrigin.vimeo,
+        SourceOrigin.mega,
+        SourceOrigin.vk,
+      ],
+      forceKind: MediaVariantKind.video,
+    ),
+    SourceTheme(
+      id: 'tutorials',
+      title: 'Tutoriales',
+      subtitle: 'Guías, cursos y prácticas',
+      icon: Icons.handyman_rounded,
+      colors: const [Color(0xFF1E4D6B), Color(0xFF3E8BC9)],
+      defaultOrigins: [
+        SourceOrigin.youtube,
+        SourceOrigin.vimeo,
+        SourceOrigin.reddit,
+      ],
+      forceKind: MediaVariantKind.video,
+    ),
+    SourceTheme(
+      id: 'podcasts',
+      title: 'Podcasts y vlogs',
+      subtitle: 'Charlas y contenido hablado',
+      icon: Icons.mic_rounded,
+      colors: const [Color(0xFF5B2C2C), Color(0xFFD36A6A)],
+      defaultOrigins: [
+        SourceOrigin.youtube,
+        SourceOrigin.instagram,
+        SourceOrigin.facebook,
+        SourceOrigin.telegram,
+      ],
+      forceKind: MediaVariantKind.video,
+    ),
+    SourceTheme(
+      id: 'social',
+      title: 'Redes sociales',
+      subtitle: 'Contenido social y trending',
+      icon: Icons.people_alt_rounded,
+      colors: const [Color(0xFF3A2F57), Color(0xFF8C6FD9)],
+      defaultOrigins: [
+        SourceOrigin.instagram,
+        SourceOrigin.facebook,
+        SourceOrigin.x,
+        SourceOrigin.reddit,
+        SourceOrigin.threads,
+        SourceOrigin.snapchat,
+        SourceOrigin.telegram,
+        SourceOrigin.pinterest,
+        SourceOrigin.vk,
+        SourceOrigin.amino,
+      ],
+      forceKind: MediaVariantKind.video,
+    ),
+    SourceTheme(
+      id: 'education',
+      title: 'Contenido educativo',
+      subtitle: 'Clases y material formativo',
+      icon: Icons.school_rounded,
+      colors: const [Color(0xFF1F4A3D), Color(0xFF4FB286)],
+      defaultOrigins: [
+        SourceOrigin.youtube,
+        SourceOrigin.vimeo,
+        SourceOrigin.blogger,
+      ],
+      forceKind: MediaVariantKind.video,
+    ),
+    SourceTheme(
+      id: 'files',
+      title: 'Archivos personales',
+      subtitle: 'Imports desde tu dispositivo',
+      icon: Icons.folder_rounded,
+      colors: const [Color(0xFF3F2A1A), Color(0xFFB07A4E)],
+      defaultOrigins: [SourceOrigin.device],
+      forceKind: MediaVariantKind.video,
+    ),
+  ];
 
   // ============================
   // 🧩 CONSULTAS RAPIDAS
@@ -633,8 +615,9 @@ class SourcesController extends GetxController {
     MediaItem item,
   ) async {
     final key = keyForItem(item);
-    final updated =
-        topic.copyWith(itemIds: topic.itemIds.where((e) => e != key).toList());
+    final updated = topic.copyWith(
+      itemIds: topic.itemIds.where((e) => e != key).toList(),
+    );
     await _topicStore.upsert(updated);
     await _loadTopics();
   }
@@ -706,7 +689,6 @@ class SourcesController extends GetxController {
     final list = await _topicPlaylistStore.readAll();
     topicPlaylists.assignAll(list);
   }
-
 }
 
 // ============================

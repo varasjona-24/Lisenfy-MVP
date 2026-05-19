@@ -741,6 +741,7 @@ class HomePage extends GetView<HomeController> {
                                     _CustomHomeSections(
                                       controller: controller,
                                       actions: actions,
+                                      mode: mode,
                                     ),
 
                                     const SizedBox(height: 24),
@@ -925,7 +926,10 @@ class _HomeOrderedSections extends StatelessWidget {
     final full = controller.fullItemsForHomeWidget(id);
     final preview = controller.previewItemsForHomeWidget(id);
     if (preview.isEmpty) return null;
-    if (controller.layoutForHomeWidget(id) == HomeCustomSectionLayout.list &&
+    final isVideoMode = mode == HomeMode.video;
+    if (!isVideoMode &&
+        controller.layoutForHomeWidgetInMode(id, mode) ==
+            HomeCustomSectionLayout.list &&
         !id.hasFixedLayout) {
       return _MediaListSection(
         title: title,
@@ -945,6 +949,9 @@ class _HomeOrderedSections extends StatelessWidget {
     return MediaHorizontalList(
       title: title,
       items: preview,
+      cardWidth: isVideoMode ? 178 : 120,
+      thumbnailAspectRatio: isVideoMode ? 16 / 9 : 1,
+      listHeight: isVideoMode ? 166 : 200,
       onHeaderTap: () =>
           _openList(context, title: title, items: full, sourceId: id),
       onItemTap: (item, index) => controller.openMedia(item, index, full),
@@ -971,6 +978,7 @@ class _HomeOrderedSections extends StatelessWidget {
         'title': title,
         'items': items,
         if (sourceId != null) 'sourceId': sourceId,
+        if (mode == HomeMode.video) 'rectangularGrid': true,
         if (sourceId == HomeWidgetId.mostPlayed)
           'itemTrailingBuilder': (MediaItem item, int _) =>
               _PlayCountPill(item: item),
@@ -989,15 +997,30 @@ class _HomeOrderedSections extends StatelessWidget {
 }
 
 class _CustomHomeSections extends StatelessWidget {
-  const _CustomHomeSections({required this.controller, required this.actions});
+  const _CustomHomeSections({
+    required this.controller,
+    required this.actions,
+    required this.mode,
+  });
 
   final HomeController controller;
   final MediaActionsController actions;
+  final HomeMode mode;
 
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[];
-    for (final section in controller.customHomeSections) {
+    final sections = mode == HomeMode.video
+        ? controller.videoCustomHomeSections
+        : controller.customHomeSections;
+    for (final section in sections) {
+      if (section.kind == HomeCustomSectionKind.collection) {
+        final collectionSection = _buildCollectionSection(context, section);
+        if (collectionSection == null) continue;
+        children.add(collectionSection);
+        children.add(const SizedBox(height: 18));
+        continue;
+      }
       if (section.kind == HomeCustomSectionKind.artist) {
         final artistSection = _buildArtistSection(context, section);
         if (artistSection == null) continue;
@@ -1143,6 +1166,41 @@ class _CustomHomeSections extends StatelessWidget {
       playlists: playlists,
       onPlaylistTap: open,
       onPlaylistLongPress: remove,
+    );
+  }
+
+  Widget? _buildCollectionSection(
+    BuildContext context,
+    HomeCustomSection section,
+  ) {
+    final collections = controller.resolveCollectionsForCustomSection(section);
+    if (collections.isEmpty) return null;
+    void open(HomeCollectionChoice collection) {
+      Get.toNamed(
+        AppRoutes.sourcePlaylist,
+        arguments: {'playlistId': collection.id, 'themeId': collection.themeId},
+      );
+    }
+
+    void remove(HomeCollectionChoice collection) {
+      _confirmRemoveCustomItem(
+        context: context,
+        label: collection.name,
+        onConfirm: () {
+          controller.removeTargetFromCustomHomeSection(
+            sectionId: section.id,
+            targetId: collection.id,
+            mode: HomeMode.video,
+          );
+        },
+      );
+    }
+
+    return _CustomCollectionCardsSection(
+      section: section,
+      collections: collections,
+      onCollectionTap: open,
+      onCollectionLongPress: remove,
     );
   }
 
@@ -1417,6 +1475,48 @@ class _CustomPlaylistListSection extends StatelessWidget {
   }
 }
 
+class _CustomCollectionCardsSection extends StatelessWidget {
+  const _CustomCollectionCardsSection({
+    required this.section,
+    required this.collections,
+    required this.onCollectionTap,
+    required this.onCollectionLongPress,
+  });
+
+  final HomeCustomSection section;
+  final List<HomeCollectionChoice> collections;
+  final void Function(HomeCollectionChoice collection) onCollectionTap;
+  final void Function(HomeCollectionChoice collection) onCollectionLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          title: section.title,
+          trailing: _ModulePill(section: section),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 150,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            scrollDirection: Axis.horizontal,
+            itemCount: collections.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) => _HomeCollectionCard(
+              collection: collections[index],
+              onTap: () => onCollectionTap(collections[index]),
+              onLongPress: () => onCollectionLongPress(collections[index]),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _HomeArtistCard extends StatelessWidget {
   const _HomeArtistCard({
     required this.artist,
@@ -1535,6 +1635,74 @@ class _HomePlaylistCard extends StatelessWidget {
             ),
             Text(
               '${playlist.count} canciones',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeCollectionCard extends StatelessWidget {
+  const _HomeCollectionCard({
+    required this.collection,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final HomeCollectionChoice collection;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final provider = _homeImageProvider(collection.cover);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: SizedBox(
+        width: 172,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(14),
+                  image: provider != null
+                      ? DecorationImage(image: provider, fit: BoxFit.cover)
+                      : null,
+                ),
+                child: provider == null
+                    ? Icon(
+                        Icons.video_library_rounded,
+                        color: scheme.onSurfaceVariant,
+                      )
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              collection.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              '${collection.count} items',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(

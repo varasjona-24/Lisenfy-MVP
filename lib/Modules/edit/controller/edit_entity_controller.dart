@@ -153,10 +153,22 @@ class EditEntityController extends GetxController {
   }
 
   Future<String?> cropToSquare(String sourcePath) async {
+    return cropImage(sourcePath, ratioX: 1, ratioY: 1);
+  }
+
+  Future<String?> cropToVideoThumbnail(String sourcePath) async {
+    return cropImage(sourcePath, ratioX: 16, ratioY: 9);
+  }
+
+  Future<String?> cropImage(
+    String sourcePath, {
+    required double ratioX,
+    required double ratioY,
+  }) async {
     try {
       final cropped = await ImageCropper().cropImage(
         sourcePath: sourcePath,
-        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+        aspectRatio: CropAspectRatio(ratioX: ratioX, ratioY: ratioY),
         compressFormat: ImageCompressFormat.jpg,
         compressQuality: 92,
         uiSettings: [

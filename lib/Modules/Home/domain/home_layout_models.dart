@@ -49,6 +49,9 @@ extension HomeWidgetIdX on HomeWidgetId {
 
   bool get audioOnly => this == HomeWidgetId.recommendations;
 
+  bool get videoHomeSupported =>
+      this == HomeWidgetId.latestDownloads || this == HomeWidgetId.featured;
+
   bool get hasFixedLayout =>
       this == HomeWidgetId.recommendations || this == HomeWidgetId.mostPlayed;
 
@@ -93,7 +96,7 @@ extension HomeMediaSortX on HomeMediaSort {
   }
 }
 
-enum HomeCustomSectionKind { playlist, artist, smart }
+enum HomeCustomSectionKind { playlist, artist, smart, collection }
 
 enum HomeCustomSectionLayout { cards, list }
 
@@ -125,24 +128,28 @@ extension HomeCustomSectionKindX on HomeCustomSectionKind {
     HomeCustomSectionKind.playlist => 'playlist',
     HomeCustomSectionKind.artist => 'artist',
     HomeCustomSectionKind.smart => 'smart',
+    HomeCustomSectionKind.collection => 'collection',
   };
 
   IconData get icon => switch (this) {
     HomeCustomSectionKind.playlist => Icons.queue_music_rounded,
     HomeCustomSectionKind.artist => Icons.person_rounded,
     HomeCustomSectionKind.smart => Icons.auto_awesome_rounded,
+    HomeCustomSectionKind.collection => Icons.video_library_rounded,
   };
 
   String get moduleLabel => switch (this) {
     HomeCustomSectionKind.playlist => 'Playlist',
     HomeCustomSectionKind.artist => 'Artista',
     HomeCustomSectionKind.smart => 'Sugerida',
+    HomeCustomSectionKind.collection => 'Collection',
   };
 
   static HomeCustomSectionKind fromRaw(dynamic raw) {
     return switch (raw?.toString()) {
       'artist' => HomeCustomSectionKind.artist,
       'smart' => HomeCustomSectionKind.smart,
+      'collection' => HomeCustomSectionKind.collection,
       _ => HomeCustomSectionKind.playlist,
     };
   }
@@ -218,6 +225,22 @@ class HomePlaylistChoice {
   });
 
   final String id;
+  final String name;
+  final int count;
+  final String? cover;
+}
+
+class HomeCollectionChoice {
+  const HomeCollectionChoice({
+    required this.id,
+    required this.themeId,
+    required this.name,
+    required this.count,
+    this.cover,
+  });
+
+  final String id;
+  final String themeId;
   final String name;
   final int count;
   final String? cover;

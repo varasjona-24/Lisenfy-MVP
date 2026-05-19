@@ -19,6 +19,8 @@ import 'package:listenfy/Modules/player/Video/view/lyrics_entry_page.dart';
 
 // Sources
 import 'package:listenfy/Modules/sources/binding/sources_binding.dart';
+import 'package:listenfy/Modules/sources/controller/sources_controller.dart';
+import 'package:listenfy/Modules/sources/domain/source_theme.dart';
 import 'package:listenfy/Modules/sources/view/sources_page.dart';
 
 // Downloads
@@ -100,6 +102,8 @@ abstract class AppPages {
           sourceId: args['sourceId'],
           startInSelectionMode: args['startInSelectionMode'] == true,
           initialSelectionItemId: args['initialSelectionItemId'],
+          forceGrid: args['forceGrid'] == true,
+          rectangularGrid: args['rectangularGrid'] == true,
         );
       },
       transition: Transition.rightToLeft,
@@ -150,11 +154,22 @@ abstract class AppPages {
     GetPage(
       name: AppRoutes.sourcePlaylist,
       preventDuplicates: false,
-      page: () => SourceThemeTopicPlaylistPage(
-        playlistId: Get.arguments['playlistId'] ?? '',
-        theme: Get.arguments['theme'],
-        origins: Get.arguments['origins'],
-      ),
+      page: () {
+        final args = Get.arguments is Map ? Get.arguments as Map : const {};
+        if (!Get.isRegistered<SourcesController>()) {
+          SourcesBinding().dependencies();
+        }
+        final sources = Get.find<SourcesController>();
+        final rawTheme = args['theme'];
+        final SourceTheme theme = rawTheme is SourceTheme
+            ? rawTheme
+            : _sourceThemeById(sources, args['themeId']?.toString() ?? '');
+        return SourceThemeTopicPlaylistPage(
+          playlistId: args['playlistId']?.toString() ?? '',
+          theme: theme,
+          origins: args['origins'],
+        );
+      },
     ),
 
     // Details
@@ -272,4 +287,17 @@ abstract class AppPages {
     //binding: VideoPlayerBinding(),
     //),
   ];
+
+  static SourceTheme _sourceThemeById(
+    SourcesController sources,
+    String themeId,
+  ) {
+    for (final theme in sources.themes) {
+      if (theme.id == themeId) return theme;
+    }
+    for (final theme in sources.themes) {
+      if (theme.id == 'movies') return theme;
+    }
+    return sources.themes.first;
+  }
 }

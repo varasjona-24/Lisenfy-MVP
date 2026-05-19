@@ -11,6 +11,7 @@ class MediaCard extends StatefulWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final double width;
+  final double thumbnailAspectRatio;
   final bool showPlayBadge;
   final String? hintText;
 
@@ -20,6 +21,7 @@ class MediaCard extends StatefulWidget {
     this.onTap,
     this.onLongPress,
     this.width = 130,
+    this.thumbnailAspectRatio = 1,
     this.showPlayBadge = true,
     this.hintText,
   });
@@ -79,8 +81,8 @@ class _MediaCardState extends State<MediaCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 🎨 THUMBNAIL / COVER
-              SizedBox(
-                height: widget.width,
+              AspectRatio(
+                aspectRatio: widget.thumbnailAspectRatio,
                 child: Container(
                   decoration: BoxDecoration(
                     color: cardBg,

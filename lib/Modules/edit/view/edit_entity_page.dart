@@ -194,6 +194,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
   bool get _isArtist => _args.type == EditEntityType.artist;
   bool get _isTopic => _args.type == EditEntityType.topic;
   bool get _isTopicPlaylist => _args.type == EditEntityType.topicPlaylist;
+  bool get _isVideoMedia => _media?.hasVideoLocal ?? false;
 
   Future<void> _pickLocalThumbnail() async {
     final res = await FilePicker.platform.pickFiles(
@@ -206,7 +207,9 @@ class _EditEntityPageState extends State<EditEntityPage> {
     if (path == null || path.trim().isEmpty) return;
 
     final prevLocal = _localThumbPath;
-    final cropped = await _controller.cropToSquare(path);
+    final cropped = _isVideoMedia
+        ? await _controller.cropToVideoThumbnail(path)
+        : await _controller.cropToSquare(path);
     if (cropped == null || cropped.trim().isEmpty) return;
 
     final persisted = await _controller.persistCroppedImage(
@@ -261,7 +264,9 @@ class _EditEntityPageState extends State<EditEntityPage> {
     }
     if (!mounted || baseLocal == null || baseLocal.trim().isEmpty) return;
 
-    final cropped = await _controller.cropToSquare(baseLocal);
+    final cropped = _isVideoMedia
+        ? await _controller.cropToVideoThumbnail(baseLocal)
+        : await _controller.cropToSquare(baseLocal);
     if (!mounted || cropped == null || cropped.trim().isEmpty) {
       await _controller.deleteFile(baseLocal);
       return;
@@ -1360,7 +1365,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: SizedBox(
-                        width: 88,
+                        width: _isVideoMedia ? 118 : 88,
                         height: 88,
                         child: _buildThumbnail(context),
                       ),

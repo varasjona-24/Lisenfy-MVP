@@ -15,6 +15,10 @@ class SourceThemeTopicPlaylistStore {
   // 📚 READ
   // ============================
   Future<List<SourceThemeTopicPlaylist>> readAll() async {
+    return readAllSync();
+  }
+
+  List<SourceThemeTopicPlaylist> readAllSync() {
     final raw = _box.read<List>(_key) ?? <dynamic>[];
     return raw
         .whereType<Map>()

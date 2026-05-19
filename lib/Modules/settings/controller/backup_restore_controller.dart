@@ -1167,6 +1167,9 @@ class BackupRestoreController extends GetxController {
       const homeWidgetEnabledKey = 'home_widget_enabled';
       const homeWidgetLayoutsKey = 'home_widget_layouts';
       const homeCustomSectionsKey = 'home_custom_sections';
+      const videoHomeWidgetOrderKey = 'video_home_widget_order';
+      const videoHomeWidgetEnabledKey = 'video_home_widget_enabled';
+      const videoHomeCustomSectionsKey = 'video_home_custom_sections';
 
       final homeLayoutPayload = <String, dynamic>{
         homeWidgetOrderKey:
@@ -1177,6 +1180,12 @@ class BackupRestoreController extends GetxController {
             homeStorage.read<Map>(homeWidgetLayoutsKey) ?? const {},
         homeCustomSectionsKey:
             homeStorage.read<List>(homeCustomSectionsKey) ?? const [],
+        videoHomeWidgetOrderKey:
+            homeStorage.read<List>(videoHomeWidgetOrderKey) ?? const [],
+        videoHomeWidgetEnabledKey:
+            homeStorage.read<List>(videoHomeWidgetEnabledKey) ?? const [],
+        videoHomeCustomSectionsKey:
+            homeStorage.read<List>(videoHomeCustomSectionsKey) ?? const [],
       };
       // ─────────────────────────────────────────────────────────────────────
 
@@ -1583,6 +1592,9 @@ class BackupRestoreController extends GetxController {
           const homeWidgetEnabledKey = 'home_widget_enabled';
           const homeWidgetLayoutsKey = 'home_widget_layouts';
           const homeCustomSectionsKey = 'home_custom_sections';
+          const videoHomeWidgetOrderKey = 'video_home_widget_order';
+          const videoHomeWidgetEnabledKey = 'video_home_widget_enabled';
+          const videoHomeCustomSectionsKey = 'video_home_custom_sections';
 
           final orderRaw = rawHomeLayout[homeWidgetOrderKey];
           if (orderRaw is List && orderRaw.isNotEmpty) {
@@ -1599,6 +1611,18 @@ class BackupRestoreController extends GetxController {
           final customRaw = rawHomeLayout[homeCustomSectionsKey];
           if (customRaw is List && customRaw.isNotEmpty) {
             await homeStorage.write(homeCustomSectionsKey, customRaw);
+          }
+          final videoOrderRaw = rawHomeLayout[videoHomeWidgetOrderKey];
+          if (videoOrderRaw is List) {
+            await homeStorage.write(videoHomeWidgetOrderKey, videoOrderRaw);
+          }
+          final videoEnabledRaw = rawHomeLayout[videoHomeWidgetEnabledKey];
+          if (videoEnabledRaw is List) {
+            await homeStorage.write(videoHomeWidgetEnabledKey, videoEnabledRaw);
+          }
+          final videoCustomRaw = rawHomeLayout[videoHomeCustomSectionsKey];
+          if (videoCustomRaw is List) {
+            await homeStorage.write(videoHomeCustomSectionsKey, videoCustomRaw);
           }
         }
         // ─────────────────────────────────────────────────────────────────────

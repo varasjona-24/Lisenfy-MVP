@@ -8,6 +8,7 @@ import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
+import '../../../app/ui/themes/app_grid_theme.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
@@ -33,6 +34,8 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
   bool _gridView = false;
   late _SongLibrarySort _sort;
   late bool _sortAscending;
+
+  bool get _isVideoMode => _home.mode.value == HomeMode.video;
 
   @override
   void initState() {
@@ -68,6 +71,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
       body: AppGradientBackground(
         child: Obx(() {
           final list = _filteredItems();
+          final isVideoMode = _isVideoMode;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -82,7 +86,9 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Biblioteca de canciones',
+                        isVideoMode
+                            ? 'Biblioteca de videos'
+                            : 'Biblioteca de audios',
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
@@ -123,7 +129,9 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
                   textInputAction: TextInputAction.search,
                   onChanged: (value) => setState(() => _query = value.trim()),
                   decoration: InputDecoration(
-                    hintText: 'Buscar por título o artista',
+                    hintText: isVideoMode
+                        ? 'Buscar por título'
+                        : 'Buscar por título o artista',
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: _query.isEmpty
                         ? null
@@ -378,6 +386,12 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
         AppSpacing.md,
         AppSpacing.lg,
       ),
+      childAspectRatio: _isVideoMode ? 0.95 : AppGridTheme.childAspectRatio,
+      coverAspectRatio: _isVideoMode ? 16 / 9 : 1,
+      crossAxisCount: _isVideoMode ? 2 : null,
+      fallbackIcon: _isVideoMode
+          ? Icons.videocam_rounded
+          : Icons.music_note_rounded,
       onTap: (item, index) => _home.openMedia(item, index, list),
       onLongPress: (item, index) => _openItemActions(context, item, list),
     );

@@ -40,21 +40,31 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
   @override
   void initState() {
     super.initState();
-    _order = controller.homeWidgetOrder.toList(growable: true);
-    _enabled = controller.enabledHomeWidgets.toSet();
+    _order = controller
+        .editableHomeWidgetOrderForMode(mode)
+        .toList(growable: true);
+    _enabled = controller.enabledHomeWidgetIdsForMode(mode).toSet();
     _layouts = Map<String, HomeCustomSectionLayout>.from(
       controller.homeWidgetLayouts,
     );
-    _customSections = controller.customHomeSections.toList(growable: true);
+    _customSections =
+        (mode == HomeMode.video
+                ? controller.videoCustomHomeSections
+                : controller.customHomeSections)
+            .toList(growable: true);
   }
 
   List<HomeWidgetId> get _visibleItems {
-    return _order
-        .where((id) => mode == HomeMode.audio || !id.audioOnly)
-        .toList(growable: false);
+    if (mode == HomeMode.video) {
+      return _order
+          .where((id) => id.videoHomeSupported)
+          .toList(growable: false);
+    }
+    return _order.where((id) => !id.audioOnly).toList(growable: false);
   }
 
   HomeCustomSectionLayout _layoutForWidget(HomeWidgetId id) {
+    if (mode == HomeMode.video) return HomeCustomSectionLayout.cards;
     if (id.hasFixedLayout) return HomeCustomSectionLayout.cards;
     return _layouts[id.key] ?? HomeCustomSectionLayout.cards;
   }
@@ -70,6 +80,7 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
   }
 
   void _toggleWidgetLayout(HomeWidgetId id) {
+    if (mode == HomeMode.video) return;
     if (id.hasFixedLayout) return;
     setState(() {
       final current = _layoutForWidget(id);
@@ -103,8 +114,15 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
 
   void _reset() {
     setState(() {
-      _order = HomeWidgetId.values.toList(growable: true);
-      _enabled = HomeWidgetId.values.toSet();
+      if (mode == HomeMode.video) {
+        _order = HomeWidgetId.values
+            .where((id) => id.videoHomeSupported)
+            .toList(growable: true);
+        _enabled = _order.toSet();
+      } else {
+        _order = HomeWidgetId.values.toList(growable: true);
+        _enabled = HomeWidgetId.values.toSet();
+      }
       _layouts = <String, HomeCustomSectionLayout>{};
       _customSections = <HomeCustomSection>[];
     });
@@ -157,6 +175,22 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
         .split('|')
         .map(ArtistCreditParser.normalizeKey)
         .where((entry) => entry.isNotEmpty && entry != 'unknown')
+        .toSet();
+  }
+
+  Set<String> _selectedCollectionIds() {
+    HomeCustomSection? section;
+    for (final entry in _customSections) {
+      if (entry.id == 'collections_custom') {
+        section = entry;
+        break;
+      }
+    }
+    if (section == null) return <String>{};
+    return section.targetId
+        .split('|')
+        .map((entry) => entry.trim())
+        .where((entry) => entry.isNotEmpty)
         .toSet();
   }
 
@@ -236,8 +270,44 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
     });
   }
 
+  void _addCollectionSection({required String collectionId}) {
+    final cleanId = collectionId.trim();
+    if (cleanId.isEmpty) return;
+    const sectionId = 'collections_custom';
+    final index = _customSections.indexWhere((e) => e.id == sectionId);
+    setState(() {
+      if (index >= 0) {
+        final current = _customSections[index];
+        final ids =
+            current.targetId
+                .split('|')
+                .map((e) => e.trim())
+                .where((e) => e.isNotEmpty)
+                .toSet()
+              ..add(cleanId);
+        _customSections[index] = HomeCustomSection(
+          id: current.id,
+          kind: HomeCustomSectionKind.collection,
+          targetId: ids.join('|'),
+          title: 'Collections',
+          layout: HomeCustomSectionLayout.cards,
+        );
+      } else {
+        _customSections.add(
+          HomeCustomSection(
+            id: sectionId,
+            kind: HomeCustomSectionKind.collection,
+            targetId: cleanId,
+            title: 'Collections',
+          ),
+        );
+      }
+    });
+  }
+
   void _save() {
     controller.applyHomeLayoutSnapshot(
+      mode: mode,
       order: _order,
       enabled: _enabled.toList(growable: false),
       layouts: _layouts,
@@ -318,32 +388,48 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
                         enabled: enabled,
                         layout: _layoutForWidget(id),
                         onToggle: () => _toggleWidget(id),
-                        onLayoutToggle: id.hasFixedLayout
+                        onLayoutToggle:
+                            mode == HomeMode.video || id.hasFixedLayout
                             ? null
                             : () => _toggleWidgetLayout(id),
                       );
                     },
                   ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _showPlaylistPicker(context),
-                          icon: const Icon(Icons.queue_music_rounded, size: 18),
-                          label: const Text('Playlist'),
+                  if (mode == HomeMode.audio) ...[
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showPlaylistPicker(context),
+                            icon: const Icon(
+                              Icons.queue_music_rounded,
+                              size: 18,
+                            ),
+                            label: const Text('Playlist'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _showArtistPicker(context),
-                          icon: const Icon(Icons.person_rounded, size: 18),
-                          label: const Text('Artista'),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showArtistPicker(context),
+                            icon: const Icon(Icons.person_rounded, size: 18),
+                            label: const Text('Artista'),
+                          ),
                         ),
+                      ],
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showCollectionPicker(context),
+                        icon: const Icon(Icons.video_library_rounded, size: 18),
+                        label: const Text('Collection'),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                   if (_customSections.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     ..._customSections.map((section) {
@@ -375,8 +461,11 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
                             children: [
                               IconButton(
                                 tooltip: 'Cambiar vista',
-                                onPressed: () =>
-                                    _toggleCustomSectionLayout(section.id),
+                                onPressed: mode == HomeMode.video
+                                    ? null
+                                    : () => _toggleCustomSectionLayout(
+                                        section.id,
+                                      ),
                                 icon: Icon(section.layout.icon),
                               ),
                               IconButton(
@@ -453,6 +542,34 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
     if (selected == null || selected.isEmpty || !mounted) return;
     for (final key in selected) {
       _addArtistSection(artistKey: key);
+    }
+  }
+
+  Future<void> _showCollectionPicker(BuildContext context) async {
+    final existing = _selectedCollectionIds();
+    final allCollections = controller.collectionChoices();
+    final collections = allCollections
+        .where((collection) => !existing.contains(collection.id))
+        .toList(growable: false);
+
+    final selected = await showModalBottomSheet<List<String>>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return _HomeCollectionPickerSheet(
+          collections: collections,
+          totalCount: allCollections.length,
+        );
+      },
+    );
+    if (selected == null || selected.isEmpty || !mounted) return;
+    for (final id in selected) {
+      _addCollectionSection(collectionId: id);
     }
   }
 }
@@ -588,6 +705,127 @@ class _HomeArtistPickerSheet extends StatefulWidget {
 
   @override
   State<_HomeArtistPickerSheet> createState() => _HomeArtistPickerSheetState();
+}
+
+class _HomeCollectionPickerSheet extends StatefulWidget {
+  const _HomeCollectionPickerSheet({
+    required this.collections,
+    required this.totalCount,
+  });
+
+  final List<HomeCollectionChoice> collections;
+  final int totalCount;
+
+  @override
+  State<_HomeCollectionPickerSheet> createState() =>
+      _HomeCollectionPickerSheetState();
+}
+
+class _HomeCollectionPickerSheetState
+    extends State<_HomeCollectionPickerSheet> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  final Set<String> _selected = <String>{};
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<HomeCollectionChoice> get _filtered {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return widget.collections;
+    return widget.collections
+        .where((collection) => collection.name.toLowerCase().contains(query))
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _filtered;
+    final query = _query.trim();
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.82,
+        child: Column(
+          children: [
+            _HomePickerHeader(
+              icon: Icons.video_library_rounded,
+              title: 'Agregar Collections',
+              searchController: _searchCtrl,
+              searchHint: 'Buscar Collection',
+              query: _query,
+              onQueryChanged: (value) => setState(() => _query = value),
+              onClear: () {
+                _searchCtrl.clear();
+                setState(() => _query = '');
+              },
+              chips: [
+                _HomePickerChipData(
+                  icon: Icons.collections_bookmark_rounded,
+                  label: '${widget.collections.length} disponibles',
+                ),
+                _HomePickerChipData(
+                  icon: Icons.check_circle_rounded,
+                  label: '${_selected.length} seleccionadas',
+                ),
+                if (query.isNotEmpty)
+                  _HomePickerChipData(
+                    icon: Icons.filter_alt_rounded,
+                    label: '${items.length} resultados',
+                  ),
+              ],
+            ),
+            Expanded(
+              child: items.isEmpty
+                  ? _HomePickerEmptyText(
+                      text: query.isEmpty
+                          ? widget.totalCount == 0
+                                ? 'No hay Collections disponibles.'
+                                : 'Todas las Collections ya estan en inicio.'
+                          : 'No se encontraron Collections.',
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      itemCount: items.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final collection = items[index];
+                        return _HomeChoiceTile(
+                          selected: _selected.contains(collection.id),
+                          title: collection.name,
+                          subtitle:
+                              '${collection.count} item${collection.count != 1 ? 's' : ''}',
+                          image: collection.cover,
+                          fallbackIcon: Icons.video_library_rounded,
+                          onTap: () => _toggle(collection.id),
+                        );
+                      },
+                    ),
+            ),
+            _HomePickerSubmitButton(
+              selectedCount: _selected.length,
+              emptyLabel: 'Selecciona Collections',
+              activeLabel: 'Agregar ${_selected.length} seleccionadas',
+              onPressed: _selected.isEmpty
+                  ? null
+                  : () => Navigator.of(context).pop(_selected.toList()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _toggle(String id) {
+    setState(() {
+      if (!_selected.remove(id)) {
+        _selected.add(id);
+      }
+    });
+  }
 }
 
 class _HomeArtistPickerSheetState extends State<_HomeArtistPickerSheet> {

@@ -30,6 +30,8 @@ class MediaItemGrid extends StatelessWidget {
     this.physics,
     this.shrinkWrap = false,
     this.childAspectRatio = AppGridTheme.childAspectRatio,
+    this.coverAspectRatio = 1,
+    this.crossAxisCount,
     this.crossAxisSpacing = AppGridTheme.spacing,
     this.mainAxisSpacing = AppGridTheme.spacing,
   });
@@ -50,6 +52,8 @@ class MediaItemGrid extends StatelessWidget {
   final ScrollPhysics? physics;
   final bool shrinkWrap;
   final double childAspectRatio;
+  final double coverAspectRatio;
+  final int? crossAxisCount;
   final double crossAxisSpacing;
   final double mainAxisSpacing;
 
@@ -64,9 +68,9 @@ class MediaItemGrid extends StatelessWidget {
           itemCount: items.length,
           addAutomaticKeepAlives: false,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: AppGridTheme.getCrossAxisCount(
-              constraints.maxWidth,
-            ),
+            crossAxisCount:
+                crossAxisCount ??
+                AppGridTheme.getCrossAxisCount(constraints.maxWidth),
             crossAxisSpacing: crossAxisSpacing,
             mainAxisSpacing: mainAxisSpacing,
             childAspectRatio: childAspectRatio,
@@ -83,6 +87,7 @@ class MediaItemGrid extends StatelessWidget {
     final item = items[index];
     return MediaGridTile(
       item: item,
+      coverAspectRatio: coverAspectRatio,
       hintText: hintBuilder?.call(item, index),
       footerText: footerBuilder?.call(item, index),
       coverOverlay: coverOverlayBuilder?.call(item, index),
@@ -118,6 +123,8 @@ class MediaItemSliverGrid extends StatelessWidget {
     this.fallbackIcon = Icons.music_note_rounded,
     this.padding = EdgeInsets.zero,
     this.childAspectRatio = AppGridTheme.childAspectRatio,
+    this.coverAspectRatio = 1,
+    this.crossAxisCount,
     this.crossAxisSpacing = AppGridTheme.spacing,
     this.mainAxisSpacing = AppGridTheme.spacing,
   });
@@ -136,6 +143,8 @@ class MediaItemSliverGrid extends StatelessWidget {
   final IconData fallbackIcon;
   final EdgeInsetsGeometry padding;
   final double childAspectRatio;
+  final double coverAspectRatio;
+  final int? crossAxisCount;
   final double crossAxisSpacing;
   final double mainAxisSpacing;
 
@@ -152,9 +161,9 @@ class MediaItemSliverGrid extends StatelessWidget {
               addAutomaticKeepAlives: false,
             ),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: AppGridTheme.getCrossAxisCount(
-                constraints.crossAxisExtent,
-              ),
+              crossAxisCount:
+                  crossAxisCount ??
+                  AppGridTheme.getCrossAxisCount(constraints.crossAxisExtent),
               crossAxisSpacing: crossAxisSpacing,
               mainAxisSpacing: mainAxisSpacing,
               childAspectRatio: childAspectRatio,
@@ -169,6 +178,7 @@ class MediaItemSliverGrid extends StatelessWidget {
     final item = items[index];
     return MediaGridTile(
       item: item,
+      coverAspectRatio: coverAspectRatio,
       hintText: hintBuilder?.call(item, index),
       footerText: footerBuilder?.call(item, index),
       coverOverlay: coverOverlayBuilder?.call(item, index),
@@ -201,6 +211,7 @@ class MediaGridTile extends StatelessWidget {
     this.selectable = true,
     this.selectionMode = false,
     this.fallbackIcon = Icons.music_note_rounded,
+    this.coverAspectRatio = 1,
   });
 
   final MediaItem item;
@@ -214,6 +225,7 @@ class MediaGridTile extends StatelessWidget {
   final bool selectable;
   final bool selectionMode;
   final IconData fallbackIcon;
+  final double coverAspectRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -247,7 +259,10 @@ class MediaGridTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AspectRatio(aspectRatio: 1.0, child: _cover(context)),
+              AspectRatio(
+                aspectRatio: coverAspectRatio,
+                child: _cover(context),
+              ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
