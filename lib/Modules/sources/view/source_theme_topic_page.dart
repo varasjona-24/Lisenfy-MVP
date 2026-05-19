@@ -8,6 +8,7 @@ import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/services/audio_service.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
+import '../../../app/ui/widgets/media/media_item_grid.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/routes/app_routes.dart';
@@ -52,11 +53,16 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
   String? _topicSizeLabel;
   String _listQuery = '';
   _SourceListSort _listSort = _SourceListSort.recent;
+  bool _itemsGridView = false;
+  bool _collectionsGridView = false;
 
   @override
   void initState() {
     super.initState();
     _listSort = _readListSort();
+    _itemsGridView = _storage.read('source_topic_items_grid_view') ?? false;
+    _collectionsGridView =
+        _storage.read('source_topic_collections_grid_view') ?? false;
     if (Get.isRegistered<AudioService>()) {
       Get.find<AudioService>().pauseAndHideMiniPlayer();
     }
@@ -102,6 +108,20 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           title: Text(topic.title),
           onToggleMode: null,
           showLocalConnectAction: false,
+          extraActions: [
+            IconButton(
+              tooltip: _itemsGridView ? 'Ver como lista' : 'Ver cuadrícula',
+              onPressed: () {
+                setState(() => _itemsGridView = !_itemsGridView);
+                _storage.write('source_topic_items_grid_view', _itemsGridView);
+              },
+              icon: Icon(
+                _itemsGridView
+                    ? Icons.view_list_rounded
+                    : Icons.grid_view_rounded,
+              ),
+            ),
+          ],
         ),
         body: AppGradientBackground(
           child: RefreshIndicator(
@@ -258,40 +278,60 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
             ),
           );
         }
-        return SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          sliver: SliverMainAxisGroup(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Items',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+        return SliverMainAxisGroup(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              sliver: SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Items',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
-                    const SizedBox(height: 8),
-                  ],
+                  ),
                 ),
               ),
-              SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final item = items[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: SourceMediaListItem(
-                      item: item,
-                      onTap: () => _playItem(items, item),
-                      onLongPress: () => _showItemActions(topic, item),
-                      onMore: () => _showItemActions(topic, item),
-                    ),
-                  );
-                }, childCount: items.length),
+            ),
+            if (_itemsGridView)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
+                sliver: MediaItemSliverGrid(
+                  items: items,
+                  childAspectRatio: 0.95,
+                  coverAspectRatio: 16 / 9,
+                  crossAxisCount: 2,
+                  fallbackIcon: Icons.videocam_rounded,
+                  onTap: (item, index) => _playItem(items, item),
+                  onLongPress: (item, index) => _showItemActions(topic, item),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final item = items[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 18),
+                      child: SourceMediaListItem(
+                        item: item,
+                        videoStyle: true,
+                        onTap: () => _playItem(items, item),
+                        onLongPress: () => _showItemActions(topic, item),
+                        onMore: () => _showItemActions(topic, item),
+                      ),
+                    );
+                  }, childCount: items.length),
+                ),
               ),
-            ],
-          ),
+          ],
         );
       },
     );
@@ -380,31 +420,56 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
               color: scheme.onSurfaceVariant,
             ),
           )
+        else if (_collectionsGridView)
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: filtered.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.82,
+            ),
+            itemBuilder: (context, index) {
+              final pl = filtered[index];
+              return _collectionCard(topic.id, pl, gridStyle: true);
+            },
+          )
         else
           ...filtered.map(
             (pl) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: SourcePlaylistCard(
-                theme: widget.theme,
-                playlist: pl,
-                childListCount: _sources
-                    .playlistsForTopic(topic.id, parentId: pl.id)
-                    .length,
-                onOpen: () => Get.toNamed(
-                  AppRoutes.sourcePlaylist,
-                  preventDuplicates: false,
-                  arguments: {
-                    'playlistId': pl.id,
-                    'theme': widget.theme,
-                    'origins': widget.origins,
-                  },
-                ),
-                onEdit: () => _openEditPlaylist(pl),
-                onDelete: () => _sources.deleteTopicPlaylist(pl),
-              ),
+              child: _collectionCard(topic.id, pl),
             ),
           ),
       ],
+    );
+  }
+
+  Widget _collectionCard(
+    String topicId,
+    SourceThemeTopicPlaylist playlist, {
+    bool gridStyle = false,
+  }) {
+    return SourcePlaylistCard(
+      theme: widget.theme,
+      playlist: playlist,
+      gridStyle: gridStyle,
+      childListCount: _sources
+          .playlistsForTopic(topicId, parentId: playlist.id)
+          .length,
+      onOpen: () => Get.toNamed(
+        AppRoutes.sourcePlaylist,
+        preventDuplicates: false,
+        arguments: {
+          'playlistId': playlist.id,
+          'theme': widget.theme,
+          'origins': widget.origins,
+        },
+      ),
+      onEdit: () => _openEditPlaylist(playlist),
+      onDelete: () => _sources.deleteTopicPlaylist(playlist),
     );
   }
 
@@ -471,6 +536,24 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
               child: Text('Más Collections'),
             ),
           ],
+        ),
+        const SizedBox(width: 4),
+        IconButton(
+          tooltip: _collectionsGridView
+              ? 'Ver Collections como lista'
+              : 'Ver Collections como grid',
+          onPressed: () {
+            setState(() => _collectionsGridView = !_collectionsGridView);
+            _storage.write(
+              'source_topic_collections_grid_view',
+              _collectionsGridView,
+            );
+          },
+          icon: Icon(
+            _collectionsGridView
+                ? Icons.view_list_rounded
+                : Icons.grid_view_rounded,
+          ),
         ),
       ],
     );

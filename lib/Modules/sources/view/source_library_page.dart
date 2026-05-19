@@ -23,6 +23,7 @@ import '../controller/sources_controller.dart';
 import '../domain/source_origin.dart';
 import '../domain/source_theme.dart';
 import '../domain/source_theme_topic.dart';
+import '../ui/source_media_list_item.dart';
 
 // ============================
 // 🧭 PAGE: SOURCE LIBRARY
@@ -306,6 +307,19 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
   }
 
   Widget _itemTile(MediaItem item, List<MediaItem> queue, HomeMode mode) {
+    if (mode == HomeMode.video) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 18),
+        child: SourceMediaListItem(
+          item: item,
+          videoStyle: true,
+          onTap: () => _playSourceItem(item, queue, mode),
+          onLongPress: () => _openGridItemActions(item, queue, mode),
+          onMore: () => _openGridItemActions(item, queue, mode),
+        ),
+      );
+    }
+
     final v = _variantForMode(item, mode) ?? item.variants.first;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -377,7 +391,11 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
       items: queue,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: AppGridTheme.childAspectRatio,
+      childAspectRatio: mode == HomeMode.video
+          ? 0.95
+          : AppGridTheme.childAspectRatio,
+      coverAspectRatio: mode == HomeMode.video ? 16 / 9 : 1,
+      crossAxisCount: mode == HomeMode.video ? 2 : null,
       crossAxisSpacing: AppGridTheme.spacing,
       mainAxisSpacing: AppGridTheme.spacing,
       fallbackIcon: mode == HomeMode.audio

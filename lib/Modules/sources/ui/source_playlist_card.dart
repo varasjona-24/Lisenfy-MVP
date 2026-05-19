@@ -16,6 +16,7 @@ class SourcePlaylistCard extends StatefulWidget {
     required this.theme,
     required this.playlist,
     this.childListCount = 0,
+    this.gridStyle = false,
     required this.onOpen,
     required this.onEdit,
     required this.onDelete,
@@ -24,6 +25,7 @@ class SourcePlaylistCard extends StatefulWidget {
   final SourceTheme theme;
   final SourceThemeTopicPlaylist playlist;
   final int childListCount;
+  final bool gridStyle;
   final VoidCallback onOpen;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -73,123 +75,224 @@ class _SourcePlaylistCardState extends State<SourcePlaylistCard> {
             borderRadius: BorderRadius.circular(8),
             child: Material(
               color: Colors.transparent,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.58),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: _isHovered
-                        ? base.withValues(alpha: 0.65)
-                        : scheme.outlineVariant.withValues(alpha: 0.48),
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(width: 4, color: base),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-                      child: Row(
+              child: widget.gridStyle
+                  ? _buildGridCard(
+                      context: context,
+                      theme: t,
+                      scheme: scheme,
+                      base: base,
+                      provider: provider,
+                      playlist: playlist,
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest.withValues(
+                          alpha: 0.58,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _isHovered
+                              ? base.withValues(alpha: 0.65)
+                              : scheme.outlineVariant.withValues(alpha: 0.48),
+                        ),
+                      ),
+                      child: Stack(
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              width: 52,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                color: base.withValues(alpha: 0.16),
-                                border: Border.all(
-                                  color: base.withValues(alpha: 0.22),
-                                  width: 1,
-                                ),
-                              ),
-                              child: provider != null
-                                  ? Image(image: provider, fit: BoxFit.cover)
-                                  : Icon(
-                                      Icons.queue_music_rounded,
-                                      color: base,
-                                    ),
-                            ),
+                          Positioned(
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            child: Container(width: 4, color: base),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+                            child: Row(
                               children: [
-                                Text(
-                                  playlist.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: t.textTheme.titleMedium?.copyWith(
-                                    color: scheme.onSurface,
-                                    fontWeight: FontWeight.w800,
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    width: 52,
+                                    height: 52,
+                                    decoration: BoxDecoration(
+                                      color: base.withValues(alpha: 0.16),
+                                      border: Border.all(
+                                        color: base.withValues(alpha: 0.22),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: provider != null
+                                        ? Image(
+                                            image: provider,
+                                            fit: BoxFit.cover,
+                                          )
+                                        : Icon(
+                                            Icons.queue_music_rounded,
+                                            color: base,
+                                          ),
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  children: [
-                                    _SourcePlaylistMetricChip(
-                                      icon: Icons.library_music_rounded,
-                                      label: '${playlist.itemIds.length}',
-                                    ),
-                                    if (widget.childListCount > 0)
-                                      _SourcePlaylistMetricChip(
-                                        icon: Icons.folder_copy_rounded,
-                                        label: '${widget.childListCount}',
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        playlist.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: t.textTheme.titleMedium
+                                            ?.copyWith(
+                                              color: scheme.onSurface,
+                                              fontWeight: FontWeight.w800,
+                                            ),
                                       ),
-                                  ],
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 4,
+                                        children: [
+                                          _SourcePlaylistMetricChip(
+                                            icon: Icons.library_music_rounded,
+                                            label: '${playlist.itemIds.length}',
+                                          ),
+                                          if (widget.childListCount > 0)
+                                            _SourcePlaylistMetricChip(
+                                              icon: Icons.folder_copy_rounded,
+                                              label: '${widget.childListCount}',
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                                _playlistMenu(t, scheme),
                               ],
                             ),
-                          ),
-                          PopupMenuButton<_SourcePlaylistAction>(
-                            onOpened: () => _setOverlayOpen(true),
-                            onCanceled: () => _setOverlayOpen(false),
-                            onSelected: (value) {
-                              _setOverlayOpen(false);
-                              if (value == _SourcePlaylistAction.edit) {
-                                widget.onEdit();
-                              }
-                              if (value == _SourcePlaylistAction.delete) {
-                                widget.onDelete();
-                              }
-                            },
-                            icon: Icon(
-                              Icons.more_vert_rounded,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                            color: t.colorScheme.surface,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            itemBuilder: (ctx) => [
-                              const PopupMenuItem(
-                                value: _SourcePlaylistAction.edit,
-                                child: Text('Editar'),
-                              ),
-                              const PopupMenuItem(
-                                value: _SourcePlaylistAction.delete,
-                                child: Text('Eliminar'),
-                              ),
-                            ],
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildGridCard({
+    required BuildContext context,
+    required ThemeData theme,
+    required ColorScheme scheme,
+    required Color base,
+    required ImageProvider? provider,
+    required SourceThemeTopicPlaylist playlist,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: _isHovered
+              ? base.withValues(alpha: 0.65)
+              : scheme.outlineVariant.withValues(alpha: 0.42),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(8),
+              ),
+              child: Container(
+                color: base.withValues(alpha: 0.16),
+                child: provider != null
+                    ? Image(image: provider, fit: BoxFit.cover)
+                    : Icon(Icons.folder_rounded, color: base, size: 34),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          playlist.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurface,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 30,
+                        height: 30,
+                        child: _playlistMenu(theme, scheme),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      _SourcePlaylistMetricChip(
+                        icon: Icons.library_music_rounded,
+                        label: '${playlist.itemIds.length}',
+                      ),
+                      if (widget.childListCount > 0)
+                        _SourcePlaylistMetricChip(
+                          icon: Icons.folder_copy_rounded,
+                          label: '${widget.childListCount}',
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  PopupMenuButton<_SourcePlaylistAction> _playlistMenu(
+    ThemeData theme,
+    ColorScheme scheme,
+  ) {
+    return PopupMenuButton<_SourcePlaylistAction>(
+      onOpened: () => _setOverlayOpen(true),
+      onCanceled: () => _setOverlayOpen(false),
+      onSelected: (value) {
+        _setOverlayOpen(false);
+        if (value == _SourcePlaylistAction.edit) {
+          widget.onEdit();
+        }
+        if (value == _SourcePlaylistAction.delete) {
+          widget.onDelete();
+        }
+      },
+      icon: Icon(Icons.more_vert_rounded, color: scheme.onSurfaceVariant),
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      itemBuilder: (ctx) => const [
+        PopupMenuItem(value: _SourcePlaylistAction.edit, child: Text('Editar')),
+        PopupMenuItem(
+          value: _SourcePlaylistAction.delete,
+          child: Text('Eliminar'),
+        ),
+      ],
     );
   }
 }

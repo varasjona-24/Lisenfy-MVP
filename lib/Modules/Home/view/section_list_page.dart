@@ -556,6 +556,7 @@ class _SectionListPageState extends State<SectionListPage> {
         final itemIndex = index - 1;
         return _MediaRow(
           item: item,
+          videoStyle: widget.rectangularGrid,
           hintText: widget.itemHintBuilder?.call(item, itemIndex),
           trailing: widget.itemTrailingBuilder?.call(item, itemIndex),
           selectionMode: _selectionMode,
@@ -695,6 +696,7 @@ class _SectionListPageState extends State<SectionListPage> {
 class _MediaRow extends StatelessWidget {
   const _MediaRow({
     required this.item,
+    required this.videoStyle,
     required this.hintText,
     required this.trailing,
     required this.onTap,
@@ -711,6 +713,7 @@ class _MediaRow extends StatelessWidget {
   });
 
   final MediaItem item;
+  final bool videoStyle;
   final String? hintText;
   final Widget? trailing;
   final VoidCallback onTap;
@@ -731,16 +734,16 @@ class _MediaRow extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(videoStyle ? 12 : 16),
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: EdgeInsets.all(videoStyle ? 0 : 10),
         decoration: BoxDecoration(
           color: selected
               ? scheme.primary.withValues(alpha: 0.12)
-              : scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(16),
+              : (videoStyle ? Colors.transparent : scheme.surfaceContainerHigh),
+          borderRadius: BorderRadius.circular(videoStyle ? 12 : 16),
           border: selected
               ? Border.all(
                   color: scheme.primary.withValues(alpha: 0.55),
@@ -750,8 +753,12 @@ class _MediaRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _Thumb(thumb: item.effectiveThumbnail),
-            const SizedBox(width: 12),
+            _Thumb(
+              thumb: item.effectiveThumbnail,
+              videoStyle: videoStyle,
+              durationSeconds: item.effectiveDurationSeconds,
+            ),
+            SizedBox(width: videoStyle ? 16 : 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -761,29 +768,55 @@ class _MediaRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: videoStyle
+                          ? FontWeight.w800
+                          : FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.displaySubtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
+                  if (videoStyle) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        if ((item.localVideoVariant?.format ?? '')
+                            .trim()
+                            .isNotEmpty)
+                          _VideoMetaChip(
+                            label: item.localVideoVariant!.format
+                                .trim()
+                                .toUpperCase(),
+                          ),
+                        if ((item.localVideoVariant?.size ?? 0) > 0)
+                          _VideoMetaChip(
+                            label: _formatVideoSize(
+                              item.localVideoVariant!.size!,
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
-                  if ((hintText ?? '').trim().isNotEmpty) ...[
+                  ] else ...[
                     const SizedBox(height: 4),
                     Text(
-                      hintText!.trim(),
+                      item.displaySubtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: scheme.primary.withValues(alpha: 0.9),
-                        fontWeight: FontWeight.w600,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
+                    if ((hintText ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        hintText!.trim(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.primary.withValues(alpha: 0.9),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
                 ],
               ),
@@ -912,6 +945,21 @@ class _MediaRow extends StatelessWidget {
       ),
     );
   }
+
+  String _formatVideoSize(int bytes) {
+    if (bytes <= 0) return '';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    var value = bytes.toDouble();
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+    final text = value >= 10 || unitIndex == 0
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(1);
+    return '$text ${units[unitIndex]}';
+  }
 }
 
 enum _FeedbackAction { selectMultiple, interested, hideTrack, hideArtist }
@@ -1015,9 +1063,15 @@ class _SortOption extends StatelessWidget {
 }
 
 class _Thumb extends StatelessWidget {
-  const _Thumb({required this.thumb});
+  const _Thumb({
+    required this.thumb,
+    required this.videoStyle,
+    required this.durationSeconds,
+  });
 
   final String? thumb;
+  final bool videoStyle;
+  final int? durationSeconds;
 
   @override
   Widget build(BuildContext context) {
@@ -1027,33 +1081,114 @@ class _Thumb extends StatelessWidget {
           ? NetworkImage(thumb!)
           : FileImage(File(thumb!)) as ImageProvider;
       return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image(
-          key: ValueKey<String>(thumb!),
-          image: provider,
-          width: 56,
-          height: 56,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(videoStyle ? 14 : 12),
+        child: Stack(
+          children: [
+            Image(
+              key: ValueKey<String>(thumb!),
+              image: provider,
+              width: videoStyle ? 148 : 56,
+              height: videoStyle ? 84 : 56,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                width: videoStyle ? 148 : 56,
+                height: videoStyle ? 84 : 56,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(videoStyle ? 14 : 12),
+                ),
+                child: Icon(
+                  videoStyle ? Icons.videocam_rounded : Icons.music_note,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
             ),
-            child: Icon(Icons.music_note, color: scheme.onSurfaceVariant),
-          ),
+            if (videoStyle)
+              Positioned(
+                left: 8,
+                bottom: 7,
+                child: _DurationBadge(seconds: durationSeconds),
+              ),
+          ],
         ),
       );
     }
     return Container(
-      width: 56,
-      height: 56,
+      width: videoStyle ? 148 : 56,
+      height: videoStyle ? 84 : 56,
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(videoStyle ? 14 : 12),
       ),
-      child: Icon(Icons.music_note, color: scheme.onSurfaceVariant),
+      child: Icon(
+        videoStyle ? Icons.videocam_rounded : Icons.music_note,
+        color: scheme.onSurfaceVariant,
+      ),
     );
+  }
+}
+
+class _VideoMetaChip extends StatelessWidget {
+  const _VideoMetaChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    if (label.trim().isEmpty) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.68),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: scheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _DurationBadge extends StatelessWidget {
+  const _DurationBadge({required this.seconds});
+
+  final int? seconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _formatDuration(seconds);
+    if (label == null) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  static String? _formatDuration(int? seconds) {
+    if (seconds == null || seconds <= 0) return null;
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    if (h > 0) {
+      return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    }
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 }
