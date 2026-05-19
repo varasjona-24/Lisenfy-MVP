@@ -94,6 +94,18 @@
                 android:resource="@xml/player_widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".widget.LargePlayerWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.listenfy.ACTION_WIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/player_widget_large_info" />
+        </receiver>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

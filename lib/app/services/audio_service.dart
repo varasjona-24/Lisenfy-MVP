@@ -275,9 +275,15 @@ class AudioService extends GetxService {
 
   Uri? _resolveArtUri(MediaItem item) {
     final local = item.thumbnailLocalPath?.trim();
-    if (local != null && local.isNotEmpty) return Uri.file(local);
+    if (local != null && local.isNotEmpty) {
+      return Uri.file(local);
+    }
+
     final remote = item.thumbnail?.trim();
-    if (remote != null && remote.isNotEmpty) return Uri.tryParse(remote);
+    if (remote != null && remote.isNotEmpty) {
+      return Uri.tryParse(remote);
+    }
+
     return null;
   }
 
@@ -1199,6 +1205,8 @@ class AudioService extends GetxService {
         'artist': artist,
         'artPath': artPath,
         'playing': isPlaying.value,
+        'positionMs': currentPosition.inMilliseconds,
+        'durationMs': (currentDuration ?? Duration.zero).inMilliseconds,
         'barColor': barColor.toARGB32(),
         'logoColor': logoColor.toARGB32(),
       });

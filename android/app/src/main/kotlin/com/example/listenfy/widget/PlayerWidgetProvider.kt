@@ -203,6 +203,8 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         const val KEY_ARTIST = "artist"
         const val KEY_ART_PATH = "artPath"
         const val KEY_PLAYING = "playing"
+        const val KEY_POSITION_MS = "positionMs"
+        const val KEY_DURATION_MS = "durationMs"
         const val KEY_BAR_COLOR = "barColor"
         const val KEY_LOGO_COLOR = "logoColor"
     }

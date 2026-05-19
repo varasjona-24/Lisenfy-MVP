@@ -34,6 +34,7 @@ class CoverArt extends StatelessWidget {
         child: switch (style) {
           CoverStyle.square => _SquareCover(colors: colors, item: item),
           CoverStyle.vinyl => _VinylCover(colors: colors, item: item),
+          CoverStyle.landscape => _SquareCover(colors: colors, item: item),
           CoverStyle.wave => _WaveCover(
             colors: colors,
             item: item,

@@ -84,6 +84,7 @@ Future<void> main() async {
       androidNotificationChannelDescription: 'Controles de reproducción',
       androidNotificationOngoing: true,
       androidNotificationIcon: 'mipmap/ic_launcher',
+      preloadArtwork: true,
     ),
   );
   appAudio.attachHandler(handler);
@@ -210,11 +211,28 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  StreamSubscription<bool>? _notificationClickSub;
+
   @override
   void initState() {
     super.initState();
     _checkPermissions();
     unawaited(Get.find<DeepLinkService>().start());
+    _notificationClickSub = aud.AudioService.notificationClicked.listen((
+      clicked,
+    ) {
+      if (!clicked) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (Get.currentRoute == AppRoutes.audioPlayer) return;
+        Get.toNamed(AppRoutes.audioPlayer);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationClickSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkPermissions() async {

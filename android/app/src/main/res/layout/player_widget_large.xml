@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_large_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_card_bg">
+
+    <ImageView
+        android:id="@+id/widget_large_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0.52"
+        android:contentDescription="background"
+        android:scaleType="centerCrop"
+        android:src="@mipmap/ic_launcher" />
+
+    <TextView
+        android:id="@+id/widget_large_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/widget_large_scrim"
+        android:text="" />
+
+    <LinearLayout
+        android:id="@+id/widget_large_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingStart="18dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="14dp">
+
+        <ImageView
+            android:id="@+id/widget_large_cover"
+            android:layout_width="112dp"
+            android:layout_height="112dp"
+            android:background="@drawable/widget_large_cover_bg"
+            android:contentDescription="cover"
+            android:scaleType="centerCrop"
+            android:src="@mipmap/ic_launcher" />
+
+        <TextView
+            android:id="@+id/widget_large_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="2"
+            android:text="Listenfy"
+            android:textColor="#FFFFFFFF"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_large_artist"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="1"
+            android:text="Artista"
+            android:textColor="#D9FFFFFF"
+            android:textSize="13sp" />
+
+        <TextView
+            android:layout_width="1dp"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:text="" />
+
+        <LinearLayout
+            android:id="@+id/widget_large_controls"
+            android:layout_width="match_parent"
+            android:layout_height="58dp"
+            android:background="@drawable/widget_large_panel"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/widget_large_prev"
+                android:layout_width="54dp"
+                android:layout_height="54dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="previous"
+                android:padding="13dp"
+                android:src="@android:drawable/ic_media_previous"
+                android:tint="#FFFFFFFF" />
+
+            <ImageButton
+                android:id="@+id/widget_large_play_pause"
+                android:layout_width="70dp"
+                android:layout_height="54dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="play_pause"
+                android:padding="10dp"
+                android:src="@android:drawable/ic_media_play"
+                android:tint="#FFFFFFFF" />
+
+            <ImageButton
+                android:id="@+id/widget_large_next"
+                android:layout_width="54dp"
+                android:layout_height="54dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="next"
+                android:padding="13dp"
+                android:src="@android:drawable/ic_media_next"
+                android:tint="#FFFFFFFF" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

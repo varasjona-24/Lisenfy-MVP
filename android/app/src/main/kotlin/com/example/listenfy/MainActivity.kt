@@ -32,6 +32,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import com.example.listenfy.widget.PlayerWidgetProvider
+import com.example.listenfy.widget.LargePlayerWidgetProvider
 import android.content.Intent
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -421,6 +422,8 @@ class MainActivity : AudioServiceActivity() {
                 val artist = call.argument<String>("artist") ?: ""
                 val artPath = call.argument<String>("artPath") ?: ""
                 val playing = call.argument<Boolean>("playing") ?: false
+                val positionMs = longArg(call.argument<Any>("positionMs"))
+                val durationMs = longArg(call.argument<Any>("durationMs"))
                 val barColorAny = call.argument<Any>("barColor")
                 val barColor = when (barColorAny) {
                     is Int -> barColorAny
@@ -442,6 +445,8 @@ class MainActivity : AudioServiceActivity() {
                     .putString(PlayerWidgetProvider.KEY_ARTIST, artist)
                     .putString(PlayerWidgetProvider.KEY_ART_PATH, artPath)
                     .putBoolean(PlayerWidgetProvider.KEY_PLAYING, playing)
+                    .putLong(PlayerWidgetProvider.KEY_POSITION_MS, positionMs)
+                    .putLong(PlayerWidgetProvider.KEY_DURATION_MS, durationMs)
                     .putInt(PlayerWidgetProvider.KEY_BAR_COLOR, barColor)
                     .putInt(PlayerWidgetProvider.KEY_LOGO_COLOR, logoColor)
                     .apply()
@@ -450,6 +455,11 @@ class MainActivity : AudioServiceActivity() {
                     action = PlayerWidgetProvider.ACTION_WIDGET_UPDATE
                 }
                 sendBroadcast(intent)
+
+                val largeIntent = Intent(this, LargePlayerWidgetProvider::class.java).apply {
+                    action = PlayerWidgetProvider.ACTION_WIDGET_UPDATE
+                }
+                sendBroadcast(largeIntent)
 
                 result.success(true)
             }
@@ -1829,5 +1839,15 @@ class MainActivity : AudioServiceActivity() {
         envReverb = null
         loudness = null
         spatialSessionId = null
+    }
+
+    private fun longArg(value: Any?): Long {
+        return when (value) {
+            is Int -> value.toLong()
+            is Long -> value
+            is Double -> value.toLong()
+            is Float -> value.toLong()
+            else -> 0L
+        }
     }
 }

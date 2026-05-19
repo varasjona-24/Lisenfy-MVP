@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -47,6 +50,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
     return switch (style) {
       CoverStyle.square => Icons.photo_rounded,
       CoverStyle.vinyl => Icons.album_rounded,
+      CoverStyle.landscape => Icons.landscape_rounded,
       CoverStyle.wave => Icons.graphic_eq_rounded,
       CoverStyle.miniSpectrum => Icons.equalizer_rounded,
     };
@@ -54,8 +58,9 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
 
   String _coverStyleLabel(CoverStyle style) {
     return switch (style) {
-      CoverStyle.square => 'portada',
+      CoverStyle.square => 'normal',
       CoverStyle.vinyl => 'disco',
+      CoverStyle.landscape => 'paisaje',
       CoverStyle.wave => 'ondas',
       CoverStyle.miniSpectrum => 'mini espectro',
     };
@@ -116,6 +121,18 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
 
               if (item == null) {
                 return const Center(child: Text('No hay nada reproduciéndose'));
+              }
+
+              if (coverStyle == CoverStyle.landscape) {
+                return _LandscapePlayerView(
+                  controller: controller,
+                  item: item,
+                  isInstrumentalMode: isInstrumentalMode,
+                  isSpatial8dMode: isSpatial8dMode,
+                  currentStyle: coverStyle,
+                  coverStyleIcon: _coverStyleIcon,
+                  coverStyleLabel: _coverStyleLabel,
+                );
               }
 
               return Column(
@@ -307,6 +324,314 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
   }
 }
 
+class _LandscapePlayerView extends StatelessWidget {
+  const _LandscapePlayerView({
+    required this.controller,
+    required this.item,
+    required this.isInstrumentalMode,
+    required this.isSpatial8dMode,
+    required this.currentStyle,
+    required this.coverStyleIcon,
+    required this.coverStyleLabel,
+  });
+
+  final AudioPlayerController controller;
+  final dynamic item;
+  final bool isInstrumentalMode;
+  final bool isSpatial8dMode;
+  final CoverStyle currentStyle;
+  final IconData Function(CoverStyle style) coverStyleIcon;
+  final String Function(CoverStyle style) coverStyleLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseTheme = Theme.of(context);
+    final landscapeTheme = baseTheme.copyWith(
+      brightness: Brightness.dark,
+      colorScheme: const ColorScheme.dark(
+        primary: Color(0xFFFFFFFF),
+        onPrimary: Color(0xFF141414),
+        surface: Color(0xFF101010),
+        onSurface: Color(0xFFFFFFFF),
+        surfaceContainerHighest: Color(0x33FFFFFF),
+        onSurfaceVariant: Color(0xD9FFFFFF),
+        outline: Color(0x66FFFFFF),
+      ),
+      textTheme: baseTheme.textTheme.apply(
+        bodyColor: Colors.white,
+        displayColor: Colors.white,
+      ),
+    );
+
+    return Theme(
+      data: landscapeTheme,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          _ArtworkImage(
+            source: item.effectiveThumbnail ?? '',
+            fit: BoxFit.cover,
+          ),
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 34, sigmaY: 34),
+            child: ColoredBox(
+              color: Colors.black,
+              child: Transform.scale(
+                scale: 1.12,
+                child: _ArtworkImage(
+                  source: item.effectiveThumbnail ?? '',
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.48),
+                  Colors.black.withValues(alpha: 0.72),
+                  Colors.black.withValues(alpha: 0.88),
+                ],
+              ),
+            ),
+          ),
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      color: Colors.white,
+                      onPressed: Get.back,
+                    ),
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: landscapeTheme.textTheme.titleSmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Ver cola',
+                      icon: const Icon(Icons.playlist_play),
+                      color: Colors.white,
+                      onPressed: () => Get.toNamed(AppRoutes.audioQueue),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = MediaQuery.sizeOf(context).width;
+                  final coverSize = width.clamp(250.0, 330.0);
+                  return Container(
+                    width: coverSize,
+                    height: coverSize,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(26),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.42),
+                          blurRadius: 36,
+                          offset: const Offset(0, 20),
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: _ArtworkImage(
+                      source: item.effectiveThumbnail ?? '',
+                      fit: BoxFit.cover,
+                      fallbackSize: 88,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 28),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Column(
+                  children: [
+                    Text(
+                      item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: landscapeTheme.textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      item.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: landscapeTheme.textTheme.bodyLarge?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.74),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              const ProgressBar(),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _LandscapeActionButton(
+                        icon: coverStyleIcon(currentStyle),
+                        label: coverStyleLabel(currentStyle),
+                        onTap: () => openPlayerVisualStyleSheet(
+                          currentStyle: currentStyle,
+                          options: AudioPlayerController.availableCoverStyles,
+                          onSelected: controller.setCoverStyle,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _LandscapeActionButton(
+                        icon: Icons.lyrics_rounded,
+                        label: 'letras',
+                        onTap: () =>
+                            openPlayerLyricsSheet(item, heightFactor: 0.72),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _LandscapeActionButton(
+                        icon: Icons.graphic_eq_rounded,
+                        label: isInstrumentalMode
+                            ? 'instrumental'
+                            : isSpatial8dMode
+                            ? '8D'
+                            : 'normal',
+                        onTap: () => openPlayerInstrumentalSheet(item),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              const PlaybackControls(),
+              const Spacer(),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LandscapeActionButton extends StatelessWidget {
+  const _LandscapeActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 17, color: Colors.white),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ArtworkImage extends StatelessWidget {
+  const _ArtworkImage({
+    required this.source,
+    required this.fit,
+    this.fallbackSize = 72,
+  });
+
+  final String source;
+  final BoxFit fit;
+  final double fallbackSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final clean = source.trim();
+    if (clean.isEmpty) return _fallback(context);
+
+    if (clean.startsWith('/')) {
+      return Image.file(
+        File(clean),
+        fit: fit,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, error, stackTrace) => _fallback(context),
+      );
+    }
+
+    return Image.network(
+      clean,
+      fit: fit,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (context, error, stackTrace) => _fallback(context),
+    );
+  }
+
+  Widget _fallback(BuildContext context) {
+    return Container(
+      color: Colors.white.withValues(alpha: 0.10),
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.music_note_rounded,
+        size: fallbackSize,
+        color: Colors.white.withValues(alpha: 0.76),
+      ),
+    );
+  }
+}
+
 class _PlayerVisualStyleSheet extends StatelessWidget {
   const _PlayerVisualStyleSheet({
     required this.currentStyle,
@@ -322,6 +647,7 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
     return switch (style) {
       CoverStyle.square => Icons.photo_rounded,
       CoverStyle.vinyl => Icons.album_rounded,
+      CoverStyle.landscape => Icons.landscape_rounded,
       CoverStyle.wave => Icons.graphic_eq_rounded,
       CoverStyle.miniSpectrum => Icons.equalizer_rounded,
     };
@@ -329,8 +655,9 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
 
   String _labelFor(CoverStyle style) {
     return switch (style) {
-      CoverStyle.square => 'portada',
+      CoverStyle.square => 'normal',
       CoverStyle.vinyl => 'disco',
+      CoverStyle.landscape => 'paisaje',
       CoverStyle.wave => 'ondas',
       CoverStyle.miniSpectrum => 'mini espectro',
     };
@@ -338,8 +665,9 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
 
   String _descriptionFor(CoverStyle style) {
     return switch (style) {
-      CoverStyle.square => 'Portada estática centrada en la carátula.',
+      CoverStyle.square => 'Vista clásica centrada en la carátula.',
       CoverStyle.vinyl => 'Vista de disco con presencia visual.',
+      CoverStyle.landscape => 'Portada grande con fondo inmersivo.',
       CoverStyle.wave => 'Forma de onda amplia y estable.',
       CoverStyle.miniSpectrum => 'Espectro circular más dinámico.',
     };

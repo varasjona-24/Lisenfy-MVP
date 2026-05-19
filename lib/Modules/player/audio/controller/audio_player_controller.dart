@@ -11,7 +11,7 @@ import '../../../../app/models/media_item.dart';
 import '../../../../app/services/audio_service.dart';
 import '../../../../app/services/spatial_audio_service.dart';
 
-enum CoverStyle { square, vinyl, wave, miniSpectrum }
+enum CoverStyle { square, vinyl, landscape, wave, miniSpectrum }
 
 enum RepeatMode { off, once, loop }
 
@@ -19,6 +19,7 @@ class AudioPlayerController extends GetxController {
   static const List<CoverStyle> availableCoverStyles = <CoverStyle>[
     CoverStyle.square,
     CoverStyle.vinyl,
+    CoverStyle.landscape,
   ];
 
   final AudioService audioService;
