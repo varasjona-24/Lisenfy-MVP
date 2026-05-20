@@ -19,6 +19,18 @@ No cloud, no tracking, no algorithms. Just your files, your metadata, your rules
 
 Listenfy goes far beyond simple playback. It's a complete local media management system.
 
+## Recent User-Facing Improvements
+
+These are the newest quality-of-life additions, focused on making large offline libraries easier to use day to day:
+
+- A dedicated video library experience, with rectangular thumbnails, two-column grids, and list rows that show duration, quality and file size at a glance.
+- Video collections now feel closer to a real folder system: you can use nested Collections, switch folders between grid/list views, and add content with a modern searchable picker.
+- Collection covers use a wide video-friendly crop, so series, courses and movie folders look natural instead of being forced into square artwork.
+- The audio player now includes a Landscape-style view with large artwork, blurred background and the same playback controls users already know.
+- Larger Android home-screen media widgets give quick playback control without opening the app.
+- Home sections for audio and video keep their own layout choices, so your music setup does not get disturbed when you organize videos.
+- Artist country selection is easier to browse, with flags, country names and regional grouping for better Atlas organization.
+
 ### Core Playback & Library
 
 - Audio and video playback (gapless, background, lockscreen controls)
@@ -35,7 +47,9 @@ Listenfy goes far beyond simple playback. It's a complete local media management
 ### Sources - Video Collections
 
 - Create themed collections (e.g., "Anime", "Tutorials", "Peliculas")
-- Nested folders, custom colors and covers
+- Nested folders, custom colors and wide covers
+- Grid/list switching for video items and Collection folders
+- Searchable item picker for adding content to folders
 - Ideal for organizing series, courses, or personal videos
 
 ### Artist Graph (Relationships)
@@ -58,6 +72,7 @@ Listenfy goes far beyond simple playback. It's a complete local media management
 - Frame capture (screenshot button)
 - Movable video queue
 - Orientation adaptive (portrait/landscape)
+- Video-focused library layouts with rectangular thumbnails and compact metadata
 
 ### Offline P2P Transfers
 
@@ -99,12 +114,14 @@ Listenfy goes far beyond simple playback. It's a complete local media management
 - Customize your home screen: show/hide sections
 - Choose card style or list view
 - Reorder "For you today", "Recent plays", "Favorites", "Random mix", etc.
+- Audio and video can keep separate home layouts
+- Video sections support latest imports, featured items and selected Collections
 - Widget layout included in ZIP backup
 
 ### System Integration
 
 - Lockscreen controls / notification with album art
-- Simple homescreen widget (play/pause, next/prev)
+- Homescreen widgets for quick playback control, including larger artwork-focused layouts
 
 ---
 

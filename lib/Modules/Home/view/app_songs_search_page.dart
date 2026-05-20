@@ -13,6 +13,7 @@ import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/media/media_item_grid.dart';
+import '../../sources/ui/source_media_list_item.dart';
 import '../controller/home_controller.dart';
 
 enum _SongLibrarySort { importedAt, title, artist, size, plays, duration }
@@ -364,6 +365,15 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final item = list[index];
+        if (_isVideoMode) {
+          return SourceMediaListItem(
+            item: item,
+            videoStyle: true,
+            onTap: () => _home.openMedia(item, index, list),
+            onLongPress: () => _openItemActions(context, item, list),
+            onMore: () => _openItemActions(context, item, list),
+          );
+        }
         return _SearchItemTile(
           item: item,
           onTap: () => _home.openMedia(item, index, list),

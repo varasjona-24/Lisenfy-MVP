@@ -117,14 +117,10 @@ class SourceMediaListItem extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Icon(
-                videoStyle
-                    ? Icons.more_horiz_rounded
-                    : Icons.play_arrow_rounded,
-                color: videoStyle ? scheme.onSurfaceVariant : scheme.primary,
-                size: videoStyle ? 24 : 22,
-              ),
+              if (!videoStyle) ...[
+                const SizedBox(width: 8),
+                Icon(Icons.play_arrow_rounded, color: scheme.primary, size: 22),
+              ],
             ],
           ),
         ),

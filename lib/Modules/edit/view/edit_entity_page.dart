@@ -195,6 +195,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
   bool get _isTopic => _args.type == EditEntityType.topic;
   bool get _isTopicPlaylist => _args.type == EditEntityType.topicPlaylist;
   bool get _isVideoMedia => _media?.hasVideoLocal ?? false;
+  bool get _usesWideCover => _isVideoMedia || _isTopic || _isTopicPlaylist;
 
   Future<void> _pickLocalThumbnail() async {
     final res = await FilePicker.platform.pickFiles(
@@ -207,7 +208,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
     if (path == null || path.trim().isEmpty) return;
 
     final prevLocal = _localThumbPath;
-    final cropped = _isVideoMedia
+    final cropped = _usesWideCover
         ? await _controller.cropToVideoThumbnail(path)
         : await _controller.cropToSquare(path);
     if (cropped == null || cropped.trim().isEmpty) return;
@@ -264,7 +265,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
     }
     if (!mounted || baseLocal == null || baseLocal.trim().isEmpty) return;
 
-    final cropped = _isVideoMedia
+    final cropped = _usesWideCover
         ? await _controller.cropToVideoThumbnail(baseLocal)
         : await _controller.cropToSquare(baseLocal);
     if (!mounted || cropped == null || cropped.trim().isEmpty) {
@@ -372,21 +373,21 @@ class _EditEntityPageState extends State<EditEntityPage> {
     return '$flag $country';
   }
 
+  String _artistRegionLabel() {
+    if (_artistMainRegion == ArtistMainRegion.none) {
+      return 'Se define al elegir pais';
+    }
+    return _artistMainRegion.simpleLabel;
+  }
+
   Future<void> _pickArtistCountry() async {
     if (!_isArtist) return;
-
-    final region = _artistMainRegion == ArtistMainRegion.none
-        ? ArtistMainRegion.latino
-        : _artistMainRegion;
 
     final selected = await showModalBottomSheet<CountryOption>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => _CountryPickerSheet(
-        initialRegion: region,
-        selectedCode: _artistCountryCode,
-      ),
+      builder: (_) => _CountryPickerSheet(selectedCode: _artistCountryCode),
     );
 
     if (!mounted || selected == null) return;
@@ -405,6 +406,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
     setState(() {
       _countryCtrl.clear();
       _artistCountryCode = null;
+      _artistMainRegion = ArtistMainRegion.none;
     });
   }
 
@@ -997,9 +999,12 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
   Widget _fallbackThumb(ThemeData theme) {
     final isVideo = _media?.hasVideoLocal ?? false;
+    final isCollection = _isTopic || _isTopicPlaylist;
     return Center(
       child: Icon(
-        isVideo ? Icons.videocam_rounded : Icons.music_note_rounded,
+        isCollection
+            ? Icons.folder_rounded
+            : (isVideo ? Icons.videocam_rounded : Icons.music_note_rounded),
         size: 44,
         color: theme.colorScheme.onSurfaceVariant,
       ),
@@ -1365,8 +1370,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: SizedBox(
-                        width: _isVideoMedia ? 118 : 88,
-                        height: 88,
+                        width: _usesWideCover ? 126 : 88,
+                        height: _usesWideCover ? 71 : 88,
                         child: _buildThumbnail(context),
                       ),
                     ),
@@ -1494,27 +1499,16 @@ class _EditEntityPageState extends State<EditEntityPage> {
                     ],
                     if (_isArtist) ...[
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<ArtistMainRegion>(
-                        key: ValueKey(_artistMainRegion),
-                        initialValue: _artistMainRegion,
+                      TextFormField(
+                        key: ValueKey(_artistMainRegion.key),
+                        initialValue: _artistRegionLabel(),
+                        readOnly: true,
+                        enabled: false,
                         decoration: const InputDecoration(
                           labelText: 'Region principal',
                           prefixIcon: Icon(Icons.language_rounded),
+                          suffixIcon: Icon(Icons.lock_rounded),
                         ),
-                        items: ArtistMainRegion.values
-                            .map((region) {
-                              return DropdownMenuItem<ArtistMainRegion>(
-                                value: region,
-                                child: Text(region.simpleLabel),
-                              );
-                            })
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            _artistMainRegion = value;
-                          });
-                        },
                       ),
                       const SizedBox(height: 12),
                       TextField(
@@ -1524,7 +1518,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         decoration: InputDecoration(
                           labelText: 'Pais (opcional)',
                           prefixIcon: const Icon(Icons.public_rounded),
-                          hintText: 'Selecciona region y pais',
+                          hintText: 'Selecciona pais',
                           suffixIcon: IconButton(
                             tooltip: _countryCtrl.text.trim().isNotEmpty
                                 ? 'Limpiar pais'
@@ -2044,12 +2038,8 @@ class _TransferTargetSheetState extends State<_TransferTargetSheet> {
 }
 
 class _CountryPickerSheet extends StatefulWidget {
-  const _CountryPickerSheet({
-    required this.initialRegion,
-    required this.selectedCode,
-  });
+  const _CountryPickerSheet({required this.selectedCode});
 
-  final ArtistMainRegion initialRegion;
   final String? selectedCode;
 
   @override
@@ -2057,25 +2047,11 @@ class _CountryPickerSheet extends StatefulWidget {
 }
 
 class _CountryPickerSheetState extends State<_CountryPickerSheet> {
-  late ArtistMainRegion _region;
   late final TextEditingController _searchCtrl;
-
-  static const List<ArtistMainRegion> _regions = [
-    ArtistMainRegion.latino,
-    ArtistMainRegion.anglo,
-    ArtistMainRegion.europeo,
-    ArtistMainRegion.asiatico,
-    ArtistMainRegion.africano,
-    ArtistMainRegion.medioOriente,
-    ArtistMainRegion.oceania,
-  ];
 
   @override
   void initState() {
     super.initState();
-    _region = _regions.contains(widget.initialRegion)
-        ? widget.initialRegion
-        : ArtistMainRegion.latino;
     _searchCtrl = TextEditingController();
   }
 
@@ -2108,7 +2084,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final query = _normalize(_searchCtrl.text);
-    final countries = CountryCatalog.byRegion(_region.key)
+    final countries = CountryCatalog.all
         .where((entry) {
           if (query.isEmpty) return true;
           final name = _normalize(entry.name);
@@ -2116,6 +2092,15 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
           return name.contains(query) || code.contains(query);
         })
         .toList(growable: false);
+    countries.sort((a, b) {
+      final regionCompare = ArtistMainRegionX.fromRaw(a.regionKey).simpleLabel
+          .toLowerCase()
+          .compareTo(
+            ArtistMainRegionX.fromRaw(b.regionKey).simpleLabel.toLowerCase(),
+          );
+      if (regionCompare != 0) return regionCompare;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
 
     return SafeArea(
       child: Padding(
@@ -2144,45 +2129,34 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
               Text(
                 'Seleccionar pais',
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Primero elige una region y luego un pais.',
+                'Busca y elige un pais. La region se define automaticamente.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 40,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _regions.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final option = _regions[index];
-                    return ChoiceChip(
-                      label: Text(option.simpleLabel),
-                      selected: _region == option,
-                      onSelected: (_) {
-                        setState(() {
-                          _region = option;
-                        });
-                      },
-                    );
-                  },
                 ),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: _searchCtrl,
                 onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Buscar pais',
                   hintText: 'Nombre o codigo ISO',
-                  prefixIcon: Icon(Icons.search_rounded),
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _searchCtrl.text.trim().isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Limpiar',
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.close_rounded),
+                        ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -2197,31 +2171,62 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                         ),
                       )
                     : ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 8),
                         itemCount: countries.length,
-                        separatorBuilder: (_, _) => Divider(
-                          height: 1,
-                          color: theme.colorScheme.outlineVariant,
-                        ),
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final country = countries[index];
                           final flag = CountryCatalog.flagFromIso(country.code);
                           final selected =
                               country.code == (widget.selectedCode ?? '');
 
-                          return ListTile(
-                            leading: Text(
-                              flag.isEmpty ? '•' : flag,
-                              style: theme.textTheme.titleMedium,
-                            ),
-                            title: Text(country.name),
-                            subtitle: Text(country.code),
-                            trailing: selected
-                                ? Icon(
-                                    Icons.check_rounded,
-                                    color: theme.colorScheme.primary,
+                          return Material(
+                            color: selected
+                                ? theme.colorScheme.primaryContainer.withValues(
+                                    alpha: 0.52,
                                   )
-                                : null,
-                            onTap: () => Navigator.of(context).pop(country),
+                                : theme.colorScheme.surfaceContainerHighest
+                                      .withValues(alpha: 0.56),
+                            borderRadius: BorderRadius.circular(14),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 4,
+                              ),
+                              leading: Container(
+                                width: 42,
+                                height: 42,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surface.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  flag.isEmpty ? '•' : flag,
+                                  style: theme.textTheme.titleLarge,
+                                ),
+                              ),
+                              title: Text(
+                                country.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${country.code} · ${ArtistMainRegionX.fromRaw(country.regionKey).simpleLabel}',
+                              ),
+                              trailing: selected
+                                  ? Icon(
+                                      Icons.check_circle_rounded,
+                                      color: theme.colorScheme.primary,
+                                    )
+                                  : const Icon(Icons.chevron_right_rounded),
+                              onTap: () => Navigator.of(context).pop(country),
+                            ),
                           );
                         },
                       ),

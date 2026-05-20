@@ -9,6 +9,7 @@ import '../../../app/data/local/local_library_store.dart';
 import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
+import '../../../app/services/local_media_metadata_service.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
 import '../../artists/data/artist_store.dart';
@@ -32,6 +33,8 @@ class HomeController extends GetxController {
   final GetStorage _layoutStorage = GetStorage();
   final MediaRepository _repo = Get.find<MediaRepository>();
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
+  final LocalMediaMetadataService _metadata =
+      Get.find<LocalMediaMetadataService>();
   final BuildRecommendationCollectionsUseCase _buildCollections =
       Get.find<BuildRecommendationCollectionsUseCase>();
   final GetOrBuildDailyRecommendationsUseCase _getRecommendationsForDay =
@@ -1139,7 +1142,7 @@ class HomeController extends GetxController {
   Future<void> loadHome() async {
     isLoading.value = true;
     try {
-      final items = await _repo.getLibrary();
+      final items = await _backfillVideoDurations(await _repo.getLibrary());
       _allItems.assignAll(items);
       _splitHomeSections(_allItems);
       if (mode.value == HomeMode.audio) {
@@ -1153,6 +1156,54 @@ class HomeController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  Future<List<MediaItem>> _backfillVideoDurations(List<MediaItem> input) async {
+    final output = <MediaItem>[];
+    for (final item in input) {
+      if (!item.hasVideoLocal || (item.effectiveDurationSeconds ?? 0) > 0) {
+        output.add(item);
+        continue;
+      }
+
+      final video = item.localVideoVariant;
+      final path = video?.playablePath?.trim();
+      if (video == null || path == null || path.isEmpty) {
+        output.add(item);
+        continue;
+      }
+
+      final metadata = await _metadata.readMediaMetadata(path);
+      final seconds = metadata?.durationSeconds;
+      if (seconds == null || seconds <= 0) {
+        output.add(item);
+        continue;
+      }
+
+      final variants = item.variants
+          .map((variant) {
+            if (!variant.sameIdentityAs(video)) return variant;
+            return MediaVariant(
+              kind: variant.kind,
+              format: variant.format,
+              fileName: variant.fileName,
+              localPath: variant.localPath,
+              createdAt: variant.createdAt,
+              size: variant.size,
+              durationSeconds: seconds,
+              role: variant.role,
+            );
+          })
+          .toList(growable: false);
+
+      final updated = item.copyWith(
+        variants: variants,
+        durationSeconds: item.durationSeconds ?? seconds,
+      );
+      await _store.upsert(updated);
+      output.add(updated);
+    }
+    return output;
   }
 
   void _splitHomeSections(List<MediaItem> items) {

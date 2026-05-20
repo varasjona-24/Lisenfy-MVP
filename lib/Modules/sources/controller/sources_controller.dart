@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../app/data/local/local_library_store.dart';
 import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
+import '../../../app/services/local_media_metadata_service.dart';
 import '../../sources/domain/source_origin.dart';
 import '../domain/source_theme.dart';
 import '../domain/source_theme_pill.dart';
@@ -30,6 +31,8 @@ class SourcesController extends GetxController {
   final SourceThemeTopicStore _topicStore = Get.find<SourceThemeTopicStore>();
   final SourceThemeTopicPlaylistStore _topicPlaylistStore =
       Get.find<SourceThemeTopicPlaylistStore>();
+  final LocalMediaMetadataService _metadata =
+      Get.find<LocalMediaMetadataService>();
 
   // ============================
   // 🧠 ESTADO
@@ -84,7 +87,7 @@ class SourcesController extends GetxController {
       items = items.where((e) => e.variants.any((v) => v.kind == modeKind));
     }
 
-    final list = items.toList();
+    final list = await _backfillVideoDurations(items.toList());
     list.sort(
       (a, b) =>
           (b.variants.first.createdAt).compareTo(a.variants.first.createdAt),
@@ -116,7 +119,9 @@ class SourcesController extends GetxController {
         ? items.where((e) => allowedOrigins.contains(e.origin)).toList()
         : items.toList();
     final base = filtered.isNotEmpty ? filtered : items.toList();
-    return base.where((e) => idSet.contains(keyForItem(e))).toList();
+    return _backfillVideoDurations(
+      base.where((e) => idSet.contains(keyForItem(e))).toList(),
+    );
   }
 
   Future<List<MediaItem>> loadPlaylistItems({
@@ -141,7 +146,9 @@ class SourcesController extends GetxController {
 
     final idSet = playlist.itemIds.toSet();
     final base = filtered.isNotEmpty ? filtered : items.toList();
-    return base.where((e) => idSet.contains(keyForItem(e))).toList();
+    return _backfillVideoDurations(
+      base.where((e) => idSet.contains(keyForItem(e))).toList(),
+    );
   }
 
   Future<List<MediaItem>> loadCandidateItems({
@@ -149,22 +156,66 @@ class SourcesController extends GetxController {
     List<SourceOrigin>? origins,
   }) async {
     final all = await _repo.getLibrary();
-    final allowedOrigins = origins != null && origins.isNotEmpty
-        ? origins.toSet()
-        : theme.defaultOrigins.toSet();
-
     Iterable<MediaItem> items = all;
     if (theme.forceKind != null) {
       final kind = theme.forceKind!;
       items = items.where((e) => e.variants.any((v) => v.kind == kind));
     }
 
-    final filtered = allowedOrigins.isNotEmpty
-        ? items.where((e) => allowedOrigins.contains(e.origin)).toList()
-        : items.toList();
+    final list = await _backfillVideoDurations(items.toList());
+    list.sort(
+      (a, b) =>
+          (b.variants.first.createdAt).compareTo(a.variants.first.createdAt),
+    );
+    return list;
+  }
 
-    // Si el filtro por origen no devuelve nada, muestra todo (solo con kind).
-    return filtered.isNotEmpty ? filtered : items.toList();
+  Future<List<MediaItem>> _backfillVideoDurations(List<MediaItem> input) async {
+    final output = <MediaItem>[];
+    for (final item in input) {
+      if (!item.hasVideoLocal || (item.effectiveDurationSeconds ?? 0) > 0) {
+        output.add(item);
+        continue;
+      }
+
+      final video = item.localVideoVariant;
+      final path = video?.playablePath?.trim();
+      if (video == null || path == null || path.isEmpty) {
+        output.add(item);
+        continue;
+      }
+
+      final metadata = await _metadata.readMediaMetadata(path);
+      final seconds = metadata?.durationSeconds;
+      if (seconds == null || seconds <= 0) {
+        output.add(item);
+        continue;
+      }
+
+      final variants = item.variants
+          .map((variant) {
+            if (!variant.sameIdentityAs(video)) return variant;
+            return MediaVariant(
+              kind: variant.kind,
+              format: variant.format,
+              fileName: variant.fileName,
+              localPath: variant.localPath,
+              createdAt: variant.createdAt,
+              size: variant.size,
+              durationSeconds: seconds,
+              role: variant.role,
+            );
+          })
+          .toList(growable: false);
+
+      final updated = item.copyWith(
+        variants: variants,
+        durationSeconds: item.durationSeconds ?? seconds,
+      );
+      await _store.upsert(updated);
+      output.add(updated);
+    }
+    return output;
   }
 
   // ============================

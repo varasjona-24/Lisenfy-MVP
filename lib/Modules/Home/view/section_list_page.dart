@@ -843,7 +843,7 @@ class _MediaRow extends StatelessWidget {
                   ),
                 ),
               )
-            else if (showFeedbackActions)
+            else if (showFeedbackActions && !videoStyle)
               PopupMenuButton<_FeedbackAction>(
                 tooltip: 'Feedback',
                 icon: Icon(
@@ -929,7 +929,7 @@ class _MediaRow extends StatelessWidget {
                   ),
                 ],
               ),
-            if (showFeedbackActions) const SizedBox(width: 4),
+            if (showFeedbackActions && !videoStyle) const SizedBox(width: 4),
             trailing ??
                 Container(
                   width: 34,

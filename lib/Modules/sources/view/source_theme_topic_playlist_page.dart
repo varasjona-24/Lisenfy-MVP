@@ -17,6 +17,7 @@ import '../controller/sources_controller.dart';
 import '../domain/source_origin.dart';
 import '../domain/source_theme.dart';
 import '../domain/source_theme_topic_playlist.dart';
+import '../ui/source_add_items_sheet.dart';
 import '../ui/source_media_list_item.dart';
 import '../ui/source_playlist_card.dart';
 import '../../../app/utils/format_bytes.dart';
@@ -574,7 +575,6 @@ class _SourceThemeTopicPlaylistPageState
   Future<void> _addItems(SourceThemeTopicPlaylist playlist) async {
     final list = await _candidateItems();
     if (!mounted) return;
-    final selected = <String>{};
     final sheetColor = Theme.of(context).colorScheme.surface;
 
     await showModalBottomSheet<void>(
@@ -585,102 +585,19 @@ class _SourceThemeTopicPlaylistPageState
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx2, setState) {
-            return SafeArea(
-              child: SizedBox(
-                height: MediaQuery.of(ctx2).size.height * 0.7,
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.playlist_add_rounded),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Agregar items',
-                            style: Theme.of(ctx2).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const Spacer(),
-                          TextButton(
-                            onPressed: () => Navigator.of(ctx2).pop(),
-                            child: const Text('Cerrar'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: list.isEmpty
-                          ? Center(
-                              child: Text(
-                                'No hay items disponibles para esta Collection.',
-                                style: Theme.of(ctx2).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      color: Theme.of(
-                                        ctx2,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                              ),
-                            )
-                          : ListView.builder(
-                              itemCount: list.length,
-                              itemBuilder: (ctx3, i) {
-                                final item = list[i];
-                                final key = _sources.keyForItem(item);
-                                final checked = selected.contains(key);
-                                return CheckboxListTile(
-                                  value: checked,
-                                  onChanged: (v) {
-                                    setState(() {
-                                      if (v == true) {
-                                        selected.add(key);
-                                      } else {
-                                        selected.remove(key);
-                                      }
-                                    });
-                                  },
-                                  title: Text(item.title),
-                                  subtitle: Text(item.displaySubtitle),
-                                );
-                              },
-                            ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: FilledButton(
-                        onPressed: () async {
-                          final toAdd = list
-                              .where(
-                                (item) => selected.contains(
-                                  _sources.keyForItem(item),
-                                ),
-                              )
-                              .toList();
-
-                          final mergedIds = {
-                            ...playlist.itemIds,
-                            ...toAdd.map(_sources.keyForItem),
-                          }.toList();
-
-                          await _sources.updateTopicPlaylist(
-                            playlist.copyWith(itemIds: mergedIds),
-                          );
-
-                          if (ctx2.mounted) Navigator.of(ctx2).pop();
-                        },
-                        child: const Text('Agregar seleccionados'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+      builder: (_) => SourceAddItemsSheet(
+        items: list,
+        keyForItem: _sources.keyForItem,
+        onAdd: (selected) async {
+          final mergedIds = {
+            ...playlist.itemIds,
+            ...selected.map(_sources.keyForItem),
+          }.toList();
+          await _sources.updateTopicPlaylist(
+            playlist.copyWith(itemIds: mergedIds),
+          );
+        },
+      ),
     );
   }
 

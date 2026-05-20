@@ -28,6 +28,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
   bool get _isTopic => _args.type == CreateEntityType.topic;
   bool get _isTopicPlaylist => _args.type == CreateEntityType.topicPlaylist;
   bool get _isCollection => _isTopic || _isTopicPlaylist;
+  bool get _usesWideCover => _isCollection;
 
   @override
   void initState() {
@@ -67,7 +68,9 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
     final path = file?.path;
     if (path == null || path.trim().isEmpty) return;
 
-    final cropped = await _controller.cropToSquare(path);
+    final cropped = _usesWideCover
+        ? await _controller.cropToVideoThumbnail(path)
+        : await _controller.cropToSquare(path);
     if (cropped == null || cropped.trim().isEmpty) return;
 
     final persisted = await _controller.persistCroppedImage(
@@ -105,7 +108,9 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
     }
     if (!mounted || baseLocal == null || baseLocal.trim().isEmpty) return;
 
-    final cropped = await _controller.cropToSquare(baseLocal);
+    final cropped = _usesWideCover
+        ? await _controller.cropToVideoThumbnail(baseLocal)
+        : await _controller.cropToSquare(baseLocal);
     if (!mounted || cropped == null || cropped.trim().isEmpty) {
       await _controller.deleteFile(baseLocal);
       return;
@@ -239,8 +244,8 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: SizedBox(
-                        width: 88,
-                        height: 88,
+                        width: _usesWideCover ? 126 : 88,
+                        height: _usesWideCover ? 71 : 88,
                         child: _buildThumbnail(context),
                       ),
                     ),
