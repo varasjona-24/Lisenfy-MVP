@@ -104,9 +104,6 @@ class SourcesController extends GetxController {
     List<SourceOrigin>? origins,
   }) async {
     final all = await _repo.getLibrary();
-    final allowedOrigins = origins != null && origins.isNotEmpty
-        ? origins.toSet()
-        : theme.defaultOrigins.toSet();
 
     Iterable<MediaItem> items = all;
     if (theme.forceKind != null) {
@@ -115,12 +112,8 @@ class SourcesController extends GetxController {
     }
 
     final idSet = topic.itemIds.toSet();
-    final filtered = allowedOrigins.isNotEmpty
-        ? items.where((e) => allowedOrigins.contains(e.origin)).toList()
-        : items.toList();
-    final base = filtered.isNotEmpty ? filtered : items.toList();
     return _backfillVideoDurations(
-      base.where((e) => idSet.contains(keyForItem(e))).toList(),
+      items.where((e) => idSet.contains(keyForItem(e))).toList(),
     );
   }
 
@@ -130,9 +123,6 @@ class SourcesController extends GetxController {
     List<SourceOrigin>? origins,
   }) async {
     final all = await _repo.getLibrary();
-    final allowedOrigins = origins != null && origins.isNotEmpty
-        ? origins.toSet()
-        : theme.defaultOrigins.toSet();
 
     Iterable<MediaItem> items = all;
     if (theme.forceKind != null) {
@@ -140,14 +130,9 @@ class SourcesController extends GetxController {
       items = items.where((e) => e.variants.any((v) => v.kind == kind));
     }
 
-    final filtered = allowedOrigins.isNotEmpty
-        ? items.where((e) => allowedOrigins.contains(e.origin)).toList()
-        : items.toList();
-
     final idSet = playlist.itemIds.toSet();
-    final base = filtered.isNotEmpty ? filtered : items.toList();
     return _backfillVideoDurations(
-      base.where((e) => idSet.contains(keyForItem(e))).toList(),
+      items.where((e) => idSet.contains(keyForItem(e))).toList(),
     );
   }
 

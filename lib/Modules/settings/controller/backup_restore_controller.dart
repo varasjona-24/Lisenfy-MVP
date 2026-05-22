@@ -81,6 +81,9 @@ int _readUint16Le(Uint8List bytes, int offset) =>
 int _readUint32Le(Uint8List bytes, int offset) =>
     ByteData.sublistView(bytes, offset, offset + 4).getUint32(0, Endian.little);
 
+int _readUint64Le(Uint8List bytes, int offset) =>
+    ByteData.sublistView(bytes, offset, offset + 8).getUint64(0, Endian.little);
+
 String _normalizeZipName(String name) {
   var clean = name.replaceAll('\\', '/').trim();
   while (clean.startsWith('/')) {
@@ -88,6 +91,102 @@ String _normalizeZipName(String name) {
   }
   clean = p.posix.normalize(clean);
   return clean == '.' ? '' : clean;
+}
+
+class _Zip64CentralDirectoryInfo {
+  const _Zip64CentralDirectoryInfo({required this.size, required this.offset});
+
+  final int size;
+  final int offset;
+}
+
+class _Zip64EntryInfo {
+  const _Zip64EntryInfo({
+    this.uncompressedSize,
+    this.compressedSize,
+    this.localHeaderOffset,
+  });
+
+  final int? uncompressedSize;
+  final int? compressedSize;
+  final int? localHeaderOffset;
+}
+
+Future<_Zip64CentralDirectoryInfo> _readZip64CentralDirectoryInfo({
+  required RandomAccessFile raf,
+  required Uint8List tail,
+  required int eocdOffset,
+}) async {
+  var locatorOffset = -1;
+  for (var i = eocdOffset - 20; i >= 0; i--) {
+    if (_readUint32Le(tail, i) == 0x07064b50) {
+      locatorOffset = i;
+      break;
+    }
+  }
+  if (locatorOffset < 0 || locatorOffset + 20 > tail.length) {
+    throw Exception('ZIP64 central directory locator not found');
+  }
+
+  final zip64EocdOffset = _readUint64Le(tail, locatorOffset + 8);
+  await raf.setPosition(zip64EocdOffset);
+  final header = Uint8List.fromList(await raf.read(56));
+  if (header.length < 56 || _readUint32Le(header, 0) != 0x06064b50) {
+    throw Exception('ZIP64 central directory record not found');
+  }
+
+  return _Zip64CentralDirectoryInfo(
+    size: _readUint64Le(header, 40),
+    offset: _readUint64Le(header, 48),
+  );
+}
+
+_Zip64EntryInfo _readZip64EntryInfo(
+  Uint8List centralDirectory,
+  int extraStart,
+  int extraLength, {
+  required bool needsUncompressedSize,
+  required bool needsCompressedSize,
+  required bool needsLocalHeaderOffset,
+}) {
+  final extraEnd = extraStart + extraLength;
+  var offset = extraStart;
+  while (offset + 4 <= extraEnd && offset + 4 <= centralDirectory.length) {
+    final headerId = _readUint16Le(centralDirectory, offset);
+    final dataSize = _readUint16Le(centralDirectory, offset + 2);
+    final dataStart = offset + 4;
+    final dataEnd = dataStart + dataSize;
+    if (dataEnd > extraEnd || dataEnd > centralDirectory.length) break;
+
+    if (headerId == 0x0001) {
+      int? uncompressedSize;
+      int? compressedSize;
+      int? localHeaderOffset;
+      var cursor = dataStart;
+
+      if (needsUncompressedSize && cursor + 8 <= dataEnd) {
+        uncompressedSize = _readUint64Le(centralDirectory, cursor);
+        cursor += 8;
+      }
+      if (needsCompressedSize && cursor + 8 <= dataEnd) {
+        compressedSize = _readUint64Le(centralDirectory, cursor);
+        cursor += 8;
+      }
+      if (needsLocalHeaderOffset && cursor + 8 <= dataEnd) {
+        localHeaderOffset = _readUint64Le(centralDirectory, cursor);
+      }
+
+      return _Zip64EntryInfo(
+        uncompressedSize: uncompressedSize,
+        compressedSize: compressedSize,
+        localHeaderOffset: localHeaderOffset,
+      );
+    }
+
+    offset = dataEnd;
+  }
+
+  throw Exception('ZIP64 entry metadata not found');
 }
 
 Future<_ZipBackupIndex> _readZipBackupIndex(String zipPath) async {
@@ -112,11 +211,17 @@ Future<_ZipBackupIndex> _readZipBackupIndex(String zipPath) async {
       throw Exception('ZIP central directory not found');
     }
 
-    final centralDirectorySize = _readUint32Le(tail, eocdOffset + 12);
-    final centralDirectoryOffset = _readUint32Le(tail, eocdOffset + 16);
+    var centralDirectorySize = _readUint32Le(tail, eocdOffset + 12);
+    var centralDirectoryOffset = _readUint32Le(tail, eocdOffset + 16);
     if (centralDirectorySize == 0xffffffff ||
         centralDirectoryOffset == 0xffffffff) {
-      throw Exception('ZIP64 backups are not supported yet');
+      final zip64 = await _readZip64CentralDirectoryInfo(
+        raf: raf,
+        tail: tail,
+        eocdOffset: eocdOffset,
+      );
+      centralDirectorySize = zip64.size;
+      centralDirectoryOffset = zip64.offset;
     }
 
     await raf.setPosition(centralDirectoryOffset);
@@ -131,12 +236,12 @@ Future<_ZipBackupIndex> _readZipBackupIndex(String zipPath) async {
       if (signature != 0x02014b50) break;
 
       final compressionMethod = _readUint16Le(centralDirectory, offset + 10);
-      final compressedSize = _readUint32Le(centralDirectory, offset + 20);
-      final uncompressedSize = _readUint32Le(centralDirectory, offset + 24);
+      var compressedSize = _readUint32Le(centralDirectory, offset + 20);
+      var uncompressedSize = _readUint32Le(centralDirectory, offset + 24);
       final fileNameLength = _readUint16Le(centralDirectory, offset + 28);
       final extraLength = _readUint16Le(centralDirectory, offset + 30);
       final commentLength = _readUint16Le(centralDirectory, offset + 32);
-      final localHeaderOffset = _readUint32Le(centralDirectory, offset + 42);
+      var localHeaderOffset = _readUint32Le(centralDirectory, offset + 42);
 
       final nameStart = offset + 46;
       final nameEnd = nameStart + fileNameLength;
@@ -146,6 +251,22 @@ Future<_ZipBackupIndex> _readZipBackupIndex(String zipPath) async {
         utf8.decode(centralDirectory.sublist(nameStart, nameEnd)),
       );
       if (name.isNotEmpty) {
+        if (uncompressedSize == 0xffffffff ||
+            compressedSize == 0xffffffff ||
+            localHeaderOffset == 0xffffffff) {
+          final zip64 = _readZip64EntryInfo(
+            centralDirectory,
+            nameEnd,
+            extraLength,
+            needsUncompressedSize: uncompressedSize == 0xffffffff,
+            needsCompressedSize: compressedSize == 0xffffffff,
+            needsLocalHeaderOffset: localHeaderOffset == 0xffffffff,
+          );
+          uncompressedSize = zip64.uncompressedSize ?? uncompressedSize;
+          compressedSize = zip64.compressedSize ?? compressedSize;
+          localHeaderOffset = zip64.localHeaderOffset ?? localHeaderOffset;
+        }
+
         entries[name] = _ZipBackupEntry(
           name: name,
           compressionMethod: compressionMethod,
