@@ -623,10 +623,10 @@ class _SectionListPageState extends State<SectionListPage> {
           sliver: MediaItemSliverGrid(
             items: _items,
             childAspectRatio: widget.rectangularGrid
-                ? 0.95
+                ? AppGridTheme.videoChildAspectRatio
                 : AppGridTheme.childAspectRatio,
             coverAspectRatio: widget.rectangularGrid ? 16 / 9 : 1,
-            crossAxisCount: widget.rectangularGrid ? 2 : null,
+            crossAxisCount: null,
             fallbackIcon: widget.rectangularGrid
                 ? Icons.videocam_rounded
                 : Icons.music_note_rounded,
@@ -674,10 +674,10 @@ class _SectionListPageState extends State<SectionListPage> {
           sliver: MediaItemSliverGrid(
             items: _items,
             childAspectRatio: widget.rectangularGrid
-                ? 0.95
+                ? AppGridTheme.videoChildAspectRatio
                 : AppGridTheme.childAspectRatio,
             coverAspectRatio: widget.rectangularGrid ? 16 / 9 : 1,
-            crossAxisCount: widget.rectangularGrid ? 2 : null,
+            crossAxisCount: null,
             fallbackIcon: widget.rectangularGrid
                 ? Icons.videocam_rounded
                 : Icons.music_note_rounded,

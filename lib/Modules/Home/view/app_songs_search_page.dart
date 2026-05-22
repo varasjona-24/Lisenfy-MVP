@@ -396,9 +396,11 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
         AppSpacing.md,
         AppSpacing.lg,
       ),
-      childAspectRatio: _isVideoMode ? 0.95 : AppGridTheme.childAspectRatio,
+      childAspectRatio: _isVideoMode
+          ? AppGridTheme.videoChildAspectRatio
+          : AppGridTheme.childAspectRatio,
       coverAspectRatio: _isVideoMode ? 16 / 9 : 1,
-      crossAxisCount: _isVideoMode ? 2 : null,
+      crossAxisCount: null,
       fallbackIcon: _isVideoMode
           ? Icons.videocam_rounded
           : Icons.music_note_rounded,

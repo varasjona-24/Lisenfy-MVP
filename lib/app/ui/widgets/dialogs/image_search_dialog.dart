@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -24,7 +26,8 @@ class ImageSearchDialog extends StatefulWidget {
 }
 
 class _ImageSearchDialogState extends State<ImageSearchDialog> {
-  late final WebViewController _controller;
+  WebViewController? _controller;
+  late final TextEditingController _manualUrlController;
 
   bool _loading = true;
   bool _picked = false;
@@ -83,6 +86,12 @@ class _ImageSearchDialogState extends State<ImageSearchDialog> {
   @override
   void initState() {
     super.initState();
+    _manualUrlController = TextEditingController();
+
+    if (Platform.isMacOS) {
+      _loading = false;
+      return;
+    }
 
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -146,7 +155,7 @@ class _ImageSearchDialogState extends State<ImageSearchDialog> {
 
             if (!mounted) return;
             try {
-              await _controller.runJavaScript(_imageTapScript);
+              await _controller?.runJavaScript(_imageTapScript);
             } catch (e) {
               // Ignora si falla la inyección (cambios en la página / WebView)
               if (kDebugMode) {
@@ -164,7 +173,37 @@ class _ImageSearchDialogState extends State<ImageSearchDialog> {
     final q = query.trim().isEmpty ? 'album cover' : query.trim();
     final encoded = Uri.encodeComponent(q);
     final url = 'https://www.google.com/search?tbm=isch&q=$encoded';
-    _controller.loadRequest(Uri.parse(url));
+    _controller?.loadRequest(Uri.parse(url));
+  }
+
+  String _searchUrl() {
+    final q = widget.initialQuery.trim().isEmpty
+        ? 'album cover'
+        : widget.initialQuery.trim();
+    return 'https://www.google.com/search?tbm=isch&q=${Uri.encodeComponent(q)}';
+  }
+
+  Future<void> _openInSystemBrowser() async {
+    try {
+      await Process.run('/usr/bin/open', [_searchUrl()]);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to open image search: $e');
+      }
+    }
+  }
+
+  void _selectManualUrl() {
+    final url = _manualUrlController.text.trim();
+    if (url.isEmpty) return;
+    widget.onImageSelected?.call(url);
+    Navigator.of(context, rootNavigator: true).pop(url);
+  }
+
+  @override
+  void dispose() {
+    _manualUrlController.dispose();
+    super.dispose();
   }
 
   @override
@@ -172,6 +211,83 @@ class _ImageSearchDialogState extends State<ImageSearchDialog> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final onSurface70 = scheme.onSurface.withAlpha(179);
+
+    if (Platform.isMacOS) {
+      return Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        backgroundColor: scheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const ListenfyLogo(size: 22, showText: false),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Buscar portada',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () =>
+                          Navigator.of(context, rootNavigator: true).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'En macOS se abre la búsqueda en tu navegador. Pega aquí la URL de la imagen que quieras usar.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _manualUrlController,
+                  decoration: const InputDecoration(
+                    labelText: 'URL de imagen',
+                    prefixIcon: Icon(Icons.link_rounded),
+                  ),
+                  onSubmitted: (_) => _selectManualUrl(),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: _openInSystemBrowser,
+                        icon: const Icon(Icons.open_in_browser_rounded),
+                        label: const Text('Abrir búsqueda'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _selectManualUrl,
+                        icon: const Icon(Icons.check_rounded),
+                        label: const Text('Usar URL'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final controller = _controller;
+    if (controller == null) return const SizedBox.shrink();
 
     return Dialog(
       insetPadding: const EdgeInsets.all(16),
@@ -210,7 +326,7 @@ class _ImageSearchDialogState extends State<ImageSearchDialog> {
                 ),
                 child: Stack(
                   children: [
-                    WebViewWidget(controller: _controller),
+                    WebViewWidget(controller: controller),
                     if (_loading)
                       Positioned.fill(
                         child: Container(

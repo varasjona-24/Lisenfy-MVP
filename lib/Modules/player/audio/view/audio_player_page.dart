@@ -677,158 +677,178 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final screenSize = MediaQuery.sizeOf(context);
 
     return Material(
       color: theme.scaffoldBackgroundColor,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: scheme.outline.withValues(alpha: 0.28),
-                    borderRadius: BorderRadius.circular(999),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: screenSize.height * 0.78),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: scheme.outline.withValues(alpha: 0.28),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Visualizador',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.4,
+                const SizedBox(height: 14),
+                Text(
+                  'Visualizador',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Elige cómo quieres ver la portada y la animación del reproductor.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
+                const SizedBox(height: 4),
+                Text(
+                  'Elige cómo quieres ver la portada y la animación del reproductor.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: options.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.18,
-                ),
-                itemBuilder: (context, index) {
-                  final style = options[index];
-                  final selected = style == currentStyle;
-
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(18),
-                    onTap: () {
-                      onSelected(style);
-                      Get.back<void>();
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? scheme.primary.withValues(alpha: 0.14)
-                            : scheme.surfaceContainerHighest.withValues(
-                                alpha: 0.42,
-                              ),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: selected
-                              ? scheme.primary.withValues(alpha: 0.65)
-                              : scheme.outline.withValues(alpha: 0.18),
-                          width: selected ? 1.4 : 1,
+                const SizedBox(height: 16),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final columns = constraints.maxWidth >= 680 ? 2 : 1;
+                      return GridView.builder(
+                        padding: EdgeInsets.zero,
+                        itemCount: options.length,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: columns == 1 ? 3.2 : 1.3,
                         ),
-                        boxShadow: selected
-                            ? [
-                                BoxShadow(
-                                  color: scheme.primary.withValues(alpha: 0.12),
-                                  blurRadius: 18,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 38,
-                                height: 38,
-                                decoration: BoxDecoration(
+                        itemBuilder: (context, index) {
+                          final style = options[index];
+                          final selected = style == currentStyle;
+
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: () {
+                              onSelected(style);
+                              Get.back<void>();
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? scheme.primary.withValues(alpha: 0.14)
+                                    : scheme.surfaceContainerHighest.withValues(
+                                        alpha: 0.42,
+                                      ),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
                                   color: selected
-                                      ? scheme.primary.withValues(alpha: 0.16)
-                                      : scheme.surface.withValues(alpha: 0.72),
-                                  borderRadius: BorderRadius.circular(12),
+                                      ? scheme.primary.withValues(alpha: 0.65)
+                                      : scheme.outline.withValues(alpha: 0.18),
+                                  width: selected ? 1.4 : 1,
                                 ),
-                                child: Icon(
-                                  _iconFor(style),
-                                  color: selected
-                                      ? scheme.primary
-                                      : scheme.onSurfaceVariant,
-                                ),
+                                boxShadow: selected
+                                    ? [
+                                        BoxShadow(
+                                          color: scheme.primary.withValues(
+                                            alpha: 0.12,
+                                          ),
+                                          blurRadius: 18,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                      ]
+                                    : null,
                               ),
-                              const Spacer(),
-                              if (selected)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 38,
+                                        height: 38,
+                                        decoration: BoxDecoration(
+                                          color: selected
+                                              ? scheme.primary.withValues(
+                                                  alpha: 0.16,
+                                                )
+                                              : scheme.surface.withValues(
+                                                  alpha: 0.72,
+                                                ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          _iconFor(style),
+                                          color: selected
+                                              ? scheme.primary
+                                              : scheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      if (selected)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: scheme.primary.withValues(
+                                              alpha: 0.16,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'Activo',
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                                  color: scheme.primary,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: scheme.primary.withValues(
-                                      alpha: 0.16,
-                                    ),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    'Activo',
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: scheme.primary,
+                                  const Spacer(),
+                                  Text(
+                                    _labelFor(style),
+                                    style: theme.textTheme.titleSmall?.copyWith(
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
-                                ),
-                            ],
-                          ),
-                          const Spacer(),
-                          Text(
-                            _labelFor(style),
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    _descriptionFor(style),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _descriptionFor(style),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              height: 1.25,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

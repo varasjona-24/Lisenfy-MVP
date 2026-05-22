@@ -65,9 +65,10 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
   void initState() {
     super.initState();
     _topicSort = _readTopicSort();
-    if (Get.isRegistered<AudioService>()) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !Get.isRegistered<AudioService>()) return;
       Get.find<AudioService>().pauseAndHideMiniPlayer();
-    }
+    });
   }
 
   @override
@@ -392,10 +393,10 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       childAspectRatio: mode == HomeMode.video
-          ? 0.95
+          ? AppGridTheme.videoChildAspectRatio
           : AppGridTheme.childAspectRatio,
       coverAspectRatio: mode == HomeMode.video ? 16 / 9 : 1,
-      crossAxisCount: mode == HomeMode.video ? 2 : null,
+      crossAxisCount: null,
       crossAxisSpacing: AppGridTheme.spacing,
       mainAxisSpacing: AppGridTheme.spacing,
       fallbackIcon: mode == HomeMode.audio

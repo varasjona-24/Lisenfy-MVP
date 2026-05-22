@@ -300,6 +300,14 @@ class DownloadsController extends GetxStateController<DownloadsState> {
 
     customTabOpening.value = true;
     try {
+      if (Platform.isMacOS) {
+        final result = await Process.run('/usr/bin/open', [uri.toString()]);
+        if (result.exitCode != 0) {
+          throw Exception(result.stderr.toString());
+        }
+        return;
+      }
+
       await launchUrl(
         uri,
         prefersDeepLink: false,

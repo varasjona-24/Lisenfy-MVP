@@ -61,6 +61,11 @@ class MediaItemGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final resolvedCrossAxisCount =
+            crossAxisCount ??
+            (coverAspectRatio > 1.2
+                ? AppGridTheme.getVideoCrossAxisCount(constraints.maxWidth)
+                : AppGridTheme.getCrossAxisCount(constraints.maxWidth));
         return GridView.builder(
           padding: padding,
           shrinkWrap: shrinkWrap,
@@ -68,9 +73,7 @@ class MediaItemGrid extends StatelessWidget {
           itemCount: items.length,
           addAutomaticKeepAlives: false,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount:
-                crossAxisCount ??
-                AppGridTheme.getCrossAxisCount(constraints.maxWidth),
+            crossAxisCount: resolvedCrossAxisCount,
             crossAxisSpacing: crossAxisSpacing,
             mainAxisSpacing: mainAxisSpacing,
             childAspectRatio: childAspectRatio,
@@ -152,6 +155,13 @@ class MediaItemSliverGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return SliverLayoutBuilder(
       builder: (context, constraints) {
+        final resolvedCrossAxisCount =
+            crossAxisCount ??
+            (coverAspectRatio > 1.2
+                ? AppGridTheme.getVideoCrossAxisCount(
+                    constraints.crossAxisExtent,
+                  )
+                : AppGridTheme.getCrossAxisCount(constraints.crossAxisExtent));
         return SliverPadding(
           padding: padding,
           sliver: SliverGrid(
@@ -161,9 +171,7 @@ class MediaItemSliverGrid extends StatelessWidget {
               addAutomaticKeepAlives: false,
             ),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount:
-                  crossAxisCount ??
-                  AppGridTheme.getCrossAxisCount(constraints.crossAxisExtent),
+              crossAxisCount: resolvedCrossAxisCount,
               crossAxisSpacing: crossAxisSpacing,
               mainAxisSpacing: mainAxisSpacing,
               childAspectRatio: childAspectRatio,

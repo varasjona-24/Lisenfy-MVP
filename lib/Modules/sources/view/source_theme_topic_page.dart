@@ -7,6 +7,7 @@ import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/services/audio_service.dart';
+import '../../../app/ui/themes/app_grid_theme.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/media/media_item_grid.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
@@ -64,9 +65,10 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
     _itemsGridView = _storage.read('source_topic_items_grid_view') ?? false;
     _collectionsGridView =
         _storage.read('source_topic_collections_grid_view') ?? false;
-    if (Get.isRegistered<AudioService>()) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !Get.isRegistered<AudioService>()) return;
       Get.find<AudioService>().pauseAndHideMiniPlayer();
-    }
+    });
   }
 
   @override
@@ -422,19 +424,25 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
             ),
           )
         else if (_collectionsGridView)
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: filtered.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.82,
-            ),
-            itemBuilder: (context, index) {
-              final pl = filtered[index];
-              return _collectionCard(topic.id, pl, gridStyle: true);
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: filtered.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: AppGridTheme.getCollectionCrossAxisCount(
+                    constraints.maxWidth,
+                  ),
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.92,
+                ),
+                itemBuilder: (context, index) {
+                  final pl = filtered[index];
+                  return _collectionCard(topic.id, pl, gridStyle: true);
+                },
+              );
             },
           )
         else
