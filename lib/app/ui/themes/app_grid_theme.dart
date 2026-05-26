@@ -8,15 +8,13 @@ class AppGridTheme {
     if (width >= 1320) return 6;
     if (width >= 1060) return 5;
     if (width >= 820) return 4;
-    if (width >= 520) return 3;
-    return 2;
+    return 3;
   }
 
   static int getVideoCrossAxisCount(double width) {
     if (width >= 1800) return 4;
     if (width >= 1200) return 3;
-    if (width >= 680) return 2;
-    return 1;
+    return 2;
   }
 
   static int getCollectionCrossAxisCount(double width) {

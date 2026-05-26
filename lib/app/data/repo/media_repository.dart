@@ -440,9 +440,24 @@ class MediaRepository {
 
       return coverPath;
     } catch (e) {
+      if (_isExpectedThumbnailConnectionMiss(e)) {
+        return null;
+      }
       print('thumbnail download failed: $e');
       return null;
     }
+  }
+
+  bool _isExpectedThumbnailConnectionMiss(Object error) {
+    if (error is! dio.DioException) return false;
+    if (error.type != dio.DioExceptionType.connectionError) return false;
+    final uri = error.requestOptions.uri;
+    final host = uri.host.toLowerCase();
+    return host == 'localhost' ||
+        host == '127.0.0.1' ||
+        host.startsWith('172.') ||
+        host.startsWith('192.168.') ||
+        host.startsWith('10.');
   }
 
   /// Retorna extensión real según magic bytes (sin punto)

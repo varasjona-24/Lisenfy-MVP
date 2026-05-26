@@ -56,6 +56,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
   final GetStorage _storage = GetStorage();
   final TextEditingController _topicSearchController = TextEditingController();
   bool _gridView = false;
+  bool _topicsGridView = false;
   String _topicQuery = '';
   _TopicSort _topicSort = _TopicSort.recent;
   Future<List<MediaItem>>? _itemsFuture;
@@ -65,6 +66,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
   void initState() {
     super.initState();
     _topicSort = _readTopicSort();
+    _topicsGridView = _storage.read('source_library_topics_grid_view') ?? false;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !Get.isRegistered<AudioService>()) return;
       Get.find<AudioService>().pauseAndHideMiniPlayer();
@@ -635,6 +637,24 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                 ),
               ],
             ),
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: _topicsGridView
+                  ? 'Ver Collections como lista'
+                  : 'Ver Collections como grid',
+              onPressed: () {
+                setState(() => _topicsGridView = !_topicsGridView);
+                _storage.write(
+                  'source_library_topics_grid_view',
+                  _topicsGridView,
+                );
+              },
+              icon: Icon(
+                _topicsGridView
+                    ? Icons.view_list_rounded
+                    : Icons.grid_view_rounded,
+              ),
+            ),
           ],
         ),
       ],
@@ -700,30 +720,63 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
         );
       }
 
+      if (_topicsGridView) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: topics.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: AppGridTheme.getCollectionCrossAxisCount(
+                  constraints.maxWidth,
+                ),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.92,
+              ),
+              itemBuilder: (context, index) {
+                final topic = topics[index];
+                return _topicCard(themeMeta, topic, gridStyle: true);
+              },
+            );
+          },
+        );
+      }
+
       return Column(
         children: [
           for (final topic in topics)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: _TopicCard(
-                themeMeta: themeMeta,
-                topic: topic,
-                listCount: _sources.playlistsForTopic(topic.id).length,
-                onOpen: () => Get.toNamed(
-                  AppRoutes.sourceTheme,
-                  arguments: {
-                    'topicId': topic.id,
-                    'theme': themeMeta,
-                    'origins': widget.origins,
-                  },
-                ),
-                onEdit: () => _openEditTopic(topic),
-                onDelete: () => _confirmDeleteTopic(topic),
-              ),
+              child: _topicCard(themeMeta, topic),
             ),
         ],
       );
     });
+  }
+
+  Widget _topicCard(
+    SourceTheme themeMeta,
+    SourceThemeTopic topic, {
+    bool gridStyle = false,
+  }) {
+    return _TopicCard(
+      themeMeta: themeMeta,
+      topic: topic,
+      gridStyle: gridStyle,
+      listCount: _sources.playlistsForTopic(topic.id).length,
+      onOpen: () => Get.toNamed(
+        AppRoutes.sourceTheme,
+        arguments: {
+          'topicId': topic.id,
+          'theme': themeMeta,
+          'origins': widget.origins,
+        },
+      ),
+      onEdit: () => _openEditTopic(topic),
+      onDelete: () => _confirmDeleteTopic(topic),
+    );
   }
 
   // ============================
@@ -776,6 +829,7 @@ class _TopicCard extends StatefulWidget {
     required this.themeMeta,
     required this.topic,
     required this.listCount,
+    this.gridStyle = false,
     required this.onOpen,
     required this.onEdit,
     required this.onDelete,
@@ -784,6 +838,7 @@ class _TopicCard extends StatefulWidget {
   final SourceTheme themeMeta;
   final SourceThemeTopic topic;
   final int listCount;
+  final bool gridStyle;
   final VoidCallback onOpen;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -833,116 +888,218 @@ class _TopicCardState extends State<_TopicCard> {
             borderRadius: BorderRadius.circular(8),
             child: Material(
               color: Colors.transparent,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.58),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: _isHovered
-                        ? base.withValues(alpha: 0.65)
-                        : scheme.outlineVariant.withValues(alpha: 0.48),
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(width: 4, color: base),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-                      child: Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              width: 52,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                color: base.withValues(alpha: 0.16),
-                                border: Border.all(
-                                  color: base.withValues(alpha: 0.22),
-                                  width: 1,
-                                ),
-                              ),
-                              child: provider != null
-                                  ? Image(image: provider, fit: BoxFit.cover)
-                                  : Icon(Icons.folder_rounded, color: base),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  topic.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: t.textTheme.titleMedium?.copyWith(
-                                    color: scheme.onSurface,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  children: [
-                                    _TopicMetricChip(
-                                      icon: Icons.library_music_rounded,
-                                      label: '${topic.itemIds.length}',
-                                    ),
-                                    _TopicMetricChip(
-                                      icon: Icons.queue_music_rounded,
-                                      label: '${widget.listCount}',
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          PopupMenuButton<_TopicAction>(
-                            onSelected: (value) {
-                              if (value == _TopicAction.edit) widget.onEdit();
-                              if (value == _TopicAction.delete) {
-                                widget.onDelete();
-                              }
-                            },
-                            icon: Icon(
-                              Icons.more_vert_rounded,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                            color: t.colorScheme.surface,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            itemBuilder: (ctx) => [
-                              const PopupMenuItem(
-                                value: _TopicAction.edit,
-                                child: Text('Editar'),
-                              ),
-                              const PopupMenuItem(
-                                value: _TopicAction.delete,
-                                child: Text('Eliminar'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              child: widget.gridStyle
+                  ? _buildGridCard(t, scheme, base, provider, topic)
+                  : _buildListCard(t, scheme, base, provider, topic),
             ),
           ),
         ),
       ),
     );
   }
+
+  Widget _buildGridCard(
+    ThemeData theme,
+    ColorScheme scheme,
+    Color base,
+    ImageProvider? provider,
+    SourceThemeTopic topic,
+  ) {
+    final onTint = _foregroundFor(base, scheme);
+    return Container(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          base.withValues(alpha: 0.36),
+          scheme.surfaceContainerHighest,
+        ),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: _isHovered
+              ? base.withValues(alpha: 0.85)
+              : base.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(8),
+              ),
+              child: Container(
+                color: base.withValues(alpha: 0.16),
+                child: provider != null
+                    ? Image(image: provider, fit: BoxFit.cover)
+                    : Icon(Icons.folder_rounded, color: onTint, size: 34),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          topic.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: onTint,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 30,
+                        height: 30,
+                        child: _topicMenu(theme, scheme, onTint),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      _TopicMetricChip(
+                        icon: Icons.library_music_rounded,
+                        label: '${topic.itemIds.length}',
+                        color: onTint,
+                      ),
+                      _TopicMetricChip(
+                        icon: Icons.queue_music_rounded,
+                        label: '${widget.listCount}',
+                        color: onTint,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListCard(
+    ThemeData theme,
+    ColorScheme scheme,
+    Color base,
+    ImageProvider? provider,
+    SourceThemeTopic topic,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: _isHovered
+              ? base.withValues(alpha: 0.65)
+              : scheme.outlineVariant.withValues(alpha: 0.48),
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: Container(width: 4, color: base),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: 116,
+                    height: 65,
+                    decoration: BoxDecoration(
+                      color: base.withValues(alpha: 0.16),
+                      border: Border.all(
+                        color: base.withValues(alpha: 0.22),
+                        width: 1,
+                      ),
+                    ),
+                    child: provider != null
+                        ? Image(image: provider, fit: BoxFit.cover)
+                        : Icon(Icons.folder_rounded, color: base),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        topic.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          _TopicMetricChip(
+                            icon: Icons.library_music_rounded,
+                            label: '${topic.itemIds.length}',
+                          ),
+                          _TopicMetricChip(
+                            icon: Icons.queue_music_rounded,
+                            label: '${widget.listCount}',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: 42,
+                  height: 42,
+                  child: _topicMenu(theme, scheme, scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _topicMenu(ThemeData theme, ColorScheme scheme, Color iconColor) {
+    return PopupMenuButton<_TopicAction>(
+      onSelected: (value) {
+        if (value == _TopicAction.edit) widget.onEdit();
+        if (value == _TopicAction.delete) widget.onDelete();
+      },
+      icon: Icon(Icons.more_vert_rounded, color: iconColor),
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      itemBuilder: (ctx) => const [
+        PopupMenuItem(value: _TopicAction.edit, child: Text('Editar')),
+        PopupMenuItem(value: _TopicAction.delete, child: Text('Eliminar')),
+      ],
+    );
+  }
+}
+
+Color _foregroundFor(Color base, ColorScheme scheme) {
+  final bg = Color.alphaBlend(base.withValues(alpha: 0.36), scheme.surface);
+  return bg.computeLuminance() > 0.45 ? Colors.black : Colors.white;
 }
 
 enum _TopicAction { edit, delete }
@@ -950,10 +1107,11 @@ enum _TopicAction { edit, delete }
 enum _TopicSort { recent, name, items, lists }
 
 class _TopicMetricChip extends StatelessWidget {
-  const _TopicMetricChip({required this.icon, required this.label});
+  const _TopicMetricChip({required this.icon, required this.label, this.color});
 
   final IconData icon;
   final String label;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -962,18 +1120,18 @@ class _TopicMetricChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.62),
+        color: scheme.surface.withValues(alpha: color == null ? 0.62 : 0.22),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: scheme.onSurfaceVariant),
+          Icon(icon, size: 13, color: color ?? scheme.onSurfaceVariant),
           const SizedBox(width: 4),
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
-              color: scheme.onSurfaceVariant,
+              color: color ?? scheme.onSurfaceVariant,
               fontWeight: FontWeight.w700,
             ),
           ),

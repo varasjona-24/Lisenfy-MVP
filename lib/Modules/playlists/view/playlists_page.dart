@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -19,6 +20,7 @@ import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/models/media_item.dart';
 
 import '../../edit/controller/edit_entity_controller.dart';
+import '../../edit/view/desktop_image_cropper_dialog.dart';
 
 import '../../home/controller/home_controller.dart';
 import '../../player/audio/controller/audio_player_controller.dart';
@@ -531,6 +533,14 @@ class PlaylistsPage extends GetView<PlaylistsController> {
   }
 
   Future<String?> _cropToSquare(String sourcePath) async {
+    if (!kIsWeb &&
+        (Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
+      return Get.dialog<String>(
+        DesktopImageCropperDialog(sourcePath: sourcePath, ratioX: 1, ratioY: 1),
+        barrierDismissible: false,
+      );
+    }
+
     try {
       final cropped = await ImageCropper().cropImage(
         sourcePath: sourcePath,
@@ -548,7 +558,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
       );
       return cropped?.path;
     } catch (_) {
-      return null;
+      return sourcePath;
     }
   }
 
@@ -560,13 +570,17 @@ class PlaylistsPage extends GetView<PlaylistsController> {
         await coversDir.create(recursive: true);
       }
 
-      final targetPath = p.join(coversDir.path, '$id-crop.jpg');
+      final extension = p.extension(croppedPath).toLowerCase() == '.png'
+          ? '.png'
+          : '.jpg';
+      final targetPath = p.join(coversDir.path, '$id-crop$extension');
       final src = File(croppedPath);
       if (!await src.exists()) return null;
 
       final out = await src.copy(targetPath);
 
-      if (croppedPath != targetPath) {
+      final sourceInsideAppDir = p.isWithin(appDir.path, src.path);
+      if (croppedPath != targetPath && sourceInsideAppDir) {
         try {
           await src.delete();
         } catch (_) {}

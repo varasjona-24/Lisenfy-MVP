@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:path/path.dart' as p;
@@ -22,6 +23,7 @@ import '../../playlists/domain/playlist.dart';
 import '../../sources/controller/sources_controller.dart';
 import '../../sources/domain/source_theme_topic.dart';
 import '../../sources/domain/source_theme_topic_playlist.dart';
+import '../view/desktop_image_cropper_dialog.dart';
 
 enum EditEntityType { media, artist, playlist, topic, topicPlaylist }
 
@@ -165,6 +167,18 @@ class EditEntityController extends GetxController {
     required double ratioX,
     required double ratioY,
   }) async {
+    if (!kIsWeb &&
+        (Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
+      return Get.dialog<String>(
+        DesktopImageCropperDialog(
+          sourcePath: sourcePath,
+          ratioX: ratioX,
+          ratioY: ratioY,
+        ),
+        barrierDismissible: false,
+      );
+    }
+
     try {
       final cropped = await ImageCropper().cropImage(
         sourcePath: sourcePath,
@@ -182,7 +196,7 @@ class EditEntityController extends GetxController {
       );
       return cropped?.path;
     } catch (_) {
-      return null;
+      return sourcePath;
     }
   }
 
@@ -198,13 +212,17 @@ class EditEntityController extends GetxController {
       }
 
       final ts = DateTime.now().millisecondsSinceEpoch;
-      final targetPath = p.join(coversDir.path, '$id-crop-$ts.jpg');
+      final extension = p.extension(croppedPath).toLowerCase() == '.png'
+          ? '.png'
+          : '.jpg';
+      final targetPath = p.join(coversDir.path, '$id-crop-$ts$extension');
       final src = File(croppedPath);
       if (!await src.exists()) return null;
 
       final out = await src.copy(targetPath);
 
-      if (croppedPath != targetPath) {
+      final sourceInsideAppDir = p.isWithin(appDir.path, src.path);
+      if (croppedPath != targetPath && sourceInsideAppDir) {
         try {
           await src.delete();
         } catch (_) {}

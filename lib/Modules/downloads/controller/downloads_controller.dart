@@ -96,6 +96,10 @@ class DownloadsController extends GetxStateController<DownloadsState> {
   // 🔗 SHARE INTENT
   // ============================
   Future<void> _listenSharedLinks() async {
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      return;
+    }
+
     try {
       final initial = await ReceiveSharingIntent.instance.getInitialMedia();
       if (initial.isNotEmpty) {
