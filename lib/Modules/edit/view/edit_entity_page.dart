@@ -1219,15 +1219,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                       runSpacing: 8,
                       children: selectedMembers
                           .map(
-                            (entry) => InputChip(
-                              label: Text(entry.name),
-                              selected: true,
-                              onDeleted: () {
-                                setState(() {
-                                  _artistMemberKeys.remove(entry.key);
-                                });
-                              },
-                            ),
+                            (entry) => _selectedArtistMemberPill(theme, entry),
                           )
                           .toList(growable: false),
                     ),
@@ -1267,32 +1259,10 @@ class _EditEntityPageState extends State<EditEntityPage> {
                           final isSelected = _artistMemberKeys.contains(
                             entry.key,
                           );
-                          return ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(
-                              isSelected
-                                  ? Icons.check_circle_rounded
-                                  : Icons.circle_outlined,
-                              color: isSelected
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurfaceVariant,
-                            ),
-                            title: Text(
-                              entry.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: Text(entry.kind.label),
-                            onTap: () {
-                              setState(() {
-                                if (isSelected) {
-                                  _artistMemberKeys.remove(entry.key);
-                                } else {
-                                  _artistMemberKeys.add(entry.key);
-                                }
-                              });
-                            },
+                          return _artistMemberCandidateTile(
+                            theme,
+                            entry,
+                            isSelected,
                           );
                         },
                       ),
@@ -1304,6 +1274,156 @@ class _EditEntityPageState extends State<EditEntityPage> {
         ),
       ],
     );
+  }
+
+  Widget _selectedArtistMemberPill(ThemeData theme, ArtistGroup entry) {
+    final scheme = theme.colorScheme;
+    return Material(
+      color: scheme.primaryContainer,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: () {
+          setState(() => _artistMemberKeys.remove(entry.key));
+        },
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(6, 5, 8, 5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _artistAvatar(theme, entry, size: 28),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 170),
+                child: Text(
+                  entry.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: scheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.close_rounded,
+                size: 18,
+                color: scheme.onPrimaryContainer,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _artistMemberCandidateTile(
+    ThemeData theme,
+    ArtistGroup entry,
+    bool isSelected,
+  ) {
+    final scheme = theme.colorScheme;
+    return Material(
+      color: isSelected
+          ? scheme.primaryContainer.withValues(alpha: 0.48)
+          : scheme.surfaceContainerHighest.withValues(alpha: 0.54),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          setState(() {
+            if (isSelected) {
+              _artistMemberKeys.remove(entry.key);
+            } else {
+              _artistMemberKeys.add(entry.key);
+            }
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          child: Row(
+            children: [
+              _artistAvatar(theme, entry, size: 42),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      entry.kind.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                isSelected
+                    ? Icons.check_circle_rounded
+                    : Icons.add_circle_outline_rounded,
+                color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _artistAvatar(
+    ThemeData theme,
+    ArtistGroup entry, {
+    required double size,
+  }) {
+    final scheme = theme.colorScheme;
+    final image = _artistImageProvider(entry);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size * 0.34),
+      child: Container(
+        width: size,
+        height: size,
+        color: scheme.surfaceContainerHighest,
+        child: image != null
+            ? Image(image: image, fit: BoxFit.cover)
+            : Icon(
+                Icons.person_rounded,
+                size: size * 0.58,
+                color: scheme.primary,
+              ),
+      ),
+    );
+  }
+
+  ImageProvider? _artistImageProvider(ArtistGroup entry) {
+    final local = entry.thumbnailLocalPath?.trim();
+    if (local != null && local.isNotEmpty) {
+      return FileImage(File(local));
+    }
+    final remote = entry.thumbnail?.trim();
+    if (remote != null && remote.isNotEmpty) {
+      return remote.startsWith('http')
+          ? NetworkImage(remote)
+          : FileImage(File(remote)) as ImageProvider;
+    }
+    return null;
   }
 
   Widget _artistSongTile(ThemeData theme, MediaItem item) {

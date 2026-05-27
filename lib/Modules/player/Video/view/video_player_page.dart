@@ -549,7 +549,11 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                SizedBox(width: previewWidth, height: previewHeight, child: image),
+                SizedBox(
+                  width: previewWidth,
+                  height: previewHeight,
+                  child: image,
+                ),
                 if (_previewLoading && !hasFrame)
                   Container(
                     width: previewWidth,
@@ -609,9 +613,11 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     final width = MediaQuery.sizeOf(context).width;
     final tapDx = tapPosition?.dx ?? (width / 2);
     final current =
-        controller.playerController?.value.position ?? controller.position.value;
+        controller.playerController?.value.position ??
+        controller.position.value;
     final total =
-        controller.playerController?.value.duration ?? controller.duration.value;
+        controller.playerController?.value.duration ??
+        controller.duration.value;
     final delta = tapDx < width / 2 ? -5 : 5;
 
     final target = current + Duration(seconds: delta);
@@ -734,26 +740,54 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
 
   void _openSpeedPicker() {
     final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+    final scheme = Theme.of(context).colorScheme;
+    final currentSpeed = controller.videoService.speed.value;
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      backgroundColor: scheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              for (final s in speeds)
-                ListTile(
-                  title: Text('${s.toStringAsFixed(2)}x'),
-                  onTap: () {
-                    controller.videoService.setSpeed(s);
-                    Navigator.of(ctx).pop();
-                  },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Velocidad de reproducción',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-            ],
+                const SizedBox(height: 6),
+                Text(
+                  'Elige una velocidad fija para el video actual.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    for (final speed in speeds)
+                      _SpeedOptionChip(
+                        speed: speed,
+                        selected: (currentSpeed - speed).abs() < 0.01,
+                        onTap: () {
+                          controller.videoService.setSpeed(speed);
+                          Navigator.of(ctx).pop();
+                        },
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -770,23 +804,29 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
       return;
     }
 
-    final livePosition =
-        controller.playerController?.value.position ?? controller.position.value;
-    final positionMs = livePosition.inMilliseconds;
+    final playerValue = controller.playerController?.value;
+    final livePosition = playerValue?.position ?? controller.position.value;
+    final captureLeadMs = playerValue?.isPlaying == true
+        ? (45 * controller.videoService.speed.value).round()
+        : 0;
+    final adjustedPosition =
+        livePosition + Duration(milliseconds: captureLeadMs);
+    final duration = playerValue?.duration ?? controller.duration.value;
+    final positionMs = duration.inMilliseconds > 0
+        ? adjustedPosition.inMilliseconds.clamp(0, duration.inMilliseconds)
+        : adjustedPosition.inMilliseconds;
     setState(() => _captureSaving = true);
 
     try {
       if (Platform.isAndroid) {
-        final result = await _previewChannel.invokeMethod<Map<dynamic, dynamic>>(
-          'saveFrame',
-          {
-            'source': source,
-            'positionMs': positionMs,
-            'title': item.title,
-            'maxWidth': 1920,
-            'quality': 92,
-          },
-        );
+        final result = await _previewChannel
+            .invokeMethod<Map<dynamic, dynamic>>('saveFrame', {
+              'source': source,
+              'positionMs': positionMs,
+              'title': item.title,
+              'maxWidth': 1920,
+              'quality': 92,
+            });
         final name = result?['displayName']?.toString();
         _showCaptureMessage(
           name == null || name.isEmpty
@@ -955,6 +995,65 @@ class _LifecycleObserver with WidgetsBindingObserver {
         state.controller.isPlaying.value && !state.controller.isQueueOpen.value,
       );
     }
+  }
+}
+
+class _SpeedOptionChip extends StatelessWidget {
+  const _SpeedOptionChip({
+    required this.speed,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final double speed;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: selected
+          ? scheme.primaryContainer
+          : scheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          width: 92,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected
+                  ? scheme.primary
+                  : scheme.outlineVariant.withValues(alpha: 0.55),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                selected ? Icons.check_circle_rounded : Icons.speed_rounded,
+                size: 20,
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${speed.toStringAsFixed(speed == speed.roundToDouble() ? 0 : 2)}x',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: selected
+                      ? scheme.onPrimaryContainer
+                      : scheme.onSurface,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
