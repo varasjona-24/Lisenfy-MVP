@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../models/history_group.dart';
 import '../../../models/media_item.dart';
-import '../../themes/app_grid_theme.dart';
+import 'app_media_items_view.dart';
 import 'media_history_item_tile.dart';
-import 'media_item_grid.dart';
 
 // ============================
 // 🗂️ SECCIÓN AGRUPADA DE HISTORIAL RECURSIVA
@@ -87,48 +86,51 @@ class MediaHistoryGroupSection extends StatelessWidget {
                     children: [
                       // Render Nested Groups
                       if (group.hasSubGroups)
-                        ...group.subGroups!.map((sub) => MediaHistoryGroupSection(
-                              group: sub,
-                              expandedSections: expandedSections,
-                              onTap: onTap,
-                              onLongPress: onLongPress,
-                              timeBuilder: timeBuilder,
-                              onToggle: onToggle,
-                              fallbackIcon: fallbackIcon,
-                              gridMode: gridMode,
-                              level: level + 1,
-                            )),
+                        ...group.subGroups!.map(
+                          (sub) => MediaHistoryGroupSection(
+                            group: sub,
+                            expandedSections: expandedSections,
+                            onTap: onTap,
+                            onLongPress: onLongPress,
+                            timeBuilder: timeBuilder,
+                            onToggle: onToggle,
+                            fallbackIcon: fallbackIcon,
+                            gridMode: gridMode,
+                            level: level + 1,
+                          ),
+                        ),
 
                       // Render Leaf Items
                       if (group.isLeaf)
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: gridMode
-                              ? MediaItemGrid(
+                              ? AppMediaItemsList(
                                   items: group.items!,
+                                  gridView: true,
                                   onTap: (item, index) => onTap(item),
-                                  onLongPress: (item, index) => onLongPress(item),
-                                  footerBuilder: (item, index) => timeBuilder(item),
+                                  onLongPress: (item, index) =>
+                                      onLongPress(item),
+                                  footerBuilder: (item, index) =>
+                                      timeBuilder(item),
                                   fallbackIcon: fallbackIcon,
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
-                                  childAspectRatio: AppGridTheme.childAspectRatio,
-                                  crossAxisSpacing: AppGridTheme.spacing,
-                                  mainAxisSpacing: AppGridTheme.spacing,
                                 )
                               : Column(
                                   children: group.items!.map((MediaItem item) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: MediaHistoryItemTile(
-                                      item: item,
-                                      time: timeBuilder(item),
-                                      onTap: () => onTap(item),
-                                      onLongPress: () => onLongPress(item),
-                                      fallbackIcon: fallbackIcon,
-                                    ),
-                                  );
-                                }).toList()),
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: MediaHistoryItemTile(
+                                        item: item,
+                                        time: timeBuilder(item),
+                                        onTap: () => onTap(item),
+                                        onLongPress: () => onLongPress(item),
+                                        fallbackIcon: fallbackIcon,
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
                         ),
                     ],
                   ),

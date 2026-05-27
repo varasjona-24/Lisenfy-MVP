@@ -21,8 +21,7 @@ class AppGridTheme {
     if (width >= 1500) return 5;
     if (width >= 1120) return 4;
     if (width >= 760) return 3;
-    if (width >= 460) return 2;
-    return 1;
+    return 2;
   }
 
   /// Standard aspect ratio for media grid items (width / height)

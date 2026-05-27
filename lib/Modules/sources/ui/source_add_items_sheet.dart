@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/models/media_item.dart';
-import 'source_media_list_item.dart';
+import '../../../app/ui/widgets/media/app_media_items_view.dart';
 
 class SourceAddItemsSheet extends StatefulWidget {
   const SourceAddItemsSheet({
@@ -241,7 +241,7 @@ class _SelectableSourceItem extends StatelessWidget {
               42,
               videoStyle ? 10 : 0,
             ),
-            child: SourceMediaListItem(
+            child: AppMediaListTile(
               item: item,
               videoStyle: videoStyle,
               onTap: onTap,

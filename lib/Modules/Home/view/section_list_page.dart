@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -11,10 +10,9 @@ import '../../../app/models/media_item.dart';
 import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/ui/themes/app_spacing.dart';
-import '../../../app/ui/themes/app_grid_theme.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
-import '../../../app/ui/widgets/media/media_item_grid.dart';
+import '../../../app/ui/widgets/media/app_media_items_view.dart';
 import '../controller/home_controller.dart';
 
 class SectionListPage extends StatefulWidget {
@@ -554,7 +552,7 @@ class _SectionListPageState extends State<SectionListPage> {
 
         final item = _items[index - 1];
         final itemIndex = index - 1;
-        return _MediaRow(
+        return AppMediaActionListTile(
           item: item,
           videoStyle: widget.rectangularGrid,
           hintText: widget.itemHintBuilder?.call(item, itemIndex),
@@ -613,40 +611,32 @@ class _SectionListPageState extends State<SectionListPage> {
           ),
           sliver: SliverToBoxAdapter(child: _buildSectionHeader(theme)),
         ),
-        SliverPadding(
+        AppMediaItemsSliver(
+          items: _items,
+          gridView: true,
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.md,
             0,
             AppSpacing.md,
             AppSpacing.lg,
           ),
-          sliver: MediaItemSliverGrid(
-            items: _items,
-            childAspectRatio: widget.rectangularGrid
-                ? AppGridTheme.videoChildAspectRatio
-                : AppGridTheme.childAspectRatio,
-            coverAspectRatio: widget.rectangularGrid ? 16 / 9 : 1,
-            crossAxisCount: null,
-            fallbackIcon: widget.rectangularGrid
-                ? Icons.videocam_rounded
-                : Icons.music_note_rounded,
-            hintBuilder: widget.itemHintBuilder,
-            coverOverlayBuilder: widget.sourceId == HomeWidgetId.mostPlayed
-                ? (item, index) => _PlayCountCoverBadge(item: item)
-                : null,
-            onTap: (item, index) async {
-              await _openItem(item, index);
-              if (mounted) setState(() {});
-            },
-            onLongPress: (item, index) async {
-              await widget.onItemLongPress(
-                item,
-                index,
-                onStartMultiSelect: () => _startMultiSelectFromItem(item),
-              );
-              await _refreshItemsFromStore();
-            },
-          ),
+          videoStyle: widget.rectangularGrid,
+          hintBuilder: widget.itemHintBuilder,
+          coverOverlayBuilder: widget.sourceId == HomeWidgetId.mostPlayed
+              ? (item, index) => _PlayCountCoverBadge(item: item)
+              : null,
+          onTap: (item, index) async {
+            await _openItem(item, index);
+            if (mounted) setState(() {});
+          },
+          onLongPress: (item, index) async {
+            await widget.onItemLongPress(
+              item,
+              index,
+              onStartMultiSelect: () => _startMultiSelectFromItem(item),
+            );
+            await _refreshItemsFromStore();
+          },
         ),
       ],
     );
@@ -664,305 +654,26 @@ class _SectionListPageState extends State<SectionListPage> {
           ),
           sliver: SliverToBoxAdapter(child: _buildSectionHeader(theme)),
         ),
-        SliverPadding(
+        AppMediaItemsSliver(
+          items: _items,
+          gridView: true,
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.md,
             0,
             AppSpacing.md,
             AppSpacing.lg,
           ),
-          sliver: MediaItemSliverGrid(
-            items: _items,
-            childAspectRatio: widget.rectangularGrid
-                ? AppGridTheme.videoChildAspectRatio
-                : AppGridTheme.childAspectRatio,
-            coverAspectRatio: widget.rectangularGrid ? 16 / 9 : 1,
-            crossAxisCount: null,
-            fallbackIcon: widget.rectangularGrid
-                ? Icons.videocam_rounded
-                : Icons.music_note_rounded,
-            selectionMode: true,
-            selectedBuilder: (item, index) => _selectedIds.contains(item.id),
-            selectableBuilder: (item, index) => _canSelect(item),
-            onTap: (item, index) => _toggleItemSelection(item),
-            onSelectionTap: (item, index) => _toggleItemSelection(item),
-          ),
+          videoStyle: widget.rectangularGrid,
+          selectionMode: true,
+          selectedBuilder: (item, index) => _selectedIds.contains(item.id),
+          selectableBuilder: (item, index) => _canSelect(item),
+          onTap: (item, index) => _toggleItemSelection(item),
+          onSelectionTap: (item, index) => _toggleItemSelection(item),
         ),
       ],
     );
   }
 }
-
-class _MediaRow extends StatelessWidget {
-  const _MediaRow({
-    required this.item,
-    required this.videoStyle,
-    required this.hintText,
-    required this.trailing,
-    required this.onTap,
-    required this.onLongPress,
-    required this.showFeedbackActions,
-    required this.selectionMode,
-    required this.selected,
-    required this.selectable,
-    required this.onToggleSelection,
-    this.onInterested,
-    this.onHideTrack,
-    this.onHideArtist,
-    this.onSelectMultiple,
-  });
-
-  final MediaItem item;
-  final bool videoStyle;
-  final String? hintText;
-  final Widget? trailing;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-  final bool showFeedbackActions;
-  final bool selectionMode;
-  final bool selected;
-  final bool selectable;
-  final VoidCallback onToggleSelection;
-  final FutureOr<void> Function()? onInterested;
-  final FutureOr<void> Function()? onHideTrack;
-  final FutureOr<void> Function()? onHideArtist;
-  final FutureOr<void> Function()? onSelectMultiple;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(videoStyle ? 12 : 16),
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Container(
-        padding: EdgeInsets.all(videoStyle ? 0 : 10),
-        decoration: BoxDecoration(
-          color: selected
-              ? scheme.primary.withValues(alpha: 0.12)
-              : (videoStyle ? Colors.transparent : scheme.surfaceContainerHigh),
-          borderRadius: BorderRadius.circular(videoStyle ? 12 : 16),
-          border: selected
-              ? Border.all(
-                  color: scheme.primary.withValues(alpha: 0.55),
-                  width: 1.2,
-                )
-              : null,
-        ),
-        child: Row(
-          children: [
-            _Thumb(
-              thumb: item.effectiveThumbnail,
-              videoStyle: videoStyle,
-              durationSeconds: item.effectiveDurationSeconds,
-            ),
-            SizedBox(width: videoStyle ? 16 : 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: videoStyle
-                          ? FontWeight.w800
-                          : FontWeight.w600,
-                    ),
-                  ),
-                  if (videoStyle) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        if ((item.localVideoVariant?.format ?? '')
-                            .trim()
-                            .isNotEmpty)
-                          _VideoMetaChip(
-                            label: item.localVideoVariant!.format
-                                .trim()
-                                .toUpperCase(),
-                          ),
-                        if ((item.localVideoVariant?.size ?? 0) > 0)
-                          _VideoMetaChip(
-                            label: _formatVideoSize(
-                              item.localVideoVariant!.size!,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      item.displaySubtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if ((hintText ?? '').trim().isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        hintText!.trim(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: scheme.primary.withValues(alpha: 0.9),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (selectionMode)
-              InkWell(
-                borderRadius: BorderRadius.circular(999),
-                onTap: selectable ? onToggleSelection : null,
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Icon(
-                    selected
-                        ? Icons.check_circle_rounded
-                        : (selectable
-                              ? Icons.radio_button_unchecked_rounded
-                              : Icons.block_rounded),
-                    color: selected
-                        ? scheme.primary
-                        : (selectable
-                              ? scheme.onSurfaceVariant
-                              : scheme.outline),
-                    size: 22,
-                  ),
-                ),
-              )
-            else if (showFeedbackActions && !videoStyle)
-              PopupMenuButton<_FeedbackAction>(
-                tooltip: 'Feedback',
-                icon: Icon(
-                  Icons.more_vert_rounded,
-                  color: scheme.onSurfaceVariant,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                onSelected: (value) async {
-                  switch (value) {
-                    case _FeedbackAction.selectMultiple:
-                      await onSelectMultiple?.call();
-                      break;
-                    case _FeedbackAction.interested:
-                      await onInterested?.call();
-                      break;
-                    case _FeedbackAction.hideTrack:
-                      await onHideTrack?.call();
-                      break;
-                    case _FeedbackAction.hideArtist:
-                      await onHideArtist?.call();
-                      break;
-                  }
-                },
-                itemBuilder: (context) => [
-                  if (onSelectMultiple != null)
-                    PopupMenuItem(
-                      value: _FeedbackAction.selectMultiple,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.checklist_rounded,
-                            size: 18,
-                            color: scheme.primary,
-                          ),
-                          const SizedBox(width: 10),
-                          const Text('Seleccionar varios'),
-                        ],
-                      ),
-                    ),
-                  PopupMenuItem(
-                    value: _FeedbackAction.interested,
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.thumb_up_alt_outlined,
-                          size: 18,
-                          color: scheme.primary,
-                        ),
-                        const SizedBox(width: 10),
-                        const Text('Me interesa'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: _FeedbackAction.hideTrack,
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.visibility_off_outlined,
-                          size: 18,
-                          color: scheme.error,
-                        ),
-                        const SizedBox(width: 10),
-                        const Text('Ocultar canción'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: _FeedbackAction.hideArtist,
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.person_off_outlined,
-                          size: 18,
-                          color: scheme.tertiary,
-                        ),
-                        const SizedBox(width: 10),
-                        const Text('Ocultar artista'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            if (showFeedbackActions && !videoStyle) const SizedBox(width: 4),
-            trailing ??
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: scheme.surface,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.play_arrow_rounded, color: scheme.primary),
-                ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatVideoSize(int bytes) {
-    if (bytes <= 0) return '';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    var value = bytes.toDouble();
-    var unitIndex = 0;
-    while (value >= 1024 && unitIndex < units.length - 1) {
-      value /= 1024;
-      unitIndex++;
-    }
-    final text = value >= 10 || unitIndex == 0
-        ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(1);
-    return '$text ${units[unitIndex]}';
-  }
-}
-
-enum _FeedbackAction { selectMultiple, interested, hideTrack, hideArtist }
 
 class _PlayCountCoverBadge extends StatelessWidget {
   const _PlayCountCoverBadge({required this.item});
@@ -1059,136 +770,5 @@ class _SortOption extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _Thumb extends StatelessWidget {
-  const _Thumb({
-    required this.thumb,
-    required this.videoStyle,
-    required this.durationSeconds,
-  });
-
-  final String? thumb;
-  final bool videoStyle;
-  final int? durationSeconds;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    if (thumb != null && thumb!.isNotEmpty) {
-      final provider = thumb!.startsWith('http')
-          ? NetworkImage(thumb!)
-          : FileImage(File(thumb!)) as ImageProvider;
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(videoStyle ? 14 : 12),
-        child: Stack(
-          children: [
-            Image(
-              key: ValueKey<String>(thumb!),
-              image: provider,
-              width: videoStyle ? 148 : 56,
-              height: videoStyle ? 84 : 56,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                width: videoStyle ? 148 : 56,
-                height: videoStyle ? 84 : 56,
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(videoStyle ? 14 : 12),
-                ),
-                child: Icon(
-                  videoStyle ? Icons.videocam_rounded : Icons.music_note,
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            if (videoStyle)
-              Positioned(
-                left: 8,
-                bottom: 7,
-                child: _DurationBadge(seconds: durationSeconds),
-              ),
-          ],
-        ),
-      );
-    }
-    return Container(
-      width: videoStyle ? 148 : 56,
-      height: videoStyle ? 84 : 56,
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(videoStyle ? 14 : 12),
-      ),
-      child: Icon(
-        videoStyle ? Icons.videocam_rounded : Icons.music_note,
-        color: scheme.onSurfaceVariant,
-      ),
-    );
-  }
-}
-
-class _VideoMetaChip extends StatelessWidget {
-  const _VideoMetaChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    if (label.trim().isEmpty) return const SizedBox.shrink();
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.68),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: scheme.onSurfaceVariant,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _DurationBadge extends StatelessWidget {
-  const _DurationBadge({required this.seconds});
-
-  final int? seconds;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = _formatDuration(seconds);
-    if (label == null) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-
-  static String? _formatDuration(int? seconds) {
-    if (seconds == null || seconds <= 0) return null;
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
-    if (h > 0) {
-      return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    }
-    return '$m:${s.toString().padLeft(2, '0')}';
   }
 }

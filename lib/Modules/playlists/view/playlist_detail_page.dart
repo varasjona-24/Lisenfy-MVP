@@ -10,8 +10,7 @@ import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
-import '../../../app/ui/themes/app_grid_theme.dart';
-import '../../../app/ui/widgets/media/media_item_grid.dart';
+import '../../../app/ui/widgets/media/app_media_items_view.dart';
 import '../../../app/models/media_item.dart';
 import '../controller/playlists_controller.dart';
 import '../domain/playlist.dart';
@@ -99,18 +98,16 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
                   const SliverToBoxAdapter(
                     child: SizedBox(height: AppSpacing.lg),
                   )
-                else if (controller.detailGridView.value)
-                  MediaItemSliverGrid(
+                else
+                  AppMediaItemsSliver(
                     items: items,
+                    gridView: controller.detailGridView.value,
                     padding: const EdgeInsets.fromLTRB(
                       AppSpacing.md,
                       0,
                       AppSpacing.md,
                       AppSpacing.lg,
                     ),
-                    childAspectRatio: AppGridTheme.childAspectRatio,
-                    crossAxisSpacing: AppGridTheme.spacing,
-                    mainAxisSpacing: AppGridTheme.spacing,
                     onTap: (item, index) => _play(items, index),
                     onLongPress: (item, index) => _openTrackActionSheet(
                       context: context,
@@ -121,30 +118,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
                       actions: actions,
                       canRemoveFromPlaylist: !isSmart && playlist != null,
                     ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.md,
-                      0,
-                      AppSpacing.md,
-                      AppSpacing.lg,
-                    ),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => _trackTile(
-                          context,
-                          theme,
-                          items[index],
-                          index,
-                          items,
-                          playlist,
-                          isSmart,
-                          actions,
-                        ),
-                        childCount: items.length,
-                      ),
-                    ),
+                    compactListCard: true,
                   ),
               ],
             ),
@@ -406,103 +380,6 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
         });
       },
     ).whenComplete(() => nav?.setOverlayOpen(false));
-  }
-
-  Widget _trackTile(
-    BuildContext context,
-    ThemeData theme,
-    MediaItem item,
-    int index,
-    List<MediaItem> queue,
-    Playlist? playlist,
-    bool isSmartPlaylist,
-    MediaActionsController actions,
-  ) {
-    final scheme = theme.colorScheme;
-    final thumb = item.effectiveThumbnail;
-    ImageProvider? provider;
-    if (thumb != null && thumb.isNotEmpty) {
-      provider = thumb.startsWith('http')
-          ? NetworkImage(thumb)
-          : FileImage(File(thumb));
-    }
-
-    final canRemoveFromPlaylist = !isSmartPlaylist && playlist != null;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _play(queue, index),
-          onLongPress: () => _openTrackActionSheet(
-            context: context,
-            item: item,
-            queue: queue,
-            playlist: playlist,
-            isSmartPlaylist: isSmartPlaylist,
-            actions: actions,
-            canRemoveFromPlaylist: canRemoveFromPlaylist,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          child: Ink(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHigh.withValues(alpha: 0.72),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: scheme.outlineVariant.withValues(alpha: 0.32),
-              ),
-            ),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 56,
-                    height: 56,
-                    color: scheme.surfaceContainerHighest,
-                    child: provider != null
-                        ? Image(image: provider, fit: BoxFit.cover)
-                        : Icon(
-                            Icons.music_note_rounded,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item.displaySubtitle.trim().isEmpty
-                            ? 'Audio'
-                            : item.displaySubtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   Future<void> _openTrackActionSheet({

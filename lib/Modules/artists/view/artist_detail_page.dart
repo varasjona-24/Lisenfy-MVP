@@ -15,8 +15,7 @@ import '../controller/artists_controller.dart';
 import '../domain/artist_profile.dart';
 import '../../edit/controller/edit_entity_controller.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
-import '../../../app/ui/themes/app_grid_theme.dart';
-import '../../../app/ui/widgets/media/media_item_grid.dart';
+import '../../../app/ui/widgets/media/app_media_items_view.dart';
 import 'widgets/artist_avatar.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 
@@ -711,24 +710,13 @@ class _SongSectionState extends State<_SongSection> {
           ),
         ),
         const SizedBox(height: 8),
-        if (_gridMode)
-          MediaItemGrid(
-            items: items,
-            onTap: (item, index) => widget.onPlay(item),
-            onLongPress: (item, index) => widget.onMore(item),
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: AppGridTheme.childAspectRatio,
-            crossAxisSpacing: AppGridTheme.spacing,
-            mainAxisSpacing: AppGridTheme.spacing,
-          )
-        else
-          for (final item in items)
-            _SongTile(
-              item: item,
-              onPlay: () => widget.onPlay(item),
-              onLongPress: () => widget.onMore(item),
-            ),
+        AppMediaItemsList(
+          items: items,
+          gridView: _gridMode,
+          onTap: (item, index) => widget.onPlay(item),
+          onLongPress: (item, index) => widget.onMore(item),
+          compactListCard: true,
+        ),
       ],
     );
   }
@@ -885,61 +873,6 @@ class _ArtistSongSortOption extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _SongTile extends StatelessWidget {
-  const _SongTile({
-    required this.item,
-    required this.onPlay,
-    required this.onLongPress,
-  });
-
-  final MediaItem item;
-  final VoidCallback onPlay;
-  final VoidCallback onLongPress;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isVideo = item.hasVideoLocal || item.localVideoVariant != null;
-    final thumb = item.effectiveThumbnail ?? '';
-    final hasThumb = thumb.isNotEmpty;
-    final isLocal = hasThumb && thumb.startsWith('/');
-
-    return Card(
-      elevation: 0,
-      color: theme.colorScheme.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: ListTile(
-        leading: hasThumb
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: isLocal
-                    ? Image.file(
-                        File(thumb),
-                        width: 44,
-                        height: 44,
-                        fit: BoxFit.cover,
-                      )
-                    : Image.network(
-                        thumb,
-                        width: 44,
-                        height: 44,
-                        fit: BoxFit.cover,
-                      ),
-              )
-            : Icon(isVideo ? Icons.videocam_rounded : Icons.music_note_rounded),
-        title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(
-          item.displaySubtitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        onTap: onPlay,
-        onLongPress: onLongPress,
       ),
     );
   }

@@ -6,10 +6,10 @@ import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/services/audio_service.dart';
-import '../../../app/ui/themes/app_grid_theme.dart';
 import '../../../app/ui/themes/app_spacing.dart';
+import '../../../app/ui/widgets/dialogs/sort_options_sheet.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
-import '../../../app/ui/widgets/media/media_item_grid.dart';
+import '../../../app/ui/widgets/media/app_media_items_view.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../home/controller/home_controller.dart';
@@ -19,7 +19,8 @@ import '../domain/source_origin.dart';
 import '../domain/source_theme.dart';
 import '../domain/source_theme_topic_playlist.dart';
 import '../ui/source_add_items_sheet.dart';
-import '../ui/source_media_list_item.dart';
+import '../ui/source_collection_grid.dart';
+import '../ui/source_filter_toolbar.dart';
 import '../ui/source_playlist_card.dart';
 import '../../../app/utils/format_bytes.dart';
 
@@ -51,11 +52,14 @@ class _SourceThemeTopicPlaylistPageState
   final SourcesController _sources = Get.find<SourcesController>();
   final MediaActionsController _actions = Get.find<MediaActionsController>();
   final GetStorage _storage = GetStorage();
+  final TextEditingController _itemSearchController = TextEditingController();
   final TextEditingController _subListSearchController =
       TextEditingController();
 
   String? _playlistSizeLabel;
+  String _itemQuery = '';
   String _subListQuery = '';
+  _SourcePlaylistItemSort _itemSort = _SourcePlaylistItemSort.recent;
   _SourceSubListSort _subListSort = _SourceSubListSort.recent;
   bool _itemsGridView = false;
   bool _collectionsGridView = false;
@@ -63,6 +67,7 @@ class _SourceThemeTopicPlaylistPageState
   @override
   void initState() {
     super.initState();
+    _itemSort = _readItemSort();
     _subListSort = _readSubListSort();
     _itemsGridView = _storage.read('source_playlist_items_grid_view') ?? false;
     _collectionsGridView =
@@ -75,6 +80,7 @@ class _SourceThemeTopicPlaylistPageState
 
   @override
   void dispose() {
+    _itemSearchController.dispose();
     _subListSearchController.dispose();
     super.dispose();
   }
@@ -114,23 +120,6 @@ class _SourceThemeTopicPlaylistPageState
           title: Text(playlist.name),
           onToggleMode: null,
           showLocalConnectAction: false,
-          extraActions: [
-            IconButton(
-              tooltip: _itemsGridView ? 'Ver como lista' : 'Ver cuadrícula',
-              onPressed: () {
-                setState(() => _itemsGridView = !_itemsGridView);
-                _storage.write(
-                  'source_playlist_items_grid_view',
-                  _itemsGridView,
-                );
-              },
-              icon: Icon(
-                _itemsGridView
-                    ? Icons.view_list_rounded
-                    : Icons.grid_view_rounded,
-              ),
-            ),
-          ],
         ),
         body: AppGradientBackground(
           child: RefreshIndicator(
@@ -238,65 +227,98 @@ class _SourceThemeTopicPlaylistPageState
             ),
           );
         }
+        final filtered = _filteredItems(items);
 
         return SliverMainAxisGroup(
           slivers: [
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               sliver: SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    'Items',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Items',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    _itemsToolbar(),
+                    const SizedBox(height: 10),
+                  ],
                 ),
               ),
             ),
-            if (_itemsGridView)
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  0,
-                  AppSpacing.md,
-                  AppSpacing.md,
-                ),
-                sliver: MediaItemSliverGrid(
-                  items: items,
-                  childAspectRatio: 0.95,
-                  coverAspectRatio: 16 / 9,
-                  crossAxisCount: 2,
-                  fallbackIcon: Icons.videocam_rounded,
-                  onTap: (item, index) => _playItem(items, item),
-                  onLongPress: (item, index) =>
-                      _showItemActions(playlist, item),
-                ),
-              )
-            else
+            if (filtered.isEmpty)
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final item = items[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 18),
-                      child: SourceMediaListItem(
-                        item: item,
-                        videoStyle: true,
-                        onTap: () => _playItem(items, item),
-                        onLongPress: () => _showItemActions(playlist, item),
-                        onMore: () => _showItemActions(playlist, item),
-                      ),
-                    );
-                  }, childCount: items.length),
+                sliver: SliverToBoxAdapter(
+                  child: Text(
+                    'No hay items con ese título.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
+              )
+            else if (_itemsGridView)
+              AppMediaItemsSliver(
+                items: filtered,
+                gridView: true,
+                videoStyle: true,
+                onTap: (item, index) => _playItem(filtered, item),
+                onLongPress: (item, index) => _showItemActions(playlist, item),
+              )
+            else
+              AppMediaItemsSliver(
+                items: filtered,
+                gridView: false,
+                videoStyle: true,
+                onTap: (item, index) => _playItem(filtered, item),
+                onLongPress: (item, index) => _showItemActions(playlist, item),
               ),
           ],
         );
       },
     );
+  }
+
+  List<MediaItem> _filteredItems(List<MediaItem> items) {
+    final query = _itemQuery.trim().toLowerCase();
+    final filtered = items.where((item) {
+      if (query.isEmpty) return true;
+      return item.title.toLowerCase().contains(query) ||
+          item.subtitle.toLowerCase().contains(query);
+    }).toList();
+    filtered.sort((a, b) {
+      switch (_itemSort) {
+        case _SourcePlaylistItemSort.recent:
+          return _createdAtForItem(b).compareTo(_createdAtForItem(a));
+        case _SourcePlaylistItemSort.title:
+          return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+        case _SourcePlaylistItemSort.size:
+          return _sizeForItem(b).compareTo(_sizeForItem(a));
+        case _SourcePlaylistItemSort.duration:
+          return _durationForItem(b).compareTo(_durationForItem(a));
+      }
+    });
+    return filtered;
+  }
+
+  int _createdAtForItem(MediaItem item) {
+    final variant = item.localVideoVariant ?? item.localAudioVariant;
+    return variant?.createdAt ?? 0;
+  }
+
+  int _sizeForItem(MediaItem item) {
+    final variant = item.localVideoVariant ?? item.localAudioVariant;
+    return variant?.size ?? 0;
+  }
+
+  int _durationForItem(MediaItem item) {
+    final variant = item.localVideoVariant ?? item.localAudioVariant;
+    return variant?.durationSeconds ?? item.durationSeconds ?? 0;
   }
 
   Widget _subListsSection(
@@ -359,7 +381,7 @@ class _SourceThemeTopicPlaylistPageState
           ],
         ),
         const SizedBox(height: 10),
-        if (lists.isNotEmpty) _subListToolbar(scheme),
+        if (lists.isNotEmpty) _subListToolbar(),
         if (lists.isNotEmpty) const SizedBox(height: 10),
         if (filtered.isEmpty)
           Text(
@@ -371,25 +393,11 @@ class _SourceThemeTopicPlaylistPageState
             ),
           )
         else if (_collectionsGridView)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filtered.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: AppGridTheme.getCollectionCrossAxisCount(
-                    constraints.maxWidth,
-                  ),
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.92,
-                ),
-                itemBuilder: (context, index) {
-                  final pl = filtered[index];
-                  return _collectionCard(playlist.topicId, pl, gridStyle: true);
-                },
-              );
+          SourceCollectionGrid(
+            itemCount: filtered.length,
+            itemBuilder: (context, index) {
+              final pl = filtered[index];
+              return _collectionCard(playlist.topicId, pl, gridStyle: true);
             },
           )
         else
@@ -429,102 +437,147 @@ class _SourceThemeTopicPlaylistPageState
     );
   }
 
-  Widget _subListToolbar(ColorScheme scheme) {
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 44,
-            child: TextField(
-              controller: _subListSearchController,
-              onChanged: (value) => setState(() => _subListQuery = value),
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Buscar Collection',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _subListQuery.trim().isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Limpiar',
-                        onPressed: () {
-                          _subListSearchController.clear();
-                          setState(() => _subListQuery = '');
-                        },
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                filled: true,
-                fillColor: scheme.surfaceContainerHighest.withValues(
-                  alpha: 0.55,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        PopupMenuButton<_SourceSubListSort>(
-          tooltip: 'Ordenar',
-          initialValue: _subListSort,
-          onOpened: _markOverlayOpen,
-          onCanceled: _markOverlayClosed,
-          onSelected: (value) {
-            _markOverlayClosed();
-            setState(() => _subListSort = value);
-            _storage.write('source_playlist_collection_sort', value.name);
-          },
-          icon: const Icon(Icons.sort_rounded),
-          itemBuilder: (ctx) => const [
-            PopupMenuItem(
-              value: _SourceSubListSort.recent,
-              child: Text('Recientes primero'),
-            ),
-            PopupMenuItem(
-              value: _SourceSubListSort.name,
-              child: Text('Nombre'),
-            ),
-            PopupMenuItem(
-              value: _SourceSubListSort.items,
-              child: Text('Más items'),
-            ),
-            PopupMenuItem(
-              value: _SourceSubListSort.subfolders,
-              child: Text('Más Collections'),
-            ),
-          ],
-        ),
-        const SizedBox(width: 4),
-        IconButton(
-          tooltip: _collectionsGridView
-              ? 'Ver Collections como lista'
-              : 'Ver Collections como grid',
-          onPressed: () {
-            setState(() => _collectionsGridView = !_collectionsGridView);
-            _storage.write(
-              'source_playlist_collections_grid_view',
-              _collectionsGridView,
-            );
-          },
-          icon: Icon(
-            _collectionsGridView
-                ? Icons.view_list_rounded
-                : Icons.grid_view_rounded,
-          ),
-        ),
-      ],
+  Widget _subListToolbar() {
+    return SourceFilterToolbar(
+      controller: _subListSearchController,
+      query: _subListQuery,
+      hintText: 'Buscar Collection',
+      onQueryChanged: (value) => setState(() => _subListQuery = value),
+      onClearQuery: () {
+        _subListSearchController.clear();
+        setState(() => _subListQuery = '');
+      },
+      onSort: _openCollectionSortSheet,
+      gridView: _collectionsGridView,
+      onToggleGridView: () {
+        setState(() => _collectionsGridView = !_collectionsGridView);
+        _storage.write(
+          'source_playlist_collections_grid_view',
+          _collectionsGridView,
+        );
+      },
+      gridTooltip: 'Ver Collections como grid',
+      listTooltip: 'Ver Collections como lista',
     );
   }
 
-  _SourceSubListSort _readSubListSort() {
-    final raw = (_storage.read('source_playlist_collection_sort') as String?)
-        ?.trim();
-    for (final option in _SourceSubListSort.values) {
-      if (option.name == raw) return option;
-    }
-    return _SourceSubListSort.recent;
+  Widget _itemsToolbar() {
+    return SourceFilterToolbar(
+      controller: _itemSearchController,
+      query: _itemQuery,
+      hintText: 'Buscar item',
+      onQueryChanged: (value) => setState(() => _itemQuery = value),
+      onClearQuery: () {
+        _itemSearchController.clear();
+        setState(() => _itemQuery = '');
+      },
+      onSort: _openItemSortSheet,
+      gridView: _itemsGridView,
+      onToggleGridView: () {
+        setState(() => _itemsGridView = !_itemsGridView);
+        _storage.write('source_playlist_items_grid_view', _itemsGridView);
+      },
+      gridTooltip: 'Ver items como grid',
+      listTooltip: 'Ver items como lista',
+    );
+  }
+
+  Future<void> _openItemSortSheet() async {
+    await showSortOptionsSheet(
+      context: context,
+      title: 'Ordenar items',
+      optionsBuilder: () => [
+        SortSheetOption(
+          label: 'Recientes primero',
+          selected: _itemSort == _SourcePlaylistItemSort.recent,
+          onTap: () {
+            setState(() => _itemSort = _SourcePlaylistItemSort.recent);
+            _storage.write('source_playlist_item_sort', _itemSort.name);
+          },
+        ),
+        SortSheetOption(
+          label: 'Nombre',
+          selected: _itemSort == _SourcePlaylistItemSort.title,
+          onTap: () {
+            setState(() => _itemSort = _SourcePlaylistItemSort.title);
+            _storage.write('source_playlist_item_sort', _itemSort.name);
+          },
+        ),
+        SortSheetOption(
+          label: 'Tamaño',
+          selected: _itemSort == _SourcePlaylistItemSort.size,
+          onTap: () {
+            setState(() => _itemSort = _SourcePlaylistItemSort.size);
+            _storage.write('source_playlist_item_sort', _itemSort.name);
+          },
+        ),
+        SortSheetOption(
+          label: 'Duración',
+          selected: _itemSort == _SourcePlaylistItemSort.duration,
+          onTap: () {
+            setState(() => _itemSort = _SourcePlaylistItemSort.duration);
+            _storage.write('source_playlist_item_sort', _itemSort.name);
+          },
+        ),
+      ],
+      onOpened: _markOverlayOpen,
+      onClosed: _markOverlayClosed,
+    );
+  }
+
+  Future<void> _openCollectionSortSheet() async {
+    await showSortOptionsSheet(
+      context: context,
+      title: 'Ordenar Collections',
+      optionsBuilder: () => [
+        SortSheetOption(
+          label: 'Recientes primero',
+          selected: _subListSort == _SourceSubListSort.recent,
+          onTap: () {
+            setState(() => _subListSort = _SourceSubListSort.recent);
+            _storage.write(
+              'source_playlist_collection_sort',
+              _subListSort.name,
+            );
+          },
+        ),
+        SortSheetOption(
+          label: 'Nombre',
+          selected: _subListSort == _SourceSubListSort.name,
+          onTap: () {
+            setState(() => _subListSort = _SourceSubListSort.name);
+            _storage.write(
+              'source_playlist_collection_sort',
+              _subListSort.name,
+            );
+          },
+        ),
+        SortSheetOption(
+          label: 'Más items',
+          selected: _subListSort == _SourceSubListSort.items,
+          onTap: () {
+            setState(() => _subListSort = _SourceSubListSort.items);
+            _storage.write(
+              'source_playlist_collection_sort',
+              _subListSort.name,
+            );
+          },
+        ),
+        SortSheetOption(
+          label: 'Más Collections',
+          selected: _subListSort == _SourceSubListSort.subfolders,
+          onTap: () {
+            setState(() => _subListSort = _SourceSubListSort.subfolders);
+            _storage.write(
+              'source_playlist_collection_sort',
+              _subListSort.name,
+            );
+          },
+        ),
+      ],
+      onOpened: _markOverlayOpen,
+      onClosed: _markOverlayClosed,
+    );
   }
 
   void _markOverlayOpen() {
@@ -537,6 +590,23 @@ class _SourceThemeTopicPlaylistPageState
     if (Get.isRegistered<NavigationController>()) {
       Get.find<NavigationController>().setOverlayOpen(false);
     }
+  }
+
+  _SourcePlaylistItemSort _readItemSort() {
+    final raw = (_storage.read('source_playlist_item_sort') as String?)?.trim();
+    for (final option in _SourcePlaylistItemSort.values) {
+      if (option.name == raw) return option;
+    }
+    return _SourcePlaylistItemSort.recent;
+  }
+
+  _SourceSubListSort _readSubListSort() {
+    final raw = (_storage.read('source_playlist_collection_sort') as String?)
+        ?.trim();
+    for (final option in _SourceSubListSort.values) {
+      if (option.name == raw) return option;
+    }
+    return _SourceSubListSort.recent;
   }
 
   // ============================
@@ -700,5 +770,7 @@ class _SourceThemeTopicPlaylistPageState
     );
   }
 }
+
+enum _SourcePlaylistItemSort { recent, title, size, duration }
 
 enum _SourceSubListSort { recent, name, items, subfolders }

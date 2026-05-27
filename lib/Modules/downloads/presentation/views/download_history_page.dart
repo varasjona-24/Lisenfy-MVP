@@ -8,8 +8,8 @@ import '../../../../app/routes/app_routes.dart';
 import '../../../../app/ui/themes/app_spacing.dart';
 import '../../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
+import '../../../../app/ui/widgets/media/app_media_items_view.dart';
 import '../../../../app/ui/widgets/media/media_history_item_tile.dart';
-import '../../../../app/ui/widgets/media/media_item_grid.dart';
 import '../../../home/controller/home_controller.dart';
 import '../../controller/download_history_controller.dart';
 import '../widgets/download_history_filter_row.dart';
@@ -250,8 +250,9 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
 
       if (isGrid) {
         slivers.add(
-          MediaItemSliverGrid(
+          AppMediaItemsSliver(
             items: dayItems,
+            gridView: true,
             padding: EdgeInsets.fromLTRB(
               AppSpacing.md,
               0,

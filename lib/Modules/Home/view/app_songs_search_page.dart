@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -8,12 +6,10 @@ import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
-import '../../../app/ui/themes/app_grid_theme.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
-import '../../../app/ui/widgets/media/media_item_grid.dart';
-import '../../sources/ui/source_media_list_item.dart';
+import '../../../app/ui/widgets/media/app_media_items_view.dart';
 import '../controller/home_controller.dart';
 
 enum _SongLibrarySort { importedAt, title, artist, size, plays, duration }
@@ -365,19 +361,13 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final item = list[index];
-        if (_isVideoMode) {
-          return SourceMediaListItem(
-            item: item,
-            videoStyle: true,
-            onTap: () => _home.openMedia(item, index, list),
-            onLongPress: () => _openItemActions(context, item, list),
-            onMore: () => _openItemActions(context, item, list),
-          );
-        }
-        return _SearchItemTile(
+        return AppMediaListTile(
           item: item,
+          videoStyle: _isVideoMode,
+          carded: !_isVideoMode,
           onTap: () => _home.openMedia(item, index, list),
           onLongPress: () => _openItemActions(context, item, list),
+          onMore: () => _openItemActions(context, item, list),
         );
       },
     );
@@ -388,22 +378,16 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
     ColorScheme scheme,
     List<MediaItem> list,
   ) {
-    return MediaItemGrid(
+    return AppMediaItemsList(
       items: list,
-      padding: const EdgeInsets.fromLTRB(
+      gridView: true,
+      gridPadding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
         0,
         AppSpacing.md,
         AppSpacing.lg,
       ),
-      childAspectRatio: _isVideoMode
-          ? AppGridTheme.videoChildAspectRatio
-          : AppGridTheme.childAspectRatio,
-      coverAspectRatio: _isVideoMode ? 16 / 9 : 1,
-      crossAxisCount: null,
-      fallbackIcon: _isVideoMode
-          ? Icons.videocam_rounded
-          : Icons.music_note_rounded,
+      videoStyle: _isVideoMode,
       onTap: (item, index) => _home.openMedia(item, index, list),
       onLongPress: (item, index) => _openItemActions(context, item, list),
     );
@@ -446,86 +430,6 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
           },
         );
       },
-    );
-  }
-}
-
-class _SearchItemTile extends StatelessWidget {
-  const _SearchItemTile({
-    required this.item,
-    required this.onTap,
-    required this.onLongPress,
-  });
-
-  final MediaItem item;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final isVideo = item.hasVideoLocal || item.localVideoVariant != null;
-    final icon = isVideo ? Icons.videocam_rounded : Icons.music_note_rounded;
-    final thumb = item.effectiveThumbnail?.trim() ?? '';
-    final hasThumb = thumb.isNotEmpty;
-    final imageProvider = hasThumb
-        ? (thumb.startsWith('http')
-              ? NetworkImage(thumb)
-              : FileImage(File(thumb)) as ImageProvider)
-        : null;
-
-    return Material(
-      color: scheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  color: scheme.surfaceContainerHighest,
-                  child: imageProvider != null
-                      ? Image(image: imageProvider, fit: BoxFit.cover)
-                      : Icon(icon, color: scheme.onSurfaceVariant),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      item.displaySubtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

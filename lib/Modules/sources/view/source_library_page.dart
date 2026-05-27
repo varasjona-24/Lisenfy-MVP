@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -12,8 +10,8 @@ import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
-import '../../../app/ui/themes/app_grid_theme.dart';
-import '../../../app/ui/widgets/media/media_item_grid.dart';
+import '../../../app/ui/widgets/dialogs/sort_options_sheet.dart';
+import '../../../app/ui/widgets/media/app_media_items_view.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../app/services/audio_service.dart';
@@ -23,7 +21,9 @@ import '../controller/sources_controller.dart';
 import '../domain/source_origin.dart';
 import '../domain/source_theme.dart';
 import '../domain/source_theme_topic.dart';
-import '../ui/source_media_list_item.dart';
+import '../ui/source_collection_card.dart';
+import '../ui/source_collection_grid.dart';
+import '../ui/source_filter_toolbar.dart';
 
 // ============================
 // 🧭 PAGE: SOURCE LIBRARY
@@ -254,12 +254,23 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                                           ),
                                     ),
                                   )
-                                else if (_gridView)
-                                  _itemGrid(modeList, displayMode)
                                 else
-                                  ...modeList.map(
-                                    (item) =>
-                                        _itemTile(item, modeList, displayMode),
+                                  AppMediaItemsList(
+                                    items: modeList,
+                                    gridView: _gridView,
+                                    videoStyle: displayMode == HomeMode.video,
+                                    compactListCard: widget.onlyOffline,
+                                    onTap: (item, index) => _playSourceItem(
+                                      item,
+                                      modeList,
+                                      displayMode,
+                                    ),
+                                    onLongPress: (item, index) =>
+                                        _openGridItemActions(
+                                          item,
+                                          modeList,
+                                          displayMode,
+                                        ),
                                   ),
                               ],
                             ],
@@ -307,106 +318,6 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
         ),
       );
     });
-  }
-
-  Widget _itemTile(MediaItem item, List<MediaItem> queue, HomeMode mode) {
-    if (mode == HomeMode.video) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 18),
-        child: SourceMediaListItem(
-          item: item,
-          videoStyle: true,
-          onTap: () => _playSourceItem(item, queue, mode),
-          onLongPress: () => _openGridItemActions(item, queue, mode),
-          onMore: () => _openGridItemActions(item, queue, mode),
-        ),
-      );
-    }
-
-    final v = _variantForMode(item, mode) ?? item.variants.first;
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final thumb = item.effectiveThumbnail ?? '';
-    final hasThumb = thumb.isNotEmpty;
-    final imageProvider = hasThumb
-        ? (thumb.startsWith('http')
-              ? NetworkImage(thumb)
-              : FileImage(File(thumb)) as ImageProvider)
-        : null;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: widget.onlyOffline ? 12 : 8),
-      child: Card(
-        elevation: 0,
-        color: widget.onlyOffline
-            ? scheme.surfaceContainer
-            : Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(widget.onlyOffline ? 18 : 12),
-        ),
-        child: ListTile(
-          onLongPress: () => _openGridItemActions(item, queue, mode),
-          contentPadding: widget.onlyOffline
-              ? const EdgeInsets.symmetric(horizontal: 12, vertical: 4)
-              : EdgeInsets.zero,
-          leading: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              width: 44,
-              height: 44,
-              color: scheme.surfaceContainerHighest,
-              child: imageProvider != null
-                  ? Image(image: imageProvider, fit: BoxFit.cover)
-                  : Icon(
-                      v.kind == MediaVariantKind.video
-                          ? Icons.videocam_rounded
-                          : Icons.music_note_rounded,
-                      color: scheme.onSurfaceVariant,
-                    ),
-            ),
-          ),
-          title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: item.subtitle.trim().isEmpty
-              ? null
-              : Text(
-                  item.subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-          trailing: Wrap(
-            spacing: 6,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.play_arrow_rounded),
-                onPressed: () {
-                  _playSourceItem(item, queue, mode);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _itemGrid(List<MediaItem> queue, HomeMode mode) {
-    return MediaItemGrid(
-      items: queue,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: mode == HomeMode.video
-          ? AppGridTheme.videoChildAspectRatio
-          : AppGridTheme.childAspectRatio,
-      coverAspectRatio: mode == HomeMode.video ? 16 / 9 : 1,
-      crossAxisCount: null,
-      crossAxisSpacing: AppGridTheme.spacing,
-      mainAxisSpacing: AppGridTheme.spacing,
-      fallbackIcon: mode == HomeMode.audio
-          ? Icons.music_note_rounded
-          : Icons.videocam_rounded,
-      onTap: (item, index) => _playSourceItem(item, queue, mode),
-      onLongPress: (item, index) => _openGridItemActions(item, queue, mode),
-    );
   }
 
   Future<void> _openGridItemActions(
@@ -574,88 +485,23 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
           ],
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 44,
-                child: TextField(
-                  controller: _topicSearchController,
-                  onChanged: (value) => setState(() => _topicQuery = value),
-                  textInputAction: TextInputAction.search,
-                  decoration: InputDecoration(
-                    hintText: 'Buscar Collection',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    suffixIcon: _topicQuery.trim().isEmpty
-                        ? null
-                        : IconButton(
-                            tooltip: 'Limpiar',
-                            onPressed: () {
-                              _topicSearchController.clear();
-                              setState(() => _topicQuery = '');
-                            },
-                            icon: const Icon(Icons.close_rounded),
-                          ),
-                    filled: true,
-                    fillColor: scheme.surfaceContainerHighest.withValues(
-                      alpha: 0.55,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            PopupMenuButton<_TopicSort>(
-              tooltip: 'Ordenar',
-              initialValue: _topicSort,
-              onOpened: _markOverlayOpen,
-              onCanceled: _markOverlayClosed,
-              onSelected: (value) {
-                _markOverlayClosed();
-                setState(() => _topicSort = value);
-                _storage.write('source_library_collection_sort', value.name);
-              },
-              icon: const Icon(Icons.sort_rounded),
-              itemBuilder: (ctx) => const [
-                PopupMenuItem(
-                  value: _TopicSort.recent,
-                  child: Text('Recientes primero'),
-                ),
-                PopupMenuItem(value: _TopicSort.name, child: Text('Nombre')),
-                PopupMenuItem(
-                  value: _TopicSort.items,
-                  child: Text('Más items'),
-                ),
-                PopupMenuItem(
-                  value: _TopicSort.lists,
-                  child: Text('Más Collections'),
-                ),
-              ],
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: _topicsGridView
-                  ? 'Ver Collections como lista'
-                  : 'Ver Collections como grid',
-              onPressed: () {
-                setState(() => _topicsGridView = !_topicsGridView);
-                _storage.write(
-                  'source_library_topics_grid_view',
-                  _topicsGridView,
-                );
-              },
-              icon: Icon(
-                _topicsGridView
-                    ? Icons.view_list_rounded
-                    : Icons.grid_view_rounded,
-              ),
-            ),
-          ],
+        SourceFilterToolbar(
+          controller: _topicSearchController,
+          query: _topicQuery,
+          hintText: 'Buscar Collection',
+          onQueryChanged: (value) => setState(() => _topicQuery = value),
+          onClearQuery: () {
+            _topicSearchController.clear();
+            setState(() => _topicQuery = '');
+          },
+          onSort: _openTopicSortSheet,
+          gridView: _topicsGridView,
+          onToggleGridView: () {
+            setState(() => _topicsGridView = !_topicsGridView);
+            _storage.write('source_library_topics_grid_view', _topicsGridView);
+          },
+          gridTooltip: 'Ver Collections como grid',
+          listTooltip: 'Ver Collections como lista',
         ),
       ],
     );
@@ -668,6 +514,49 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
       if (option.name == raw) return option;
     }
     return _TopicSort.recent;
+  }
+
+  Future<void> _openTopicSortSheet() async {
+    await showSortOptionsSheet(
+      context: context,
+      title: 'Ordenar Collections',
+      optionsBuilder: () => [
+        SortSheetOption(
+          label: 'Recientes primero',
+          selected: _topicSort == _TopicSort.recent,
+          onTap: () {
+            setState(() => _topicSort = _TopicSort.recent);
+            _storage.write('source_library_collection_sort', _topicSort.name);
+          },
+        ),
+        SortSheetOption(
+          label: 'Nombre',
+          selected: _topicSort == _TopicSort.name,
+          onTap: () {
+            setState(() => _topicSort = _TopicSort.name);
+            _storage.write('source_library_collection_sort', _topicSort.name);
+          },
+        ),
+        SortSheetOption(
+          label: 'Más items',
+          selected: _topicSort == _TopicSort.items,
+          onTap: () {
+            setState(() => _topicSort = _TopicSort.items);
+            _storage.write('source_library_collection_sort', _topicSort.name);
+          },
+        ),
+        SortSheetOption(
+          label: 'Más Collections',
+          selected: _topicSort == _TopicSort.lists,
+          onTap: () {
+            setState(() => _topicSort = _TopicSort.lists);
+            _storage.write('source_library_collection_sort', _topicSort.name);
+          },
+        ),
+      ],
+      onOpened: _markOverlayOpen,
+      onClosed: _markOverlayClosed,
+    );
   }
 
   void _markOverlayOpen() {
@@ -721,25 +610,11 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
       }
 
       if (_topicsGridView) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: topics.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: AppGridTheme.getCollectionCrossAxisCount(
-                  constraints.maxWidth,
-                ),
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.92,
-              ),
-              itemBuilder: (context, index) {
-                final topic = topics[index];
-                return _topicCard(themeMeta, topic, gridStyle: true);
-              },
-            );
+        return SourceCollectionGrid(
+          itemCount: topics.length,
+          itemBuilder: (context, index) {
+            final topic = topics[index];
+            return _topicCard(themeMeta, topic, gridStyle: true);
           },
         );
       }
@@ -761,11 +636,16 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
     SourceThemeTopic topic, {
     bool gridStyle = false,
   }) {
-    return _TopicCard(
-      themeMeta: themeMeta,
-      topic: topic,
+    return SourceCollectionCard(
+      name: topic.title,
+      itemCount: topic.itemIds.length,
+      childCollectionCount: _sources.playlistsForTopic(topic.id).length,
+      baseColor: topic.colorValue != null
+          ? Color(topic.colorValue!)
+          : themeMeta.colors.first,
+      coverLocalPath: topic.coverLocalPath,
+      coverUrl: topic.coverUrl,
       gridStyle: gridStyle,
-      listCount: _sources.playlistsForTopic(topic.id).length,
       onOpen: () => Get.toNamed(
         AppRoutes.sourceTheme,
         arguments: {
@@ -824,322 +704,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
   }
 }
 
-class _TopicCard extends StatefulWidget {
-  const _TopicCard({
-    required this.themeMeta,
-    required this.topic,
-    required this.listCount,
-    this.gridStyle = false,
-    required this.onOpen,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  final SourceTheme themeMeta;
-  final SourceThemeTopic topic;
-  final int listCount;
-  final bool gridStyle;
-  final VoidCallback onOpen;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  @override
-  State<_TopicCard> createState() => _TopicCardState();
-}
-
-class _TopicCardState extends State<_TopicCard> {
-  bool _isHovered = false;
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context);
-    final topic = widget.topic;
-    final base = topic.colorValue != null
-        ? Color(topic.colorValue!)
-        : widget.themeMeta.colors.first;
-    final scheme = t.colorScheme;
-    final scale = _isPressed ? 0.97 : (_isHovered ? 1.01 : 1.0);
-
-    ImageProvider? provider;
-    final path = topic.coverLocalPath?.trim();
-    final url = topic.coverUrl?.trim();
-    if (path != null && path.isNotEmpty) {
-      provider = FileImage(File(path));
-    } else if (url != null && url.isNotEmpty) {
-      provider = NetworkImage(url);
-    }
-
-    return AnimatedScale(
-      scale: scale,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOutCubic,
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) {
-          setState(() => _isPressed = false);
-          widget.onOpen();
-        },
-        onTapCancel: () => setState(() => _isPressed = false),
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _isHovered = true),
-          onExit: (_) => setState(() => _isHovered = false),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Material(
-              color: Colors.transparent,
-              child: widget.gridStyle
-                  ? _buildGridCard(t, scheme, base, provider, topic)
-                  : _buildListCard(t, scheme, base, provider, topic),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGridCard(
-    ThemeData theme,
-    ColorScheme scheme,
-    Color base,
-    ImageProvider? provider,
-    SourceThemeTopic topic,
-  ) {
-    final onTint = _foregroundFor(base, scheme);
-    return Container(
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          base.withValues(alpha: 0.36),
-          scheme.surfaceContainerHighest,
-        ),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: _isHovered
-              ? base.withValues(alpha: 0.85)
-              : base.withValues(alpha: 0.45),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(8),
-              ),
-              child: Container(
-                color: base.withValues(alpha: 0.16),
-                child: provider != null
-                    ? Image(image: provider, fit: BoxFit.cover)
-                    : Icon(Icons.folder_rounded, color: onTint, size: 34),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          topic.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: onTint,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 30,
-                        height: 30,
-                        child: _topicMenu(theme, scheme, onTint),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      _TopicMetricChip(
-                        icon: Icons.library_music_rounded,
-                        label: '${topic.itemIds.length}',
-                        color: onTint,
-                      ),
-                      _TopicMetricChip(
-                        icon: Icons.queue_music_rounded,
-                        label: '${widget.listCount}',
-                        color: onTint,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildListCard(
-    ThemeData theme,
-    ColorScheme scheme,
-    Color base,
-    ImageProvider? provider,
-    SourceThemeTopic topic,
-  ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: _isHovered
-              ? base.withValues(alpha: 0.65)
-              : scheme.outlineVariant.withValues(alpha: 0.48),
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            child: Container(width: 4, color: base),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    width: 116,
-                    height: 65,
-                    decoration: BoxDecoration(
-                      color: base.withValues(alpha: 0.16),
-                      border: Border.all(
-                        color: base.withValues(alpha: 0.22),
-                        width: 1,
-                      ),
-                    ),
-                    child: provider != null
-                        ? Image(image: provider, fit: BoxFit.cover)
-                        : Icon(Icons.folder_rounded, color: base),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        topic.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: scheme.onSurface,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          _TopicMetricChip(
-                            icon: Icons.library_music_rounded,
-                            label: '${topic.itemIds.length}',
-                          ),
-                          _TopicMetricChip(
-                            icon: Icons.queue_music_rounded,
-                            label: '${widget.listCount}',
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(
-                  width: 42,
-                  height: 42,
-                  child: _topicMenu(theme, scheme, scheme.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _topicMenu(ThemeData theme, ColorScheme scheme, Color iconColor) {
-    return PopupMenuButton<_TopicAction>(
-      onSelected: (value) {
-        if (value == _TopicAction.edit) widget.onEdit();
-        if (value == _TopicAction.delete) widget.onDelete();
-      },
-      icon: Icon(Icons.more_vert_rounded, color: iconColor),
-      color: theme.colorScheme.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      itemBuilder: (ctx) => const [
-        PopupMenuItem(value: _TopicAction.edit, child: Text('Editar')),
-        PopupMenuItem(value: _TopicAction.delete, child: Text('Eliminar')),
-      ],
-    );
-  }
-}
-
-Color _foregroundFor(Color base, ColorScheme scheme) {
-  final bg = Color.alphaBlend(base.withValues(alpha: 0.36), scheme.surface);
-  return bg.computeLuminance() > 0.45 ? Colors.black : Colors.white;
-}
-
-enum _TopicAction { edit, delete }
-
 enum _TopicSort { recent, name, items, lists }
-
-class _TopicMetricChip extends StatelessWidget {
-  const _TopicMetricChip({required this.icon, required this.label, this.color});
-
-  final IconData icon;
-  final String label;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: color == null ? 0.62 : 0.22),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: color ?? scheme.onSurfaceVariant),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: color ?? scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _NoGlowScrollBehavior extends ScrollBehavior {
   const _NoGlowScrollBehavior();
