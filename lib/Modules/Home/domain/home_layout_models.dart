@@ -5,6 +5,7 @@ enum HomeMode { audio, video }
 enum HomeWidgetId {
   favorites,
   recommendations,
+  continueWatching,
   mostPlayed,
   recentlyPlayed,
   featured,
@@ -17,6 +18,7 @@ extension HomeWidgetIdX on HomeWidgetId {
   String get key => switch (this) {
     HomeWidgetId.favorites => 'favorites',
     HomeWidgetId.recommendations => 'recommendations',
+    HomeWidgetId.continueWatching => 'continueWatching',
     HomeWidgetId.mostPlayed => 'mostPlayed',
     HomeWidgetId.recentlyPlayed => 'recentlyPlayed',
     HomeWidgetId.featured => 'featured',
@@ -28,6 +30,7 @@ extension HomeWidgetIdX on HomeWidgetId {
   String get label => switch (this) {
     HomeWidgetId.favorites => 'Mis favoritos',
     HomeWidgetId.recommendations => 'Para ti hoy',
+    HomeWidgetId.continueWatching => 'Seguir viendo',
     HomeWidgetId.mostPlayed => 'Más reproducido',
     HomeWidgetId.recentlyPlayed => 'Reproducciones recientes',
     HomeWidgetId.featured => 'Destacado',
@@ -39,6 +42,7 @@ extension HomeWidgetIdX on HomeWidgetId {
   IconData get icon => switch (this) {
     HomeWidgetId.favorites => Icons.favorite_rounded,
     HomeWidgetId.recommendations => Icons.auto_awesome_rounded,
+    HomeWidgetId.continueWatching => Icons.play_circle_fill_rounded,
     HomeWidgetId.mostPlayed => Icons.trending_up_rounded,
     HomeWidgetId.recentlyPlayed => Icons.history_rounded,
     HomeWidgetId.featured => Icons.star_rounded,
@@ -48,9 +52,14 @@ extension HomeWidgetIdX on HomeWidgetId {
   };
 
   bool get audioOnly => this == HomeWidgetId.recommendations;
+  bool get videoOnly => this == HomeWidgetId.continueWatching;
 
   bool get videoHomeSupported =>
-      this == HomeWidgetId.latestDownloads || this == HomeWidgetId.featured;
+      this == HomeWidgetId.continueWatching ||
+      this == HomeWidgetId.latestDownloads ||
+      this == HomeWidgetId.featured ||
+      this == HomeWidgetId.mostPlayed ||
+      this == HomeWidgetId.recentlyPlayed;
 
   bool get hasFixedLayout =>
       this == HomeWidgetId.recommendations || this == HomeWidgetId.mostPlayed;

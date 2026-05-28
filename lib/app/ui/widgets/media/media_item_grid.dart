@@ -267,11 +267,15 @@ class MediaGridTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AspectRatio(
-                aspectRatio: coverAspectRatio,
-                child: _cover(context),
+              Flexible(
+                flex: coverAspectRatio > 1.2 ? 5 : 7,
+                child: AspectRatio(
+                  aspectRatio: coverAspectRatio,
+                  child: _cover(context),
+                ),
               ),
               Expanded(
+                flex: coverAspectRatio > 1.2 ? 3 : 4,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

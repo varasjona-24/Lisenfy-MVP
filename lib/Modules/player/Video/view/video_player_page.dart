@@ -893,7 +893,12 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   }
 
   String _previewCacheKey(String source, Duration position) {
-    return '$source@${position.inSeconds}';
+    final bucketSeconds = _previewBucketSeconds(position);
+    return '$source@$bucketSeconds';
+  }
+
+  int _previewBucketSeconds(Duration position) {
+    return (position.inMilliseconds / 2000).round() * 2;
   }
 
   void _requestPreview(dynamic item, Duration position) {
@@ -920,8 +925,11 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
       _previewFrameBytes = null;
       _previewLoading = true;
     });
-    _previewTimer = Timer(const Duration(milliseconds: 120), () {
-      _loadPreviewFrame(source, position);
+    _previewTimer = Timer(const Duration(milliseconds: 70), () {
+      _loadPreviewFrame(
+        source,
+        Duration(seconds: _previewBucketSeconds(position)),
+      );
     });
   }
 
@@ -934,8 +942,8 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
           .invokeMethod<Uint8List>('extractFrame', {
             'source': source,
             'positionMs': position.inMilliseconds,
-            'maxWidth': 320,
-            'quality': 72,
+            'maxWidth': 240,
+            'quality': 64,
           });
       if (!mounted || requestId != _previewRequestId) return;
 

@@ -60,7 +60,9 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
           .where((id) => id.videoHomeSupported)
           .toList(growable: false);
     }
-    return _order.where((id) => !id.audioOnly).toList(growable: false);
+    return _order
+        .where((id) => !id.audioOnly && !id.videoOnly)
+        .toList(growable: false);
   }
 
   HomeCustomSectionLayout _layoutForWidget(HomeWidgetId id) {
@@ -120,8 +122,10 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
             .toList(growable: true);
         _enabled = _order.toSet();
       } else {
-        _order = HomeWidgetId.values.toList(growable: true);
-        _enabled = HomeWidgetId.values.toSet();
+        _order = HomeWidgetId.values
+            .where((id) => !id.videoOnly)
+            .toList(growable: true);
+        _enabled = _order.toSet();
       }
       _layouts = <String, HomeCustomSectionLayout>{};
       _customSections = <HomeCustomSection>[];

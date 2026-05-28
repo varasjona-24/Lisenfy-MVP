@@ -12,6 +12,7 @@ import '../../../app/routes/app_routes.dart';
 import '../../../app/services/local_media_metadata_service.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
+import '../../player/Video/controller/video_player_controller.dart';
 import '../../artists/data/artist_store.dart';
 import '../../artists/domain/artist_profile.dart';
 import '../../playlists/data/playlist_store.dart';
@@ -121,6 +122,7 @@ class HomeController extends GetxController {
     HomeWidgetId.randomMix,
   ];
   static const _defaultVideoHomeWidgets = <HomeWidgetId>[
+    HomeWidgetId.continueWatching,
     HomeWidgetId.latestDownloads,
     HomeWidgetId.featured,
   ];
@@ -410,6 +412,7 @@ class HomeController extends GetxController {
           .toList(growable: false);
     }
     return homeWidgetOrder
+        .where((id) => !id.videoOnly)
         .where((id) => enabledHomeWidgets.contains(id))
         .toList(growable: false);
   }
@@ -417,13 +420,15 @@ class HomeController extends GetxController {
   List<HomeWidgetId> editableHomeWidgetOrderForMode(HomeMode currentMode) {
     return currentMode == HomeMode.video
         ? videoHomeWidgetOrder.toList(growable: false)
-        : homeWidgetOrder.toList(growable: false);
+        : homeWidgetOrder.where((id) => !id.videoOnly).toList(growable: false);
   }
 
   List<HomeWidgetId> enabledHomeWidgetIdsForMode(HomeMode currentMode) {
     return currentMode == HomeMode.video
         ? enabledVideoHomeWidgets.toList(growable: false)
-        : enabledHomeWidgets.toList(growable: false);
+        : enabledHomeWidgets
+              .where((id) => !id.videoOnly)
+              .toList(growable: false);
   }
 
   bool get usesDefaultHomeWidgetOrder {
@@ -448,6 +453,7 @@ class HomeController extends GetxController {
       HomeWidgetId.latestDownloads => HomeMediaSort.importedAt,
       HomeWidgetId.mostPlayed => HomeMediaSort.plays,
       HomeWidgetId.recentlyPlayed => HomeMediaSort.recent,
+      HomeWidgetId.continueWatching => HomeMediaSort.recent,
       HomeWidgetId.randomMix => HomeMediaSort.title,
       HomeWidgetId.favorites ||
       HomeWidgetId.recommendations ||
@@ -465,7 +471,8 @@ class HomeController extends GetxController {
     return switch (id) {
       HomeWidgetId.latestDownloads ||
       HomeWidgetId.mostPlayed ||
-      HomeWidgetId.recentlyPlayed => false,
+      HomeWidgetId.recentlyPlayed ||
+      HomeWidgetId.continueWatching => false,
       _ => true,
     };
   }
@@ -475,6 +482,7 @@ class HomeController extends GetxController {
       HomeWidgetId.latestDownloads => const [HomeMediaSort.importedAt],
       HomeWidgetId.mostPlayed => const [HomeMediaSort.plays],
       HomeWidgetId.recentlyPlayed => const [HomeMediaSort.recent],
+      HomeWidgetId.continueWatching => const [HomeMediaSort.recent],
       HomeWidgetId.randomMix => const <HomeMediaSort>[],
       HomeWidgetId.favorites ||
       HomeWidgetId.recommendations ||
@@ -563,7 +571,7 @@ class HomeController extends GetxController {
     }
 
     final modeItems = homeWidgetOrder
-        .where((id) => currentMode == HomeMode.audio || !id.audioOnly)
+        .where((id) => !id.videoOnly)
         .toList(growable: true);
     if (oldIndex < 0 || oldIndex >= modeItems.length) return;
     if (newIndex < 0 || newIndex > modeItems.length) return;
@@ -629,8 +637,8 @@ class HomeController extends GetxController {
       return;
     }
 
-    homeWidgetOrder.assignAll(order);
-    enabledHomeWidgets.assignAll(enabled);
+    homeWidgetOrder.assignAll(order.where((id) => !id.videoOnly));
+    enabledHomeWidgets.assignAll(enabled.where((id) => !id.videoOnly));
     homeWidgetLayouts.value = Map<String, HomeCustomSectionLayout>.from(
       layouts,
     );
@@ -979,6 +987,7 @@ class HomeController extends GetxController {
   List<MediaItem> fullItemsForHomeWidget(HomeWidgetId id) {
     final items = switch (id) {
       HomeWidgetId.favorites => fullFavorites,
+      HomeWidgetId.continueWatching => _continueWatchingItems(),
       HomeWidgetId.mostPlayed => fullMostPlayed,
       HomeWidgetId.recentlyPlayed => fullRecentlyPlayed,
       HomeWidgetId.featured => fullFeatured,
@@ -988,6 +997,70 @@ class HomeController extends GetxController {
       HomeWidgetId.recommendations => fullRecommended,
     };
     return _applyHomeWidgetSort(id, items);
+  }
+
+  List<MediaItem> _continueWatchingItems() {
+    final raw = _layoutStorage.read<Map>(
+      VideoPlayerController.resumePosStorageKey,
+    );
+    if (raw == null || raw.isEmpty) return const <MediaItem>[];
+
+    final positions = <String, int>{};
+    for (final entry in raw.entries) {
+      final key = entry.key.toString().trim();
+      final value = entry.value;
+      final ms = value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+      if (key.isEmpty || ms <= 1500) continue;
+      positions[key] = ms;
+    }
+    if (positions.isEmpty) return const <MediaItem>[];
+
+    final result = _allItems
+        .where((item) {
+          if (!item.hasVideoLocal) return false;
+          final key = _resumeKeyFor(item);
+          final positionMs = positions[key] ?? 0;
+          if (positionMs <= 1500) return false;
+          final durationMs = (item.effectiveDurationSeconds ?? 0) * 1000;
+          if (durationMs <= 0) return true;
+          final progress = positionMs / durationMs;
+          return progress > 0.02 && progress < 0.92;
+        })
+        .toList(growable: true);
+
+    result.sort((a, b) {
+      final aPos = positions[_resumeKeyFor(a)] ?? 0;
+      final bPos = positions[_resumeKeyFor(b)] ?? 0;
+      final byLastPlayed = (b.lastPlayedAt ?? 0).compareTo(a.lastPlayedAt ?? 0);
+      if (byLastPlayed != 0) return byLastPlayed;
+      return bPos.compareTo(aPos);
+    });
+    return result;
+  }
+
+  String _resumeKeyFor(MediaItem item) {
+    final publicId = item.publicId.trim();
+    return publicId.isNotEmpty ? publicId : item.id.trim();
+  }
+
+  String? continueWatchingHintFor(MediaItem item) {
+    final raw = _layoutStorage.read<Map>(
+      VideoPlayerController.resumePosStorageKey,
+    );
+    if (raw == null || raw.isEmpty) return null;
+    final value = raw[_resumeKeyFor(item)];
+    final positionMs = value is num
+        ? value.toInt()
+        : int.tryParse('$value') ?? 0;
+    if (positionMs <= 1500) return null;
+    final durationMs = (item.effectiveDurationSeconds ?? 0) * 1000;
+    if (durationMs <= 0) return 'Continuar';
+    final progress = (positionMs / durationMs).clamp(0.0, 0.99);
+    final remainingMs = (durationMs - positionMs).clamp(0, durationMs);
+    final remainingMinutes = (remainingMs / 60000).ceil();
+    final percent = (progress * 100).round();
+    if (remainingMinutes <= 1) return '$percent% visto · queda <1 min';
+    return '$percent% visto · quedan $remainingMinutes min';
   }
 
   List<MediaItem> _applyHomeWidgetSort(HomeWidgetId id, List<MediaItem> input) {

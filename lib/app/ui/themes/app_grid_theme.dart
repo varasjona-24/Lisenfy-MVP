@@ -27,7 +27,7 @@ class AppGridTheme {
   /// Standard aspect ratio for media grid items (width / height)
   /// An aspect ratio of ~0.70-0.75 allows for a square cover + text below.
   static const double childAspectRatio = 0.655;
-  static const double videoChildAspectRatio = 1.34;
+  static const double videoChildAspectRatio = 0.95;
 
   /// Standard spacing between grid items
   static const double spacing = 14.0;

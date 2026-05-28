@@ -907,6 +907,8 @@ class _HomeOrderedSections extends StatelessWidget {
           id: id,
           title: 'Reproducciones recientes',
         );
+      case HomeWidgetId.continueWatching:
+        return _mediaSection(context, id: id, title: 'Seguir viendo');
       case HomeWidgetId.featured:
         return _mediaSection(context, id: id, title: 'Destacado');
       case HomeWidgetId.latestDownloads:
@@ -952,6 +954,9 @@ class _HomeOrderedSections extends StatelessWidget {
       cardWidth: isVideoMode ? 178 : 120,
       thumbnailAspectRatio: isVideoMode ? 16 / 9 : 1,
       listHeight: isVideoMode ? 166 : 200,
+      itemHintBuilder: id == HomeWidgetId.continueWatching
+          ? (item, _) => controller.continueWatchingHintFor(item)
+          : null,
       onHeaderTap: () =>
           _openList(context, title: title, items: full, sourceId: id),
       onItemTap: (item, index) => controller.openMedia(item, index, full),

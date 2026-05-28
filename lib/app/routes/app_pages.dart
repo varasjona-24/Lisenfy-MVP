@@ -230,6 +230,7 @@ abstract class AppPages {
     GetPage(
       name: AppRoutes.listeningStats,
       page: () => const ListeningStatsPage(),
+      binding: SourcesBinding(),
     ),
 
     // Playlists
