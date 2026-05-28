@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../models/media_item.dart';
+import '../../../utils/media_item_status_helper.dart';
 
 import '../../themes/app_grid_theme.dart';
 
@@ -366,6 +367,11 @@ class MediaGridTile extends StatelessWidget {
                   : _fallbackCover(scheme),
             ),
           ),
+        ),
+        Positioned(
+          top: 6,
+          left: 6,
+          child: VideoBadgesOverlay(item: item),
         ),
         if (!selectionMode && coverOverlay != null)
           Positioned(right: 6, bottom: 6, child: coverOverlay!),

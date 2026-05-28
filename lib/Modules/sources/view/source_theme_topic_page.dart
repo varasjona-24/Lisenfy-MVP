@@ -25,6 +25,7 @@ import '../ui/source_collection_grid.dart';
 import '../ui/source_filter_toolbar.dart';
 import '../ui/source_playlist_card.dart';
 import '../../../app/utils/format_bytes.dart';
+import '../../../app/utils/media_item_status_helper.dart';
 
 // ============================
 // 🧭 PAGE: TOPIC
@@ -473,6 +474,9 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
     SourceThemeTopicPlaylist playlist, {
     bool gridStyle = false,
   }) {
+    final progress = CollectionProgressHelper.getProgress(playlist.itemIds);
+    final completedCount = progress.$1;
+
     return SourcePlaylistCard(
       theme: widget.theme,
       playlist: playlist,
@@ -491,6 +495,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
       ),
       onEdit: () => _openEditPlaylist(playlist),
       onDelete: () => _sources.deleteTopicPlaylist(playlist),
+      completedCount: completedCount,
     );
   }
 

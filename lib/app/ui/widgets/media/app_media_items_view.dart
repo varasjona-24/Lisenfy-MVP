@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../models/media_item.dart';
+import '../../../utils/media_item_status_helper.dart';
 import '../../themes/app_grid_theme.dart';
 import '../../themes/app_spacing.dart';
 import 'media_item_grid.dart';
@@ -418,6 +419,12 @@ class _ActionThumb extends StatelessWidget {
           ),
           if (videoStyle)
             Positioned(
+              top: 8,
+              left: 8,
+              child: VideoBadgesOverlay(item: item),
+            ),
+          if (videoStyle)
+            Positioned(
               left: 8,
               bottom: 7,
               child: _DurationBadge(seconds: item.effectiveDurationSeconds),
@@ -697,6 +704,11 @@ class _VideoThumb extends StatelessWidget {
                         _fallbackThumb(scheme, Icons.videocam_rounded),
                   )
                 : _fallbackThumb(scheme, Icons.videocam_rounded),
+          ),
+          Positioned(
+            top: 8,
+            left: 8,
+            child: VideoBadgesOverlay(item: item),
           ),
           Positioned(
             left: 8,

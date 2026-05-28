@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../models/media_item.dart';
+import '../../../utils/media_item_status_helper.dart';
 import '../../themes/app_spacing.dart';
 
 class MediaCard extends StatefulWidget {
@@ -95,6 +96,11 @@ class _MediaCardState extends State<MediaCard> {
                       fit: StackFit.expand,
                       children: [
                         _buildThumbnail(context),
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: VideoBadgesOverlay(item: widget.item),
+                        ),
                         Positioned(
                           left: 0,
                           right: 0,

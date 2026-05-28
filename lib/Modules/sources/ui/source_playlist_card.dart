@@ -14,6 +14,7 @@ class SourcePlaylistCard extends StatelessWidget {
     required this.onOpen,
     required this.onEdit,
     required this.onDelete,
+    this.completedCount,
   });
 
   final SourceTheme theme;
@@ -23,6 +24,7 @@ class SourcePlaylistCard extends StatelessWidget {
   final VoidCallback onOpen;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final int? completedCount;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +41,7 @@ class SourcePlaylistCard extends StatelessWidget {
       onOpen: onOpen,
       onEdit: onEdit,
       onDelete: onDelete,
+      completedCount: completedCount,
     );
   }
 }

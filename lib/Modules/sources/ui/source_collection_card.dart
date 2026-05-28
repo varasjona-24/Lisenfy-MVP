@@ -18,6 +18,7 @@ class SourceCollectionCard extends StatefulWidget {
     required this.onOpen,
     required this.onEdit,
     required this.onDelete,
+    this.completedCount,
   });
 
   final String name;
@@ -30,6 +31,7 @@ class SourceCollectionCard extends StatefulWidget {
   final VoidCallback onOpen;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final int? completedCount;
 
   @override
   State<SourceCollectionCard> createState() => _SourceCollectionCardState();
@@ -95,6 +97,10 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
     Color onTint,
     ImageProvider? provider,
   ) {
+    final isAllCompleted = widget.completedCount != null &&
+        widget.itemCount > 0 &&
+        widget.completedCount == widget.itemCount;
+
     return Container(
       decoration: BoxDecoration(
         color: Color.alphaBlend(
@@ -117,11 +123,15 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(8),
               ),
-              child: Container(
-                color: base.withValues(alpha: 0.16),
-                child: provider != null
-                    ? Image(image: provider, fit: BoxFit.cover)
-                    : Icon(Icons.folder_rounded, color: onTint, size: 34),
+              child: _buildCoverStack(
+                width: double.infinity,
+                height: double.infinity,
+                base: base,
+                onTint: onTint,
+                provider: provider,
+                isAllCompleted: isAllCompleted,
+                scheme: scheme,
+                theme: theme,
               ),
             ),
           ),
@@ -153,6 +163,7 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
                   ),
                   const SizedBox(height: 6),
                   _metrics(onTint),
+                  _buildProgressBar(theme, scheme, onTint),
                 ],
               ),
             ),
@@ -169,6 +180,10 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
     Color onTint,
     ImageProvider? provider,
   ) {
+    final isAllCompleted = widget.completedCount != null &&
+        widget.itemCount > 0 &&
+        widget.completedCount == widget.itemCount;
+
     return Container(
       decoration: BoxDecoration(
         color: Color.alphaBlend(
@@ -188,13 +203,19 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Container(
+              child: SizedBox(
                 width: 116,
                 height: 65,
-                color: base.withValues(alpha: 0.22),
-                child: provider != null
-                    ? Image(image: provider, fit: BoxFit.cover)
-                    : Icon(Icons.folder_rounded, color: onTint, size: 32),
+                child: _buildCoverStack(
+                  width: 116,
+                  height: 65,
+                  base: base,
+                  onTint: onTint,
+                  provider: provider,
+                  isAllCompleted: isAllCompleted,
+                  scheme: scheme,
+                  theme: theme,
+                ),
               ),
             ),
             const SizedBox(width: 14),
@@ -214,6 +235,7 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
                   ),
                   const SizedBox(height: 9),
                   _metrics(onTint),
+                  _buildProgressBar(theme, scheme, onTint),
                 ],
               ),
             ),
@@ -221,6 +243,114 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCoverStack({
+    required double width,
+    required double height,
+    required Color base,
+    required Color onTint,
+    required ImageProvider? provider,
+    required bool isAllCompleted,
+    required ColorScheme scheme,
+    required ThemeData theme,
+  }) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Container(
+            color: base.withValues(alpha: 0.16),
+            child: provider != null
+                ? Image(image: provider, fit: BoxFit.cover)
+                : Icon(Icons.folder_rounded, color: onTint, size: width > 110 ? 34 : 32),
+          ),
+        ),
+        if (isAllCompleted)
+          Positioned(
+            top: 4,
+            left: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: scheme.primary,
+                borderRadius: BorderRadius.circular(4),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.25),
+                    blurRadius: 2,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 8,
+                    color: scheme.onPrimary,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    'COMPLETADO',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.onPrimary,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 7.5,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildProgressBar(ThemeData theme, ColorScheme scheme, Color onTint) {
+    if (widget.completedCount == null || widget.itemCount <= 0) {
+      return const SizedBox.shrink();
+    }
+    final completed = widget.completedCount!;
+    final total = widget.itemCount;
+    final percentage = (completed / total).clamp(0.0, 1.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: percentage,
+                  minHeight: 3.5,
+                  backgroundColor: onTint.withValues(alpha: 0.1),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    completed == total
+                        ? scheme.primary
+                        : scheme.primary.withValues(alpha: 0.65),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '$completed/$total completados',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: onTint.withValues(alpha: 0.7),
+                fontSize: 8.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

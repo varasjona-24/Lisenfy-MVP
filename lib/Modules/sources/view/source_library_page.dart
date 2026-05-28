@@ -24,6 +24,7 @@ import '../domain/source_theme_topic.dart';
 import '../ui/source_collection_card.dart';
 import '../ui/source_collection_grid.dart';
 import '../ui/source_filter_toolbar.dart';
+import '../../../app/utils/media_item_status_helper.dart';
 
 // ============================
 // 🧭 PAGE: SOURCE LIBRARY
@@ -636,6 +637,9 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
     SourceThemeTopic topic, {
     bool gridStyle = false,
   }) {
+    final progress = CollectionProgressHelper.getProgress(topic.itemIds);
+    final completedCount = progress.$1;
+
     return SourceCollectionCard(
       name: topic.title,
       itemCount: topic.itemIds.length,
@@ -656,6 +660,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
       ),
       onEdit: () => _openEditTopic(topic),
       onDelete: () => _confirmDeleteTopic(topic),
+      completedCount: completedCount,
     );
   }
 
