@@ -4,20 +4,19 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../../Modules/artists/data/artist_store.dart';
-import '../../../../Modules/sources/binding/sources_binding.dart';
-import '../../../../Modules/sources/controller/sources_controller.dart';
-import '../../../../Modules/world_mode/agent/local_affinity_engine.dart';
-import '../../../../Modules/world_mode/domain/entities/world_region_catalog.dart';
-import '../../../../app/data/local/local_library_store.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
-import '../../../../app/utils/artist_credit_parser.dart';
+import '../../controller/listening_stats_controller.dart';
+import '../../domain/entities/listening_stats_entities.dart';
+
+part '../widgets/imports_tab.dart';
+part '../widgets/audio_tab.dart';
+part '../widgets/video_tab.dart';
 
 // ─────────────────────────────────────────────
 // Paleta de colores para charts
 // ─────────────────────────────────────────────
-const _kArtistColors = [
+const kArtistColors = [
   Color(0xFFFF6B6B),
   Color(0xFFFF8E53),
   Color(0xFFFFD166),
@@ -25,26 +24,18 @@ const _kArtistColors = [
   Color(0xFF118AB2),
 ];
 
-const _kMusicGradient = [Color(0xFF7B2FF7), Color(0xFFE040FB)];
-const _kImportGradient = [Color(0xFF0575E6), Color(0xFF00F260)];
-const _kVideoGradient = [Color(0xFFFF4E50), Color(0xFFF9D423)];
+const kMusicGradient = [Color(0xFF7B2FF7), Color(0xFFE040FB)];
+const kImportGradient = [Color(0xFF0575E6), Color(0xFF00F260)];
+const kVideoGradient = [Color(0xFFFF4E50), Color(0xFFF9D423)];
 
 // ─────────────────────────────────────────────
 // Page root
 // ─────────────────────────────────────────────
-class ListeningStatsPage extends StatelessWidget {
+class ListeningStatsPage extends GetView<ListeningStatsController> {
   const ListeningStatsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    if (!Get.isRegistered<SourcesController>()) {
-      SourcesBinding().dependencies();
-    }
-    final store = Get.find<LocalLibraryStore>();
-    final artistStore = Get.isRegistered<ArtistStore>()
-        ? Get.find<ArtistStore>()
-        : null;
-    final sourcesController = Get.find<SourcesController>();
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -70,61 +61,50 @@ class ListeningStatsPage extends StatelessWidget {
         elevation: 0,
       ),
       body: AppGradientBackground(
-        child: FutureBuilder<List<MediaItem>>(
-          future: store.readAll(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
+        child: Obx(() {
+          if (controller.isLoading.value) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-            return Obx(() {
-              // Access topics and playlists to trigger reactivity
-              sourcesController.topics.length;
-              sourcesController.topicPlaylists.length;
-
-              final stats = _ListeningStats.fromItems(
-                snapshot.data ?? const [],
-                artistStore: artistStore,
-                sourcesController: sourcesController,
-              );
-
-              if (!stats.hasAnyData) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.music_off_rounded,
-                          size: 72,
-                          color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Aún no hay suficientes datos',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Importa canciones y empieza a escuchar para ver tu Wrapped.',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+          final stats = controller.stats.value;
+          if (stats == null || !stats.hasAnyData) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.music_off_rounded,
+                      size: 72,
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
                     ),
-                  ),
-                );
-              }
+                    const SizedBox(height: 16),
+                    Text(
+                      'Aún no hay suficientes datos',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Importa canciones y empieza a escuchar para ver tu Wrapped.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
 
-              return _WrappedBody(stats: stats);
-            });
-          },
-        ),
+          return RefreshIndicator(
+            onRefresh: controller.refreshStats,
+            child: _WrappedBody(stats: stats),
+          );
+        }),
       ),
     );
   }
@@ -135,7 +115,7 @@ class ListeningStatsPage extends StatelessWidget {
 // ─────────────────────────────────────────────
 class _WrappedBody extends StatefulWidget {
   const _WrappedBody({required this.stats});
-  final _ListeningStats stats;
+  final ListeningStats stats;
 
   @override
   State<_WrappedBody> createState() => _WrappedBodyState();
@@ -228,11 +208,11 @@ class _WrappedBodyState extends State<_WrappedBody>
                 dividerColor: Colors.transparent,
                 indicatorSize: TabBarIndicatorSize.tab,
                 indicator: BoxDecoration(
-                  gradient: const LinearGradient(colors: _kMusicGradient),
+                  gradient: const LinearGradient(colors: kMusicGradient),
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: _kMusicGradient[0].withValues(alpha: 0.3),
+                      color: kMusicGradient[0].withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -283,14 +263,14 @@ class _WrappedBodyState extends State<_WrappedBody>
           Expanded(
             child: TabBarView(
               children: [
-                _ImportsTab(stats: s, fade: _fade),
-                _AudioTab(
+                ImportsTab(stats: s, fade: _fade),
+                AudioTab(
                   stats: s,
                   fade: _fade,
                   masterCtrl: _masterCtrl,
                   counterCtrl: _counterCtrl,
                 ),
-                _VideoTab(stats: s, fade: _fade, masterCtrl: _masterCtrl),
+                VideoTab(stats: s, fade: _fade, masterCtrl: _masterCtrl),
               ],
             ),
           ),
@@ -304,8 +284,8 @@ class _WrappedBodyState extends State<_WrappedBody>
 // Tab 1: Imports
 // ─────────────────────────────────────────────
 class _ImportsTab extends StatelessWidget {
-  const _ImportsTab({required this.stats, required this.fade});
-  final _ListeningStats stats;
+  const _ImportsTab({super.key, required this.stats, required this.fade});
+  final ListeningStats stats;
   final Widget Function(int, Widget) fade;
 
   @override
@@ -314,7 +294,7 @@ class _ImportsTab extends StatelessWidget {
 
     final rows = stats.topImportedArtists
         .map(
-          (artist) => _RankedRowData(
+          (artist) => RankedRowData(
             title: artist.name,
             subtitle: '${artist.tracks} canciones importadas',
             value: '${artist.imports}',
@@ -322,7 +302,7 @@ class _ImportsTab extends StatelessWidget {
                 ? 1
                 : stats.topImportedArtists.first.imports,
             currentValue: artist.imports,
-            color: _kImportGradient.first,
+            color: kImportGradient.first,
           ),
         )
         .toList();
@@ -337,14 +317,14 @@ class _ImportsTab extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: _kImportGradient,
+                colors: kImportGradient,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: _kImportGradient[0].withValues(alpha: 0.3),
+                  color: kImportGradient[0].withValues(alpha: 0.3),
                   blurRadius: 18,
                   offset: const Offset(0, 6),
                 ),
@@ -390,38 +370,38 @@ class _ImportsTab extends StatelessWidget {
                   : constraints.maxWidth;
 
               final metrics = [
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.file_download_done_rounded,
                   label: 'Archivos',
                   value: '${stats.totalImportFiles}',
                   caption:
                       '${stats.importedAudioFiles} audio · ${stats.importedVideoFiles} video',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.sd_storage_rounded,
                   label: 'Peso local',
                   value: stats.totalImportSizeLabel,
                   caption: 'Tamaño total en almacenamiento',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.analytics_rounded,
                   label: 'Tamaño medio',
                   value: stats.averageFileSizeLabel,
                   caption: 'Peso promedio por archivo',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.file_present_rounded,
                   label: 'Formato común',
                   value: stats.mostCommonFormat,
                   caption: 'Tipo de archivo predominante',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.calendar_month_rounded,
                   label: 'Mes fuerte',
                   value: stats.topImportMonthLabel,
                   caption: 'Mayor cantidad de descargas',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.today_rounded,
                   label: 'Día activo',
                   value: stats.mostActiveImportWeekday,
@@ -436,9 +416,9 @@ class _ImportsTab extends StatelessWidget {
                     .map(
                       (m) => SizedBox(
                         width: itemWidth,
-                        child: _FieldMetricTile(
+                        child: FieldMetricTile(
                           data: m,
-                          accent: _kImportGradient.first,
+                          accent: kImportGradient.first,
                         ),
                       ),
                     )
@@ -452,11 +432,11 @@ class _ImportsTab extends StatelessWidget {
         if (stats.monthlyImports.isNotEmpty) ...[
           fade(
             2,
-            _SectionHeader(
+            SectionHeader(
               emoji: '📊',
               title: 'Actividad de Imports',
               subtitle: 'Archivos importados por mes',
-              gradient: _kImportGradient,
+              gradient: kImportGradient,
             ),
           ),
           const SizedBox(height: 10),
@@ -467,15 +447,15 @@ class _ImportsTab extends StatelessWidget {
         if (rows.isNotEmpty) ...[
           fade(
             3,
-            _SectionHeader(
+            SectionHeader(
               emoji: '🎤',
               title: 'Artistas más Importados',
               subtitle: 'Basado en archivos locales',
-              gradient: _kImportGradient,
+              gradient: kImportGradient,
             ),
           ),
           const SizedBox(height: 10),
-          fade(3, _CompactRankedRows(rows: rows)),
+          fade(3, CompactRankedRows(rows: rows)),
           const SizedBox(height: 14),
         ],
       ],
@@ -488,13 +468,14 @@ class _ImportsTab extends StatelessWidget {
 // ─────────────────────────────────────────────
 class _AudioTab extends StatelessWidget {
   const _AudioTab({
+    super.key,
     required this.stats,
     required this.fade,
     required this.masterCtrl,
     required this.counterCtrl,
   });
 
-  final _ListeningStats stats;
+  final ListeningStats stats;
   final Widget Function(int, Widget) fade;
   final AnimationController masterCtrl;
   final AnimationController counterCtrl;
@@ -522,37 +503,37 @@ class _AudioTab extends StatelessWidget {
                   : constraints.maxWidth;
 
               final metrics = [
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.library_music_rounded,
                   label: 'Canciones',
                   value: '${stats.importedAudioItems}',
                   caption: '${stats.audioLibraryDurationLabel} guardadas',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.watch_later_rounded,
                   label: 'Tiempo escuchado',
                   value: stats.estimatedListeningTimeLabel,
                   caption: 'Tiempo estimado de reproducción',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.access_time_filled_rounded,
                   label: 'Horario favorito',
                   value: stats.favoriteTimeOfDay,
                   caption: 'Momento con más actividad',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.people_rounded,
                   label: 'Diversidad de artistas',
                   value: '${stats.artistDiversityCount}',
                   caption: 'Artistas distintos escuchados',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.repeat_rounded,
                   label: 'Reproducciones',
                   value: '${stats.totalPlays}',
                   caption: '${stats.recentTracks} activas en 30 días',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.done_all_rounded,
                   label: 'Completadas',
                   value: '${stats.totalCompleted}',
@@ -567,9 +548,9 @@ class _AudioTab extends StatelessWidget {
                     .map(
                       (m) => SizedBox(
                         width: itemWidth,
-                        child: _FieldMetricTile(
+                        child: FieldMetricTile(
                           data: m,
-                          accent: _kMusicGradient.first,
+                          accent: kMusicGradient.first,
                         ),
                       ),
                     )
@@ -585,11 +566,11 @@ class _AudioTab extends StatelessWidget {
 
         fade(
           4,
-          _SectionHeader(
+          SectionHeader(
             emoji: '📊',
             title: 'Tu Biblioteca',
             subtitle: 'Distribución de contenido',
-            gradient: _kMusicGradient,
+            gradient: kMusicGradient,
           ),
         ),
         const SizedBox(height: 10),
@@ -599,11 +580,11 @@ class _AudioTab extends StatelessWidget {
         if (stats.topArtists.isNotEmpty) ...[
           fade(
             5,
-            _SectionHeader(
+            SectionHeader(
               emoji: '🎤',
               title: 'Top Artistas',
               subtitle: 'Por número de escuchas',
-              gradient: _kMusicGradient,
+              gradient: kMusicGradient,
             ),
           ),
           const SizedBox(height: 10),
@@ -619,30 +600,28 @@ class _AudioTab extends StatelessWidget {
         if (stats.topTracks.isNotEmpty) ...[
           fade(
             7,
-            _SectionHeader(
+            SectionHeader(
               emoji: '🏆',
               title: 'Top Canciones',
               subtitle: 'Las que más sonaron',
-              gradient: _kMusicGradient,
+              gradient: kMusicGradient,
             ),
           ),
           const SizedBox(height: 10),
           fade(
             7,
-            _AnimatedRankedList(
+            AnimatedRankedList(
               rows: stats.topTracks
                   .map(
-                    (item) => _RankedRowData(
+                    (item) => RankedRowData(
                       title: item.title,
                       subtitle: item.displaySubtitle,
-                      value: '${_ListeningStats.listenScoreFor(item)} plays',
+                      value: '${ListeningStats.listenScoreFor(item)} plays',
                       maxValue: stats.topTracks.isNotEmpty
-                          ? _ListeningStats.listenScoreFor(
-                              stats.topTracks.first,
-                            )
+                          ? ListeningStats.listenScoreFor(stats.topTracks.first)
                           : 1,
-                      currentValue: _ListeningStats.listenScoreFor(item),
-                      color: _kMusicGradient[0],
+                      currentValue: ListeningStats.listenScoreFor(item),
+                      color: kMusicGradient[0],
                     ),
                   )
                   .toList(),
@@ -655,11 +634,11 @@ class _AudioTab extends StatelessWidget {
         if (stats.topRegions.isNotEmpty) ...[
           fade(
             8,
-            _SectionHeader(
+            SectionHeader(
               emoji: '🌍',
               title: 'Regiones Favoritas',
               subtitle: 'Tu música por origen',
-              gradient: _kMusicGradient,
+              gradient: kMusicGradient,
             ),
           ),
           const SizedBox(height: 10),
@@ -669,11 +648,11 @@ class _AudioTab extends StatelessWidget {
 
         fade(
           9,
-          _SectionHeader(
+          SectionHeader(
             emoji: '⏭',
             title: 'Completadas vs Saltadas',
             subtitle: 'Tu paciencia musical',
-            gradient: _kMusicGradient,
+            gradient: kMusicGradient,
           ),
         ),
         const SizedBox(height: 10),
@@ -689,12 +668,13 @@ class _AudioTab extends StatelessWidget {
 // ─────────────────────────────────────────────
 class _VideoTab extends StatelessWidget {
   const _VideoTab({
+    super.key,
     required this.stats,
     required this.fade,
     required this.masterCtrl,
   });
 
-  final _ListeningStats stats;
+  final ListeningStats stats;
   final Widget Function(int, Widget) fade;
   final AnimationController masterCtrl;
 
@@ -704,24 +684,24 @@ class _VideoTab extends StatelessWidget {
 
     final videoRows = stats.topVideos
         .map(
-          (item) => _RankedRowData(
+          (item) => RankedRowData(
             title: item.title,
             subtitle: item.displaySubtitle.isEmpty
                 ? 'Video'
                 : item.displaySubtitle,
-            value: '${_ListeningStats.listenScoreFor(item)} plays',
+            value: '${ListeningStats.listenScoreFor(item)} plays',
             maxValue: stats.topVideos.isEmpty
                 ? 1
-                : _ListeningStats.listenScoreFor(stats.topVideos.first),
-            currentValue: _ListeningStats.listenScoreFor(item),
-            color: _kVideoGradient.first,
+                : ListeningStats.listenScoreFor(stats.topVideos.first),
+            currentValue: ListeningStats.listenScoreFor(item),
+            color: kVideoGradient.first,
           ),
         )
         .toList();
 
     final collectionRows = stats.topCollections
         .map(
-          (col) => _RankedRowData(
+          (col) => RankedRowData(
             title: col.name,
             subtitle: col.subtitle,
             value: '${col.items} videos',
@@ -729,7 +709,7 @@ class _VideoTab extends StatelessWidget {
                 ? 1
                 : stats.topCollections.first.items,
             currentValue: col.items,
-            color: _kVideoGradient.first,
+            color: kVideoGradient.first,
           ),
         )
         .toList();
@@ -744,14 +724,14 @@ class _VideoTab extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: _kVideoGradient,
+                colors: kVideoGradient,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: _kVideoGradient[0].withValues(alpha: 0.3),
+                  color: kVideoGradient[0].withValues(alpha: 0.3),
                   blurRadius: 18,
                   offset: const Offset(0, 6),
                 ),
@@ -799,38 +779,38 @@ class _VideoTab extends StatelessWidget {
                   : constraints.maxWidth;
 
               final metrics = [
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.video_library_rounded,
                   label: 'Videos',
                   value: '${stats.importedVideoItems}',
                   caption: '${stats.videoLibraryDurationLabel} guardados',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.play_circle_rounded,
                   label: 'Reproducciones',
                   value: '${stats.videoPlays}',
                   caption: '${stats.videoRecentItems} activos en 30 días',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.folder_special_rounded,
                   label: 'Collections',
                   value: '${stats.totalVideoCollections}',
                   caption:
                       '${stats.rootVideoCollections} principales · ${stats.videoSubCollections} subcarpetas',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.pie_chart_rounded,
                   label: 'Organización',
                   value: stats.organizedVideoPercentageLabel,
                   caption: 'Videos organizados en carpetas',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.linked_camera_rounded,
                   label: 'Promedio por carpeta',
                   value: stats.averageVideosPerCollectionLabel,
                   caption: 'Videos por Collection',
                 ),
-                _FieldMetricData(
+                FieldMetricData(
                   icon: Icons.link_rounded,
                   label: 'Items enlazados',
                   value: '${stats.collectionLinkedItems}',
@@ -845,9 +825,9 @@ class _VideoTab extends StatelessWidget {
                     .map(
                       (m) => SizedBox(
                         width: itemWidth,
-                        child: _FieldMetricTile(
+                        child: FieldMetricTile(
                           data: m,
-                          accent: _kVideoGradient.first,
+                          accent: kVideoGradient.first,
                         ),
                       ),
                     )
@@ -861,32 +841,32 @@ class _VideoTab extends StatelessWidget {
         if (videoRows.isNotEmpty) ...[
           fade(
             2,
-            _SectionHeader(
+            SectionHeader(
               emoji: '📺',
               title: 'Videos más Vistos',
               subtitle: 'Por número de reproducciones',
-              gradient: _kVideoGradient,
+              gradient: kVideoGradient,
             ),
           ),
           const SizedBox(height: 10),
-          fade(2, _AnimatedRankedList(rows: videoRows, masterCtrl: masterCtrl)),
+          fade(2, AnimatedRankedList(rows: videoRows, masterCtrl: masterCtrl)),
           const SizedBox(height: 14),
         ],
 
         if (collectionRows.isNotEmpty) ...[
           fade(
             3,
-            _SectionHeader(
+            SectionHeader(
               emoji: '📁',
               title: 'Top Colecciones',
               subtitle: 'Las más grandes',
-              gradient: _kVideoGradient,
+              gradient: kVideoGradient,
             ),
           ),
           const SizedBox(height: 10),
           fade(
             3,
-            _AnimatedRankedList(rows: collectionRows, masterCtrl: masterCtrl),
+            AnimatedRankedList(rows: collectionRows, masterCtrl: masterCtrl),
           ),
           const SizedBox(height: 14),
         ],
@@ -895,8 +875,8 @@ class _VideoTab extends StatelessWidget {
   }
 }
 
-class _FieldMetricData {
-  const _FieldMetricData({
+class FieldMetricData {
+  const FieldMetricData({
     required this.icon,
     required this.label,
     required this.value,
@@ -909,10 +889,10 @@ class _FieldMetricData {
   final String caption;
 }
 
-class _FieldMetricTile extends StatelessWidget {
-  const _FieldMetricTile({required this.data, required this.accent});
+class FieldMetricTile extends StatelessWidget {
+  const FieldMetricTile({super.key, required this.data, required this.accent});
 
-  final _FieldMetricData data;
+  final FieldMetricData data;
   final Color accent;
 
   @override
@@ -977,10 +957,10 @@ class _FieldMetricTile extends StatelessWidget {
   }
 }
 
-class _CompactRankedRows extends StatelessWidget {
-  const _CompactRankedRows({required this.rows});
+class CompactRankedRows extends StatelessWidget {
+  const CompactRankedRows({super.key, required this.rows});
 
-  final List<_RankedRowData> rows;
+  final List<RankedRowData> rows;
 
   @override
   Widget build(BuildContext context) {
@@ -990,7 +970,7 @@ class _CompactRankedRows extends StatelessWidget {
       children: List.generate(rows.take(5).length, (index) {
         final row = rows[index];
         final ratio = row.maxValue <= 0 ? 0.0 : row.currentValue / row.maxValue;
-        final color = _kArtistColors[index % _kArtistColors.length];
+        final color = kArtistColors[index % kArtistColors.length];
         return Padding(
           padding: EdgeInsets.only(bottom: index == rows.length - 1 ? 0 : 10),
           child: Row(
@@ -1071,8 +1051,9 @@ class _CompactRankedRows extends StatelessWidget {
 // ─────────────────────────────────────────────
 // Section Header
 // ─────────────────────────────────────────────
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
+class SectionHeader extends StatelessWidget {
+  const SectionHeader({
+    super.key,
     required this.emoji,
     required this.title,
     required this.subtitle,
@@ -1129,7 +1110,7 @@ class _SectionHeader extends StatelessWidget {
 class _AnimatedHeroCard extends StatelessWidget {
   const _AnimatedHeroCard({required this.stats, required this.counterCtrl});
 
-  final _ListeningStats stats;
+  final ListeningStats stats;
   final AnimationController counterCtrl;
 
   @override
@@ -1142,14 +1123,14 @@ class _AnimatedHeroCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: _kMusicGradient,
+          colors: kMusicGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: _kMusicGradient[0].withValues(alpha: 0.4),
+            color: kMusicGradient[0].withValues(alpha: 0.4),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -1225,7 +1206,7 @@ class _AnimatedHeroCard extends StatelessWidget {
 // ─────────────────────────────────────────────
 class _MoodCard extends StatelessWidget {
   const _MoodCard({required this.stats});
-  final _ListeningStats stats;
+  final ListeningStats stats;
 
   String get _emoji {
     final ratio = stats.totalPlays == 0
@@ -1337,7 +1318,7 @@ class _MoodCard extends StatelessWidget {
 // ─────────────────────────────────────────────
 class _MetricsCard extends StatefulWidget {
   const _MetricsCard({required this.stats});
-  final _ListeningStats stats;
+  final ListeningStats stats;
 
   @override
   State<_MetricsCard> createState() => _MetricsCardState();
@@ -1373,7 +1354,7 @@ class _MetricsCardState extends State<_MetricsCard>
     final scheme = theme.colorScheme;
     final s = widget.stats;
 
-    return _StatsCard(
+    return StatsCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1398,7 +1379,7 @@ class _MetricsCardState extends State<_MetricsCard>
                   label: 'Promedio escuchado',
                   value: s.averageProgressPercent / 100,
                   displayText: '${s.averageProgressPercent}%',
-                  color: _kMusicGradient[0],
+                  color: kMusicGradient[0],
                   anim: _anim.value,
                 ),
                 const SizedBox(height: 12),
@@ -1494,7 +1475,7 @@ class _ProgressMetric extends StatelessWidget {
 // ─────────────────────────────────────────────
 class _ArtistBarChart extends StatefulWidget {
   const _ArtistBarChart({required this.artists});
-  final List<_ArtistStats> artists;
+  final List<ArtistStats> artists;
 
   @override
   State<_ArtistBarChart> createState() => _ArtistBarChartState();
@@ -1533,7 +1514,7 @@ class _ArtistBarChartState extends State<_ArtistBarChart>
         ? 1
         : artists.map((a) => a.plays).reduce(max);
 
-    return _StatsCard(
+    return StatsCard(
       child: AnimatedBuilder(
         animation: _anim,
         builder: (context, child) {
@@ -1542,7 +1523,7 @@ class _ArtistBarChartState extends State<_ArtistBarChart>
               final artist = artists[i];
               final ratio = maxPlays == 0 ? 0.0 : artist.plays / maxPlays;
               final animRatio = ratio * _anim.value;
-              final color = _kArtistColors[i % _kArtistColors.length];
+              final color = kArtistColors[i % kArtistColors.length];
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -1640,12 +1621,12 @@ class _ArtistBarChartState extends State<_ArtistBarChart>
 class _TopTrackHero extends StatelessWidget {
   const _TopTrackHero({required this.item, required this.stats});
   final MediaItem item;
-  final _ListeningStats stats;
+  final ListeningStats stats;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final plays = _ListeningStats.listenScoreFor(item);
+    final plays = ListeningStats.listenScoreFor(item);
 
     return Container(
       decoration: BoxDecoration(
@@ -1656,7 +1637,7 @@ class _TopTrackHero extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: _kMusicGradient[0].withValues(alpha: 0.4),
+          color: kMusicGradient[0].withValues(alpha: 0.4),
           width: 1.5,
         ),
       ),
@@ -1667,7 +1648,7 @@ class _TopTrackHero extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: _kMusicGradient),
+              gradient: const LinearGradient(colors: kMusicGradient),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
@@ -1687,7 +1668,7 @@ class _TopTrackHero extends StatelessWidget {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: _kMusicGradient),
+                    gradient: const LinearGradient(colors: kMusicGradient),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Text(
@@ -1724,7 +1705,7 @@ class _TopTrackHero extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: _kMusicGradient[1],
+                    color: kMusicGradient[1],
                   ),
                 ),
               ],
@@ -1739,17 +1720,21 @@ class _TopTrackHero extends StatelessWidget {
 // ─────────────────────────────────────────────
 // Animated Ranked List con barras proporcionales
 // ─────────────────────────────────────────────
-class _AnimatedRankedList extends StatefulWidget {
-  const _AnimatedRankedList({required this.rows, required this.masterCtrl});
+class AnimatedRankedList extends StatefulWidget {
+  const AnimatedRankedList({
+    super.key,
+    required this.rows,
+    required this.masterCtrl,
+  });
 
-  final List<_RankedRowData> rows;
+  final List<RankedRowData> rows;
   final AnimationController masterCtrl;
 
   @override
-  State<_AnimatedRankedList> createState() => _AnimatedRankedListState();
+  State<AnimatedRankedList> createState() => AnimatedRankedListState();
 }
 
-class _AnimatedRankedListState extends State<_AnimatedRankedList>
+class AnimatedRankedListState extends State<AnimatedRankedList>
     with SingleTickerProviderStateMixin {
   late final AnimationController _barCtrl;
   late final Animation<double> _barAnim;
@@ -1778,14 +1763,14 @@ class _AnimatedRankedListState extends State<_AnimatedRankedList>
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    return _StatsCard(
+    return StatsCard(
       child: Column(
         children: List.generate(widget.rows.length, (i) {
           final row = widget.rows[i];
           final ratio = row.maxValue == 0
               ? 0.0
               : row.currentValue / row.maxValue;
-          final color = _kArtistColors[i % _kArtistColors.length];
+          final color = kArtistColors[i % kArtistColors.length];
 
           return AnimatedBuilder(
             animation: _barAnim,
@@ -1876,7 +1861,7 @@ class _AnimatedRankedListState extends State<_AnimatedRankedList>
 // ─────────────────────────────────────────────
 class _DonutDistributionCard extends StatefulWidget {
   const _DonutDistributionCard({required this.stats});
-  final _ListeningStats stats;
+  final ListeningStats stats;
 
   @override
   State<_DonutDistributionCard> createState() => _DonutDistributionCardState();
@@ -1919,12 +1904,12 @@ class _DonutDistributionCardState extends State<_DonutDistributionCard>
     if (total == 0) return const SizedBox.shrink();
 
     final sections = [
-      _DonutSection('Audio', audio, _kMusicGradient[0]),
-      _DonutSection('Video', video, _kVideoGradient[0]),
+      _DonutSection('Audio', audio, kMusicGradient[0]),
+      _DonutSection('Video', video, kVideoGradient[0]),
       _DonutSection('Favoritos', favs, const Color(0xFF06D6A0)),
     ].where((s) => s.value > 0).toList();
 
-    return _StatsCard(
+    return StatsCard(
       child: Column(
         children: [
           Row(
@@ -2048,7 +2033,7 @@ class _DonutSection {
 // ─────────────────────────────────────────────
 class _MonthlyImportsChart extends StatefulWidget {
   const _MonthlyImportsChart({required this.months});
-  final List<_MonthData> months;
+  final List<MonthData> months;
 
   @override
   State<_MonthlyImportsChart> createState() => _MonthlyImportsChartState();
@@ -2084,7 +2069,7 @@ class _MonthlyImportsChartState extends State<_MonthlyImportsChart>
     final months = widget.months;
     final maxVal = months.isEmpty ? 1 : months.map((m) => m.count).reduce(max);
 
-    return _StatsCard(
+    return StatsCard(
       child: AnimatedBuilder(
         animation: _anim,
         builder: (context, child) {
@@ -2161,7 +2146,7 @@ class _MonthlyImportsChartState extends State<_MonthlyImportsChart>
                           top: Radius.circular(6),
                         ),
                         gradient: const LinearGradient(
-                          colors: _kImportGradient,
+                          colors: kImportGradient,
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                         ),
@@ -2183,7 +2168,7 @@ class _MonthlyImportsChartState extends State<_MonthlyImportsChart>
 // ─────────────────────────────────────────────
 class _RegionsBarCard extends StatefulWidget {
   const _RegionsBarCard({required this.regions});
-  final List<_RegionStats> regions;
+  final List<RegionStats> regions;
 
   @override
   State<_RegionsBarCard> createState() => _RegionsBarCardState();
@@ -2222,7 +2207,7 @@ class _RegionsBarCardState extends State<_RegionsBarCard>
         ? 1
         : regions.map((r) => r.plays).reduce(max);
 
-    return _StatsCard(
+    return StatsCard(
       child: AnimatedBuilder(
         animation: _anim,
         builder: (context, child) {
@@ -2231,7 +2216,7 @@ class _RegionsBarCardState extends State<_RegionsBarCard>
               final r = regions[i];
               final ratio = maxPlays == 0 ? 0.0 : r.plays / maxPlays;
               final animRatio = (ratio * _anim.value).clamp(0.0, 1.0);
-              final color = _kVideoGradient[i % 2 == 0 ? 0 : 1];
+              final color = kVideoGradient[i % 2 == 0 ? 0 : 1];
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -2301,7 +2286,7 @@ class _RegionsBarCardState extends State<_RegionsBarCard>
 // ─────────────────────────────────────────────
 class _CompletedVsSkippedCard extends StatefulWidget {
   const _CompletedVsSkippedCard({required this.stats});
-  final _ListeningStats stats;
+  final ListeningStats stats;
 
   @override
   State<_CompletedVsSkippedCard> createState() =>
@@ -2343,19 +2328,19 @@ class _CompletedVsSkippedCardState extends State<_CompletedVsSkippedCard>
     );
     final total = s.totalCompleted + totalSkips;
 
-    return _StatsCard(
+    return StatsCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              _StatBubble(
+              StatBubble(
                 label: 'Completadas',
                 value: '${s.totalCompleted}',
                 color: const Color(0xFF06D6A0),
               ),
               const SizedBox(width: 12),
-              _StatBubble(
+              StatBubble(
                 label: 'Saltadas',
                 value: '$totalSkips',
                 color: const Color(0xFFFF6B6B),
@@ -2428,8 +2413,9 @@ class _CompletedVsSkippedCardState extends State<_CompletedVsSkippedCard>
   }
 }
 
-class _StatBubble extends StatelessWidget {
-  const _StatBubble({
+class StatBubble extends StatelessWidget {
+  const StatBubble({
+    super.key,
     required this.label,
     required this.value,
     required this.color,
@@ -2476,8 +2462,8 @@ class _StatBubble extends StatelessWidget {
 // ─────────────────────────────────────────────
 // Shared: Stats Card container
 // ─────────────────────────────────────────────
-class _StatsCard extends StatelessWidget {
-  const _StatsCard({required this.child});
+class StatsCard extends StatelessWidget {
+  const StatsCard({super.key, required this.child});
   final Widget child;
 
   @override
@@ -2499,943 +2485,5 @@ class _StatsCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: child,
     );
-  }
-}
-
-// ─────────────────────────────────────────────
-// Data models
-// ─────────────────────────────────────────────
-class _RankedRowData {
-  const _RankedRowData({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.maxValue,
-    required this.currentValue,
-    required this.color,
-  });
-
-  final String title;
-  final String subtitle;
-  final String value;
-  final int maxValue;
-  final int currentValue;
-  final Color color;
-}
-
-class _ArtistStats {
-  const _ArtistStats({
-    required this.name,
-    required this.plays,
-    required this.tracks,
-  });
-
-  final String name;
-  final int plays;
-  final int tracks;
-}
-
-class _ImportArtistStats {
-  const _ImportArtistStats({
-    required this.name,
-    required this.imports,
-    required this.tracks,
-  });
-
-  final String name;
-  final int imports;
-  final int tracks;
-}
-
-class _ImportPeak {
-  const _ImportPeak({required this.label, required this.count});
-
-  final String label;
-  final int count;
-}
-
-class _RegionStats {
-  const _RegionStats({
-    required this.code,
-    required this.name,
-    required this.plays,
-    required this.topTracks,
-  });
-
-  final String code;
-  final String name;
-  final int plays;
-  final List<MediaItem> topTracks;
-}
-
-class _MonthData {
-  const _MonthData({
-    required this.label,
-    required this.shortLabel,
-    required this.count,
-  });
-
-  final String label;
-  final String shortLabel;
-  final int count;
-}
-
-// ─────────────────────────────────────────────
-// Main stats computation
-// ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
-// Aux: Collection stats
-// ─────────────────────────────────────────────
-class _CollectionStats {
-  const _CollectionStats({
-    required this.name,
-    required this.subtitle,
-    required this.items,
-  });
-
-  final String name;
-  final String subtitle;
-  final int items;
-}
-
-// ─────────────────────────────────────────────
-// Main stats computation
-// ─────────────────────────────────────────────
-class _ListeningStats {
-  const _ListeningStats({
-    required this.totalPlays,
-    required this.totalCompleted,
-    required this.averageProgressPercent,
-    required this.recentTracks,
-    required this.totalImportFiles,
-    required this.importedAudioFiles,
-    required this.importedVideoFiles,
-    required this.importedAudioItems,
-    required this.importedVideoItems,
-    required this.totalImportSizeLabel,
-    required this.latestImportLabel,
-    required this.topImportedArtistsLastMonth,
-    required this.topImportedArtists,
-    required this.topImportMonthLabel,
-    required this.topImportWeekLabel,
-    required this.topImportPeriodDetail,
-    required this.videoPlays,
-    required this.videoRecentItems,
-    required this.topVideos,
-    required this.topTrack,
-    required this.topTracks,
-    required this.topFavoriteTracks,
-    required this.topRegions,
-    required this.topArtists,
-    required this.mostCompleted,
-    required this.mostSkipped,
-    required this.monthlyImports,
-    // Faltantes y nuevas
-    required this.audioLibraryDurationLabel,
-    required this.audioCompletionRateLabel,
-    required this.audioImportSizeLabel,
-    required this.videoLibraryDurationLabel,
-    required this.totalVideoCollections,
-    required this.rootVideoCollections,
-    required this.videoSubCollections,
-    required this.collectionLinkedItems,
-    required this.emptyVideoCollections,
-    required this.largestCollectionName,
-    required this.largestCollectionCount,
-    required this.topCollections,
-    // Avanzadas de Imports
-    required this.averageFileSizeLabel,
-    required this.mostCommonFormat,
-    required this.mostActiveImportWeekday,
-    // Avanzadas de Audio
-    required this.estimatedListeningTimeLabel,
-    required this.favoriteTimeOfDay,
-    required this.artistDiversityCount,
-    // Avanzadas de Video
-    required this.organizedVideoPercentageLabel,
-    required this.averageVideosPerCollectionLabel,
-  });
-
-  final int totalPlays;
-  final int totalCompleted;
-  final int averageProgressPercent;
-  final int recentTracks;
-  final int totalImportFiles;
-  final int importedAudioFiles;
-  final int importedVideoFiles;
-  final int importedAudioItems;
-  final int importedVideoItems;
-  final String totalImportSizeLabel;
-  final String latestImportLabel;
-  final List<_ImportArtistStats> topImportedArtistsLastMonth;
-  final List<_ImportArtistStats> topImportedArtists;
-  final String topImportMonthLabel;
-  final String topImportWeekLabel;
-  final String topImportPeriodDetail;
-  final int videoPlays;
-  final int videoRecentItems;
-  final List<MediaItem> topVideos;
-  final MediaItem? topTrack;
-  final List<MediaItem> topTracks;
-  final List<MediaItem> topFavoriteTracks;
-  final List<_RegionStats> topRegions;
-  final List<_ArtistStats> topArtists;
-  final List<MediaItem> mostCompleted;
-  final List<MediaItem> mostSkipped;
-  final List<_MonthData> monthlyImports;
-
-  // Faltantes y nuevas
-  final String audioLibraryDurationLabel;
-  final String audioCompletionRateLabel;
-  final String audioImportSizeLabel;
-  final String videoLibraryDurationLabel;
-  final int totalVideoCollections;
-  final int rootVideoCollections;
-  final int videoSubCollections;
-  final int collectionLinkedItems;
-  final int emptyVideoCollections;
-  final String largestCollectionName;
-  final int largestCollectionCount;
-  final List<_CollectionStats> topCollections;
-
-  // Avanzadas de Imports
-  final String averageFileSizeLabel;
-  final String mostCommonFormat;
-  final String mostActiveImportWeekday;
-
-  // Avanzadas de Audio
-  final String estimatedListeningTimeLabel;
-  final String favoriteTimeOfDay;
-  final int artistDiversityCount;
-
-  // Avanzadas de Video
-  final String organizedVideoPercentageLabel;
-  final String averageVideosPerCollectionLabel;
-
-  bool get hasListeningData =>
-      totalPlays > 0 || totalCompleted > 0 || topTracks.isNotEmpty;
-
-  bool get hasAnyData =>
-      hasListeningData || totalImportFiles > 0 || totalVideoCollections > 0;
-
-  static _ListeningStats fromItems(
-    List<MediaItem> items, {
-    ArtistStore? artistStore,
-    SourcesController? sourcesController,
-  }) {
-    final audioItems = items
-        .where((item) => item.hasAudioLocal)
-        .toList(growable: false);
-    final videoItems = items
-        .where((item) => item.hasVideoLocal && !item.hasAudioLocal)
-        .toList(growable: false);
-
-    final listened = audioItems
-        .where(
-          (item) =>
-              item.playCount > 0 ||
-              item.fullListenCount > 0 ||
-              item.skipCount > 0 ||
-              item.avgListenProgress > 0,
-        )
-        .toList(growable: false);
-    final watched = videoItems
-        .where(
-          (item) =>
-              item.playCount > 0 ||
-              item.fullListenCount > 0 ||
-              item.skipCount > 0 ||
-              item.avgListenProgress > 0,
-        )
-        .toList(growable: false);
-
-    final totalPlays = listened.fold<int>(
-      0,
-      (sum, item) => sum + item.playCount,
-    );
-    final totalCompleted = listened.fold<int>(
-      0,
-      (sum, item) => sum + effectiveCompletedFor(item),
-    );
-    final progressItems = listened
-        .where((item) => item.avgListenProgress > 0)
-        .toList(growable: false);
-    final averageProgress = progressItems.isEmpty
-        ? 0
-        : progressItems.fold<double>(
-                0,
-                (sum, item) => sum + item.avgListenProgress.clamp(0, 1),
-              ) /
-              progressItems.length;
-
-    final recentCutoff = DateTime.now()
-        .subtract(const Duration(days: 30))
-        .millisecondsSinceEpoch;
-    final recentTracks = listened
-        .where((item) => (item.lastPlayedAt ?? 0) >= recentCutoff)
-        .length;
-    final videoRecentItems = watched
-        .where((item) => (item.lastPlayedAt ?? 0) >= recentCutoff)
-        .length;
-    final videoPlays = watched.fold<int>(
-      0,
-      (sum, item) => sum + item.playCount,
-    );
-
-    final byPlays = listened.where((item) => listenScoreFor(item) > 0).toList()
-      ..sort((a, b) {
-        final plays = listenScoreFor(b).compareTo(listenScoreFor(a));
-        if (plays != 0) return plays;
-        return (b.lastPlayedAt ?? 0).compareTo(a.lastPlayedAt ?? 0);
-      });
-
-    final completed =
-        listened
-            .where((item) => effectiveCompletedFor(item) > 0)
-            .toList(growable: false)
-          ..sort(
-            (a, b) =>
-                effectiveCompletedFor(b).compareTo(effectiveCompletedFor(a)),
-          );
-    final skipped = listened.where((item) => item.skipCount > 0).toList()
-      ..sort((a, b) => b.skipCount.compareTo(a.skipCount));
-    final importStats = _ImportStats.fromItems(items);
-    final videosByPlays =
-        watched.where((item) => listenScoreFor(item) > 0).toList()
-          ..sort((a, b) {
-            final plays = listenScoreFor(b).compareTo(listenScoreFor(a));
-            if (plays != 0) return plays;
-            return (b.lastPlayedAt ?? 0).compareTo(a.lastPlayedAt ?? 0);
-          });
-    final favoritesByPlays =
-        listened
-            .where((item) => item.isFavorite && listenScoreFor(item) > 0)
-            .toList()
-          ..sort((a, b) {
-            final plays = listenScoreFor(b).compareTo(listenScoreFor(a));
-            if (plays != 0) return plays;
-            return (b.lastPlayedAt ?? 0).compareTo(a.lastPlayedAt ?? 0);
-          });
-    final topRegions = _buildTopRegions(listened, artistStore: artistStore);
-    final monthlyImports = _buildMonthlyImports(importStats.monthCounts);
-
-    // ─── CÁLCULOS FALTANTES / NUEVOS ───
-    final audioDurationSeconds = audioItems.fold<int>(
-      0,
-      (sum, item) => sum + (item.effectiveDurationSeconds ?? 0),
-    );
-    final audioLibraryDurationLabel = _formatDuration(audioDurationSeconds);
-
-    final videoDurationSeconds = videoItems.fold<int>(
-      0,
-      (sum, item) => sum + (item.effectiveDurationSeconds ?? 0),
-    );
-    final videoLibraryDurationLabel = _formatDuration(videoDurationSeconds);
-
-    final audioCompletionRateLabel = totalPlays == 0
-        ? '0% completadas'
-        : '${(totalCompleted / totalPlays * 100).toStringAsFixed(0)}% completadas';
-
-    var audioBytes = 0;
-    for (final item in audioItems) {
-      for (final v in item.variants) {
-        if (v.kind == MediaVariantKind.audio) {
-          audioBytes += max(v.size ?? 0, 0);
-        }
-      }
-    }
-    final audioImportSizeLabel = _formatBytes(audioBytes);
-
-    final topics = sourcesController?.topics ?? const [];
-    final playlists = sourcesController?.topicPlaylists ?? const [];
-    final totalVideoCollections = topics.length + playlists.length;
-    final rootVideoCollections = topics.length;
-    final videoSubCollections = playlists.length;
-
-    final allLinkedIds = <String>{
-      ...topics.expand((t) => t.itemIds),
-      ...playlists.expand((p) => p.itemIds),
-    };
-    final collectionLinkedItems = allLinkedIds.length;
-
-    final emptyTopics = topics.where((t) => t.itemIds.isEmpty).length;
-    final emptyPlaylists = playlists.where((p) => p.itemIds.isEmpty).length;
-    final emptyVideoCollections = emptyTopics + emptyPlaylists;
-
-    var largestCount = 0;
-    var largestName = 'Ninguna';
-    for (final t in topics) {
-      if (t.itemIds.length > largestCount) {
-        largestCount = t.itemIds.length;
-        largestName = t.title;
-      }
-    }
-    for (final p in playlists) {
-      if (p.itemIds.length > largestCount) {
-        largestCount = p.itemIds.length;
-        largestName = p.name;
-      }
-    }
-    final largestCollectionName = largestName;
-    final largestCollectionCount = largestCount;
-
-    final allCollections = [
-      ...topics.map(
-        (t) => _CollectionStats(
-          name: t.title,
-          subtitle: 'Collection',
-          items: t.itemIds.length,
-        ),
-      ),
-      ...playlists.map(
-        (p) => _CollectionStats(
-          name: p.name,
-          subtitle: 'Sub-collection',
-          items: p.itemIds.length,
-        ),
-      ),
-    ];
-    allCollections.sort((a, b) => b.items.compareTo(a.items));
-    final topCollections = allCollections.take(5).toList();
-
-    // ─── CÁLCULOS AVANZADOS IMPORTS ───
-    final averageFileSizeLabel = importStats.totalFiles == 0
-        ? '0 B'
-        : _formatBytes(importStats.totalBytes ~/ importStats.totalFiles);
-
-    final formatCounts = <String, int>{};
-    final weekdayCounts = <int, int>{};
-    for (final item in items) {
-      for (final v in item.variants) {
-        final fmt = v.format.toLowerCase().trim();
-        if (fmt.isNotEmpty) {
-          formatCounts[fmt] = (formatCounts[fmt] ?? 0) + 1;
-        }
-        if (v.createdAt > 0) {
-          final dt = DateTime.fromMillisecondsSinceEpoch(v.createdAt);
-          weekdayCounts[dt.weekday] = (weekdayCounts[dt.weekday] ?? 0) + 1;
-        }
-      }
-    }
-    final mostCommonFormat = formatCounts.isEmpty
-        ? 'Ninguno'
-        : (formatCounts.entries.toList()
-                ..sort((a, b) => b.value.compareTo(a.value)))
-              .first
-              .key
-              .toUpperCase();
-
-    const weekdays = [
-      '',
-      'Lunes',
-      'Martes',
-      'Miércoles',
-      'Jueves',
-      'Viernes',
-      'Sábado',
-      'Domingo',
-    ];
-    final mostActiveImportWeekday = weekdayCounts.isEmpty
-        ? 'Sin datos'
-        : weekdays[(weekdayCounts.entries.toList()
-                ..sort((a, b) => b.value.compareTo(a.value)))
-              .first
-              .key];
-
-    // ─── CÁLCULOS AVANZADOS AUDIO ───
-    var totalListeningTimeSeconds = 0.0;
-    for (final item in listened) {
-      final duration = item.effectiveDurationSeconds ?? 0;
-      if (duration <= 0) continue;
-      final fullCount = effectiveCompletedFor(item);
-      totalListeningTimeSeconds += fullCount * duration;
-      final partialCount = max(item.playCount - fullCount, 0);
-      totalListeningTimeSeconds +=
-          partialCount * duration * item.avgListenProgress;
-    }
-    final estimatedListeningTimeLabel = _formatDuration(
-      totalListeningTimeSeconds.round(),
-    );
-
-    final hourCounts = <int, int>{0: 0, 1: 0, 2: 0, 3: 0};
-    for (final item in listened) {
-      if (item.lastPlayedAt != null && item.lastPlayedAt! > 0) {
-        final dt = DateTime.fromMillisecondsSinceEpoch(item.lastPlayedAt!);
-        final hour = dt.hour;
-        if (hour >= 6 && hour < 12) {
-          hourCounts[1] = hourCounts[1]! + 1;
-        } else if (hour >= 12 && hour < 18) {
-          hourCounts[2] = hourCounts[2]! + 1;
-        } else if (hour >= 18 && hour < 24) {
-          hourCounts[3] = hourCounts[3]! + 1;
-        } else {
-          hourCounts[0] = hourCounts[0]! + 1;
-        }
-      }
-    }
-    final maxPeriodEntry = hourCounts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final favoriteTimeOfDay = maxPeriodEntry.first.value == 0
-        ? 'Sin datos'
-        : switch (maxPeriodEntry.first.key) {
-            0 => 'Madrugada (0am - 6am)',
-            1 => 'Mañana (6am - 12pm)',
-            2 => 'Tarde (12pm - 6pm)',
-            3 => 'Noche (6pm - 12am)',
-            _ => 'Sin datos',
-          };
-
-    final uniqueArtists = <String>{};
-    for (final item in listened) {
-      final credits = ArtistCreditParser.parse(item.displaySubtitle);
-      final name = ArtistCreditParser.cleanName(credits.primaryArtist);
-      if (name.isNotEmpty) {
-        uniqueArtists.add(ArtistCreditParser.normalizeKey(name));
-      }
-    }
-    final artistDiversityCount = uniqueArtists.length;
-
-    // ─── CÁLCULOS AVANZADOS VIDEO ───
-    final videoItemKeys = videoItems.map((e) => e.fileId).toSet();
-    if (videoItemKeys.isEmpty) {
-      videoItemKeys.addAll(videoItems.map((e) => e.id));
-    }
-    final linkedVideosCount = allLinkedIds.intersection(videoItemKeys).length;
-    final organizedVideoPercentageLabel = videoItems.isEmpty
-        ? '0%'
-        : '${(linkedVideosCount / videoItems.length * 100).toStringAsFixed(0)}%';
-
-    final totalCollectionsCount = topics.length + playlists.length;
-    final averageVideosPerCollectionLabel = totalCollectionsCount == 0
-        ? '0'
-        : (allLinkedIds.length / totalCollectionsCount).toStringAsFixed(1);
-
-    return _ListeningStats(
-      totalPlays: totalPlays,
-      totalCompleted: totalCompleted,
-      averageProgressPercent: (averageProgress * 100).round().clamp(0, 100),
-      recentTracks: recentTracks,
-      totalImportFiles: importStats.totalFiles,
-      importedAudioFiles: importStats.audioFiles,
-      importedVideoFiles: importStats.videoFiles,
-      importedAudioItems: importStats.audioItems,
-      importedVideoItems: importStats.videoItems,
-      totalImportSizeLabel: _formatBytes(importStats.totalBytes),
-      latestImportLabel: importStats.latestImportAt <= 0
-          ? 'Aún no hay imports con fecha registrada.'
-          : 'Último import: ${_relativeDateLabel(importStats.latestImportAt)}',
-      topImportedArtistsLastMonth: importStats.topArtistsLastMonth,
-      topImportedArtists: importStats.topArtistsAllTime,
-      topImportMonthLabel: importStats.topMonth.count <= 0
-          ? 'Sin datos'
-          : importStats.topMonth.label,
-      topImportWeekLabel: importStats.topWeek.count <= 0
-          ? 'Sin datos'
-          : importStats.topWeek.label,
-      topImportPeriodDetail: _topImportPeriodDetail(importStats),
-      videoPlays: videoPlays,
-      videoRecentItems: videoRecentItems,
-      topVideos: videosByPlays.take(5).toList(growable: false),
-      topTrack: byPlays.isEmpty ? null : byPlays.first,
-      topTracks: byPlays.take(5).toList(growable: false),
-      topFavoriteTracks: favoritesByPlays.take(5).toList(growable: false),
-      topRegions: topRegions,
-      topArtists: _buildTopArtists(listened),
-      mostCompleted: completed.take(5).toList(growable: false),
-      mostSkipped: skipped.take(5).toList(growable: false),
-      monthlyImports: monthlyImports,
-      // Faltantes y nuevas
-      audioLibraryDurationLabel: audioLibraryDurationLabel,
-      audioCompletionRateLabel: audioCompletionRateLabel,
-      audioImportSizeLabel: audioImportSizeLabel,
-      videoLibraryDurationLabel: videoLibraryDurationLabel,
-      totalVideoCollections: totalVideoCollections,
-      rootVideoCollections: rootVideoCollections,
-      videoSubCollections: videoSubCollections,
-      collectionLinkedItems: collectionLinkedItems,
-      emptyVideoCollections: emptyVideoCollections,
-      largestCollectionName: largestCollectionName,
-      largestCollectionCount: largestCollectionCount,
-      topCollections: topCollections,
-      // Avanzadas de Imports
-      averageFileSizeLabel: averageFileSizeLabel,
-      mostCommonFormat: mostCommonFormat,
-      mostActiveImportWeekday: mostActiveImportWeekday,
-      // Avanzadas de Audio
-      estimatedListeningTimeLabel: estimatedListeningTimeLabel,
-      favoriteTimeOfDay: favoriteTimeOfDay,
-      artistDiversityCount: artistDiversityCount,
-      // Avanzadas de Video
-      organizedVideoPercentageLabel: organizedVideoPercentageLabel,
-      averageVideosPerCollectionLabel: averageVideosPerCollectionLabel,
-    );
-  }
-
-  static List<_MonthData> _buildMonthlyImports(Map<String, int> monthCounts) {
-    if (monthCounts.isEmpty) return [];
-
-    final sorted = monthCounts.entries.toList()
-      ..sort((a, b) {
-        final aDate = _parseMonthKey(a.key);
-        final bDate = _parseMonthKey(b.key);
-        return aDate.compareTo(bDate);
-      });
-
-    final recent = sorted.length > 6
-        ? sorted.sublist(sorted.length - 6)
-        : sorted;
-
-    const monthNames = [
-      '',
-      'Ene',
-      'Feb',
-      'Mar',
-      'Abr',
-      'May',
-      'Jun',
-      'Jul',
-      'Ago',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dic',
-    ];
-
-    return recent.map((e) {
-      final parts = e.key.split('/');
-      final month = int.tryParse(parts[0]) ?? 0;
-      final year = parts.length > 1 ? parts[1] : '';
-      final shortLabel = month >= 1 && month <= 12 ? monthNames[month] : e.key;
-      return _MonthData(
-        label: '${monthNames.elementAtOrNull(month) ?? ''} $year',
-        shortLabel: shortLabel,
-        count: e.value,
-      );
-    }).toList();
-  }
-
-  static DateTime _parseMonthKey(String key) {
-    final parts = key.split('/');
-    if (parts.length < 2) return DateTime(0);
-    final month = int.tryParse(parts[0]) ?? 1;
-    final year = int.tryParse(parts[1]) ?? 0;
-    return DateTime(year, month);
-  }
-
-  static String _topImportPeriodDetail(_ImportStats stats) {
-    if (stats.topMonth.count <= 0 && stats.topWeek.count <= 0) {
-      return 'Aún no hay suficientes imports con fecha registrada.';
-    }
-    if (stats.topMonth.count <= 0) {
-      return 'Semana destacada: ${stats.topWeek.count} imports.';
-    }
-    if (stats.topWeek.count <= 0) {
-      return 'Mes destacado: ${stats.topMonth.count} imports.';
-    }
-    return 'Mes destacado: ${stats.topMonth.count} imports. Semana destacada: ${stats.topWeek.count} imports.';
-  }
-
-  static List<_ArtistStats> _buildTopArtists(List<MediaItem> items) {
-    final playsByArtist = <String, int>{};
-    final nameByKey = <String, String>{};
-    final tracksByArtist = <String, Set<String>>{};
-
-    for (final item in items) {
-      final credits = ArtistCreditParser.parse(item.displaySubtitle);
-      final name = ArtistCreditParser.cleanName(credits.primaryArtist);
-      if (name.isEmpty) continue;
-      final key = ArtistCreditParser.normalizeKey(name);
-      if (key.isEmpty || key == 'unknown') continue;
-      nameByKey[key] = name;
-      playsByArtist[key] = (playsByArtist[key] ?? 0) + listenScoreFor(item);
-      tracksByArtist.putIfAbsent(key, () => <String>{}).add(item.id);
-    }
-
-    final artists = playsByArtist.entries
-        .map(
-          (entry) => _ArtistStats(
-            name: nameByKey[entry.key] ?? entry.key,
-            plays: entry.value,
-            tracks: tracksByArtist[entry.key]?.length ?? 0,
-          ),
-        )
-        .where((artist) => artist.plays > 0)
-        .toList();
-    artists.sort((a, b) => b.plays.compareTo(a.plays));
-    return artists.take(5).toList(growable: false);
-  }
-
-  static List<_RegionStats> _buildTopRegions(
-    List<MediaItem> items, {
-    ArtistStore? artistStore,
-  }) {
-    final affinity = LocalAffinityEngine(artistStore: artistStore);
-    final playsByRegion = <String, int>{};
-    final tracksByRegion = <String, List<MediaItem>>{};
-
-    for (final item in items) {
-      final score = listenScoreFor(item);
-      if (score <= 0) continue;
-      final countryCode = affinity.resolveCountryCode(item);
-      if (countryCode == null) continue;
-      final regionCodes = WorldRegionCatalog.regionCodesForCountry(countryCode);
-      for (final regionCode in regionCodes) {
-        playsByRegion[regionCode] = (playsByRegion[regionCode] ?? 0) + score;
-        tracksByRegion.putIfAbsent(regionCode, () => <MediaItem>[]).add(item);
-      }
-    }
-
-    final regions = playsByRegion.entries
-        .map((entry) {
-          final definition = WorldRegionCatalog.byCode(entry.key);
-          if (definition == null) return null;
-          final tracks =
-              (tracksByRegion[entry.key] ?? const <MediaItem>[]).toList()
-                ..sort((a, b) {
-                  final plays = listenScoreFor(b).compareTo(listenScoreFor(a));
-                  if (plays != 0) return plays;
-                  return (b.lastPlayedAt ?? 0).compareTo(a.lastPlayedAt ?? 0);
-                });
-          return _RegionStats(
-            code: definition.code,
-            name: definition.name,
-            plays: entry.value,
-            topTracks: tracks.take(3).toList(growable: false),
-          );
-        })
-        .whereType<_RegionStats>()
-        .toList();
-    regions.sort((a, b) => b.plays.compareTo(a.plays));
-    return regions.take(5).toList(growable: false);
-  }
-
-  static int effectiveCompletedFor(MediaItem item) {
-    if (item.playCount <= 0 && item.fullListenCount <= 0) {
-      return 0;
-    }
-    final completedFromPlays = max(item.playCount - item.skipCount, 0);
-    return max(item.fullListenCount, completedFromPlays);
-  }
-
-  static int listenScoreFor(MediaItem item) {
-    if (item.playCount <= 0 && item.fullListenCount <= 0) {
-      return 0;
-    }
-    final skipAdjustedPlays = max(item.playCount - item.skipCount, 0);
-    return max(skipAdjustedPlays, 0) + max(item.fullListenCount, 0);
-  }
-
-  static String _formatBytes(int bytes) {
-    if (bytes <= 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    var value = bytes.toDouble();
-    var unit = 0;
-    while (value >= 1024 && unit < units.length - 1) {
-      value /= 1024;
-      unit++;
-    }
-    final decimals = unit == 0 || value >= 10 ? 0 : 1;
-    return '${value.toStringAsFixed(decimals)} ${units[unit]}';
-  }
-
-  static String _formatDuration(int totalSeconds) {
-    if (totalSeconds <= 0) return '0s';
-    final hours = totalSeconds ~/ 3600;
-    final minutes = (totalSeconds % 3600) ~/ 60;
-    final seconds = totalSeconds % 60;
-    if (hours > 0) {
-      return '${hours}h ${minutes}m';
-    } else if (minutes > 0) {
-      return '${minutes}m ${seconds}s';
-    } else {
-      return '${seconds}s';
-    }
-  }
-
-  static String _relativeDateLabel(int timestampMs) {
-    final date = DateTime.fromMillisecondsSinceEpoch(timestampMs);
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final day = DateTime(date.year, date.month, date.day);
-    final diff = today.difference(day).inDays;
-    if (diff == 0) return 'hoy';
-    if (diff == 1) return 'ayer';
-    if (diff < 30) return 'hace $diff días';
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-  }
-}
-
-// ─────────────────────────────────────────────
-// Import Stats computation
-// ─────────────────────────────────────────────
-class _ImportStats {
-  const _ImportStats({
-    required this.totalFiles,
-    required this.audioFiles,
-    required this.videoFiles,
-    required this.audioItems,
-    required this.videoItems,
-    required this.totalBytes,
-    required this.latestImportAt,
-    required this.topArtistsLastMonth,
-    required this.topArtistsAllTime,
-    required this.topMonth,
-    required this.topWeek,
-    required this.monthCounts,
-  });
-
-  final int totalFiles;
-  final int audioFiles;
-  final int videoFiles;
-  final int audioItems;
-  final int videoItems;
-  final int totalBytes;
-  final int latestImportAt;
-  final List<_ImportArtistStats> topArtistsLastMonth;
-  final List<_ImportArtistStats> topArtistsAllTime;
-  final _ImportPeak topMonth;
-  final _ImportPeak topWeek;
-  final Map<String, int> monthCounts;
-
-  static _ImportStats fromItems(List<MediaItem> items) {
-    var totalFiles = 0;
-    var audioFiles = 0;
-    var videoFiles = 0;
-    var audioItems = 0;
-    var videoItems = 0;
-    var totalBytes = 0;
-    var latestImportAt = 0;
-    final now = DateTime.now();
-    final lastMonthCutoff = now
-        .subtract(const Duration(days: 30))
-        .millisecondsSinceEpoch;
-    final monthCounts = <String, int>{};
-    final weekCounts = <String, int>{};
-    final importAllTime = _ArtistImportAccumulator();
-    final importLastMonth = _ArtistImportAccumulator();
-
-    for (final item in items) {
-      var hasAudio = false;
-      var hasVideo = false;
-      var audioImportsForItem = 0;
-      var recentAudioImportsForItem = 0;
-      for (final variant in item.variants) {
-        if ((variant.localPath ?? '').trim().isEmpty) continue;
-        totalFiles++;
-        totalBytes += max(variant.size ?? 0, 0);
-        if (variant.createdAt > latestImportAt) {
-          latestImportAt = variant.createdAt;
-        }
-        if (variant.kind == MediaVariantKind.audio) {
-          audioFiles++;
-          hasAudio = true;
-          audioImportsForItem++;
-          if (variant.createdAt >= lastMonthCutoff) {
-            recentAudioImportsForItem++;
-          }
-        } else {
-          videoFiles++;
-          hasVideo = true;
-        }
-        if (variant.createdAt > 0) {
-          _increment(monthCounts, _monthKey(variant.createdAt));
-          _increment(weekCounts, _weekKey(variant.createdAt));
-        }
-      }
-      if (hasAudio) audioItems++;
-      if (hasVideo) videoItems++;
-      if (audioImportsForItem > 0) {
-        importAllTime.add(item, audioImportsForItem);
-      }
-      if (recentAudioImportsForItem > 0) {
-        importLastMonth.add(item, recentAudioImportsForItem);
-      }
-    }
-
-    return _ImportStats(
-      totalFiles: totalFiles,
-      audioFiles: audioFiles,
-      videoFiles: videoFiles,
-      audioItems: audioItems,
-      videoItems: videoItems,
-      totalBytes: totalBytes,
-      latestImportAt: latestImportAt,
-      topArtistsLastMonth: importLastMonth.top(5),
-      topArtistsAllTime: importAllTime.top(5),
-      topMonth: _topPeriod(monthCounts),
-      topWeek: _topPeriod(weekCounts),
-      monthCounts: monthCounts,
-    );
-  }
-
-  static void _increment(Map<String, int> counts, String key) {
-    counts[key] = (counts[key] ?? 0) + 1;
-  }
-
-  static String _monthKey(int timestampMs) {
-    final date = DateTime.fromMillisecondsSinceEpoch(timestampMs);
-    final month = date.month.toString().padLeft(2, '0');
-    return '$month/${date.year}';
-  }
-
-  static String _weekKey(int timestampMs) {
-    final date = DateTime.fromMillisecondsSinceEpoch(timestampMs);
-    final day = DateTime(date.year, date.month, date.day);
-    final monday = day.subtract(Duration(days: day.weekday - 1));
-    final sunday = monday.add(const Duration(days: 6));
-    String short(DateTime value) =>
-        '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}';
-    return '${short(monday)} - ${short(sunday)}';
-  }
-
-  static _ImportPeak _topPeriod(Map<String, int> counts) {
-    if (counts.isEmpty) {
-      return const _ImportPeak(label: 'Sin datos', count: 0);
-    }
-    final entries = counts.entries.toList()
-      ..sort((a, b) {
-        final byCount = b.value.compareTo(a.value);
-        if (byCount != 0) return byCount;
-        return b.key.compareTo(a.key);
-      });
-    final top = entries.first;
-    return _ImportPeak(label: top.key, count: top.value);
-  }
-}
-
-class _ArtistImportAccumulator {
-  final Map<String, int> _importsByArtist = {};
-  final Map<String, String> _nameByKey = {};
-  final Map<String, Set<String>> _tracksByArtist = {};
-
-  void add(MediaItem item, int imports) {
-    if (imports <= 0) return;
-    final credits = ArtistCreditParser.parse(item.displaySubtitle);
-    final name = ArtistCreditParser.cleanName(credits.primaryArtist);
-    if (name.isEmpty) return;
-    final key = ArtistCreditParser.normalizeKey(name);
-    if (key.isEmpty || key == 'unknown') return;
-    _nameByKey[key] = name;
-    _importsByArtist[key] = (_importsByArtist[key] ?? 0) + imports;
-    _tracksByArtist.putIfAbsent(key, () => <String>{}).add(item.id);
-  }
-
-  List<_ImportArtistStats> top(int limit) {
-    final artists = _importsByArtist.entries
-        .map(
-          (entry) => _ImportArtistStats(
-            name: _nameByKey[entry.key] ?? entry.key,
-            imports: entry.value,
-            tracks: _tracksByArtist[entry.key]?.length ?? 0,
-          ),
-        )
-        .where((artist) => artist.imports > 0)
-        .toList();
-    artists.sort((a, b) {
-      final byImports = b.imports.compareTo(a.imports);
-      if (byImports != 0) return byImports;
-      return b.tracks.compareTo(a.tracks);
-    });
-    return artists.take(limit).toList(growable: false);
   }
 }

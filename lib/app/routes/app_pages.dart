@@ -32,6 +32,7 @@ import 'package:listenfy/Modules/downloads/presentation/views/download_history_p
 // History
 import 'package:listenfy/Modules/history/binding/history_binding.dart';
 import 'package:listenfy/Modules/history/presentation/views/history_page.dart';
+import 'package:listenfy/Modules/stats/binding/listening_stats_binding.dart';
 import 'package:listenfy/Modules/stats/presentation/views/listening_stats_page.dart';
 
 // Artists
@@ -230,7 +231,7 @@ abstract class AppPages {
     GetPage(
       name: AppRoutes.listeningStats,
       page: () => const ListeningStatsPage(),
-      binding: SourcesBinding(),
+      binding: ListeningStatsBinding(),
     ),
 
     // Playlists
