@@ -14,6 +14,7 @@ import 'package:archive/archive_io.dart';
 
 import '../../../app/data/local/local_library_store.dart';
 import '../../../app/models/media_item.dart';
+import '../../../app/services/capture_gallery_service.dart';
 import '../../../Modules/playlists/data/playlist_store.dart';
 import '../../../Modules/artists/data/artist_store.dart';
 import '../../../Modules/sources/data/source_theme_pill_store.dart';
@@ -1268,6 +1269,20 @@ class BackupRestoreController extends GetxController {
         topicPlaylistsJson.add(data);
       }
 
+      final capturesJson = <Map<String, dynamic>>[];
+      final captureService = const CaptureGalleryService();
+      final captures = await captureService.listCaptures();
+      for (final capture in captures) {
+        final rel = await copyToBackup(capture.path);
+        if (rel == null) continue;
+        capturesJson.add({
+          'path': rel,
+          'name': capture.name,
+          'modifiedAt': capture.modifiedAt.toIso8601String(),
+          'size': capture.size,
+        });
+      }
+
       currentOperation.value = 'Empaquetando archivo ZIP (sin comprimir)...';
       progress.value = 0.8;
 
@@ -1322,6 +1337,7 @@ class BackupRestoreController extends GetxController {
         'sourceThemePills': pills.map((e) => e.toJson()).toList(),
         'sourceThemeTopics': topicsJson,
         'sourceThemeTopicPlaylists': topicPlaylistsJson,
+        'captureGallery': capturesJson,
         'homeLayout': homeLayoutPayload,
         ...recommendationPayload,
         ...recommendationFeedbackPayload,
@@ -1688,6 +1704,28 @@ class BackupRestoreController extends GetxController {
       }
       await topicPlaylistStore.upsertAll(topicPlaylistsToRestore);
       topicPlaylistsToRestore.clear();
+
+      currentOperation.value = 'Restaurando capturas...';
+      Future<void> restoreCapture(Map<String, dynamic> data, int index) async {
+        final rel = (data['path'] as String?)?.trim();
+        if (rel == null || rel.isEmpty) return;
+        await restoreFile(rel);
+      }
+
+      if (useStreamingManifest) {
+        await _forEachManifestObject(
+          manifestFile,
+          'captureGallery',
+          restoreCapture,
+        );
+      } else {
+        final capturesRaw = (manifest!['captureGallery'] as List?) ?? const [];
+        for (var i = 0; i < capturesRaw.length; i++) {
+          final raw = capturesRaw[i];
+          if (raw is! Map) continue;
+          await restoreCapture(Map<String, dynamic>.from(raw), i);
+        }
+      }
 
       if (!useStreamingManifest && manifest != null) {
         if (Get.isRegistered<RecommendationStore>()) {

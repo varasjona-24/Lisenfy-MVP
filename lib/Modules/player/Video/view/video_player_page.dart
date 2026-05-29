@@ -4,12 +4,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart' as vp;
 
 import 'package:listenfy/Modules/player/Video/controller/video_player_controller.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../app/services/capture_gallery_service.dart';
 
 class VideoPlayerPage extends StatefulWidget {
   const VideoPlayerPage({super.key});
@@ -818,6 +818,23 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     setState(() => _captureSaving = true);
 
     try {
+      final bytes = await _previewChannel.invokeMethod<Uint8List>(
+        'extractFrame',
+        {
+          'source': source,
+          'positionMs': positionMs,
+          'maxWidth': 1920,
+          'quality': 92,
+        },
+      );
+      if (bytes == null || bytes.isEmpty) {
+        throw Exception('No se pudo generar la captura.');
+      }
+      final localPath = await const CaptureGalleryService().saveCapture(
+        bytes: bytes,
+        title: item.title,
+      );
+
       if (Platform.isAndroid) {
         final result = await _previewChannel
             .invokeMethod<Map<dynamic, dynamic>>('saveFrame', {
@@ -834,25 +851,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
               : 'Captura guardada: $name',
         );
       } else {
-        final bytes = await _previewChannel.invokeMethod<Uint8List>(
-          'extractFrame',
-          {
-            'source': source,
-            'positionMs': positionMs,
-            'maxWidth': 1920,
-            'quality': 92,
-          },
-        );
-        if (bytes == null || bytes.isEmpty) {
-          throw Exception('No se pudo generar la captura.');
-        }
-        final dir = await getApplicationDocumentsDirectory();
-        final safeTitle = _sanitizeFileName(item.title);
-        final fileName =
-            'listenfy_capture_${safeTitle}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        final file = File('${dir.path}/$fileName');
-        await file.writeAsBytes(bytes, flush: true);
-        _showCaptureMessage('Captura guardada en ${file.path}');
+        _showCaptureMessage('Captura guardada en $localPath');
       }
     } catch (_) {
       _showCaptureMessage('No se pudo guardar la captura.');
@@ -866,14 +865,6 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   void _showCaptureMessage(String text) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
-
-  String _sanitizeFileName(String value) {
-    final sanitized = value
-        .replaceAll(RegExp(r'[^\w\s-]'), '')
-        .trim()
-        .replaceAll(RegExp(r'\s+'), '_');
-    return sanitized.isEmpty ? 'video' : sanitized;
   }
 
   static String _fmt(Duration d) {
