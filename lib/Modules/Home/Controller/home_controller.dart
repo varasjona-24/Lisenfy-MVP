@@ -1005,6 +1005,10 @@ class HomeController extends GetxController {
       VideoPlayerController.resumePosStorageKey,
     );
     if (raw == null || raw.isEmpty) return const <MediaItem>[];
+    final rawWatch = _layoutStorage.read<Map>(
+      VideoPlayerController.resumeWatchStorageKey,
+    );
+    if (rawWatch == null || rawWatch.isEmpty) return const <MediaItem>[];
 
     final positions = <String, int>{};
     for (final entry in raw.entries) {
@@ -1014,18 +1018,28 @@ class HomeController extends GetxController {
       if (key.isEmpty || ms <= 1500) continue;
       positions[key] = ms;
     }
+    final trustedWatch = <String, int>{};
+    for (final entry in rawWatch.entries) {
+      final key = entry.key.toString().trim();
+      final value = entry.value;
+      final ms = value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+      if (key.isEmpty || ms < 8000) continue;
+      trustedWatch[key] = ms;
+    }
     if (positions.isEmpty) return const <MediaItem>[];
+    if (trustedWatch.isEmpty) return const <MediaItem>[];
 
     final result = _allItems
         .where((item) {
           if (!item.hasVideoLocal) return false;
           final key = _resumeKeyFor(item);
+          if ((trustedWatch[key] ?? 0) < 8000) return false;
           final positionMs = positions[key] ?? 0;
           if (positionMs <= 1500) return false;
           final durationMs = (item.effectiveDurationSeconds ?? 0) * 1000;
-          if (durationMs <= 0) return true;
+          if (durationMs < 150000) return false;
           final progress = positionMs / durationMs;
-          return progress > 0.02 && progress < 0.92;
+          return progress > 0.05 && progress < 0.90;
         })
         .toList(growable: true);
 
@@ -1049,7 +1063,15 @@ class HomeController extends GetxController {
       VideoPlayerController.resumePosStorageKey,
     );
     if (raw == null || raw.isEmpty) return null;
+    final rawWatch = _layoutStorage.read<Map>(
+      VideoPlayerController.resumeWatchStorageKey,
+    );
     final value = raw[_resumeKeyFor(item)];
+    final watchValue = rawWatch?[_resumeKeyFor(item)];
+    final watchMs = watchValue is num
+        ? watchValue.toInt()
+        : int.tryParse('$watchValue') ?? 0;
+    if (watchMs < 8000) return null;
     final positionMs = value is num
         ? value.toInt()
         : int.tryParse('$value') ?? 0;

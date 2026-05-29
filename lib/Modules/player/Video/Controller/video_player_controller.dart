@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -14,6 +15,7 @@ class VideoPlayerController extends GetxController {
   static const double _completedViewProgressThreshold = 0.90;
   static const double _resumeProgressThreshold = 0.05;
   static const _resumeEligibleDuration = Duration(seconds: 150);
+  static const _trustedResumeWatchThreshold = Duration(seconds: 8);
 
   final VideoService videoService;
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
@@ -35,10 +37,15 @@ class VideoPlayerController extends GetxController {
   double _sessionMaxProgress = 0;
   String _sessionTrackKey = '';
   String _completionLoggedTrackKey = '';
+  int _trustedResumeWatchMs = 0;
+  Duration _lastTrustedResumePosition = Duration.zero;
+  int _lastTrustedResumeTick = 0;
+  String _trustedResumeTrackKey = '';
 
   static const queueStorageKey = 'video_queue_items';
   static const queueIndexStorageKey = 'video_queue_index';
   static const resumePosStorageKey = 'video_resume_positions';
+  static const resumeWatchStorageKey = 'video_resume_watch_ms';
 
   VideoPlayerController({
     required this.videoService,
@@ -107,6 +114,7 @@ class VideoPlayerController extends GetxController {
       time: const Duration(seconds: 2),
     );
     _progressWorker = ever<Duration>(position, (_) {
+      _captureTrustedResumeWatch();
       _captureSessionProgress();
       unawaited(_recordCompletionIfThresholdReached());
     });
@@ -220,6 +228,9 @@ class VideoPlayerController extends GetxController {
       final sameTrackLoaded =
           videoService.hasSourceLoaded &&
           videoService.isSameVideo(item, variant);
+      if (!sameTrackLoaded) {
+        _resetTrustedResumeWatch(item);
+      }
       await videoService.play(item, variant);
       if (!sameTrackLoaded) {
         await _resumeIfAny(item);
@@ -322,10 +333,17 @@ class VideoPlayerController extends GetxController {
     if (key.trim().isEmpty) return;
 
     final map = _storage.read<Map>(resumePosStorageKey);
+    final watchMap = _storage.read<Map>(resumeWatchStorageKey);
     final next = <String, dynamic>{};
     if (map != null) {
       for (final entry in map.entries) {
         next[entry.key.toString()] = entry.value;
+      }
+    }
+    final nextWatch = <String, dynamic>{};
+    if (watchMap != null) {
+      for (final entry in watchMap.entries) {
+        nextWatch[entry.key.toString()] = entry.value;
       }
     }
 
@@ -338,11 +356,23 @@ class VideoPlayerController extends GetxController {
     final progress = total > Duration.zero
         ? p.inMilliseconds / total.inMilliseconds
         : 0.0;
+    final storedWatch = nextWatch[key];
+    final storedWatchMs = storedWatch is num
+        ? storedWatch.toInt()
+        : int.tryParse('$storedWatch') ?? 0;
+    final trustedWatchMs = math.max(storedWatchMs, _trustedResumeWatchMs);
+    final hasTrustedWatch =
+        trustedWatchMs >= _trustedResumeWatchThreshold.inMilliseconds;
 
-    if (!isEligible || progress <= _resumeProgressThreshold || nearEnd) {
+    if (!isEligible ||
+        progress <= _resumeProgressThreshold ||
+        nearEnd ||
+        !hasTrustedWatch) {
       next.remove(key);
+      nextWatch.remove(key);
     } else {
       next[key] = p.inMilliseconds;
+      nextWatch[key] = trustedWatchMs;
     }
 
     if (next.length > 300) {
@@ -350,10 +380,12 @@ class VideoPlayerController extends GetxController {
       final keys = next.keys.take(overflow).toList(growable: false);
       for (final oldKey in keys) {
         next.remove(oldKey);
+        nextWatch.remove(oldKey);
       }
     }
 
     _storage.write(resumePosStorageKey, next);
+    _storage.write(resumeWatchStorageKey, nextWatch);
   }
 
   Future<void> _resumeIfAny(MediaItem item) async {
@@ -424,6 +456,60 @@ class VideoPlayerController extends GetxController {
     final next = Map<String, dynamic>.from(raw);
     next.remove(key);
     _storage.write(resumePosStorageKey, next);
+    final watchRaw = _storage.read<Map>(resumeWatchStorageKey);
+    if (watchRaw == null) return;
+    final nextWatch = Map<String, dynamic>.from(watchRaw);
+    nextWatch.remove(key);
+    _storage.write(resumeWatchStorageKey, nextWatch);
+  }
+
+  void _resetTrustedResumeWatch(MediaItem item) {
+    final key = item.publicId.isNotEmpty ? item.publicId : item.id;
+    _trustedResumeTrackKey = key;
+    _trustedResumeWatchMs = 0;
+    _lastTrustedResumePosition = Duration.zero;
+    _lastTrustedResumeTick = 0;
+  }
+
+  void _captureTrustedResumeWatch() {
+    final item = currentItemOrNull;
+    if (item == null) return;
+
+    final key = item.publicId.isNotEmpty ? item.publicId : item.id;
+    if (_trustedResumeTrackKey != key) {
+      _resetTrustedResumeWatch(item);
+    }
+
+    final currentPosition = position.value;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (!isPlaying.value) {
+      _lastTrustedResumePosition = currentPosition;
+      _lastTrustedResumeTick = now;
+      return;
+    }
+
+    if (_lastTrustedResumeTick <= 0) {
+      _lastTrustedResumePosition = currentPosition;
+      _lastTrustedResumeTick = now;
+      return;
+    }
+
+    final positionDelta =
+        currentPosition.inMilliseconds -
+        _lastTrustedResumePosition.inMilliseconds;
+    final wallDelta = now - _lastTrustedResumeTick;
+    final looksLikeNaturalPlayback =
+        positionDelta > 0 &&
+        positionDelta <= 3500 &&
+        wallDelta > 0 &&
+        wallDelta <= 5000;
+
+    if (looksLikeNaturalPlayback) {
+      _trustedResumeWatchMs += math.min(positionDelta, wallDelta);
+    }
+
+    _lastTrustedResumePosition = currentPosition;
+    _lastTrustedResumeTick = now;
   }
 
   String _fmtDuration(Duration value) {

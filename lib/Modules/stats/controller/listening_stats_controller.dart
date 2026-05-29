@@ -13,6 +13,7 @@ class ListeningStatsController extends GetxController {
   late final SourcesController _sourcesController;
 
   final RxBool isLoading = true.obs;
+  final RxBool showDashboard = false.obs;
   final RxList<MediaItem> _mediaItems = <MediaItem>[].obs;
   final Rxn<ListeningStats> stats = Rxn<ListeningStats>();
   Worker? _topicsWorker;
@@ -73,6 +74,14 @@ class ListeningStatsController extends GetxController {
     } catch (_) {
       // Handle error silently
     }
+  }
+
+  void openDashboard() {
+    showDashboard.value = true;
+  }
+
+  void closeDashboard() {
+    showDashboard.value = false;
   }
 
   @override
