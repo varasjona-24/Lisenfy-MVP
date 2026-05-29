@@ -30,7 +30,7 @@ class AudioPlayerController extends GetxController {
   final GetStorage _storage = GetStorage();
   static const _repeatModeKey = 'audio_repeat_mode';
   static const _resumePositionsKey = 'audio_resume_positions';
-  static const _countThreshold = Duration(seconds: 15);
+  static const _countThreshold = Duration(seconds: 20);
   static const _resumePromptThreshold = Duration(seconds: 5);
 
   AudioPlayerController({required this.audioService});

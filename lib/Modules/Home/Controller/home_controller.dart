@@ -122,6 +122,7 @@ class HomeController extends GetxController {
     HomeWidgetId.randomMix,
   ];
   static const _defaultVideoHomeWidgets = <HomeWidgetId>[
+    HomeWidgetId.favorites,
     HomeWidgetId.continueWatching,
     HomeWidgetId.latestDownloads,
     HomeWidgetId.featured,

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:video_player/video_player.dart' as vp;
@@ -10,6 +11,10 @@ import '../../../../app/data/local/local_library_store.dart';
 import '../../../settings/controller/playback_settings_controller.dart';
 
 class VideoPlayerController extends GetxController {
+  static const double _completedViewProgressThreshold = 0.90;
+  static const double _resumeProgressThreshold = 0.05;
+  static const _resumeEligibleDuration = Duration(seconds: 150);
+
   final VideoService videoService;
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
   final PlaybackSettingsController _settings =
@@ -101,10 +106,10 @@ class VideoPlayerController extends GetxController {
       (p) => _persistPosition(p),
       time: const Duration(seconds: 2),
     );
-    _progressWorker = ever<Duration>(
-      position,
-      (_) => _captureSessionProgress(),
-    );
+    _progressWorker = ever<Duration>(position, (_) {
+      _captureSessionProgress();
+      unawaited(_recordCompletionIfThresholdReached());
+    });
 
     _completedWorker = ever<int>(videoService.completedTick, (_) async {
       await _recordSessionForCurrent(
@@ -314,22 +319,41 @@ class VideoPlayerController extends GetxController {
     final item = currentItemOrNull;
     if (item == null) return;
     final key = item.publicId.isNotEmpty ? item.publicId : item.id;
-    if (key.trim().isNotEmpty) {
-      final map = _storage.read<Map>(resumePosStorageKey);
-      final next = <String, dynamic>{};
-      if (map != null) {
-        for (final entry in map.entries) {
-          next[entry.key.toString()] = entry.value;
-        }
+    if (key.trim().isEmpty) return;
+
+    final map = _storage.read<Map>(resumePosStorageKey);
+    final next = <String, dynamic>{};
+    if (map != null) {
+      for (final entry in map.entries) {
+        next[entry.key.toString()] = entry.value;
       }
-      final ms = p.inMilliseconds;
-      if (ms <= 1000) {
-        next.remove(key);
-      } else {
-        next[key] = ms;
-      }
-      _storage.write(resumePosStorageKey, next);
     }
+
+    final total = duration.value > Duration.zero
+        ? duration.value
+        : Duration(seconds: item.effectiveDurationSeconds ?? 0);
+    final nearEnd =
+        total > Duration.zero && p >= total - const Duration(seconds: 5);
+    final isEligible = total >= _resumeEligibleDuration;
+    final progress = total > Duration.zero
+        ? p.inMilliseconds / total.inMilliseconds
+        : 0.0;
+
+    if (!isEligible || progress <= _resumeProgressThreshold || nearEnd) {
+      next.remove(key);
+    } else {
+      next[key] = p.inMilliseconds;
+    }
+
+    if (next.length > 300) {
+      final overflow = next.length - 300;
+      final keys = next.keys.take(overflow).toList(growable: false);
+      for (final oldKey in keys) {
+        next.remove(oldKey);
+      }
+    }
+
+    _storage.write(resumePosStorageKey, next);
   }
 
   Future<void> _resumeIfAny(MediaItem item) async {
@@ -338,7 +362,7 @@ class VideoPlayerController extends GetxController {
     if (map == null) return;
     final raw = map[key];
     if (raw is! int) return;
-    if (raw < 1500) return;
+    final resume = Duration(milliseconds: raw);
 
     try {
       Duration d = videoService.duration.value;
@@ -347,14 +371,70 @@ class VideoPlayerController extends GetxController {
         d = videoService.duration.value;
       }
       if (d == Duration.zero) return;
-
-      final resume = Duration(milliseconds: raw);
-      if (resume < d - const Duration(seconds: 2)) {
-        await videoService.seek(resume);
+      if (d < _resumeEligibleDuration) {
+        _clearStoredResumePosition(item);
+        return;
       }
+      if (resume >= d - const Duration(seconds: 5)) {
+        _clearStoredResumePosition(item);
+        return;
+      }
+      final progress = resume.inMilliseconds / d.inMilliseconds;
+      if (progress <= _resumeProgressThreshold) {
+        _clearStoredResumePosition(item);
+        return;
+      }
+
+      final shouldResume = await Get.dialog<bool>(
+        AlertDialog(
+          title: const Text('Continuar video'),
+          content: Text(
+            'Este video quedó en ${_fmtDuration(resume)}. ¿Quieres retomarlo desde ahí o reproducirlo desde el principio?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(result: false),
+              child: const Text('Desde el principio'),
+            ),
+            FilledButton(
+              onPressed: () => Get.back(result: true),
+              child: Text('Retomar ${_fmtDuration(resume)}'),
+            ),
+          ],
+        ),
+        barrierDismissible: true,
+      );
+
+      if (shouldResume == true) {
+        await videoService.seek(resume);
+        return;
+      }
+
+      _clearStoredResumePosition(item);
+      await videoService.seek(Duration.zero);
     } catch (_) {
       // ignore resume failures
     }
+  }
+
+  void _clearStoredResumePosition(MediaItem item) {
+    final key = item.publicId.isNotEmpty ? item.publicId : item.id;
+    final raw = _storage.read<Map>(resumePosStorageKey);
+    if (raw == null) return;
+    final next = Map<String, dynamic>.from(raw);
+    next.remove(key);
+    _storage.write(resumePosStorageKey, next);
+  }
+
+  String _fmtDuration(Duration value) {
+    final totalSeconds = value.inSeconds;
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -406,6 +486,21 @@ class VideoPlayerController extends GetxController {
     if (progress > _sessionMaxProgress) {
       _sessionMaxProgress = progress;
     }
+  }
+
+  Future<void> _recordCompletionIfThresholdReached() async {
+    final item = currentItemOrNull;
+    if (item == null) return;
+
+    final key = _stableTrackKey(item);
+    if (_completionLoggedTrackKey == key) return;
+    if (_sessionMaxProgress < _completedViewProgressThreshold) return;
+
+    await _recordSessionForCurrent(
+      markCompleted: true,
+      forceProgress: 1.0,
+      resetSessionAfterRecord: true,
+    );
   }
 
   int _playbackSamples(MediaItem item) {
@@ -514,15 +609,14 @@ class VideoPlayerController extends GetxController {
         (hasDuration && position.value >= const Duration(seconds: 3));
     if (!hasProgress) return;
 
-    final minDurationForStrictSkip =
-        duration.value >= const Duration(seconds: 20);
-    final skipThreshold = minDurationForStrictSkip ? 0.90 : 0.75;
-    final shouldSkip = progress < skipThreshold;
+    final shouldMarkCompleted = progress >= _completedViewProgressThreshold;
+    final shouldSkip = !shouldMarkCompleted;
 
     await _recordSessionForCurrent(
+      markCompleted: shouldMarkCompleted,
       forceSkip: shouldSkip,
-      forceProgress: progress,
-      resetSessionAfterRecord: shouldSkip,
+      forceProgress: shouldMarkCompleted ? 1.0 : progress,
+      resetSessionAfterRecord: true,
     );
   }
 }

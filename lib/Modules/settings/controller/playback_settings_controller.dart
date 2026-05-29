@@ -6,6 +6,9 @@ import '../../../app/services/video_service.dart';
 
 /// Gestiona: volumen, autoplay, crossfade, calidad de descarga y uso de datos.
 class PlaybackSettingsController extends GetxController {
+  static const hideVideoStatusLabelsKey = 'hide_video_status_labels';
+  static const hideShortVideoStatusLabelsKey = 'hide_short_video_status_labels';
+
   final GetStorage _storage = GetStorage();
 
   // 🔊 Volumen por defecto (0-100)
@@ -21,6 +24,10 @@ class PlaybackSettingsController extends GetxController {
   // 📡 Uso de datos
   final Rx<String> dataUsage = 'all'.obs; // wifi_only, all
 
+  // 🎬 Etiquetas visuales de video
+  final RxBool hideVideoStatusLabels = false.obs;
+  final RxBool hideShortVideoStatusLabels = false.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -34,6 +41,10 @@ class PlaybackSettingsController extends GetxController {
     dataUsage.value = _storage.read('dataUsage') ?? 'all';
     autoPlayNext.value = _storage.read('autoPlayNext') ?? true;
     crossfadeSeconds.value = _storage.read('audio_crossfade_seconds') ?? 0;
+    hideVideoStatusLabels.value =
+        _storage.read(hideVideoStatusLabelsKey) ?? false;
+    hideShortVideoStatusLabels.value =
+        _storage.read(hideShortVideoStatusLabelsKey) ?? false;
 
     _applyVolumeToPlayers(defaultVolume.value);
   }
@@ -99,6 +110,19 @@ class PlaybackSettingsController extends GetxController {
   }
 
   // ============================
+  // 🎬 Etiquetas visuales de video
+  // ============================
+  void setHideVideoStatusLabels(bool value) {
+    hideVideoStatusLabels.value = value;
+    _storage.write(hideVideoStatusLabelsKey, value);
+  }
+
+  void setHideShortVideoStatusLabels(bool value) {
+    hideShortVideoStatusLabels.value = value;
+    _storage.write(hideShortVideoStatusLabelsKey, value);
+  }
+
+  // ============================
   // 📊 Quality helpers
   // ============================
   String getAudioBitrate(String? quality) {
@@ -155,12 +179,19 @@ class PlaybackSettingsController extends GetxController {
     dataUsage.value = 'all';
     autoPlayNext.value = true;
     crossfadeSeconds.value = 0;
+    hideVideoStatusLabels.value = false;
+    hideShortVideoStatusLabels.value = false;
 
     await _storage.write('defaultVolume', defaultVolume.value);
     await _storage.write('downloadQuality', downloadQuality.value);
     await _storage.write('dataUsage', dataUsage.value);
     await _storage.write('autoPlayNext', autoPlayNext.value);
     await _storage.write('audio_crossfade_seconds', crossfadeSeconds.value);
+    await _storage.write(hideVideoStatusLabelsKey, hideVideoStatusLabels.value);
+    await _storage.write(
+      hideShortVideoStatusLabelsKey,
+      hideShortVideoStatusLabels.value,
+    );
 
     _applyVolumeToPlayers(defaultVolume.value);
     _applyCrossfade();

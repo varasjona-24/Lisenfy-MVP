@@ -5,6 +5,7 @@ import '../controller/settings_controller.dart';
 import 'widgets/appearance_section.dart';
 import 'widgets/audio_section.dart';
 import 'widgets/data_section.dart';
+import 'widgets/video_section.dart';
 import 'widgets/about_section.dart';
 import 'widgets/guide_section.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
@@ -41,6 +42,10 @@ class SettingsView extends GetView<SettingsController> {
 
                 // 🔊 Sección de Audio
                 const AudioSection(),
+                const SizedBox(height: 24),
+
+                // 🎬 Sección de Video
+                const VideoSection(),
                 const SizedBox(height: 24),
 
                 // 📡 Sección de Datos

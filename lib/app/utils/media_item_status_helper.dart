@@ -1,35 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import '../models/media_item.dart';
 import '../data/local/local_library_store.dart';
+import '../models/media_item.dart';
+import '../../Modules/settings/controller/playback_settings_controller.dart';
 
-enum VideoProgressStatus {
-  pendiente,
-  viendo,
-  completado,
-  abandonado,
-}
+enum VideoProgressStatus { pendiente, viendo, completado, abandonado }
 
 extension MediaItemStatusX on MediaItem {
+  static const int shortVideoMaxSeconds = 150;
+  static const int seenLabelMaxSeconds = 13 * 60;
+
+  bool get isShortVideoForResume {
+    final seconds = effectiveDurationSeconds;
+    return seconds != null && seconds > 0 && seconds < shortVideoMaxSeconds;
+  }
+
+  bool get usesSeenLabel {
+    final seconds = effectiveDurationSeconds;
+    return seconds != null && seconds > 0 && seconds <= seenLabelMaxSeconds;
+  }
+
   VideoProgressStatus get videoStatus {
     final pct = avgListenProgress * 100;
     if (pct >= 90) {
       return VideoProgressStatus.completado;
     }
-
-    final box = GetStorage();
-    final key = publicId.trim().isNotEmpty ? publicId.trim() : id.trim();
-    final videoMap = box.read<Map>('video_resume_positions');
-    final audioMap = box.read<Map>('audio_resume_positions');
-    final videoMs = videoMap?[key] as int? ?? 0;
-    final audioMs = audioMap?[key] as int? ?? 0;
-    final posMs = videoMs > 0 ? videoMs : audioMs;
-
-    if (pct == 0 || posMs == 0) {
+    if (pct <= 5) {
       return VideoProgressStatus.pendiente;
     }
-
+    if (isShortVideoForResume) {
+      return VideoProgressStatus.pendiente;
+    }
     return VideoProgressStatus.viendo;
   }
 }
@@ -44,6 +46,34 @@ class VideoStatusBadge extends StatelessWidget {
     final isVideo = item.hasVideoLocal || item.localVideoVariant != null;
     if (!isVideo) return const SizedBox.shrink();
 
+    if (Get.isRegistered<PlaybackSettingsController>()) {
+      final playback = Get.find<PlaybackSettingsController>();
+      return Obx(
+        () => _buildBadge(
+          context,
+          hidden:
+              playback.hideVideoStatusLabels.value ||
+              (playback.hideShortVideoStatusLabels.value && item.usesSeenLabel),
+        ),
+      );
+    }
+
+    final storage = GetStorage();
+    final hidden =
+        storage.read(PlaybackSettingsController.hideVideoStatusLabelsKey) ==
+            true ||
+        (storage.read(
+                  PlaybackSettingsController.hideShortVideoStatusLabelsKey,
+                ) ==
+                true &&
+            item.usesSeenLabel);
+
+    return _buildBadge(context, hidden: hidden);
+  }
+
+  Widget _buildBadge(BuildContext context, {required bool hidden}) {
+    if (hidden) return const SizedBox.shrink();
+
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final status = item.videoStatus;
@@ -57,13 +87,13 @@ class VideoStatusBadge extends StatelessWidget {
       case VideoProgressStatus.completado:
         bg = scheme.primary;
         fg = scheme.onPrimary;
-        label = 'Completado';
+        label = item.usesSeenLabel ? 'Visto' : 'Completado';
         icon = Icons.check_circle_rounded;
         break;
       case VideoProgressStatus.viendo:
         bg = Colors.black.withValues(alpha: 0.75);
         fg = scheme.primary;
-        label = 'Viendo';
+        label = 'Seguir viendo';
         icon = Icons.play_circle_fill_rounded;
         break;
       case VideoProgressStatus.pendiente:
@@ -126,11 +156,7 @@ class VideoFavoriteBadge extends StatelessWidget {
         color: Colors.black.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Icon(
-        Icons.favorite_rounded,
-        size: 10,
-        color: scheme.primary,
-      ),
+      child: Icon(Icons.favorite_rounded, size: 10, color: scheme.primary),
     );
   }
 }
@@ -171,7 +197,9 @@ class CollectionProgressHelper {
 
     final map = <String, MediaItem>{};
     for (final item in allItems) {
-      final key = item.publicId.trim().isNotEmpty ? item.publicId.trim() : item.id.trim();
+      final key = item.publicId.trim().isNotEmpty
+          ? item.publicId.trim()
+          : item.id.trim();
       map[key] = item;
     }
 

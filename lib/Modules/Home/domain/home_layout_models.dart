@@ -55,6 +55,7 @@ extension HomeWidgetIdX on HomeWidgetId {
   bool get videoOnly => this == HomeWidgetId.continueWatching;
 
   bool get videoHomeSupported =>
+      this == HomeWidgetId.favorites ||
       this == HomeWidgetId.continueWatching ||
       this == HomeWidgetId.latestDownloads ||
       this == HomeWidgetId.featured ||
