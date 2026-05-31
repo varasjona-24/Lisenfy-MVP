@@ -14,7 +14,7 @@ import 'package:archive/archive_io.dart';
 
 import '../../../app/data/local/local_library_store.dart';
 import '../../../app/models/media_item.dart';
-import '../../../app/services/capture_gallery_service.dart';
+import '../../../Modules/captures/data/capture_gallery_store.dart';
 import '../../../Modules/playlists/data/playlist_store.dart';
 import '../../../Modules/artists/data/artist_store.dart';
 import '../../../Modules/sources/data/source_theme_pill_store.dart';
@@ -1270,8 +1270,8 @@ class BackupRestoreController extends GetxController {
       }
 
       final capturesJson = <Map<String, dynamic>>[];
-      final captureService = const CaptureGalleryService();
-      final captures = await captureService.listCaptures();
+      final captureStore = CaptureGalleryStore(Get.find<GetStorage>());
+      final captures = await captureStore.listCaptures();
       for (final capture in captures) {
         final rel = await copyToBackup(capture.path);
         if (rel == null) continue;
@@ -1280,6 +1280,7 @@ class BackupRestoreController extends GetxController {
           'name': capture.name,
           'modifiedAt': capture.modifiedAt.toIso8601String(),
           'size': capture.size,
+          'tags': capture.tags,
         });
       }
 
@@ -1710,6 +1711,14 @@ class BackupRestoreController extends GetxController {
         final rel = (data['path'] as String?)?.trim();
         if (rel == null || rel.isEmpty) return;
         await restoreFile(rel);
+        final restoredPath = resolveRel(rel);
+        if (restoredPath == null) return;
+        final tags =
+            (data['tags'] as List?)?.map((e) => e.toString()) ??
+            const Iterable<String>.empty();
+        await CaptureGalleryStore(
+          Get.find<GetStorage>(),
+        ).restoreTags(restoredPath, tags);
       }
 
       if (useStreamingManifest) {

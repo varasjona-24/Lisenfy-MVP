@@ -4,12 +4,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:video_player/video_player.dart' as vp;
 
+import 'package:listenfy/Modules/captures/data/capture_gallery_store.dart';
 import 'package:listenfy/Modules/player/Video/controller/video_player_controller.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../../app/routes/app_routes.dart';
-import '../../../../app/services/capture_gallery_service.dart';
 
 class VideoPlayerPage extends StatefulWidget {
   const VideoPlayerPage({super.key});
@@ -830,10 +831,9 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
       if (bytes == null || bytes.isEmpty) {
         throw Exception('No se pudo generar la captura.');
       }
-      final localPath = await const CaptureGalleryService().saveCapture(
-        bytes: bytes,
-        title: item.title,
-      );
+      final localPath = await CaptureGalleryStore(
+        GetStorage(),
+      ).saveCapture(bytes: bytes, title: item.title);
 
       if (Platform.isAndroid) {
         final result = await _previewChannel

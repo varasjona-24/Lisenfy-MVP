@@ -1,27 +1,19 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:get_storage/get_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-class ListenfyCapture {
-  const ListenfyCapture({
-    required this.path,
-    required this.name,
-    required this.modifiedAt,
-    required this.size,
-  });
+import '../domain/capture_item.dart';
 
-  final String path;
-  final String name;
-  final DateTime modifiedAt;
-  final int size;
-}
-
-class CaptureGalleryService {
+class CaptureGalleryStore {
   static const directoryName = 'ListenfyCaptures';
+  static const _tagsKey = 'capture_gallery_tags';
 
-  const CaptureGalleryService();
+  CaptureGalleryStore(this._box);
+
+  final GetStorage _box;
 
   Future<Directory> captureDirectory() async {
     final appDir = await getApplicationDocumentsDirectory();
@@ -42,20 +34,21 @@ class CaptureGalleryService {
     return file.path;
   }
 
-  Future<List<ListenfyCapture>> listCaptures() async {
+  Future<List<CaptureItem>> listCaptures() async {
     final dir = await captureDirectory();
-    final captures = <ListenfyCapture>[];
+    final captures = <CaptureItem>[];
     await for (final entity in dir.list(followLinks: false)) {
       if (entity is! File) continue;
       final ext = p.extension(entity.path).toLowerCase();
       if (ext != '.jpg' && ext != '.jpeg' && ext != '.png') continue;
       final stat = await entity.stat();
       captures.add(
-        ListenfyCapture(
+        CaptureItem(
           path: entity.path,
           name: p.basenameWithoutExtension(entity.path),
           modifiedAt: stat.modified,
           size: stat.size,
+          tags: tagsFor(entity.path),
         ),
       );
     }
@@ -81,6 +74,11 @@ class CaptureGalleryService {
       index++;
     }
     final renamed = await file.rename(candidate);
+    final tags = tagsFor(path);
+    if (tags.isNotEmpty) {
+      await removeTags(path);
+      await setTags(renamed.path, tags);
+    }
     return renamed.path;
   }
 
@@ -89,6 +87,37 @@ class CaptureGalleryService {
     if (await file.exists()) {
       await file.delete();
     }
+    await removeTags(path);
+  }
+
+  List<String> tagsFor(String path) {
+    final raw = _box.read<Map>(_tagsKey) ?? const {};
+    final value = raw[path];
+    if (value is! List) return const <String>[];
+    return normalizeTags(value.map((e) => e.toString()));
+  }
+
+  Future<void> setTags(String path, Iterable<String> tags) async {
+    final raw = _box.read<Map>(_tagsKey) ?? const {};
+    final next = Map<String, dynamic>.from(raw);
+    final normalized = normalizeTags(tags);
+    if (normalized.isEmpty) {
+      next.remove(path);
+    } else {
+      next[path] = normalized;
+    }
+    await _box.write(_tagsKey, next);
+  }
+
+  Future<void> removeTags(String path) async {
+    final raw = _box.read<Map>(_tagsKey) ?? const {};
+    if (!raw.containsKey(path)) return;
+    final next = Map<String, dynamic>.from(raw)..remove(path);
+    await _box.write(_tagsKey, next);
+  }
+
+  Future<void> restoreTags(String path, Iterable<String> tags) async {
+    await setTags(path, tags);
   }
 
   static String sanitizeFileName(String value) {
@@ -97,5 +126,19 @@ class CaptureGalleryService {
         .trim()
         .replaceAll(RegExp(r'\s+'), '_');
     return sanitized.isEmpty ? 'captura' : sanitized;
+  }
+
+  static List<String> normalizeTags(Iterable<String> tags) {
+    final seen = <String>{};
+    final normalized = <String>[];
+    for (final raw in tags) {
+      final tag = raw.trim();
+      if (tag.isEmpty) continue;
+      final key = tag.toLowerCase();
+      if (!seen.add(key)) continue;
+      normalized.add(tag);
+      if (normalized.length >= 20) break;
+    }
+    return normalized;
   }
 }

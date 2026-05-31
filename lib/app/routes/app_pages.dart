@@ -34,6 +34,7 @@ import 'package:listenfy/Modules/history/binding/history_binding.dart';
 import 'package:listenfy/Modules/history/presentation/views/history_page.dart';
 import 'package:listenfy/Modules/stats/binding/listening_stats_binding.dart';
 import 'package:listenfy/Modules/stats/presentation/views/listening_stats_page.dart';
+import 'package:listenfy/Modules/captures/binding/capture_gallery_binding.dart';
 import 'package:listenfy/Modules/captures/view/capture_gallery_page.dart';
 
 // Artists
@@ -237,6 +238,7 @@ abstract class AppPages {
     GetPage(
       name: AppRoutes.captureGallery,
       page: () => const CaptureGalleryPage(),
+      binding: CaptureGalleryBinding(),
     ),
 
     // Playlists

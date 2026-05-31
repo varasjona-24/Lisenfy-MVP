@@ -1,0 +1,139 @@
+import 'package:get/get.dart';
+
+import '../data/capture_gallery_store.dart';
+import '../domain/capture_gallery_models.dart';
+import '../services/capture_cover_service.dart';
+import '../services/capture_share_service.dart';
+import 'capture_gallery_logic.dart';
+
+class CaptureGalleryController extends GetxController {
+  CaptureGalleryController({
+    CaptureGalleryStore? galleryStore,
+    CaptureShareService? shareService,
+    CaptureCoverService? coverService,
+    CaptureGalleryLogic? logic,
+  }) : _galleryStore = galleryStore ?? Get.find<CaptureGalleryStore>(),
+       _shareService = shareService ?? Get.find<CaptureShareService>(),
+       _coverService = coverService ?? Get.find<CaptureCoverService>(),
+       _logic = logic ?? const CaptureGalleryLogic();
+
+  final CaptureGalleryStore _galleryStore;
+  final CaptureShareService _shareService;
+  final CaptureCoverService _coverService;
+  final CaptureGalleryLogic _logic;
+
+  final isLoading = true.obs;
+  final captures = <CaptureItem>[].obs;
+  final selectedPaths = <String>{}.obs;
+  final query = ''.obs;
+  final sort = CaptureSort.date.obs;
+  final ascending = false.obs;
+
+  static const maxShareSelection = 20;
+
+  @override
+  void onInit() {
+    super.onInit();
+    reload();
+  }
+
+  int get selectedCount => selectedPaths.length;
+  bool get hasSelection => selectedPaths.isNotEmpty;
+
+  List<CaptureItem> get visibleCaptures => _logic.filterAndSort(
+    captures: captures,
+    query: query.value,
+    sort: sort.value,
+    ascending: ascending.value,
+  );
+
+  String directionLabel(CaptureSort option) => _logic.directionLabel(
+    option: option,
+    current: sort.value,
+    ascending: ascending.value,
+  );
+
+  Future<void> reload() async {
+    isLoading.value = true;
+    try {
+      captures.assignAll(await _galleryStore.listCaptures());
+      selectedPaths.removeWhere((path) {
+        return !captures.any((capture) => capture.path == path);
+      });
+      selectedPaths.refresh();
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  void setQuery(String value) {
+    query.value = value.trim().toLowerCase();
+  }
+
+  void pickSort(CaptureSort nextSort) {
+    if (sort.value == nextSort) {
+      ascending.toggle();
+      return;
+    }
+    sort.value = nextSort;
+    ascending.value = false;
+  }
+
+  bool toggleSelection(CaptureItem capture) {
+    if (selectedPaths.contains(capture.path)) {
+      selectedPaths.remove(capture.path);
+      selectedPaths.refresh();
+      return true;
+    }
+    if (selectedPaths.length >= maxShareSelection) return false;
+    selectedPaths.add(capture.path);
+    selectedPaths.refresh();
+    return true;
+  }
+
+  void clearSelection() {
+    selectedPaths.clear();
+    selectedPaths.refresh();
+  }
+
+  Future<void> renameCapture(CaptureItem capture, String name) async {
+    final next = name.trim();
+    if (next.isEmpty) return;
+    await _galleryStore.renameCapture(capture.path, next);
+    await reload();
+  }
+
+  Future<void> deleteCapture(CaptureItem capture) async {
+    await _galleryStore.deleteCapture(capture.path);
+    selectedPaths.remove(capture.path);
+    selectedPaths.refresh();
+    await reload();
+  }
+
+  Future<void> setTags(CaptureItem capture, Iterable<String> tags) async {
+    await _galleryStore.setTags(capture.path, tags);
+    await reload();
+  }
+
+  Future<void> shareCaptures(Iterable<CaptureItem> selected) async {
+    await _shareService.shareExternal(selected);
+  }
+
+  Future<void> shareSelected() async {
+    final selected = captures.where((capture) {
+      return selectedPaths.contains(capture.path);
+    });
+    await shareCaptures(selected);
+  }
+
+  Future<List<CaptureCoverTarget>> loadCoverTargets() {
+    return _coverService.loadTargets();
+  }
+
+  Future<void> applyCover({
+    required CaptureItem capture,
+    required CaptureCoverTarget target,
+  }) async {
+    await _coverService.applyCover(path: capture.path, target: target);
+  }
+}
