@@ -12,6 +12,9 @@ import '../routes/app_routes.dart';
 import '../../Modules/edit/controller/edit_entity_controller.dart';
 
 class MediaActionsController extends GetxController {
+  static const int externalShareLimitBytes = 300 * 1024 * 1024;
+  static const int listenfyConnectShareLimitBytes = 1024 * 1024 * 1024;
+
   // ============================
   // 🔌 DEPENDENCIAS
   // ============================
@@ -221,6 +224,117 @@ class MediaActionsController extends GetxController {
   // ============================
   // 📤 COMPARTIR
   // ============================
+  Future<int> shareSizeForItems(List<MediaItem> items) async {
+    var total = 0;
+    for (final item in items) {
+      final variant = _pickShareVariant(item);
+      final localPath = variant?.localPath?.trim() ?? '';
+      if (localPath.isEmpty) continue;
+
+      try {
+        final file = File(localPath);
+        if (await file.exists()) {
+          total += await file.length();
+        }
+      } catch (e) {
+        debugPrint('Error measuring media ${item.id}: $e');
+      }
+    }
+    return total;
+  }
+
+  Future<void> shareMediaExternallyMultiple(List<MediaItem> items) async {
+    if (items.isEmpty) return;
+
+    try {
+      final files = <XFile>[];
+      var totalBytes = 0;
+      var skipped = 0;
+
+      for (final item in items) {
+        final variant = _pickShareVariant(item);
+        final localPath = variant?.localPath?.trim() ?? '';
+        if (variant == null || localPath.isEmpty) {
+          skipped++;
+          continue;
+        }
+
+        final mediaFile = File(localPath);
+        if (!await mediaFile.exists()) {
+          skipped++;
+          continue;
+        }
+
+        final length = await mediaFile.length();
+        totalBytes += length;
+        files.add(
+          XFile(
+            mediaFile.path,
+            name: p.basename(mediaFile.path),
+            mimeType: _guessMimeType(variant),
+          ),
+        );
+      }
+
+      if (files.isEmpty) {
+        Get.snackbar(
+          'Compartir',
+          'No hay archivos locales para compartir.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+
+      if (totalBytes > externalShareLimitBytes) {
+        Get.snackbar(
+          'Compartir externo',
+          'La selección supera el límite de 300 MB.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+
+      await Share.shareXFiles(
+        files,
+        subject: 'Archivos compartidos desde Listenfy',
+        text: files.length == 1
+            ? 'Comparte este archivo con otra app o dispositivo.'
+            : 'Comparte estos archivos con otra app o dispositivo.',
+      );
+
+      if (skipped > 0) {
+        Get.snackbar(
+          'Compartir',
+          'Se omitieron $skipped item${skipped > 1 ? 's' : ''} sin archivo local.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error sharing media selection: $e');
+      Get.snackbar(
+        'Compartir',
+        'No se pudo compartir la selección.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  Future<void> transferMediaInternallyMultiple(List<MediaItem> items) async {
+    if (items.isEmpty) return;
+
+    final totalBytes = await shareSizeForItems(items);
+    if (totalBytes > listenfyConnectShareLimitBytes) {
+      Get.snackbar(
+        'Listenfy Connect',
+        'La selección supera el límite interno de 1 GB.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    await Get.toNamed(AppRoutes.nearbyTransfer, arguments: {'items': items});
+  }
+
   Future<void> shareMediaExternally(MediaItem item) async {
     try {
       final variant = _pickShareVariant(item);

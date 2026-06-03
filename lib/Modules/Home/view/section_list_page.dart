@@ -13,6 +13,7 @@ import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/ui/widgets/media/app_media_items_view.dart';
+import '../../../app/utils/format_bytes.dart';
 import '../controller/home_controller.dart';
 
 class SectionListPage extends StatefulWidget {
@@ -235,7 +236,7 @@ class _SectionListPageState extends State<SectionListPage> {
     if (!_canSelect(item)) {
       Get.snackbar(
         'Selección',
-        'Este item no tiene archivo local para borrar.',
+        'Este item no tiene archivo local para usar.',
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -254,7 +255,7 @@ class _SectionListPageState extends State<SectionListPage> {
     if (!_canSelect(item)) {
       Get.snackbar(
         'Selección',
-        'Este item no tiene archivo local para borrar.',
+        'Este item no tiene archivo local para usar.',
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -307,6 +308,36 @@ class _SectionListPageState extends State<SectionListPage> {
     );
   }
 
+  Future<void> _shareSelectedExternally() async {
+    final selectedItems = _selectedItems;
+    if (selectedItems.isEmpty) {
+      Get.snackbar(
+        'Compartir',
+        'No hay items seleccionados.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    final actions = Get.find<MediaActionsController>();
+    await actions.shareMediaExternallyMultiple(selectedItems);
+  }
+
+  Future<void> _transferSelectedInternally() async {
+    final selectedItems = _selectedItems;
+    if (selectedItems.isEmpty) {
+      Get.snackbar(
+        'Listenfy Connect',
+        'No hay items seleccionados.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    final actions = Get.find<MediaActionsController>();
+    await actions.transferMediaInternallyMultiple(selectedItems);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -329,6 +360,20 @@ class _SectionListPageState extends State<SectionListPage> {
         elevation: 0,
         actions: _selectionMode
             ? [
+                IconButton(
+                  tooltip: 'Compartir externo (máx. 300 MB)',
+                  onPressed: _selectedCount == 0
+                      ? null
+                      : _shareSelectedExternally,
+                  icon: const Icon(Icons.ios_share_rounded),
+                ),
+                IconButton(
+                  tooltip: 'Listenfy Connect (máx. 1 GB)',
+                  onPressed: _selectedCount == 0
+                      ? null
+                      : _transferSelectedInternally,
+                  icon: const Icon(Icons.wifi_tethering_rounded),
+                ),
                 IconButton(
                   tooltip: 'Borrar seleccionados',
                   onPressed: _selectedCount == 0 ? null : _deleteSelectedItems,
@@ -390,6 +435,12 @@ class _SectionListPageState extends State<SectionListPage> {
   }
 
   Widget _buildSectionHeader(ThemeData theme) {
+    final selectedItems = _selectedItems;
+    final selectedBytes = selectedItems.fold<int>(0, (total, item) {
+      final variant = item.localAudioVariant ?? item.localVideoVariant;
+      return total + (variant?.size ?? 0);
+    });
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -413,6 +464,25 @@ class _SectionListPageState extends State<SectionListPage> {
               icon: const Icon(Icons.shuffle_rounded),
               label: const Text('Reproducción aleatoria'),
             ),
+          ),
+        ],
+        if (_selectionMode) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _SelectionInfoChip(
+                icon: Icons.check_circle_rounded,
+                label: '$_selectedCount seleccionados',
+              ),
+              _SelectionInfoChip(
+                icon: Icons.sd_storage_rounded,
+                label: selectedBytes > 0
+                    ? formatBytes(selectedBytes)
+                    : 'Calculando tamaño',
+              ),
+            ],
           ),
         ],
         const SizedBox(height: AppSpacing.md),
@@ -704,6 +774,41 @@ class _PlayCountCoverBadge extends StatelessWidget {
               color: scheme.onSurface,
               fontWeight: FontWeight.w900,
               height: 0.95,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectionInfoChip extends StatelessWidget {
+  const _SelectionInfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: scheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

@@ -13,8 +13,8 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
   const NearbyTransferPage({super.key});
 
   Future<void> _showSendInviteQr() async {
-    final item = controller.selectedItem.value;
-    if (item == null) {
+    final items = controller.outgoingItems;
+    if (items.isEmpty) {
       Get.snackbar(
         'Transferencia',
         'Abre esta pantalla desde una canción para generar QR de envío.',
@@ -54,15 +54,12 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                   child: SizedBox(
                     width: 220,
                     height: 220,
-                    child: QrImageView(
-                      data: payload,
-                      version: QrVersions.auto,
-                    ),
+                    child: QrImageView(data: payload, version: QrVersions.auto),
                   ),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Canción: ${item.title}\n'
+                  '${items.length == 1 ? 'Canción: ${items.first.title}' : 'Selección: ${items.length} archivos'}\n'
                   'Dispositivo emisor: ${controller.nickName}\n\n'
                   'Escanea este QR desde Listenfy en el otro teléfono para iniciar descarga con metadata.',
                 ),
@@ -162,7 +159,8 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
         child: SafeArea(
           top: false,
           child: Obx(() {
-            final item = controller.selectedItem.value;
+            final items = controller.outgoingItems;
+            final item = items.isEmpty ? null : items.first;
 
             return ListView(
               padding: const EdgeInsets.all(16),
@@ -237,14 +235,24 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Canción lista para enviar',
+                                items.length == 1
+                                    ? 'Canción lista para enviar'
+                                    : '${items.length} archivos listos para enviar',
                                 style: theme.textTheme.labelLarge?.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(item.title, style: theme.textTheme.bodyLarge),
-                              if (item.subtitle.trim().isNotEmpty)
+                              Text(
+                                items.length == 1
+                                    ? item.title
+                                    : '${item.title} y ${items.length - 1} más',
+                                style: theme.textTheme.bodyLarge,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (items.length == 1 &&
+                                  item.subtitle.trim().isNotEmpty)
                                 Text(
                                   item.subtitle,
                                   style: theme.textTheme.bodySmall?.copyWith(
@@ -333,7 +341,8 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                                       '$pct%',
                                       style: theme.textTheme.labelMedium
                                           ?.copyWith(
-                                            color: theme.colorScheme
+                                            color: theme
+                                                .colorScheme
                                                 .onSurfaceVariant,
                                           ),
                                     ),
@@ -378,9 +387,7 @@ class _Panel extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.36),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.4),
-        ),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.4)),
       ),
       child: child,
     );
@@ -462,9 +469,7 @@ class _ActionCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: scheme.surfaceContainerHighest.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: scheme.outline.withValues(alpha: 0.2),
-            ),
+            border: Border.all(color: scheme.outline.withValues(alpha: 0.2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,18 +480,18 @@ class _ActionCard extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 2),
               Text(
                 subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ],
           ),

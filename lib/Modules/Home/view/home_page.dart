@@ -895,6 +895,7 @@ class _HomeOrderedSections extends StatelessWidget {
                     title: 'Más reproducido',
                     items: mostPlayedItems,
                     sourceId: HomeWidgetId.mostPlayed,
+                    initialSelectionItem: item,
                   ),
                 );
               },
@@ -944,6 +945,13 @@ class _HomeOrderedSections extends StatelessWidget {
             context,
             item,
             onChanged: controller.loadHome,
+            onStartMultiSelect: () => _openList(
+              context,
+              title: title,
+              items: full,
+              sourceId: id,
+              initialSelectionItem: item,
+            ),
           );
         },
       );
@@ -965,7 +973,13 @@ class _HomeOrderedSections extends StatelessWidget {
           context,
           item,
           onChanged: controller.loadHome,
-          onStartMultiSelect: onStartMultiSelect,
+          onStartMultiSelect: () => _openList(
+            context,
+            title: title,
+            items: full,
+            sourceId: id,
+            initialSelectionItem: item,
+          ),
         );
       },
     );
@@ -976,6 +990,7 @@ class _HomeOrderedSections extends StatelessWidget {
     required String title,
     required List<MediaItem> items,
     HomeWidgetId? sourceId,
+    MediaItem? initialSelectionItem,
   }) {
     Get.toNamed(
       AppRoutes.homeSectionList,
@@ -996,6 +1011,10 @@ class _HomeOrderedSections extends StatelessWidget {
               onStartMultiSelect: onStartMultiSelect,
             ),
         'onShuffle': (queue) => controller.openMedia(queue.first, 0, queue),
+        if (initialSelectionItem != null) ...{
+          'startInSelectionMode': true,
+          'initialSelectionItemId': initialSelectionItem.id,
+        },
       },
     );
   }
@@ -1069,6 +1088,14 @@ class _CustomHomeSections extends StatelessWidget {
           context,
           item,
           onChanged: controller.loadHome,
+          onStartMultiSelect: () => _openList(
+            context,
+            section.title,
+            items,
+            itemsRefreshBuilder: () =>
+                controller.resolveCustomSectionItems(section),
+            initialSelectionItem: item,
+          ),
         ),
       );
     }
@@ -1090,7 +1117,14 @@ class _CustomHomeSections extends StatelessWidget {
           context,
           item,
           onChanged: controller.loadHome,
-          onStartMultiSelect: onStartMultiSelect,
+          onStartMultiSelect: () => _openList(
+            context,
+            section.title,
+            items,
+            itemsRefreshBuilder: () =>
+                controller.resolveCustomSectionItems(section),
+            initialSelectionItem: item,
+          ),
         );
       },
     );
@@ -1239,6 +1273,7 @@ class _CustomHomeSections extends StatelessWidget {
     String title,
     List<MediaItem> items, {
     List<MediaItem> Function()? itemsRefreshBuilder,
+    MediaItem? initialSelectionItem,
   }) {
     Get.toNamed(
       AppRoutes.homeSectionList,
@@ -1255,6 +1290,10 @@ class _CustomHomeSections extends StatelessWidget {
             ),
         if (itemsRefreshBuilder != null)
           'itemsRefreshBuilder': itemsRefreshBuilder,
+        if (initialSelectionItem != null) ...{
+          'startInSelectionMode': true,
+          'initialSelectionItemId': initialSelectionItem.id,
+        },
       },
     );
   }

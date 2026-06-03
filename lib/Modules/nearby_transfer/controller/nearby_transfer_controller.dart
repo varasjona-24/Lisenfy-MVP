@@ -35,6 +35,7 @@ class NearbyTransferController extends GetxController {
   static const String _inviteEventImported = 'imported';
 
   final Rxn<MediaItem> selectedItem = Rxn<MediaItem>();
+  final RxList<MediaItem> selectedItems = <MediaItem>[].obs;
 
   final RxBool isAdvertising = false.obs;
   final RxBool isDiscovering = false.obs;
@@ -60,8 +61,14 @@ class NearbyTransferController extends GetxController {
   final Set<String> _inviteHandshakeSent = <String>{};
   final Set<String> _autoSentBySessionEndpoint = <String>{};
   final Set<String> _autoSendingBySessionEndpoint = <String>{};
+  final Map<String, int> _importedAckCountBySession = <String, int>{};
 
   bool get isAutoInviteSenderMode => _outgoingInviteSessionId != null;
+  List<MediaItem> get outgoingItems {
+    if (selectedItems.isNotEmpty) return selectedItems.toList(growable: false);
+    final item = selectedItem.value;
+    return item == null ? <MediaItem>[] : <MediaItem>[item];
+  }
 
   @override
   void onInit() {
@@ -73,6 +80,16 @@ class NearbyTransferController extends GetxController {
       final item = args['item'];
       if (item is MediaItem) {
         selectedItem.value = item;
+        selectedItems.assignAll(<MediaItem>[item]);
+      }
+
+      final items = args['items'];
+      if (items is List) {
+        final mediaItems = items.whereType<MediaItem>().toList(growable: false);
+        if (mediaItems.isNotEmpty) {
+          selectedItems.assignAll(mediaItems);
+          selectedItem.value = mediaItems.first;
+        }
       }
 
       final inviteRaw = args['inviteUri']?.toString().trim() ?? '';
@@ -196,18 +213,20 @@ class NearbyTransferController extends GetxController {
     _inviteHandshakeSent.clear();
     _autoSentBySessionEndpoint.clear();
     _autoSendingBySessionEndpoint.clear();
+    _importedAckCountBySession.clear();
     statusText.value = 'Transferencia detenida.';
   }
 
   String get nickName => _nickName;
 
   Future<Uri?> prepareInviteUriForSelectedItem() async {
-    final item = selectedItem.value;
-    if (item == null) {
+    final items = outgoingItems;
+    if (items.isEmpty) {
       statusText.value = 'Abre esta pantalla desde una canción para enviar.';
       return null;
     }
 
+    final item = items.first;
     final variant = _pickShareVariant(item);
     if (variant == null) {
       statusText.value = 'No hay archivo local para enviar.';
@@ -220,20 +239,25 @@ class NearbyTransferController extends GetxController {
       return null;
     }
 
-    final sessionId = _createInviteSessionId(item, variant);
+    final sessionId = _createInviteSessionId(items, variant);
     _outgoingInviteSessionId = sessionId;
     _autoSentBySessionEndpoint.clear();
     _autoSendingBySessionEndpoint.clear();
     _inviteHandshakeSent.clear();
+    _importedAckCountBySession[sessionId] = 0;
 
     await startAdvertisingMode();
-    statusText.value = 'Escanea el QR desde el otro Listenfy para recibir.';
+    statusText.value = items.length == 1
+        ? 'Escanea el QR desde el otro Listenfy para recibir.'
+        : 'Escanea el QR desde el otro Listenfy para recibir ${items.length} archivos.';
 
     return ListenfyDeepLink.buildNearbyInviteUri(
       sessionId: sessionId,
       senderName: _nickName,
-      title: item.title,
-      subtitle: item.subtitle,
+      title: items.length == 1
+          ? item.title
+          : '${items.length} archivos Listenfy',
+      subtitle: items.length == 1 ? item.subtitle : 'Transferencia interna',
     );
   }
 
@@ -263,12 +287,28 @@ class NearbyTransferController extends GetxController {
   }
 
   Future<bool> sendSelectedItemToPeer(String endpointId) async {
-    final item = selectedItem.value;
-    if (item == null) {
+    final items = outgoingItems;
+    if (items.isEmpty) {
       Get.snackbar('Transferir', 'No hay canción seleccionada.');
       return false;
     }
 
+    if (items.length > 1) {
+      var sentCount = 0;
+      for (final item in items) {
+        final sent = await _sendItemToPeer(endpointId, item);
+        if (sent) sentCount++;
+      }
+      statusText.value = sentCount == items.length
+          ? 'Enviando ${items.length} archivos...'
+          : 'Se enviaron $sentCount de ${items.length} archivos.';
+      return sentCount > 0;
+    }
+
+    return _sendItemToPeer(endpointId, items.first);
+  }
+
+  Future<bool> _sendItemToPeer(String endpointId, MediaItem item) async {
     final variant = _pickShareVariant(item);
     if (variant == null) {
       Get.snackbar('Transferir', 'No hay archivo local para enviar.');
@@ -585,9 +625,19 @@ class NearbyTransferController extends GetxController {
       final outgoing = _outgoingInviteSessionId;
       if (outgoing != null && outgoing == sessionId) {
         if (event == _inviteEventImported) {
-          statusText.value = 'Transferencia completada en receptor.';
-          _outgoingInviteSessionId = null;
-          unawaited(stopAdvertisingMode());
+          final expectedCount = outgoingItems.length;
+          final currentCount = (_importedAckCountBySession[sessionId] ?? 0) + 1;
+          _importedAckCountBySession[sessionId] = currentCount;
+          if (expectedCount <= 1 || currentCount >= expectedCount) {
+            statusText.value = expectedCount <= 1
+                ? 'Transferencia completada en receptor.'
+                : 'Transferencia completada: $expectedCount archivos importados.';
+            _outgoingInviteSessionId = null;
+            unawaited(stopAdvertisingMode());
+          } else {
+            statusText.value =
+                'Receptor importó $currentCount de $expectedCount archivos.';
+          }
           return true;
         }
 
@@ -599,7 +649,9 @@ class NearbyTransferController extends GetxController {
         if (_autoSendingBySessionEndpoint.contains(dedupeKey)) return true;
 
         _autoSendingBySessionEndpoint.add(dedupeKey);
-        statusText.value = 'Receptor validado. Enviando canción...';
+        statusText.value = outgoingItems.length == 1
+            ? 'Receptor validado. Enviando canción...'
+            : 'Receptor validado. Enviando ${outgoingItems.length} archivos...';
         final sent = await sendSelectedItemToPeer(endpointId);
         _autoSendingBySessionEndpoint.remove(dedupeKey);
         if (sent) {
@@ -643,9 +695,9 @@ class NearbyTransferController extends GetxController {
     } catch (_) {}
   }
 
-  String _createInviteSessionId(MediaItem item, MediaVariant variant) {
+  String _createInviteSessionId(List<MediaItem> items, MediaVariant variant) {
     final seed = [
-      item.id,
+      items.map((item) => item.id).join(','),
       variant.fileName,
       DateTime.now().microsecondsSinceEpoch.toString(),
       _nickName,
