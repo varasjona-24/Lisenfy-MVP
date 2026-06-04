@@ -21,6 +21,7 @@ abstract class AppRoutes {
   static const history = '/history';
   static const listeningStats = '/stats/listening';
   static const captureGallery = '/captures';
+  static const captureTags = '/captures/tags';
 
   // Extra
   static const sources = '/sources';

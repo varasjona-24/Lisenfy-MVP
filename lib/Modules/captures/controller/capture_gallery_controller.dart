@@ -24,12 +24,14 @@ class CaptureGalleryController extends GetxController {
 
   final isLoading = true.obs;
   final captures = <CaptureItem>[].obs;
+  final tagColors = <String, int>{}.obs;
   final selectedPaths = <String>{}.obs;
   final query = ''.obs;
   final sort = CaptureSort.date.obs;
   final ascending = false.obs;
 
   static const maxShareSelection = 20;
+  static const defaultTagColor = 0xFF7C8BA1;
 
   @override
   void onInit() {
@@ -57,6 +59,7 @@ class CaptureGalleryController extends GetxController {
     isLoading.value = true;
     try {
       captures.assignAll(await _galleryStore.listCaptures());
+      tagColors.assignAll(_galleryStore.tagColors());
       selectedPaths.removeWhere((path) {
         return !captures.any((capture) => capture.path == path);
       });
@@ -113,6 +116,38 @@ class CaptureGalleryController extends GetxController {
   Future<void> setTags(CaptureItem capture, Iterable<String> tags) async {
     await _galleryStore.setTags(capture.path, tags);
     await reload();
+  }
+
+  Future<void> setTagColor(String tag, int colorValue) async {
+    await _galleryStore.setTagColor(tag, colorValue);
+    tagColors[tag.trim().toLowerCase()] = colorValue;
+    tagColors.refresh();
+  }
+
+  int colorForTag(String tag) {
+    return tagColors[tag.trim().toLowerCase()] ?? defaultTagColor;
+  }
+
+  List<CaptureTagFolder> get tagFolders {
+    final grouped = <String, List<CaptureItem>>{};
+    final labels = <String, String>{};
+    for (final capture in captures) {
+      for (final tag in capture.tags) {
+        final key = tag.trim().toLowerCase();
+        if (key.isEmpty) continue;
+        labels.putIfAbsent(key, () => tag.trim());
+        grouped.putIfAbsent(key, () => <CaptureItem>[]).add(capture);
+      }
+    }
+    final folders = grouped.entries.map((entry) {
+      return CaptureTagFolder(
+        tag: labels[entry.key] ?? entry.key,
+        colorValue: tagColors[entry.key] ?? defaultTagColor,
+        captures: List<CaptureItem>.unmodifiable(entry.value),
+      );
+    }).toList();
+    folders.sort((a, b) => a.tag.toLowerCase().compareTo(b.tag.toLowerCase()));
+    return List<CaptureTagFolder>.unmodifiable(folders);
   }
 
   Future<void> shareCaptures(Iterable<CaptureItem> selected) async {

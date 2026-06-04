@@ -200,6 +200,7 @@ const List<_GuideTopic> _guideTopics = [
     title: 'Artistas y colaboraciones',
     subtitle: 'Metadata necesaria para Atlas y relaciones.',
     tips: [
+      'Desde Artistas puedes abrir Listenfly Atlas; ya no vive como seccion independiente del menu inferior.',
       'Atlas funciona mejor cuando editas artistas y defines region principal, pais y tipo de artista.',
       'Las portadas de canciones, artistas, playlists y listas tematicas pueden venir de archivo local o busqueda web.',
       'Si una colaboracion debe contarse para varios artistas, escribela en Artista con patrones como ft., feat., featuring o with.',
@@ -211,8 +212,9 @@ const List<_GuideTopic> _guideTopics = [
   _GuideTopic(
     icon: Icons.public_rounded,
     title: 'Atlas',
-    subtitle: 'Organizacion regional de tu musica.',
+    subtitle: 'Mapa regional integrado en Artistas.',
     tips: [
+      'Abre Atlas desde la tarjeta Listenfly Atlas dentro de Artistas.',
       'Atlas no adivina todo por si solo: depende de la region y pais que tengas en artistas y canciones.',
       'Si cierras el miniplayer, Continuar debe intentar retomar la estacion, cancion y posicion guardadas localmente.',
       'Si se borran datos de la app, cookies o almacenamiento interno, las sesiones guardadas pueden perderse.',
@@ -221,13 +223,27 @@ const List<_GuideTopic> _guideTopics = [
   ),
   _GuideTopic(
     icon: Icons.category_rounded,
-    title: 'Sources',
-    subtitle: 'Collections para organizar videos.',
+    title: 'Collections',
+    subtitle: 'Collections, videos y capturas.',
     tips: [
-      'Sources organiza videos en Collections con portada y color propio.',
+      'Collections organiza videos con portada y color propio.',
+      'Desde Collections puedes abrir Capturas; ya no necesitas buscar esa funcion como modulo separado.',
       'Usa buscador y orden cuando una Collection crece demasiado.',
       'Una buena estructura es Collection > Collection hija > videos, por ejemplo Peliculas y series > Anime > Temporada 1.',
       'Las Collections son manuales: si un video no aparece, agregalo a la Collection correspondiente.',
+    ],
+  ),
+  _GuideTopic(
+    icon: Icons.folder_special_rounded,
+    title: 'Capturas',
+    subtitle: 'Fotogramas, etiquetas y carpetas visuales.',
+    tips: [
+      'Las capturas tomadas desde el reproductor de video aparecen en Capturas, dentro de Collections.',
+      'Puedes renombrar, compartir, eliminar, usar como portada o editar etiquetas desde el menu de cada captura.',
+      'Al editar etiquetas, escribelas separadas por coma y asigna un color a cada una desde el chip de color.',
+      'El color se guarda por etiqueta: si usas la misma etiqueta en varias capturas, todas comparten el mismo punto de color.',
+      'El boton de carpetas abre la vista de etiquetas, donde cada etiqueta se muestra como carpeta estilo Finder con contador y punto de color.',
+      'Al tocar una carpeta de etiqueta, Capturas se abre filtrada por esa etiqueta.',
     ],
   ),
   _GuideTopic(

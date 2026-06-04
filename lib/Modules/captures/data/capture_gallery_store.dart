@@ -10,6 +10,7 @@ import '../domain/capture_item.dart';
 class CaptureGalleryStore {
   static const directoryName = 'ListenfyCaptures';
   static const _tagsKey = 'capture_gallery_tags';
+  static const _tagColorsKey = 'capture_gallery_tag_colors';
 
   CaptureGalleryStore(this._box);
 
@@ -107,6 +108,30 @@ class CaptureGalleryStore {
       next[path] = normalized;
     }
     await _box.write(_tagsKey, next);
+  }
+
+  Map<String, int> tagColors() {
+    final raw = _box.read<Map>(_tagColorsKey) ?? const {};
+    final colors = <String, int>{};
+    for (final entry in raw.entries) {
+      final key = entry.key.toString().trim().toLowerCase();
+      if (key.isEmpty) continue;
+      final value = entry.value;
+      final color = value is num ? value.toInt() : int.tryParse('$value');
+      if (color == null) continue;
+      colors[key] = color;
+    }
+    return colors;
+  }
+
+  Future<void> setTagColor(String tag, int colorValue) async {
+    final clean = tag.trim();
+    if (clean.isEmpty) return;
+    final next = Map<String, dynamic>.from(
+      _box.read<Map>(_tagColorsKey) ?? const {},
+    );
+    next[clean.toLowerCase()] = colorValue;
+    await _box.write(_tagColorsKey, next);
   }
 
   Future<void> removeTags(String path) async {

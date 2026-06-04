@@ -56,6 +56,8 @@ class ArtistsPage extends GetView<ArtistsController> {
                                   children: [
                                     _header(theme),
                                     const SizedBox(height: AppSpacing.md),
+                                    _atlasCard(theme),
+                                    const SizedBox(height: AppSpacing.md),
                                     _recentArtists(theme),
                                     const SizedBox(height: AppSpacing.lg),
                                     _searchField(theme),
@@ -99,9 +101,6 @@ class ArtistsPage extends GetView<ArtistsController> {
                       case 4:
                         home.goToSources();
                         break;
-                      case 5:
-                        home.goToAtlas();
-                        break;
                     }
                   },
                 ),
@@ -136,6 +135,66 @@ class ArtistsPage extends GetView<ArtistsController> {
         prefixIcon: const Icon(Icons.search_rounded),
         filled: true,
         fillColor: theme.colorScheme.surfaceContainer,
+      ),
+    );
+  }
+
+  Widget _atlasCard(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => Get.toNamed(AppRoutes.worldMode),
+      child: Ink(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHigh.withValues(alpha: .72),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: .5),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                Icons.public_rounded,
+                color: scheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Listenfly Atlas',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Explora artistas y regiones en el mapa.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+          ],
+        ),
       ),
     );
   }

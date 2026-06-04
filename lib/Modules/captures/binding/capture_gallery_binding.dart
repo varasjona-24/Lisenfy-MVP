@@ -12,11 +12,19 @@ class CaptureGalleryBinding extends Bindings {
     if (!Get.isRegistered<GetStorage>()) {
       Get.put(GetStorage(), permanent: true);
     }
-    Get.lazyPut<CaptureGalleryStore>(
-      () => CaptureGalleryStore(Get.find<GetStorage>()),
-    );
-    Get.lazyPut<CaptureShareService>(() => const CaptureShareService());
-    Get.lazyPut<CaptureCoverService>(() => const CaptureCoverService());
-    Get.lazyPut<CaptureGalleryController>(() => CaptureGalleryController());
+    if (!Get.isRegistered<CaptureGalleryStore>()) {
+      Get.lazyPut<CaptureGalleryStore>(
+        () => CaptureGalleryStore(Get.find<GetStorage>()),
+      );
+    }
+    if (!Get.isRegistered<CaptureShareService>()) {
+      Get.lazyPut<CaptureShareService>(() => const CaptureShareService());
+    }
+    if (!Get.isRegistered<CaptureCoverService>()) {
+      Get.lazyPut<CaptureCoverService>(() => const CaptureCoverService());
+    }
+    if (!Get.isRegistered<CaptureGalleryController>()) {
+      Get.lazyPut<CaptureGalleryController>(() => CaptureGalleryController());
+    }
   }
 }

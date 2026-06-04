@@ -12,6 +12,7 @@ class CaptureTile extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     required this.onOptions,
+    this.tagColorBuilder,
   });
 
   final CaptureItem capture;
@@ -19,6 +20,7 @@ class CaptureTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onOptions;
+  final int Function(String tag)? tagColorBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -106,16 +108,64 @@ class CaptureTile extends StatelessWidget {
             if (capture.tags.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-                child: Text(
-                  capture.tags.take(3).map((e) => '#$e').join('  '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w700,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final tag in capture.tags.take(3)) ...[
+                        _CaptureTagChip(
+                          tag: tag,
+                          color: Color(
+                            tagColorBuilder?.call(tag) ??
+                                scheme.primary.toARGB32(),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                    ],
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CaptureTagChip extends StatelessWidget {
+  const _CaptureTagChip({required this.tag, required this.color});
+
+  final String tag;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: .7),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              child: const SizedBox(width: 7, height: 7),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '#$tag',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ],
         ),
       ),

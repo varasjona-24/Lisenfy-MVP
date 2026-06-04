@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../app/routes/app_routes.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../controller/capture_gallery_controller.dart';
 import '../domain/capture_gallery_models.dart';
@@ -21,12 +22,26 @@ class CaptureGalleryPage extends StatefulWidget {
 class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
   final TextEditingController _searchCtrl = TextEditingController();
   late final CaptureGalleryController _controller;
+  static const _tagPalette = <int>[
+    0xFFE53935,
+    0xFFFF8F00,
+    0xFFFDD835,
+    0xFF43A047,
+    0xFF00ACC1,
+    0xFF1E88E5,
+    0xFF8E24AA,
+    0xFF7C8BA1,
+  ];
 
   @override
   void initState() {
     super.initState();
     _controller = Get.find<CaptureGalleryController>();
     _searchCtrl.addListener(() => _controller.setQuery(_searchCtrl.text));
+    final args = Get.arguments;
+    if (args is Map && args['query'] != null) {
+      _searchCtrl.text = args['query'].toString();
+    }
   }
 
   @override
@@ -94,30 +109,94 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
     final controller = TextEditingController(text: capture.tags.join(', '));
     final raw = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Etiquetas'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          minLines: 1,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Separadas por coma',
-            hintText: 'anime, escena, portada',
-            border: OutlineInputBorder(),
+      builder: (context) {
+        final theme = Theme.of(context);
+        final scheme = theme.colorScheme;
+        return AlertDialog(
+          title: const Text('Etiquetas'),
+          content: SizedBox(
+            width: 360,
+            child: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, _) {
+                final tags = value.text
+                    .split(',')
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList(growable: false);
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      minLines: 1,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Separadas por coma',
+                        hintText: 'anime, escena, portada',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    if (tags.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        'Color de etiqueta',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final tag in tags)
+                                _TagColorChip(
+                                  tag: tag,
+                                  color: Color(_controller.colorForTag(tag)),
+                                  palette: _tagPalette,
+                                  onPick: (colorValue) async {
+                                    await _controller.setTagColor(
+                                      tag,
+                                      colorValue,
+                                    );
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ] else
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          'Agrega una etiqueta para asignarle color.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
     );
     controller.dispose();
     if (raw == null) return;
@@ -268,10 +347,20 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
                 onPressed: _controller.clearSelection,
               ),
             ] else
-              IconButton(
-                tooltip: 'Ordenar',
-                icon: const Icon(Icons.sort_rounded),
-                onPressed: _showSortSheet,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Etiquetas',
+                    icon: const Icon(Icons.folder_special_rounded),
+                    onPressed: () => Get.toNamed(AppRoutes.captureTags),
+                  ),
+                  IconButton(
+                    tooltip: 'Ordenar',
+                    icon: const Icon(Icons.sort_rounded),
+                    onPressed: _showSortSheet,
+                  ),
+                ],
               ),
           ],
         ),
@@ -354,6 +443,7 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
                                   onTap: () => _openPreview(capture),
                                   onLongPress: () => _toggleSelection(capture),
                                   onOptions: () => _showOptionsSheet(capture),
+                                  tagColorBuilder: _controller.colorForTag,
                                 );
                               },
                             ),
@@ -366,5 +456,100 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
         ),
       );
     });
+  }
+}
+
+class _TagColorChip extends StatefulWidget {
+  const _TagColorChip({
+    required this.tag,
+    required this.color,
+    required this.palette,
+    required this.onPick,
+  });
+
+  final String tag;
+  final Color color;
+  final List<int> palette;
+  final Future<void> Function(int colorValue) onPick;
+
+  @override
+  State<_TagColorChip> createState() => _TagColorChipState();
+}
+
+class _TagColorChipState extends State<_TagColorChip> {
+  late Color _color = widget.color;
+
+  @override
+  void didUpdateWidget(covariant _TagColorChip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tag != widget.tag || oldWidget.color != widget.color) {
+      _color = widget.color;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return PopupMenuButton<int>(
+      tooltip: 'Color de ${widget.tag}',
+      onSelected: (value) async {
+        setState(() => _color = Color(value));
+        await widget.onPick(value);
+      },
+      itemBuilder: (context) {
+        return [
+          for (final value in widget.palette)
+            PopupMenuItem<int>(
+              value: value,
+              child: Row(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Color(value),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const SizedBox(width: 18, height: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Text('#${widget.tag}'),
+                ],
+              ),
+            ),
+        ];
+      },
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: .7),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: _color,
+                  shape: BoxShape.circle,
+                ),
+                child: const SizedBox(width: 12, height: 12),
+              ),
+              const SizedBox(width: 7),
+              Text(
+                '#${widget.tag}',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
