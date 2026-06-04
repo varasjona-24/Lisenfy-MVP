@@ -329,7 +329,21 @@ class AudioService extends GetxService {
         incomingQueue.isNotEmpty &&
         _sameQueueById(incomingQueue, _queueItems)) {
       final target = (queueIndex ?? 0).clamp(0, _queueItems.length - 1).toInt();
-      await _transitionToIndex(target, autoPlay: autoPlay);
+      final sameLoadedTrack =
+          target == currentQueueIndex &&
+          currentVariant.value?.sameIdentityAs(variant) == true;
+      if (sameLoadedTrack) {
+        if (forceReload || initialPosition > Duration.zero) {
+          await seek(initialPosition);
+        }
+        if (autoPlay) await _player.play();
+        return;
+      }
+      await _transitionToIndex(
+        target,
+        autoPlay: autoPlay,
+        initialPosition: initialPosition,
+      );
       return;
     }
 
@@ -631,10 +645,17 @@ class AudioService extends GetxService {
     await _seekToIndex(target, autoPlay: true);
   }
 
-  Future<void> jumpToQueueIndex(int index) async {
+  Future<void> jumpToQueueIndex(
+    int index, {
+    Duration initialPosition = Duration.zero,
+  }) async {
     if (_queueItems.isEmpty) return;
     if (index < 0 || index >= _queueItems.length) return;
-    await _transitionToIndex(index, autoPlay: true);
+    await _transitionToIndex(
+      index,
+      autoPlay: true,
+      initialPosition: initialPosition,
+    );
   }
 
   Future<void> reorderQueue(int oldIndex, int newIndex) async {
@@ -722,10 +743,14 @@ class AudioService extends GetxService {
     _storage.write(_crossfadeSecondsKey, safe);
   }
 
-  Future<void> _transitionToIndex(int target, {required bool autoPlay}) async {
+  Future<void> _transitionToIndex(
+    int target, {
+    required bool autoPlay,
+    Duration initialPosition = Duration.zero,
+  }) async {
     final wasPlaying = _player.playing;
     final shouldFade = wasPlaying && crossfadeSeconds.value > 0;
-    _beginTrackPositionLifecycle(Duration.zero);
+    _beginTrackPositionLifecycle(initialPosition);
     if (shouldFade) {
       await _fadeTo(
         0.0,
@@ -733,7 +758,7 @@ class AudioService extends GetxService {
       );
     }
 
-    await _player.seek(Duration.zero, index: target);
+    await _player.seek(initialPosition, index: target);
     _activeIndex = target;
 
     if (autoPlay || wasPlaying) {

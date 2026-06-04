@@ -32,6 +32,7 @@ class AudioPlayerController extends GetxController {
   static const _resumePositionsKey = 'audio_resume_positions';
   static const _countThreshold = Duration(seconds: 20);
   static const _resumePromptThreshold = Duration(seconds: 5);
+  static const _resumeNearEndThreshold = Duration(seconds: 10);
 
   AudioPlayerController({required this.audioService});
 
@@ -162,13 +163,18 @@ class AudioPlayerController extends GetxController {
 
     final items = _extractItems(rawQueue);
     if (items.isEmpty) return;
+    final sameAsActiveQueue =
+        audioService.hasSourceLoaded &&
+        _sameQueue(items, audioService.queueItems);
 
     queue.assignAll(items);
     currentIndex.value = (rawIndex is int ? rawIndex : 0)
         .clamp(0, items.length - 1)
         .toInt();
 
-    final resumePosition = await _resolveStartPositionForCurrent();
+    final resumePosition = await _resolveStartPositionForCurrent(
+      allowLoadedCurrentResume: !sameAsActiveQueue,
+    );
     await _playCurrent(forceReload: true, resumePosition: resumePosition);
   }
 
@@ -224,27 +230,43 @@ class AudioPlayerController extends GetxController {
     return <MediaItem>[];
   }
 
-  Future<Duration> _resolveStartPositionForCurrent() async {
+  Future<Duration> _resolveStartPositionForCurrent({
+    bool allowLoadedCurrentResume = false,
+  }) async {
     final item = currentItemOrNull;
     if (item == null) return Duration.zero;
-    return _resolveStartPositionForItem(item);
+    return _resolveStartPositionForItem(
+      item,
+      allowLoadedCurrentResume: allowLoadedCurrentResume,
+    );
   }
 
-  Future<Duration> _resolveStartPositionForItem(MediaItem item) async {
+  Future<Duration> _resolveStartPositionForItem(
+    MediaItem item, {
+    bool allowLoadedCurrentResume = false,
+  }) async {
     final loaded = audioService.currentItem.value;
     if (loaded != null &&
         audioService.hasSourceLoaded &&
         _sameItemKey(loaded, item)) {
-      return Duration.zero;
+      if (!allowLoadedCurrentResume) return Duration.zero;
     }
 
-    final resume = _storedResumePositionFor(item);
+    final livePosition =
+        loaded != null &&
+            audioService.hasSourceLoaded &&
+            _sameItemKey(loaded, item)
+        ? audioService.currentPosition
+        : Duration.zero;
+    final resume = livePosition > _resumePromptThreshold
+        ? livePosition
+        : _storedResumePositionFor(item);
     if (resume <= _resumePromptThreshold) return Duration.zero;
 
     final total = item.effectiveDurationSeconds;
     if (total != null && total > 0) {
       final duration = Duration(seconds: total);
-      if (resume >= duration - const Duration(seconds: 5)) {
+      if (resume >= duration - _resumeNearEndThreshold) {
         _clearStoredResumePosition(item);
         return Duration.zero;
       }
@@ -284,15 +306,16 @@ class AudioPlayerController extends GetxController {
     return Duration(milliseconds: ms);
   }
 
-  void _persistResumePositionForCurrent(Duration value) {
+  void _persistResumePositionForCurrent(Duration value, {bool force = false}) {
     final item = audioService.currentItem.value;
     if (item == null) return;
     if (!audioService.hasSourceLoaded) return;
     if (DateTime.now().isBefore(_ignorePositionPersistUntil)) return;
 
     final now = DateTime.now();
-    if (now.difference(_lastResumePositionPersistAt) <
-        const Duration(seconds: 3)) {
+    if (!force &&
+        now.difference(_lastResumePositionPersistAt) <
+            const Duration(seconds: 3)) {
       return;
     }
     _lastResumePositionPersistAt = now;
@@ -307,7 +330,7 @@ class AudioPlayerController extends GetxController {
         : Map<String, dynamic>.from(raw);
 
     final nearEnd =
-        total > Duration.zero && value >= total - const Duration(seconds: 5);
+        total > Duration.zero && value >= total - _resumeNearEndThreshold;
     if (value <= _resumePromptThreshold || nearEnd) {
       next.remove(key);
     } else {
@@ -323,6 +346,10 @@ class AudioPlayerController extends GetxController {
     }
 
     _storage.write(_resumePositionsKey, next);
+  }
+
+  void persistResumePositionNow() {
+    _persistResumePositionForCurrent(audioService.currentPosition, force: true);
   }
 
   void _clearStoredResumePosition(MediaItem item) {
@@ -504,19 +531,31 @@ class AudioPlayerController extends GetxController {
       await _recordTransitionSkipIfNeeded();
     }
 
+    _persistResumePositionForCurrent(audioService.currentPosition, force: true);
+
     _ignorePositionPersistUntil = DateTime.now().add(
       const Duration(milliseconds: 900),
     );
 
     currentIndex.value = index;
+    final targetItem = currentItemOrNull;
+    final resumePosition = targetItem == null
+        ? Duration.zero
+        : (allowResumePrompt
+              ? await _resolveStartPositionForItem(targetItem)
+              : Duration.zero);
+
     if (audioService.hasSourceLoaded &&
         _sameQueue(queue, audioService.queueItems)) {
-      await audioService.jumpToQueueIndex(index);
+      await audioService.jumpToQueueIndex(
+        index,
+        initialPosition: resumePosition,
+      );
       _syncFromService();
       return;
     }
 
-    await _playCurrent(forceReload: true, resumePosition: Duration.zero);
+    await _playCurrent(forceReload: true, resumePosition: resumePosition);
   }
 
   Future<void> next({bool recordSkip = true}) async {
@@ -524,7 +563,7 @@ class AudioPlayerController extends GetxController {
     if (recordSkip) {
       final target = currentIndex.value + 1;
       if (target >= 0 && target < queue.length) {
-        await _playAt(target, recordSkip: true, allowResumePrompt: true);
+        await _playAt(target, recordSkip: true, allowResumePrompt: false);
       }
       return;
     }
@@ -545,7 +584,7 @@ class AudioPlayerController extends GetxController {
     if (recordSkip) {
       final target = currentIndex.value - 1;
       if (target >= 0 && target < queue.length) {
-        await _playAt(target, recordSkip: true, allowResumePrompt: true);
+        await _playAt(target, recordSkip: true, allowResumePrompt: false);
       }
       return;
     }
