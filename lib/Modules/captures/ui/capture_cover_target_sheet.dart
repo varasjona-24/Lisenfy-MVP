@@ -106,42 +106,6 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
                       border: const OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  FutureBuilder<List<CaptureCoverTarget>>(
-                    future: widget.targets,
-                    builder: (context, snapshot) {
-                      final all = snapshot.data ?? const <CaptureCoverTarget>[];
-                      final count = all.where((t) {
-                        return _showVideos ? t.isVideo : t.isCollection;
-                      }).length;
-                      return Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          Chip(
-                            avatar: Icon(
-                              _showVideos
-                                  ? Icons.videocam_rounded
-                                  : Icons.folder_rounded,
-                              size: 18,
-                            ),
-                            label: Text('$count disponibles'),
-                          ),
-                          Chip(
-                            avatar: const Icon(
-                              Icons.check_circle_rounded,
-                              size: 18,
-                            ),
-                            label: Text(
-                              _selected == null
-                                  ? '0 seleccionados'
-                                  : '1 seleccionado',
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
                 ],
               ),
             ),

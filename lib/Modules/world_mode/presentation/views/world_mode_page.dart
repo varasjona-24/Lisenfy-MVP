@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../controller/world_mode_controller.dart';
 import '../../domain/entities/country_station_entity.dart';
 import '../widgets/country_station_card.dart';
@@ -15,239 +14,7 @@ class WorldModePage extends GetView<WorldModeController> {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      final isExpanded = controller.isMapExpanded.value;
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 480),
-        transitionBuilder: (child, animation) => FadeTransition(
-          opacity: CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeInOut,
-          ),
-          child: child,
-        ),
-        child: isExpanded
-            ? _ImmersiveAtlasView(
-                key: const ValueKey<String>('atlas-immersive'),
-                ctrl: controller,
-              )
-            : _AtlasEntryView(
-                key: const ValueKey<String>('atlas-entry'),
-                ctrl: controller,
-              ),
-      );
-    });
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// VISTA DE ENTRADA  (portal animado)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AtlasEntryView extends StatefulWidget {
-  const _AtlasEntryView({super.key, required this.ctrl});
-
-  final WorldModeController ctrl;
-
-  @override
-  State<_AtlasEntryView> createState() => _AtlasEntryViewState();
-}
-
-class _AtlasEntryViewState extends State<_AtlasEntryView>
-    with TickerProviderStateMixin {
-  late final AnimationController _pulseCtrl;
-  late final AnimationController _glowCtrl;
-  late final Animation<double> _pulseAnim;
-  late final Animation<double> _glowAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseCtrl = AnimationController(
-      duration: const Duration(milliseconds: 1900),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    _glowCtrl = AnimationController(
-      duration: const Duration(milliseconds: 2600),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    _pulseAnim = Tween<double>(begin: 0.93, end: 1.07).animate(
-      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
-    );
-
-    _glowAnim = Tween<double>(begin: 0.3, end: 0.65).animate(
-      CurvedAnimation(parent: _glowCtrl, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _pulseCtrl.dispose();
-    _glowCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Listenfly Atlas'),
-        centerTitle: true,
-        forceMaterialTransparency: true,
-      ),
-      body: AppGradientBackground(
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // ── Globo animado ──
-                  AnimatedBuilder(
-                    animation: Listenable.merge([_pulseAnim, _glowAnim]),
-                    builder: (ctx, _) {
-                      return Transform.scale(
-                        scale: _pulseAnim.value,
-                        child: Container(
-                          width: 148,
-                          height: 148,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: RadialGradient(
-                              colors: [
-                                scheme.primary,
-                                scheme.primary.withValues(alpha: 0.55),
-                                scheme.primary.withValues(alpha: 0.08),
-                              ],
-                              stops: const [0.0, 0.55, 1.0],
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: scheme.primary.withValues(
-                                  alpha: _glowAnim.value,
-                                ),
-                                blurRadius: 48,
-                                spreadRadius: 6,
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.public_rounded,
-                            size: 86,
-                            color: scheme.onPrimary.withValues(alpha: 0.95),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 40),
-
-                  // ── Título ──
-                  Text(
-                    'Listenfly Atlas',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.5,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  Text(
-                    'Explora tu música a través del mundo.\nSelecciona una región en el mapa y genera estaciones de radio personalizadas con tus canciones.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      height: 1.55,
-                    ),
-                  ),
-
-                  const SizedBox(height: 48),
-
-                  // ── Botón explorar ──
-                  Obx(() {
-                    final loading = widget.ctrl.isLoadingCountries.value;
-                    return FilledButton.icon(
-                      onPressed:
-                          loading ? null : () => widget.ctrl.setMapExpanded(true),
-                      icon: loading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.explore_rounded, size: 22),
-                      label: Text(
-                        loading ? 'Cargando regiones…' : 'Explorar Atlas',
-                      ),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(230, 58),
-                        shape: const StadiumBorder(),
-                        textStyle: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    );
-                  }),
-
-                  const SizedBox(height: 22),
-
-                  // ── Chip de regiones disponibles ──
-                  Obx(() {
-                    final count = widget.ctrl.countries.length;
-                    if (count == 0) return const SizedBox.shrink();
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 9,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        color: scheme.surfaceContainerHighest.withValues(
-                          alpha: 0.55,
-                        ),
-                        border: Border.all(
-                          color: scheme.outlineVariant.withValues(alpha: 0.4),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.location_on_rounded,
-                            size: 16,
-                            color: scheme.primary,
-                          ),
-                          const SizedBox(width: 7),
-                          Text(
-                            '$count regiones con música disponible',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    return _ImmersiveAtlasView(ctrl: controller);
   }
 }
 
@@ -256,7 +23,7 @@ class _AtlasEntryViewState extends State<_AtlasEntryView>
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ImmersiveAtlasView extends StatefulWidget {
-  const _ImmersiveAtlasView({super.key, required this.ctrl});
+  const _ImmersiveAtlasView({required this.ctrl});
 
   final WorldModeController ctrl;
 
@@ -379,10 +146,7 @@ class _TopBar extends StatelessWidget {
           child: Row(
             children: [
               // ── Botón volver ──
-              _BarButton(
-                icon: Icons.arrow_back_rounded,
-                onTap: () => ctrl.setMapExpanded(false),
-              ),
+              _BarButton(icon: Icons.arrow_back_rounded, onTap: Get.back),
               const SizedBox(width: 10),
 
               // ── Título + región seleccionada ──
@@ -700,20 +464,17 @@ class _StationsSheet extends StatelessWidget {
               }
 
               return SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (ctx, i) {
-                    // índice real (intercalamos separadores)
-                    if (i.isOdd) return const SizedBox(height: 12);
-                    final station = stations[i ~/ 2];
-                    return CountryStationCard(
-                      station: station,
-                      onPlay: () => ctrl.playStation(station),
-                      onContinue: () => ctrl.continueStation(station),
-                      onTrackTap: (track) => ctrl.playTrack(station, track),
-                    );
-                  },
-                  childCount: stations.length * 2 - 1,
-                ),
+                delegate: SliverChildBuilderDelegate((ctx, i) {
+                  // índice real (intercalamos separadores)
+                  if (i.isOdd) return const SizedBox(height: 12);
+                  final station = stations[i ~/ 2];
+                  return CountryStationCard(
+                    station: station,
+                    onPlay: () => ctrl.playStation(station),
+                    onContinue: () => ctrl.continueStation(station),
+                    onTrackTap: (track) => ctrl.playTrack(station, track),
+                  );
+                }, childCount: stations.length * 2 - 1),
               );
             }),
           ),
@@ -840,8 +601,9 @@ class _SearchRegionSheetState extends State<_SearchRegionSheet> {
                       title: Text(
                         c.name,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                         ),
                       ),
                       subtitle: Text('${c.discoveryCount} pistas disponibles'),

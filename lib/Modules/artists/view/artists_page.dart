@@ -54,9 +54,9 @@ class ArtistsPage extends GetView<ArtistsController> {
                                 ),
                                 sliver: SliverList.list(
                                   children: [
-                                    _header(theme),
-                                    const SizedBox(height: AppSpacing.md),
                                     _atlasCard(theme),
+                                    const SizedBox(height: AppSpacing.md),
+                                    _header(theme),
                                     const SizedBox(height: AppSpacing.md),
                                     _recentArtists(theme),
                                     const SizedBox(height: AppSpacing.lg),
@@ -141,60 +141,34 @@ class ArtistsPage extends GetView<ArtistsController> {
 
   Widget _atlasCard(ThemeData theme) {
     final scheme = theme.colorScheme;
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      color: scheme.surfaceContainer,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () => Get.toNamed(AppRoutes.worldMode),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.public_rounded, color: scheme.primary),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Listenfly Atlas',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      'Explora artistas y regiones en el mapa.',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Listenfly Atlas',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w900,
           ),
         ),
-      ),
+        const SizedBox(height: 6),
+        Text(
+          'Explora tu música por regiones y estaciones locales.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _FeaturePortalCard(
+          icon: Icons.public_rounded,
+          title: 'Mapa musical',
+          subtitle:
+              'Selecciona una región y genera estaciones con tus canciones.',
+          metric: '${controller.regionCount} regiones con música disponible',
+          actionLabel: 'Explorar Atlas',
+          actionIcon: Icons.explore_rounded,
+          onAction: () => Get.toNamed(AppRoutes.worldMode),
+        ),
+      ],
     );
   }
 
@@ -507,6 +481,129 @@ class ArtistsPage extends GetView<ArtistsController> {
       ArtistSort.plays => ascending ? 'Menor a mayor' : 'Mayor a menor',
       ArtistSort.random => ascending ? 'Aleatorio' : 'Aleatorio',
     };
+  }
+}
+
+class _FeaturePortalCard extends StatelessWidget {
+  const _FeaturePortalCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.metric,
+    required this.actionLabel,
+    required this.actionIcon,
+    required this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String metric;
+  final String actionLabel;
+  final IconData actionIcon;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: scheme.surfaceContainer.withValues(alpha: .86),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .78)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: .14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: scheme.primary, size: 26),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const SizedBox(width: 12, height: 12),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    metric,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  foregroundColor: Colors.black,
+                  backgroundColor: scheme.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                ),
+                onPressed: onAction,
+                icon: Icon(actionIcon, size: 20),
+                label: Text(
+                  actionLabel,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

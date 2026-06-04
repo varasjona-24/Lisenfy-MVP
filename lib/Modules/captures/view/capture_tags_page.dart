@@ -77,10 +77,15 @@ class CaptureTagsPage extends GetView<CaptureGalleryController> {
                       folder: folders[index],
                       onEdit: () => _editFolder(context, folders[index]),
                       onTap: () {
-                        Get.offNamed(
-                          AppRoutes.captureGallery,
-                          arguments: {'query': folders[index].tag},
-                        );
+                        final tag = folders[index].tag;
+                        if (Navigator.of(context).canPop()) {
+                          Get.back(result: tag);
+                        } else {
+                          Get.offNamed(
+                            AppRoutes.captureGallery,
+                            arguments: {'query': tag},
+                          );
+                        }
                       },
                     );
                   },
@@ -185,29 +190,32 @@ class _TagFolderTile extends StatelessWidget {
                         tooltip: 'Editar etiqueta',
                       ),
                     ),
-                    Positioned(
-                      right: 4,
-                      top: 4,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: scheme.surface, width: 2),
-                        ),
-                        child: const SizedBox(width: 14, height: 14),
-                      ),
-                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 10),
-              Text(
-                folder.tag,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
+              Row(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: scheme.surface, width: 1.5),
+                    ),
+                    child: const SizedBox(width: 12, height: 12),
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      folder.tag,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 2),
               Text(

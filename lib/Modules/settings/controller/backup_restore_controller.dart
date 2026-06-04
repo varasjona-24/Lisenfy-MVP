@@ -1281,7 +1281,21 @@ class BackupRestoreController extends GetxController {
           'modifiedAt': capture.modifiedAt.toIso8601String(),
           'size': capture.size,
           'tags': capture.tags,
+          if (capture.sourceTitle != null) 'sourceTitle': capture.sourceTitle,
+          if (capture.sourceId != null) 'sourceId': capture.sourceId,
         });
+      }
+      final captureTagCollectionsJson = <Map<String, dynamic>>[];
+      final captureTagCollections = captureStore.tagCollections(
+        fallbackColor: 0xFF7C8BA1,
+      );
+      for (final entry in captureTagCollections.entries) {
+        final data = Map<String, dynamic>.from(entry.value.toJson());
+        final thumbRel = await copyToBackup(entry.value.thumbnailPath);
+        if (thumbRel != null) {
+          data['thumbnailPath'] = thumbRel;
+        }
+        captureTagCollectionsJson.add({'key': entry.key, 'data': data});
       }
 
       currentOperation.value = 'Empaquetando archivo ZIP (sin comprimir)...';
@@ -1339,6 +1353,7 @@ class BackupRestoreController extends GetxController {
         'sourceThemeTopics': topicsJson,
         'sourceThemeTopicPlaylists': topicPlaylistsJson,
         'captureGallery': capturesJson,
+        'captureTagCollections': captureTagCollectionsJson,
         'homeLayout': homeLayoutPayload,
         ...recommendationPayload,
         ...recommendationFeedbackPayload,
@@ -1707,18 +1722,31 @@ class BackupRestoreController extends GetxController {
       topicPlaylistsToRestore.clear();
 
       currentOperation.value = 'Restaurando capturas...';
+      final captureStore = CaptureGalleryStore(Get.find<GetStorage>());
       Future<void> restoreCapture(Map<String, dynamic> data, int index) async {
         final rel = (data['path'] as String?)?.trim();
         if (rel == null || rel.isEmpty) return;
         await restoreFile(rel);
         final restoredPath = resolveRel(rel);
         if (restoredPath == null) return;
+        final modifiedAt = DateTime.tryParse(
+          data['modifiedAt']?.toString() ?? '',
+        );
+        if (modifiedAt != null) {
+          final file = File(restoredPath);
+          if (await file.exists()) {
+            await file.setLastModified(modifiedAt);
+          }
+        }
         final tags =
             (data['tags'] as List?)?.map((e) => e.toString()) ??
             const Iterable<String>.empty();
-        await CaptureGalleryStore(
-          Get.find<GetStorage>(),
-        ).restoreTags(restoredPath, tags);
+        await captureStore.restoreTags(restoredPath, tags);
+        await captureStore.setSource(
+          restoredPath,
+          title: data['sourceTitle']?.toString(),
+          sourceId: data['sourceId']?.toString(),
+        );
       }
 
       if (useStreamingManifest) {
@@ -1734,6 +1762,56 @@ class BackupRestoreController extends GetxController {
           if (raw is! Map) continue;
           await restoreCapture(Map<String, dynamic>.from(raw), i);
         }
+      }
+
+      Future<void> restoreCaptureTagCollections(
+        Map<String, dynamic> nextCollections,
+      ) async {
+        await captureStore.restoreTagCollections(nextCollections);
+      }
+
+      Future<void> restoreCaptureTagCollection(
+        String rawKey,
+        Map<dynamic, dynamic> rawData,
+      ) async {
+        final key = rawKey.trim().toLowerCase();
+        if (key.isEmpty) return;
+        final data = Map<String, dynamic>.from(rawData);
+        final thumbRel = data['thumbnailPath']?.toString().trim();
+        if (thumbRel != null && thumbRel.isNotEmpty) {
+          await restoreFile(thumbRel);
+          data['thumbnailPath'] = resolveRel(thumbRel);
+        }
+        await restoreCaptureTagCollections({key: data});
+      }
+
+      if (!useStreamingManifest && manifest != null) {
+        final rawCollections = manifest['captureTagCollections'];
+        if (rawCollections is List) {
+          for (final raw in rawCollections) {
+            if (raw is! Map) continue;
+            final key = raw['key']?.toString();
+            final data = raw['data'];
+            if (key == null || data is! Map) continue;
+            await restoreCaptureTagCollection(key, data);
+          }
+        } else if (rawCollections is Map) {
+          for (final entry in rawCollections.entries) {
+            final value = entry.value;
+            if (value is! Map) continue;
+            await restoreCaptureTagCollection(entry.key.toString(), value);
+          }
+        }
+      } else {
+        await _forEachManifestObject(manifestFile, 'captureTagCollections', (
+          data,
+          index,
+        ) async {
+          final key = data['key']?.toString();
+          final value = data['data'];
+          if (key == null || value is! Map) return;
+          await restoreCaptureTagCollection(key, value);
+        });
       }
 
       if (!useStreamingManifest && manifest != null) {

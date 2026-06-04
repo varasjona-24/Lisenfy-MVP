@@ -51,9 +51,9 @@ class SourcesPage extends GetView<SourcesController> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _header(theme: theme, scheme: scheme, home: home),
-                        const SizedBox(height: AppSpacing.lg),
                         _captureCard(theme),
+                        const SizedBox(height: AppSpacing.lg),
+                        _header(theme: theme, scheme: scheme, home: home),
                         const SizedBox(height: AppSpacing.lg),
 
                         ..._themeSections(
@@ -171,58 +171,155 @@ class SourcesPage extends GetView<SourcesController> {
 
   Widget _captureCard(ThemeData theme) {
     final scheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Capturas',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Organiza fotogramas por etiquetas, colores y portadas.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _CollectionPortalCard(
+          icon: Icons.photo_library_rounded,
+          title: 'Galería de capturas',
+          subtitle:
+              'Agrupa imágenes por carpetas de etiquetas y úsales como portada.',
+          metric: 'Etiquetas con color y thumbnails disponibles',
+          actionLabel: 'Explorar capturas',
+          actionIcon: Icons.folder_special_rounded,
+          onAction: () => Get.toNamed(AppRoutes.captureGallery),
+        ),
+      ],
+    );
+  }
+}
+
+class _CollectionPortalCard extends StatelessWidget {
+  const _CollectionPortalCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.metric,
+    required this.actionLabel,
+    required this.actionIcon,
+    required this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String metric;
+  final String actionLabel;
+  final IconData actionIcon;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      color: scheme.surfaceContainer,
+      color: scheme.surfaceContainer.withValues(alpha: .86),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: scheme.outlineVariant),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .78)),
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () => Get.toNamed(AppRoutes.captureGallery),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: .14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: scheme.primary, size: 26),
                 ),
-                child: Icon(Icons.photo_library_rounded, color: scheme.primary),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Capturas',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      'Organiza fotogramas por etiquetas y colores.',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(height: 5),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const SizedBox(width: 12, height: 12),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    metric,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
                     ),
-                  ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  foregroundColor: Colors.black,
+                  backgroundColor: scheme.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                ),
+                onPressed: onAction,
+                icon: Icon(actionIcon, size: 20),
+                label: Text(
+                  actionLabel,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

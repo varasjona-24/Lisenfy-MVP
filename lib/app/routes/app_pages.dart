@@ -237,13 +237,13 @@ abstract class AppPages {
       binding: ListeningStatsBinding(),
     ),
     GetPage(
-      name: AppRoutes.captureGallery,
-      page: () => const CaptureGalleryPage(),
+      name: AppRoutes.captureTags,
+      page: () => const CaptureTagsPage(),
       binding: CaptureGalleryBinding(),
     ),
     GetPage(
-      name: AppRoutes.captureTags,
-      page: () => const CaptureTagsPage(),
+      name: AppRoutes.captureGallery,
+      page: () => const CaptureGalleryPage(),
       binding: CaptureGalleryBinding(),
     ),
 

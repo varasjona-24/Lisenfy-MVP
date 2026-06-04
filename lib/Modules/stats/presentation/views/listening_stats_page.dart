@@ -40,7 +40,7 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
     final scheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         title: Text(
           'Listenfy Wrapped',
@@ -51,14 +51,7 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
         centerTitle: true,
         forceMaterialTransparency: true,
         foregroundColor: scheme.onSurface,
-        leading: Obx(
-          () => controller.showDashboard.value
-              ? IconButton(
-                  onPressed: controller.closeDashboard,
-                  icon: const Icon(Icons.arrow_back_rounded),
-                )
-              : const BackButton(),
-        ),
+        leading: const BackButton(),
       ),
       body: AppGradientBackground(
         child: Obx(() {
@@ -67,15 +60,6 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
           }
 
           final stats = controller.stats.value;
-          if (!controller.showDashboard.value) {
-            return _WrappedEntryView(
-              stats: stats,
-              onOpen: stats?.hasAnyData == true
-                  ? controller.openDashboard
-                  : null,
-            );
-          }
-
           if (stats == null || !stats.hasAnyData) {
             return Center(
               child: Padding(
@@ -114,180 +98,6 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
             child: _WrappedBody(stats: stats),
           );
         }),
-      ),
-    );
-  }
-}
-
-class _WrappedEntryView extends StatefulWidget {
-  const _WrappedEntryView({required this.stats, required this.onOpen});
-
-  final ListeningStats? stats;
-  final VoidCallback? onOpen;
-
-  @override
-  State<_WrappedEntryView> createState() => _WrappedEntryViewState();
-}
-
-class _WrappedEntryViewState extends State<_WrappedEntryView>
-    with TickerProviderStateMixin {
-  late final AnimationController _pulseCtrl;
-  late final AnimationController _glowCtrl;
-  late final Animation<double> _pulseAnim;
-  late final Animation<double> _glowAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseCtrl = AnimationController(
-      duration: const Duration(milliseconds: 1800),
-      vsync: this,
-    )..repeat(reverse: true);
-    _glowCtrl = AnimationController(
-      duration: const Duration(milliseconds: 2600),
-      vsync: this,
-    )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(
-      begin: 0.94,
-      end: 1.06,
-    ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
-    _glowAnim = Tween<double>(
-      begin: 0.25,
-      end: 0.58,
-    ).animate(CurvedAnimation(parent: _glowCtrl, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _pulseCtrl.dispose();
-    _glowCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final stats = widget.stats;
-    final totalItems = stats == null
-        ? 0
-        : stats.importedAudioItems + stats.importedVideoItems;
-
-    return SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedBuilder(
-                animation: Listenable.merge([_pulseAnim, _glowAnim]),
-                builder: (context, _) {
-                  return Transform.scale(
-                    scale: _pulseAnim.value,
-                    child: Container(
-                      width: 148,
-                      height: 148,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            kMusicGradient.first,
-                            kMusicGradient.last.withValues(alpha: 0.62),
-                            kImportGradient.last.withValues(alpha: 0.12),
-                          ],
-                          stops: const [0.0, 0.58, 1.0],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: kMusicGradient.first.withValues(
-                              alpha: _glowAnim.value,
-                            ),
-                            blurRadius: 48,
-                            spreadRadius: 6,
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.auto_graph_rounded,
-                        size: 82,
-                        color: Colors.white.withValues(alpha: 0.95),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 40),
-              Text(
-                'Listenfy Wrapped',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Tu resumen de imports, audio, video y colecciones en una vista animada.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 42),
-              FilledButton.icon(
-                onPressed: widget.onOpen,
-                icon: const Icon(Icons.insights_rounded, size: 22),
-                label: Text(
-                  widget.onOpen == null ? 'Sin datos todavía' : 'Ver Wrapped',
-                ),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(230, 58),
-                  shape: const StadiumBorder(),
-                  textStyle: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              if (totalItems > 0) ...[
-                const SizedBox(height: 22),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 9,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    color: scheme.surfaceContainerHighest.withValues(
-                      alpha: 0.55,
-                    ),
-                    border: Border.all(
-                      color: scheme.outlineVariant.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.library_music_rounded,
-                        size: 16,
-                        color: scheme.primary,
-                      ),
-                      const SizedBox(width: 7),
-                      Text(
-                        '$totalItems archivos en tu resumen',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
       ),
     );
   }

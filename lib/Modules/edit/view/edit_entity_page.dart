@@ -14,6 +14,7 @@ import '../../../app/controllers/navigation_controller.dart';
 import '../../player/Video/view/lyrics_entry_page.dart';
 import '../../artists/controller/artists_controller.dart';
 import '../../artists/domain/artist_profile.dart';
+import '../../captures/controller/capture_gallery_controller.dart';
 import '../../captures/domain/capture_item.dart';
 import '../../captures/domain/capture_tag_folder.dart';
 import '../../playlists/domain/playlist.dart';
@@ -1591,6 +1592,150 @@ class _EditEntityPageState extends State<EditEntityPage> {
     );
   }
 
+  List<String> _captureSelectedTags() {
+    return _captureTagsCtrl.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+  }
+
+  List<CaptureTagFolder> _captureAvailableTags() {
+    if (!Get.isRegistered<CaptureGalleryController>()) {
+      return const <CaptureTagFolder>[];
+    }
+    final folders = Get.find<CaptureGalleryController>().tagFolders.toList();
+    folders.sort((a, b) {
+      final byCount = b.count.compareTo(a.count);
+      if (byCount != 0) return byCount;
+      return a.tag.toLowerCase().compareTo(b.tag.toLowerCase());
+    });
+    return folders;
+  }
+
+  void _setCaptureTags(Iterable<String> tags) {
+    final normalized = <String>[];
+    final seen = <String>{};
+    for (final raw in tags) {
+      final tag = raw.trim();
+      if (tag.isEmpty) continue;
+      if (!seen.add(tag.toLowerCase())) continue;
+      normalized.add(tag);
+    }
+    setState(() {
+      _captureTagsCtrl.text = normalized.join(', ');
+    });
+  }
+
+  void _toggleCaptureTag(String tag) {
+    final selected = _captureSelectedTags();
+    final key = tag.trim().toLowerCase();
+    if (selected.any((entry) => entry.toLowerCase() == key)) {
+      _setCaptureTags(selected.where((entry) => entry.toLowerCase() != key));
+      return;
+    }
+    _setCaptureTags([...selected, tag.trim()]);
+  }
+
+  Widget _captureTagsSection(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    final selected = _captureSelectedTags();
+    final available = _captureAvailableTags();
+    final selectedKeys = selected.map((tag) => tag.toLowerCase()).toSet();
+    final highlighted = available
+        .where((folder) => !selectedKeys.contains(folder.tag.toLowerCase()))
+        .take(5)
+        .toList(growable: false);
+
+    return Card(
+      elevation: 0,
+      color: scheme.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.sell_outlined, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Etiquetas',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Buscar etiquetas',
+                  onPressed: _showCaptureTagSearch,
+                  icon: const Icon(Icons.search_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (selected.isEmpty)
+              Text(
+                'Sin etiquetas asignadas.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              )
+            else
+              for (final tag in selected)
+                _CaptureEditTagRow(
+                  label: tag,
+                  color: Color(_captureTagColor(tag)),
+                  selected: true,
+                  onTap: () => _toggleCaptureTag(tag),
+                ),
+            if (highlighted.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Divider(color: scheme.outlineVariant),
+              const SizedBox(height: 6),
+              for (final folder in highlighted)
+                _CaptureEditTagRow(
+                  label: folder.tag,
+                  color: Color(folder.colorValue),
+                  subtitle: '${folder.count} capturas',
+                  selected: false,
+                  onTap: () => _toggleCaptureTag(folder.tag),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _captureTagColor(String tag) {
+    if (Get.isRegistered<CaptureGalleryController>()) {
+      return Get.find<CaptureGalleryController>().colorForTag(tag);
+    }
+    return CaptureGalleryController.defaultTagColor;
+  }
+
+  Future<void> _showCaptureTagSearch() async {
+    final selected = _captureSelectedTags();
+    final picked = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        return _CaptureTagSearchSheet(
+          folders: _captureAvailableTags(),
+          selected: selected,
+        );
+      },
+    );
+    if (picked != null) {
+      _setCaptureTags(picked);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1843,17 +1988,6 @@ class _EditEntityPageState extends State<EditEntityPage> {
                     ],
                     if (_isCapture) ...[
                       const SizedBox(height: 12),
-                      TextField(
-                        controller: _captureTagsCtrl,
-                        minLines: 1,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'Etiquetas',
-                          hintText: 'anime, escena, portada',
-                          prefixIcon: Icon(Icons.sell_outlined),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
                       TextFormField(
                         initialValue: _formatCaptureBytes(_capture!.size),
                         readOnly: true,
@@ -1902,6 +2036,10 @@ class _EditEntityPageState extends State<EditEntityPage> {
                 ),
               ),
             ),
+            if (_isCapture) ...[
+              const SizedBox(height: 12),
+              _captureTagsSection(theme),
+            ],
             if (!_isCapture && !_isCaptureTag) ...[
               _artistClassificationSection(theme),
               const SizedBox(height: 12),
@@ -2119,6 +2257,226 @@ class _EditEntityPageState extends State<EditEntityPage> {
         ),
       ),
     );
+  }
+}
+
+class _CaptureEditTagRow extends StatelessWidget {
+  const _CaptureEditTagRow({
+    required this.label,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final String label;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(color: scheme.surface, width: 1.5),
+              ),
+              child: const SizedBox(width: 14, height: 14),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 1),
+                    Text(
+                      subtitle!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.add_circle_outline_rounded,
+              color: selected ? scheme.primary : scheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CaptureTagSearchSheet extends StatefulWidget {
+  const _CaptureTagSearchSheet({required this.folders, required this.selected});
+
+  final List<CaptureTagFolder> folders;
+  final List<String> selected;
+
+  @override
+  State<_CaptureTagSearchSheet> createState() => _CaptureTagSearchSheetState();
+}
+
+class _CaptureTagSearchSheetState extends State<_CaptureTagSearchSheet> {
+  final TextEditingController _queryCtrl = TextEditingController();
+  late final Set<String> _selectedKeys = widget.selected
+      .map((tag) => tag.toLowerCase())
+      .toSet();
+  late final List<String> _selectedLabels = List<String>.from(widget.selected);
+  String _query = '';
+
+  @override
+  void dispose() {
+    _queryCtrl.dispose();
+    super.dispose();
+  }
+
+  List<CaptureTagFolder> get _filtered {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return widget.folders;
+    return widget.folders
+        .where((folder) => folder.tag.toLowerCase().contains(query))
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final filtered = _filtered;
+
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * .78,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.sell_outlined),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Asignar etiquetas',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cerrar'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _queryCtrl,
+                    onChanged: (value) => setState(() => _query = value),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed: () {
+                                _queryCtrl.clear();
+                                setState(() => _query = '');
+                              },
+                            ),
+                      hintText: 'Buscar etiquetas',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No hay etiquetas disponibles.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 4),
+                      itemBuilder: (context, index) {
+                        final folder = filtered[index];
+                        final selected = _selectedKeys.contains(folder.key);
+                        return _CaptureEditTagRow(
+                          label: folder.tag,
+                          color: Color(folder.colorValue),
+                          subtitle: '${folder.count} capturas',
+                          selected: selected,
+                          onTap: () => _toggle(folder),
+                        );
+                      },
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.of(context).pop(_selectedLabels),
+                  icon: const Icon(Icons.check_rounded),
+                  label: Text('Aplicar ${_selectedLabels.length} etiquetas'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _toggle(CaptureTagFolder folder) {
+    setState(() {
+      if (_selectedKeys.contains(folder.key)) {
+        _selectedKeys.remove(folder.key);
+        _selectedLabels.removeWhere(
+          (tag) => tag.toLowerCase() == folder.tag.toLowerCase(),
+        );
+      } else {
+        _selectedKeys.add(folder.key);
+        _selectedLabels.add(folder.tag);
+      }
+    });
   }
 }
 

@@ -81,6 +81,13 @@ class CaptureTile extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
               child: Row(
                 children: [
+                  if (capture.tags.isNotEmpty) ...[
+                    _CaptureTagDots(
+                      tags: capture.tags,
+                      tagColorBuilder: tagColorBuilder,
+                    ),
+                    const SizedBox(width: 7),
+                  ],
                   Expanded(
                     child: Text(
                       capture.name,
@@ -105,27 +112,6 @@ class CaptureTile extends StatelessWidget {
                 ],
               ),
             ),
-            if (capture.tags.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final tag in capture.tags.take(3)) ...[
-                        _CaptureTagChip(
-                          tag: tag,
-                          color: Color(
-                            tagColorBuilder?.call(tag) ??
-                                scheme.primary.toARGB32(),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -133,41 +119,40 @@ class CaptureTile extends StatelessWidget {
   }
 }
 
-class _CaptureTagChip extends StatelessWidget {
-  const _CaptureTagChip({required this.tag, required this.color});
+class _CaptureTagDots extends StatelessWidget {
+  const _CaptureTagDots({required this.tags, this.tagColorBuilder});
 
-  final String tag;
-  final Color color;
+  final List<String> tags;
+  final int Function(String tag)? tagColorBuilder;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final scheme = Theme.of(context).colorScheme;
+    final visible = tags.take(3).toList(growable: false);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: .7),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              child: const SizedBox(width: 7, height: 7),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '#$tag',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w800,
+    return SizedBox(
+      width: visible.length == 1 ? 12 : 10.0 + (visible.length * 8),
+      height: 18,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (var i = 0; i < visible.length; i++)
+            Positioned(
+              left: i * 8,
+              top: 3,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Color(
+                    tagColorBuilder?.call(visible[i]) ??
+                        scheme.primary.toARGB32(),
+                  ),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: scheme.surface, width: 1.5),
+                ),
+                child: const SizedBox(width: 12, height: 12),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

@@ -12,6 +12,7 @@ import '../ui/capture_empty_state.dart';
 import '../ui/capture_preview_page.dart';
 import '../ui/capture_sort_sheet.dart';
 import '../ui/capture_tile.dart';
+import 'capture_tags_page.dart';
 
 class CaptureGalleryPage extends StatefulWidget {
   const CaptureGalleryPage({super.key});
@@ -159,6 +160,18 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
     );
   }
 
+  Future<void> _openTagFolders() async {
+    await _controller.reload();
+    if (!mounted) return;
+    final selectedTag = await Navigator.of(
+      context,
+    ).push<String>(MaterialPageRoute(builder: (_) => const CaptureTagsPage()));
+    final tag = selectedTag?.trim();
+    if (tag == null || tag.isEmpty) return;
+    _searchCtrl.text = tag;
+    _controller.setQuery(tag);
+  }
+
   void _openPreview(CaptureItem capture) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -215,11 +228,12 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    tooltip: 'Etiquetas',
-                    icon: const Icon(Icons.folder_special_rounded),
-                    onPressed: () => Get.toNamed(AppRoutes.captureTags),
-                  ),
+                  if (query.isEmpty)
+                    IconButton(
+                      tooltip: 'Etiquetas',
+                      icon: const Icon(Icons.folder_special_rounded),
+                      onPressed: _openTagFolders,
+                    ),
                   IconButton(
                     tooltip: 'Ordenar',
                     icon: const Icon(Icons.sort_rounded),

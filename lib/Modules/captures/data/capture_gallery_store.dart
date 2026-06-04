@@ -317,6 +317,26 @@ class CaptureGalleryStore {
     await setTags(path, tags);
   }
 
+  Future<void> restoreTagCollections(
+    Map<dynamic, dynamic> rawCollections,
+  ) async {
+    final next = Map<String, dynamic>.from(
+      _box.read<Map>(_tagCollectionsKey) ?? const {},
+    );
+    for (final entry in rawCollections.entries) {
+      final key = entry.key.toString().trim().toLowerCase();
+      final value = entry.value;
+      if (key.isEmpty || value is! Map) continue;
+      final parsed = CaptureTagCollection.fromJson(
+        value,
+        fallbackName: key,
+        fallbackColor: tagColors()[key] ?? 0xFF7C8BA1,
+      );
+      next[key] = parsed.toJson();
+    }
+    await _box.write(_tagCollectionsKey, next);
+  }
+
   static String sanitizeFileName(String value) {
     final sanitized = value
         .replaceAll(RegExp(r'[^A-Za-z0-9 _-]'), '')
