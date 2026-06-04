@@ -14,6 +14,10 @@ import '../../../app/services/audio_cleanup_service.dart';
 import '../../../app/services/audio_service.dart';
 import '../../artists/controller/artists_controller.dart';
 import '../../artists/domain/artist_profile.dart';
+import '../../captures/controller/capture_gallery_controller.dart';
+import '../../captures/data/capture_gallery_store.dart';
+import '../../captures/domain/capture_item.dart';
+import '../../captures/domain/capture_tag_folder.dart';
 import '../../downloads/controller/downloads_controller.dart';
 import '../../home/controller/home_controller.dart';
 import '../../player/audio/controller/audio_player_controller.dart';
@@ -25,7 +29,15 @@ import '../../sources/domain/source_theme_topic.dart';
 import '../../sources/domain/source_theme_topic_playlist.dart';
 import '../view/desktop_image_cropper_dialog.dart';
 
-enum EditEntityType { media, artist, playlist, topic, topicPlaylist }
+enum EditEntityType {
+  media,
+  artist,
+  playlist,
+  topic,
+  topicPlaylist,
+  capture,
+  captureTag,
+}
 
 class EditEntityArgs {
   final EditEntityType type;
@@ -34,41 +46,71 @@ class EditEntityArgs {
   final Playlist? playlist;
   final SourceThemeTopic? topic;
   final SourceThemeTopicPlaylist? topicPlaylist;
+  final CaptureItem? capture;
+  final CaptureTagFolder? captureTag;
 
   const EditEntityArgs.media(this.media)
     : type = EditEntityType.media,
       artist = null,
       playlist = null,
       topic = null,
-      topicPlaylist = null;
+      topicPlaylist = null,
+      capture = null,
+      captureTag = null;
 
   const EditEntityArgs.artist(this.artist)
     : type = EditEntityType.artist,
       media = null,
       playlist = null,
       topic = null,
-      topicPlaylist = null;
+      topicPlaylist = null,
+      capture = null,
+      captureTag = null;
 
   const EditEntityArgs.playlist(this.playlist)
     : type = EditEntityType.playlist,
       media = null,
       artist = null,
       topic = null,
-      topicPlaylist = null;
+      topicPlaylist = null,
+      capture = null,
+      captureTag = null;
 
   const EditEntityArgs.topic(this.topic)
     : type = EditEntityType.topic,
       media = null,
       artist = null,
       playlist = null,
-      topicPlaylist = null;
+      topicPlaylist = null,
+      capture = null,
+      captureTag = null;
 
   const EditEntityArgs.topicPlaylist(this.topicPlaylist)
     : type = EditEntityType.topicPlaylist,
       media = null,
       artist = null,
       playlist = null,
-      topic = null;
+      topic = null,
+      capture = null,
+      captureTag = null;
+
+  const EditEntityArgs.capture(this.capture)
+    : type = EditEntityType.capture,
+      media = null,
+      artist = null,
+      playlist = null,
+      topic = null,
+      topicPlaylist = null,
+      captureTag = null;
+
+  const EditEntityArgs.captureTag(this.captureTag)
+    : type = EditEntityType.captureTag,
+      media = null,
+      artist = null,
+      playlist = null,
+      topic = null,
+      topicPlaylist = null,
+      capture = null;
 }
 
 enum CreateEntityType { playlist, topic, topicPlaylist }
@@ -146,6 +188,7 @@ class EditEntityController extends GetxController {
   final PlaylistsController _playlists = Get.find<PlaylistsController>();
   final PlaylistStore _playlistStore = Get.find<PlaylistStore>();
   final SourcesController _sources = Get.find<SourcesController>();
+  final CaptureGalleryStore _capturesStore = Get.find<CaptureGalleryStore>();
 
   Future<String?> cacheRemoteToLocal({
     required String id,
@@ -720,6 +763,61 @@ class EditEntityController extends GetxController {
       ),
     );
 
+    return true;
+  }
+
+  Future<bool> saveCapture({
+    required CaptureItem capture,
+    required String name,
+    required Iterable<String> tags,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      Get.snackbar(
+        'Captura',
+        'El nombre no puede estar vacio',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return false;
+    }
+
+    final nextPath = await _capturesStore.renameCapture(capture.path, trimmed);
+    await _capturesStore.setTags(nextPath, tags);
+    if (Get.isRegistered<CaptureGalleryController>()) {
+      await Get.find<CaptureGalleryController>().reload();
+    }
+    return true;
+  }
+
+  Future<bool> saveCaptureTag({
+    required CaptureTagFolder folder,
+    required String name,
+    required int? colorValue,
+    required String? thumbnailPath,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      Get.snackbar(
+        'Etiqueta',
+        'El nombre no puede estar vacio',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return false;
+    }
+
+    final nextKey = trimmed.toLowerCase();
+    if (nextKey != folder.key) {
+      await _capturesStore.renameTag(folder.key, trimmed);
+    }
+    await _capturesStore.setTagCollection(
+      trimmed,
+      name: trimmed,
+      colorValue: colorValue,
+      thumbnailPath: thumbnailPath,
+    );
+    if (Get.isRegistered<CaptureGalleryController>()) {
+      await Get.find<CaptureGalleryController>().reload();
+    }
     return true;
   }
 

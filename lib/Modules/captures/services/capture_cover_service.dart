@@ -31,6 +31,8 @@ class CaptureCoverService {
           label: item.title,
           subtitle: item.subtitle,
           type: CaptureCoverTargetType.video,
+          thumbnailLocalPath: item.thumbnailLocalPath,
+          thumbnailUrl: item.thumbnail,
         ),
     ];
   }
@@ -52,6 +54,8 @@ class CaptureCoverService {
           label: topic.title,
           subtitle: 'Collection principal',
           type: CaptureCoverTargetType.topic,
+          thumbnailLocalPath: topic.coverLocalPath,
+          thumbnailUrl: topic.coverUrl,
         ),
       for (final playlist in sources.topicPlaylists)
         CaptureCoverTarget(
@@ -59,6 +63,8 @@ class CaptureCoverService {
           label: playlist.name,
           subtitle: 'Subcollection',
           type: CaptureCoverTargetType.playlist,
+          thumbnailLocalPath: playlist.coverLocalPath,
+          thumbnailUrl: playlist.coverUrl,
         ),
     ];
   }

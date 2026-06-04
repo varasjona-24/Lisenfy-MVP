@@ -14,6 +14,8 @@ import '../../../app/controllers/navigation_controller.dart';
 import '../../player/Video/view/lyrics_entry_page.dart';
 import '../../artists/controller/artists_controller.dart';
 import '../../artists/domain/artist_profile.dart';
+import '../../captures/domain/capture_item.dart';
+import '../../captures/domain/capture_tag_folder.dart';
 import '../../playlists/domain/playlist.dart';
 import '../../sources/domain/source_theme_topic.dart';
 import '../../sources/domain/source_theme_topic_playlist.dart';
@@ -40,6 +42,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
   late final TextEditingController _memberSearchCtrl;
   late final TextEditingController _durationCtrl;
   late final TextEditingController _thumbCtrl;
+  late final TextEditingController _captureTagsCtrl;
 
   String? _localThumbPath;
   String? _remoteThumbUrl;
@@ -60,6 +63,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
   Playlist? get _playlist => _args.playlist;
   SourceThemeTopic? get _topic => _args.topic;
   SourceThemeTopicPlaylist? get _topicPlaylist => _args.topicPlaylist;
+  CaptureItem? get _capture => _args.capture;
+  CaptureTagFolder? get _captureTag => _args.captureTag;
 
   @override
   void initState() {
@@ -141,6 +146,30 @@ class _EditEntityPageState extends State<EditEntityPage> {
         _remoteThumbUrl = topic.coverUrl;
         _colorValue = topic.colorValue;
         _artistCountryCode = null;
+      } else if (_args.type == EditEntityType.capture) {
+        final capture = _capture!;
+        _titleCtrl = TextEditingController(text: capture.name);
+        _subtitleCtrl = TextEditingController(text: capture.sourceTitle ?? '');
+        _countryCtrl = TextEditingController(text: '');
+        _durationCtrl = TextEditingController(text: '');
+        _thumbCtrl = TextEditingController(text: '');
+        _localThumbPath = capture.path;
+        _remoteThumbUrl = '';
+        _colorValue = null;
+        _artistCountryCode = null;
+      } else if (_args.type == EditEntityType.captureTag) {
+        final folder = _captureTag!;
+        _titleCtrl = TextEditingController(text: folder.tag);
+        _subtitleCtrl = TextEditingController(text: '');
+        _countryCtrl = TextEditingController(text: '');
+        _durationCtrl = TextEditingController(text: '');
+        _thumbCtrl = TextEditingController(text: '');
+        _localThumbPath =
+            folder.thumbnailPath ??
+            (folder.captures.isEmpty ? null : folder.captures.first.path);
+        _remoteThumbUrl = '';
+        _colorValue = folder.colorValue;
+        _artistCountryCode = null;
       } else {
         final pl = _topicPlaylist!;
         _titleCtrl = TextEditingController(text: pl.name);
@@ -156,6 +185,9 @@ class _EditEntityPageState extends State<EditEntityPage> {
     }
 
     _memberSearchCtrl = TextEditingController();
+    _captureTagsCtrl = TextEditingController(
+      text: _capture?.tags.join(', ') ?? '',
+    );
   }
 
   @override
@@ -166,6 +198,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
     _memberSearchCtrl.dispose();
     _durationCtrl.dispose();
     _thumbCtrl.dispose();
+    _captureTagsCtrl.dispose();
     if (Get.isRegistered<NavigationController>()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Get.find<NavigationController>().setEditing(false);
@@ -179,6 +212,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
     if (_args.type == EditEntityType.artist) return _artist!.key;
     if (_args.type == EditEntityType.playlist) return _playlist!.id;
     if (_args.type == EditEntityType.topic) return _topic!.id;
+    if (_args.type == EditEntityType.capture) return _capture!.path;
+    if (_args.type == EditEntityType.captureTag) return _captureTag!.key;
     return _topicPlaylist!.id;
   }
 
@@ -187,6 +222,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
     if (_args.type == EditEntityType.artist) return 'Editar artista';
     if (_args.type == EditEntityType.playlist) return 'Editar playlist';
     if (_args.type == EditEntityType.topic) return 'Editar Collection';
+    if (_args.type == EditEntityType.capture) return 'Editar captura';
+    if (_args.type == EditEntityType.captureTag) return 'Editar etiqueta';
     return 'Editar Collection';
   }
 
@@ -194,8 +231,15 @@ class _EditEntityPageState extends State<EditEntityPage> {
   bool get _isArtist => _args.type == EditEntityType.artist;
   bool get _isTopic => _args.type == EditEntityType.topic;
   bool get _isTopicPlaylist => _args.type == EditEntityType.topicPlaylist;
+  bool get _isCapture => _args.type == EditEntityType.capture;
+  bool get _isCaptureTag => _args.type == EditEntityType.captureTag;
   bool get _isVideoMedia => _media?.hasVideoLocal ?? false;
-  bool get _usesWideCover => _isVideoMedia || _isTopic || _isTopicPlaylist;
+  bool get _usesWideCover =>
+      _isVideoMedia ||
+      _isTopic ||
+      _isTopicPlaylist ||
+      _isCapture ||
+      _isCaptureTag;
 
   Future<void> _pickLocalThumbnail() async {
     final res = await FilePicker.platform.pickFiles(
@@ -421,6 +465,24 @@ class _EditEntityPageState extends State<EditEntityPage> {
   String _formatSecondsFromMs(int ms) {
     final secs = (ms / 1000);
     return '${secs.toStringAsFixed(secs >= 10 ? 0 : 1)} s';
+  }
+
+  String _formatCaptureBytes(int bytes) {
+    if (bytes <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    var value = bytes.toDouble();
+    var unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit++;
+    }
+    final decimals = unit == 0 || value >= 100 ? 0 : 1;
+    return '${value.toStringAsFixed(decimals)} ${units[unit]}';
+  }
+
+  String _formatCaptureDate(DateTime value) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(value.day)}/${two(value.month)}/${value.year} ${two(value.hour)}:${two(value.minute)}';
   }
 
   Future<List<AudioSilenceSegment>?> _showAudioCleanupSheet(
@@ -866,53 +928,65 @@ class _EditEntityPageState extends State<EditEntityPage> {
     final canContinue = await _confirmTitleCollaborationWarning();
     if (!canContinue) return;
 
-    final ok = _args.type == EditEntityType.media
-        ? await _controller.saveMedia(
-            item: _media!,
-            title: _titleCtrl.text,
-            subtitle: _subtitleCtrl.text,
-            thumbTouched: _thumbTouched,
-            localThumbPath: _localThumbPath,
-            lyrics: _media?.lyrics ?? '',
-            lyricsLanguage: _media?.lyricsLanguage ?? 'es',
-            translations: _media?.translations ?? const <String, String>{},
-            timedLyrics:
-                _media?.timedLyrics ?? const <String, List<TimedLyricCue>>{},
-          )
-        : (_args.type == EditEntityType.artist
-              ? await _controller.saveArtist(
-                  artist: _artist!,
-                  name: _titleCtrl.text,
-                  country: _countryCtrl.text,
-                  countryCode: _artistCountryCode,
-                  mainRegion: _artistMainRegion,
-                  kind: _artistKind,
-                  memberKeys: _artistMemberKeys.toList(growable: false),
-                  thumbTouched: _thumbTouched,
-                  localThumbPath: _localThumbPath,
-                )
-              : (_args.type == EditEntityType.playlist
-                    ? await _controller.savePlaylist(
-                        playlist: _playlist!,
-                        name: _titleCtrl.text,
-                        thumbTouched: _thumbTouched,
-                        localThumbPath: _localThumbPath,
-                      )
-                    : (_args.type == EditEntityType.topic
-                          ? await _controller.saveTopic(
-                              topic: _topic!,
-                              name: _titleCtrl.text,
-                              thumbTouched: _thumbTouched,
-                              localThumbPath: _localThumbPath,
-                              colorValue: _colorValue,
-                            )
-                          : await _controller.saveTopicPlaylist(
-                              playlist: _topicPlaylist!,
-                              name: _titleCtrl.text,
-                              thumbTouched: _thumbTouched,
-                              localThumbPath: _localThumbPath,
-                              colorValue: _colorValue,
-                            ))));
+    final ok = await switch (_args.type) {
+      EditEntityType.media => _controller.saveMedia(
+        item: _media!,
+        title: _titleCtrl.text,
+        subtitle: _subtitleCtrl.text,
+        thumbTouched: _thumbTouched,
+        localThumbPath: _localThumbPath,
+        lyrics: _media?.lyrics ?? '',
+        lyricsLanguage: _media?.lyricsLanguage ?? 'es',
+        translations: _media?.translations ?? const <String, String>{},
+        timedLyrics:
+            _media?.timedLyrics ?? const <String, List<TimedLyricCue>>{},
+      ),
+      EditEntityType.artist => _controller.saveArtist(
+        artist: _artist!,
+        name: _titleCtrl.text,
+        country: _countryCtrl.text,
+        countryCode: _artistCountryCode,
+        mainRegion: _artistMainRegion,
+        kind: _artistKind,
+        memberKeys: _artistMemberKeys.toList(growable: false),
+        thumbTouched: _thumbTouched,
+        localThumbPath: _localThumbPath,
+      ),
+      EditEntityType.playlist => _controller.savePlaylist(
+        playlist: _playlist!,
+        name: _titleCtrl.text,
+        thumbTouched: _thumbTouched,
+        localThumbPath: _localThumbPath,
+      ),
+      EditEntityType.topic => _controller.saveTopic(
+        topic: _topic!,
+        name: _titleCtrl.text,
+        thumbTouched: _thumbTouched,
+        localThumbPath: _localThumbPath,
+        colorValue: _colorValue,
+      ),
+      EditEntityType.topicPlaylist => _controller.saveTopicPlaylist(
+        playlist: _topicPlaylist!,
+        name: _titleCtrl.text,
+        thumbTouched: _thumbTouched,
+        localThumbPath: _localThumbPath,
+        colorValue: _colorValue,
+      ),
+      EditEntityType.capture => _controller.saveCapture(
+        capture: _capture!,
+        name: _titleCtrl.text,
+        tags: _captureTagsCtrl.text
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty),
+      ),
+      EditEntityType.captureTag => _controller.saveCaptureTag(
+        folder: _captureTag!,
+        name: _titleCtrl.text,
+        colorValue: _colorValue,
+        thumbnailPath: _localThumbPath,
+      ),
+    };
 
     if (ok && mounted) {
       Get.back(result: true);
@@ -1002,7 +1076,11 @@ class _EditEntityPageState extends State<EditEntityPage> {
     final isCollection = _isTopic || _isTopicPlaylist;
     return Center(
       child: Icon(
-        isCollection
+        _isCapture
+            ? Icons.image_rounded
+            : _isCaptureTag
+            ? Icons.folder_special_rounded
+            : isCollection
             ? Icons.folder_rounded
             : (isVideo ? Icons.videocam_rounded : Icons.music_note_rounded),
         size: 44,
@@ -1451,6 +1529,68 @@ class _EditEntityPageState extends State<EditEntityPage> {
     );
   }
 
+  Widget _captureTagThumbnailPicker(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    final captures = _captureTag?.captures ?? const <CaptureItem>[];
+    if (captures.isEmpty) {
+      return Text(
+        'No hay capturas disponibles para usar como thumbnail.',
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: scheme.onSurfaceVariant,
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 82,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: captures.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final capture = captures[index];
+          final selected = _localThumbPath == capture.path;
+          return InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              setState(() {
+                _localThumbPath = capture.path;
+                _thumbTouched = true;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: selected ? scheme.primary : scheme.outlineVariant,
+                  width: selected ? 2 : 1,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.file(
+                  File(capture.path),
+                  width: 104,
+                  height: 70,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => ColoredBox(
+                    color: scheme.surfaceContainerHighest,
+                    child: const SizedBox(
+                      width: 104,
+                      height: 70,
+                      child: Icon(Icons.image_not_supported_rounded),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1543,6 +1683,48 @@ class _EditEntityPageState extends State<EditEntityPage> {
                               ),
                             ),
                           ],
+                          if (_isCapture) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              _formatCaptureBytes(_capture!.size),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _capture!.sourceTitle?.isNotEmpty == true
+                                  ? 'Fuente: ${_capture!.sourceTitle}'
+                                  : 'Fuente no registrada',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                          if (_isCaptureTag) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              '${_captureTag!.count} capturas',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Etiqueta de capturas',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                           if (_isArtist &&
                               _countryCtrl.text.trim().isNotEmpty) ...[
                             const SizedBox(height: 6),
@@ -1601,9 +1783,13 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         prefixIcon: Icon(
                           _args.type == EditEntityType.media
                               ? Icons.music_note_rounded
-                              : (_args.type == EditEntityType.artist
-                                    ? Icons.person_rounded
-                                    : Icons.folder_rounded),
+                              : (_args.type == EditEntityType.capture
+                                    ? Icons.image_rounded
+                                    : _args.type == EditEntityType.captureTag
+                                    ? Icons.folder_special_rounded
+                                    : (_args.type == EditEntityType.artist
+                                          ? Icons.person_rounded
+                                          : Icons.folder_rounded)),
                         ),
                       ),
                     ),
@@ -1655,80 +1841,172 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         ),
                       ),
                     ],
+                    if (_isCapture) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _captureTagsCtrl,
+                        minLines: 1,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Etiquetas',
+                          hintText: 'anime, escena, portada',
+                          prefixIcon: Icon(Icons.sell_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        initialValue: _formatCaptureBytes(_capture!.size),
+                        readOnly: true,
+                        enabled: false,
+                        decoration: const InputDecoration(
+                          labelText: 'Peso',
+                          prefixIcon: Icon(Icons.storage_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        initialValue: _formatCaptureDate(_capture!.modifiedAt),
+                        readOnly: true,
+                        enabled: false,
+                        decoration: const InputDecoration(
+                          labelText: 'Fecha de captura',
+                          prefixIcon: Icon(Icons.calendar_month_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        initialValue: _capture!.sourceTitle?.isNotEmpty == true
+                            ? _capture!.sourceTitle!
+                            : 'Fuente no registrada',
+                        readOnly: true,
+                        enabled: false,
+                        decoration: const InputDecoration(
+                          labelText: 'Fuente',
+                          prefixIcon: Icon(Icons.movie_filter_rounded),
+                        ),
+                      ),
+                    ],
+                    if (_isCaptureTag) ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        initialValue: '${_captureTag!.count} capturas',
+                        readOnly: true,
+                        enabled: false,
+                        decoration: const InputDecoration(
+                          labelText: 'Contenido',
+                          prefixIcon: Icon(Icons.photo_library_rounded),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
-            _artistClassificationSection(theme),
-            const SizedBox(height: 12),
-            Text(
-              (_isTopic || _isTopicPlaylist) ? 'Portada y color' : 'Portada',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
+            if (!_isCapture && !_isCaptureTag) ...[
+              _artistClassificationSection(theme),
+              const SizedBox(height: 12),
+              Text(
+                (_isTopic || _isTopicPlaylist) ? 'Portada y color' : 'Portada',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Card(
-              elevation: 0,
-              color: theme.colorScheme.surfaceContainer,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton.tonalIcon(
-                            onPressed: _pickLocalThumbnail,
-                            icon: const Icon(Icons.photo_library_rounded),
-                            label: const Text('Elegir imagen'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton.tonalIcon(
-                            onPressed: _searchWebThumbnail,
-                            icon: const Icon(Icons.public_rounded),
-                            label: const Text('Buscar en web'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _thumbCtrl,
-                            readOnly: true,
-                            onTap: _searchWebThumbnail,
-                            decoration: const InputDecoration(
-                              labelText: 'Imagen web seleccionada',
-                              prefixIcon: Icon(Icons.image_rounded),
+              const SizedBox(height: 8),
+              Card(
+                elevation: 0,
+                color: theme.colorScheme.surfaceContainer,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.tonalIcon(
+                              onPressed: _pickLocalThumbnail,
+                              icon: const Icon(Icons.photo_library_rounded),
+                              label: const Text('Elegir imagen'),
                             ),
                           ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton.tonalIcon(
+                              onPressed: _searchWebThumbnail,
+                              icon: const Icon(Icons.public_rounded),
+                              label: const Text('Buscar en web'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _thumbCtrl,
+                              readOnly: true,
+                              onTap: _searchWebThumbnail,
+                              decoration: const InputDecoration(
+                                labelText: 'Imagen web seleccionada',
+                                prefixIcon: Icon(Icons.image_rounded),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          OutlinedButton(
+                            onPressed: _clearThumbnail,
+                            child: const Text('Limpiar'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _deleteCurrentThumbnail,
+                          icon: const Icon(Icons.delete_outline_rounded),
+                          label: const Text('Borrar portada actual'),
                         ),
-                        const SizedBox(width: 12),
-                        OutlinedButton(
-                          onPressed: _clearThumbnail,
-                          child: const Text('Limpiar'),
+                      ),
+                      if (_isTopic || _isTopicPlaylist) ...[
+                        const SizedBox(height: 12),
+                        SourceColorPickerField(
+                          color: _colorValue != null
+                              ? Color(_colorValue!)
+                              : theme.colorScheme.primary,
+                          onChanged: (c) => setState(() {
+                            _colorValue = c.toARGB32();
+                          }),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _deleteCurrentThumbnail,
-                        icon: const Icon(Icons.delete_outline_rounded),
-                        label: const Text('Borrar portada actual'),
-                      ),
-                    ),
-                    if (_isTopic || _isTopicPlaylist) ...[
-                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            if (_isCaptureTag) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Portada y color',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                elevation: 0,
+                color: theme.colorScheme.surfaceContainer,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       SourceColorPickerField(
                         color: _colorValue != null
                             ? Color(_colorValue!)
@@ -1737,11 +2015,20 @@ class _EditEntityPageState extends State<EditEntityPage> {
                           _colorValue = c.toARGB32();
                         }),
                       ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Thumbnail',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _captureTagThumbnailPicker(theme),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
             if (_isMedia) ...[
               const SizedBox(height: 12),
               Text(

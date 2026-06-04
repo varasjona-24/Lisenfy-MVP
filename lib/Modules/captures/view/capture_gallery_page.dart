@@ -3,10 +3,10 @@ import 'package:get/get.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
+import '../../edit/controller/edit_entity_controller.dart';
 import '../controller/capture_gallery_controller.dart';
 import '../domain/capture_gallery_models.dart';
 import '../ui/capture_action_sheet.dart';
-import '../ui/capture_data_sheet.dart';
 import '../ui/capture_cover_target_sheet.dart';
 import '../ui/capture_empty_state.dart';
 import '../ui/capture_preview_page.dart';
@@ -23,16 +23,6 @@ class CaptureGalleryPage extends StatefulWidget {
 class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
   final TextEditingController _searchCtrl = TextEditingController();
   late final CaptureGalleryController _controller;
-  static const _tagPalette = <int>[
-    0xFFE53935,
-    0xFFFF8F00,
-    0xFFFDD835,
-    0xFF43A047,
-    0xFF00ACC1,
-    0xFF1E88E5,
-    0xFF8E24AA,
-    0xFF7C8BA1,
-  ];
 
   @override
   void initState() {
@@ -49,39 +39,6 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
-  }
-
-  Future<void> _rename(CaptureItem capture) async {
-    final controller = TextEditingController(text: capture.name);
-    final next = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Renombrar captura'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Nombre',
-            border: OutlineInputBorder(),
-          ),
-          textInputAction: TextInputAction.done,
-          onSubmitted: (value) => Navigator.of(context).pop(value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (next == null || next.trim().isEmpty) return;
-    await _controller.renameCapture(capture, next);
   }
 
   Future<void> _delete(CaptureItem capture) async {
@@ -106,105 +63,6 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
     await _controller.deleteCapture(capture);
   }
 
-  Future<void> _editTags(CaptureItem capture) async {
-    final controller = TextEditingController(text: capture.tags.join(', '));
-    final raw = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        final theme = Theme.of(context);
-        final scheme = theme.colorScheme;
-        return AlertDialog(
-          title: const Text('Etiquetas'),
-          content: SizedBox(
-            width: 360,
-            child: ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (context, value, _) {
-                final tags = value.text
-                    .split(',')
-                    .map((e) => e.trim())
-                    .where((e) => e.isNotEmpty)
-                    .toList(growable: false);
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: controller,
-                      autofocus: true,
-                      minLines: 1,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: 'Separadas por coma',
-                        hintText: 'anime, escena, portada',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    if (tags.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      Text(
-                        'Color de etiqueta',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Flexible(
-                        child: SingleChildScrollView(
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final tag in tags)
-                                _TagColorChip(
-                                  tag: tag,
-                                  color: Color(_controller.colorForTag(tag)),
-                                  palette: _tagPalette,
-                                  onPick: (colorValue) async {
-                                    await _controller.setTagColor(
-                                      tag,
-                                      colorValue,
-                                    );
-                                  },
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ] else
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: Text(
-                          'Agrega una etiqueta para asignarle color.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text),
-              child: const Text('Guardar'),
-            ),
-          ],
-        );
-      },
-    );
-    controller.dispose();
-    if (raw == null) return;
-    final tags = raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
-    await _controller.setTags(capture, tags);
-  }
-
   Future<void> _useAsCover(CaptureItem capture) async {
     final target = await showModalBottomSheet<CaptureCoverTarget>(
       context: context,
@@ -222,30 +80,14 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
     );
   }
 
-  void _showDataSheet(CaptureItem capture) {
-    final scheme = Theme.of(context).colorScheme;
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      backgroundColor: scheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      builder: (ctx) {
-        return CaptureDataSheet(
-          capture: capture,
-          onRename: () {
-            Navigator.of(ctx).pop();
-            _rename(capture);
-          },
-          onEditTags: () {
-            Navigator.of(ctx).pop();
-            _editTags(capture);
-          },
-        );
-      },
+  Future<void> _editCapture(CaptureItem capture) async {
+    final changed = await Get.toNamed(
+      AppRoutes.editEntity,
+      arguments: EditEntityArgs.capture(capture),
     );
+    if (changed == true) {
+      await _controller.reload();
+    }
   }
 
   void _toggleSelection(CaptureItem capture) {
@@ -269,25 +111,17 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
       builder: (ctx) {
         return CaptureActionSheet(
           capture: capture,
+          onEdit: () {
+            Navigator.of(ctx).pop();
+            _editCapture(capture);
+          },
           onShare: () {
             Navigator.of(ctx).pop();
             _controller.shareCaptures([capture]);
           },
-          onData: () {
-            Navigator.of(ctx).pop();
-            _showDataSheet(capture);
-          },
           onUseAsCover: () {
             Navigator.of(ctx).pop();
             _useAsCover(capture);
-          },
-          onEditTags: () {
-            Navigator.of(ctx).pop();
-            _editTags(capture);
-          },
-          onRename: () {
-            Navigator.of(ctx).pop();
-            _rename(capture);
           },
           onDelete: () {
             Navigator.of(ctx).pop();
@@ -331,7 +165,7 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
         builder: (_) => CapturePreviewPage(
           capture: capture,
           onRename: () async {
-            await _rename(capture);
+            await _editCapture(capture);
             if (mounted) Navigator.of(context).maybePop();
           },
           onDelete: () async {
@@ -487,100 +321,5 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
         ),
       );
     });
-  }
-}
-
-class _TagColorChip extends StatefulWidget {
-  const _TagColorChip({
-    required this.tag,
-    required this.color,
-    required this.palette,
-    required this.onPick,
-  });
-
-  final String tag;
-  final Color color;
-  final List<int> palette;
-  final Future<void> Function(int colorValue) onPick;
-
-  @override
-  State<_TagColorChip> createState() => _TagColorChipState();
-}
-
-class _TagColorChipState extends State<_TagColorChip> {
-  late Color _color = widget.color;
-
-  @override
-  void didUpdateWidget(covariant _TagColorChip oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.tag != widget.tag || oldWidget.color != widget.color) {
-      _color = widget.color;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return PopupMenuButton<int>(
-      tooltip: 'Color de ${widget.tag}',
-      onSelected: (value) async {
-        setState(() => _color = Color(value));
-        await widget.onPick(value);
-      },
-      itemBuilder: (context) {
-        return [
-          for (final value in widget.palette)
-            PopupMenuItem<int>(
-              value: value,
-              child: Row(
-                children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Color(value),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const SizedBox(width: 18, height: 18),
-                  ),
-                  const SizedBox(width: 10),
-                  Text('#${widget.tag}'),
-                ],
-              ),
-            ),
-        ];
-      },
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: .7),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: _color,
-                  shape: BoxShape.circle,
-                ),
-                child: const SizedBox(width: 12, height: 12),
-              ),
-              const SizedBox(width: 7),
-              Text(
-                '#${widget.tag}',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

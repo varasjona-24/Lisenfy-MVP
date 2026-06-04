@@ -240,8 +240,10 @@ const List<_GuideTopic> _guideTopics = [
     tips: [
       'Las capturas tomadas desde el reproductor de video aparecen en Capturas, dentro de Collections.',
       'Cada captura conserva nombre, peso, fecha de captura, etiqueta opcional y fuente, es decir, el video desde donde se genero.',
-      'El menu de cada captura incluye Datos de captura, cambiar nombre, editar etiqueta, compartir, usar como portada y eliminar.',
+      'El menu de cada captura usa el mismo flujo que audio y video: Editar abre la pagina comun de datos para cambiar nombre y varias etiquetas.',
+      'Al usar una captura como portada, el selector muestra videos y Collections con busqueda, chips y seleccion visual como el flujo de agregar items.',
       'Al crear una etiqueta, Listenfy la trata como una coleccion: puede tener nombre, color y thumbnail propio.',
+      'Las carpetas de etiquetas tambien usan la pagina comun de edicion, con nombre, contenido, color y thumbnail elegido desde sus capturas.',
       'El color y thumbnail se guardan por etiqueta: si usas la misma etiqueta en varias capturas, todas comparten la misma coleccion visual.',
       'El boton de carpetas abre la vista de etiquetas, donde cada etiqueta se muestra como carpeta estilo Finder con contador, portada y punto de color.',
       'Al tocar una carpeta de etiqueta, Capturas se abre filtrada por esa etiqueta.',

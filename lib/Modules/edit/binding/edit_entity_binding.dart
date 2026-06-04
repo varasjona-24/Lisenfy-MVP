@@ -6,6 +6,7 @@ import '../../../app/data/repo/media_repository.dart';
 import '../../../app/services/audio_cleanup_service.dart';
 import '../../artists/controller/artists_controller.dart';
 import '../../artists/data/artist_store.dart';
+import '../../captures/data/capture_gallery_store.dart';
 import '../../playlists/controller/playlists_controller.dart';
 import '../../playlists/data/playlist_store.dart';
 import '../../sources/controller/sources_controller.dart';
@@ -47,6 +48,9 @@ class EditEntityBinding extends Bindings {
     }
     if (!Get.isRegistered<PlaylistStore>()) {
       Get.put(PlaylistStore(Get.find<GetStorage>()), permanent: true);
+    }
+    if (!Get.isRegistered<CaptureGalleryStore>()) {
+      Get.put(CaptureGalleryStore(Get.find<GetStorage>()), permanent: true);
     }
     if (!Get.isRegistered<ArtistsController>()) {
       Get.put(ArtistsController());

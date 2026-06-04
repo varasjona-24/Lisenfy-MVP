@@ -9,19 +9,15 @@ class CaptureActionSheet extends StatelessWidget {
     super.key,
     required this.capture,
     required this.onShare,
-    required this.onData,
+    required this.onEdit,
     required this.onUseAsCover,
-    required this.onEditTags,
-    required this.onRename,
     required this.onDelete,
   });
 
   final CaptureItem capture;
   final VoidCallback onShare;
-  final VoidCallback onData;
+  final VoidCallback onEdit;
   final VoidCallback onUseAsCover;
-  final VoidCallback onEditTags;
-  final VoidCallback onRename;
   final VoidCallback onDelete;
 
   @override
@@ -90,19 +86,9 @@ class CaptureActionSheet extends StatelessWidget {
               const Divider(height: 1),
               const SizedBox(height: 12),
               _BottomSheetOption(
-                icon: Icons.info_outline_rounded,
-                label: 'Datos de captura',
-                onTap: onData,
-              ),
-              _BottomSheetOption(
-                icon: Icons.drive_file_rename_outline_rounded,
-                label: 'Cambiar nombre',
-                onTap: onRename,
-              ),
-              _BottomSheetOption(
-                icon: Icons.sell_outlined,
-                label: 'Editar etiqueta',
-                onTap: onEditTags,
+                icon: Icons.edit_rounded,
+                label: 'Editar',
+                onTap: onEdit,
               ),
               _BottomSheetOption(
                 icon: Icons.ios_share_rounded,

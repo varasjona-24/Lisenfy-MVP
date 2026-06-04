@@ -6,12 +6,16 @@ class CaptureCoverTarget {
     required this.label,
     required this.subtitle,
     required this.type,
+    this.thumbnailLocalPath,
+    this.thumbnailUrl,
   });
 
   final String id;
   final String label;
   final String subtitle;
   final CaptureCoverTargetType type;
+  final String? thumbnailLocalPath;
+  final String? thumbnailUrl;
 
   bool get isVideo => type == CaptureCoverTargetType.video;
   bool get isCollection => !isVideo;

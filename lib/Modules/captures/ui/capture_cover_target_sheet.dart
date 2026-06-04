@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../domain/capture_cover_target.dart';
@@ -16,6 +18,7 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
   final TextEditingController _queryCtrl = TextEditingController();
   String _query = '';
   bool _showVideos = true;
+  CaptureCoverTarget? _selected;
 
   @override
   void initState() {
@@ -38,21 +41,33 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
 
     return SafeArea(
       child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * .78,
+        height: MediaQuery.sizeOf(context).height * .82,
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Usar como portada',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
+                  Row(
+                    children: [
+                      const Icon(Icons.add_photo_alternate_rounded),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Usar como portada',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cerrar'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   SegmentedButton<bool>(
                     segments: const [
                       ButtonSegment(
@@ -72,16 +87,60 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  SearchBar(
+                  TextField(
                     controller: _queryCtrl,
-                    hintText: _showVideos
-                        ? 'Buscar video'
-                        : 'Buscar collection',
-                    leading: const Icon(Icons.search_rounded),
-                    elevation: const WidgetStatePropertyAll(0),
-                    backgroundColor: WidgetStatePropertyAll(
-                      scheme.surfaceContainerHigh,
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed: () {
+                                _queryCtrl.clear();
+                              },
+                            ),
+                      hintText: _showVideos
+                          ? 'Buscar video'
+                          : 'Buscar Collection',
+                      border: const OutlineInputBorder(),
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  FutureBuilder<List<CaptureCoverTarget>>(
+                    future: widget.targets,
+                    builder: (context, snapshot) {
+                      final all = snapshot.data ?? const <CaptureCoverTarget>[];
+                      final count = all.where((t) {
+                        return _showVideos ? t.isVideo : t.isCollection;
+                      }).length;
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          Chip(
+                            avatar: Icon(
+                              _showVideos
+                                  ? Icons.videocam_rounded
+                                  : Icons.folder_rounded,
+                              size: 18,
+                            ),
+                            label: Text('$count disponibles'),
+                          ),
+                          Chip(
+                            avatar: const Icon(
+                              Icons.check_circle_rounded,
+                              size: 18,
+                            ),
+                            label: Text(
+                              _selected == null
+                                  ? '0 seleccionados'
+                                  : '1 seleccionado',
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -117,35 +176,37 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
                   }
 
                   return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     itemCount: filtered.length,
-                    separatorBuilder: (_, index) => const SizedBox(height: 8),
+                    separatorBuilder: (_, index) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final target = filtered[index];
-                      return ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        tileColor: scheme.surfaceContainerHighest.withValues(
-                          alpha: .55,
-                        ),
-                        leading: Icon(_iconFor(target), color: scheme.primary),
-                        title: Text(
-                          target.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        subtitle: Text(
-                          target.subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        onTap: () => Navigator.of(context).pop(target),
+                      return _SelectableCoverTarget(
+                        target: target,
+                        selected:
+                            _selected?.id == target.id &&
+                            _selected?.type == target.type,
+                        icon: _iconFor(target),
+                        onTap: () => setState(() {
+                          _selected = target;
+                        }),
                       );
                     },
                   );
                 },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _selected == null
+                      ? null
+                      : () => Navigator.of(context).pop(_selected),
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('Aplicar portada'),
+                ),
               ),
             ),
           ],
@@ -160,5 +221,112 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
       CaptureCoverTargetType.topic => Icons.folder_rounded,
       CaptureCoverTargetType.playlist => Icons.video_library_rounded,
     };
+  }
+}
+
+class _SelectableCoverTarget extends StatelessWidget {
+  const _SelectableCoverTarget({
+    required this.target,
+    required this.selected,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final CaptureCoverTarget target;
+  final bool selected;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final image = _imageProvider();
+
+    return Material(
+      color: selected
+          ? scheme.primaryContainer.withValues(alpha: 0.48)
+          : scheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: selected ? scheme.primary : scheme.outlineVariant,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 42, 10),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      width: 72,
+                      height: 44,
+                      child: image == null
+                          ? ColoredBox(
+                              color: scheme.primary.withValues(alpha: .12),
+                              child: Icon(icon, color: scheme.primary),
+                            )
+                          : Image(image: image, fit: BoxFit.cover),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          target.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          target.subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              right: 8,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Checkbox(value: selected, onChanged: (_) => onTap()),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  ImageProvider? _imageProvider() {
+    final local = target.thumbnailLocalPath?.trim();
+    if (local != null && local.isNotEmpty) {
+      return FileImage(File(local));
+    }
+    final remote = target.thumbnailUrl?.trim();
+    if (remote != null && remote.isNotEmpty) {
+      return NetworkImage(remote);
+    }
+    return null;
   }
 }
