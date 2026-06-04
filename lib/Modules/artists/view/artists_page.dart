@@ -163,9 +163,7 @@ class ArtistsPage extends GetView<ArtistsController> {
           title: 'Mapa musical',
           subtitle:
               'Selecciona una región y genera estaciones con tus canciones.',
-          metric: '${controller.regionCount} regiones con música disponible',
-          actionLabel: 'Explorar Atlas',
-          actionIcon: Icons.explore_rounded,
+          detail: '${controller.regionCount} regiones con música disponible',
           onAction: () => Get.toNamed(AppRoutes.worldMode),
         ),
       ],
@@ -489,117 +487,66 @@ class _FeaturePortalCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.metric,
-    required this.actionLabel,
-    required this.actionIcon,
+    required this.detail,
     required this.onAction,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final String metric;
-  final String actionLabel;
-  final IconData actionIcon;
+  final String detail;
   final VoidCallback onAction;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      color: scheme.surfaceContainer.withValues(alpha: .86),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .78)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onAction,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: scheme.outlineVariant.withAlpha(80)),
+        ),
+        child: Row(
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: .14),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: scheme.primary, size: 26),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        subtitle,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurface,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: scheme.primary.withAlpha(30),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: scheme.primary),
             ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: scheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const SizedBox(width: 12, height: 12),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    metric,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 22),
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  foregroundColor: Colors.black,
-                  backgroundColor: scheme.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$subtitle $detail',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                onPressed: onAction,
-                icon: Icon(actionIcon, size: 20),
-                label: Text(
-                  actionLabel,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: Colors.black,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+                ],
               ),
             ),
+            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
           ],
         ),
       ),
