@@ -25,6 +25,7 @@ class CaptureGalleryController extends GetxController {
   final isLoading = true.obs;
   final captures = <CaptureItem>[].obs;
   final tagColors = <String, int>{}.obs;
+  final tagCollections = <String, CaptureTagCollection>{}.obs;
   final selectedPaths = <String>{}.obs;
   final query = ''.obs;
   final sort = CaptureSort.date.obs;
@@ -60,6 +61,9 @@ class CaptureGalleryController extends GetxController {
     try {
       captures.assignAll(await _galleryStore.listCaptures());
       tagColors.assignAll(_galleryStore.tagColors());
+      tagCollections.assignAll(
+        _galleryStore.tagCollections(fallbackColor: defaultTagColor),
+      );
       selectedPaths.removeWhere((path) {
         return !captures.any((capture) => capture.path == path);
       });
@@ -120,12 +124,32 @@ class CaptureGalleryController extends GetxController {
 
   Future<void> setTagColor(String tag, int colorValue) async {
     await _galleryStore.setTagColor(tag, colorValue);
-    tagColors[tag.trim().toLowerCase()] = colorValue;
-    tagColors.refresh();
+    await reload();
+  }
+
+  Future<void> setTagCollection({
+    required String tag,
+    String? name,
+    int? colorValue,
+    String? thumbnailPath,
+  }) async {
+    await _galleryStore.setTagCollection(
+      tag,
+      name: name,
+      colorValue: colorValue,
+      thumbnailPath: thumbnailPath,
+    );
+    await reload();
+  }
+
+  Future<void> renameTag(String oldTag, String nextName) async {
+    await _galleryStore.renameTag(oldTag, nextName);
+    await reload();
   }
 
   int colorForTag(String tag) {
-    return tagColors[tag.trim().toLowerCase()] ?? defaultTagColor;
+    final key = tag.trim().toLowerCase();
+    return tagCollections[key]?.colorValue ?? tagColors[key] ?? defaultTagColor;
   }
 
   List<CaptureTagFolder> get tagFolders {
@@ -140,9 +164,13 @@ class CaptureGalleryController extends GetxController {
       }
     }
     final folders = grouped.entries.map((entry) {
+      final collection = tagCollections[entry.key];
       return CaptureTagFolder(
-        tag: labels[entry.key] ?? entry.key,
-        colorValue: tagColors[entry.key] ?? defaultTagColor,
+        key: entry.key,
+        tag: collection?.name ?? labels[entry.key] ?? entry.key,
+        colorValue:
+            collection?.colorValue ?? tagColors[entry.key] ?? defaultTagColor,
+        thumbnailPath: collection?.thumbnailPath,
         captures: List<CaptureItem>.unmodifiable(entry.value),
       );
     }).toList();

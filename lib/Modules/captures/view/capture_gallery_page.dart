@@ -6,6 +6,7 @@ import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../controller/capture_gallery_controller.dart';
 import '../domain/capture_gallery_models.dart';
 import '../ui/capture_action_sheet.dart';
+import '../ui/capture_data_sheet.dart';
 import '../ui/capture_cover_target_sheet.dart';
 import '../ui/capture_empty_state.dart';
 import '../ui/capture_preview_page.dart';
@@ -221,6 +222,32 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
     );
   }
 
+  void _showDataSheet(CaptureItem capture) {
+    final scheme = Theme.of(context).colorScheme;
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: scheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      builder: (ctx) {
+        return CaptureDataSheet(
+          capture: capture,
+          onRename: () {
+            Navigator.of(ctx).pop();
+            _rename(capture);
+          },
+          onEditTags: () {
+            Navigator.of(ctx).pop();
+            _editTags(capture);
+          },
+        );
+      },
+    );
+  }
+
   void _toggleSelection(CaptureItem capture) {
     final changed = _controller.toggleSelection(capture);
     if (!changed) {
@@ -245,6 +272,10 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
           onShare: () {
             Navigator.of(ctx).pop();
             _controller.shareCaptures([capture]);
+          },
+          onData: () {
+            Navigator.of(ctx).pop();
+            _showDataSheet(capture);
           },
           onUseAsCover: () {
             Navigator.of(ctx).pop();

@@ -831,9 +831,12 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
       if (bytes == null || bytes.isEmpty) {
         throw Exception('No se pudo generar la captura.');
       }
-      final localPath = await CaptureGalleryStore(
-        GetStorage(),
-      ).saveCapture(bytes: bytes, title: item.title);
+      final localPath = await CaptureGalleryStore(GetStorage()).saveCapture(
+        bytes: bytes,
+        title: item.title,
+        sourceTitle: item.title,
+        sourceId: item.publicId.isNotEmpty ? item.publicId : item.id,
+      );
 
       if (Platform.isAndroid) {
         final result = await _previewChannel

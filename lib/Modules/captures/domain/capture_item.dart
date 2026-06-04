@@ -5,6 +5,8 @@ class CaptureItem {
     required this.modifiedAt,
     required this.size,
     this.tags = const <String>[],
+    this.sourceTitle,
+    this.sourceId,
   });
 
   final String path;
@@ -12,6 +14,8 @@ class CaptureItem {
   final DateTime modifiedAt;
   final int size;
   final List<String> tags;
+  final String? sourceTitle;
+  final String? sourceId;
 
   factory CaptureItem.fromJson(Map<String, dynamic> json) {
     return CaptureItem(
@@ -27,6 +31,8 @@ class CaptureItem {
               .where((tag) => tag.trim().isNotEmpty)
               .toList() ??
           const <String>[],
+      sourceTitle: (json['sourceTitle'] as String?)?.trim(),
+      sourceId: (json['sourceId'] as String?)?.trim(),
     );
   }
 
@@ -36,5 +42,7 @@ class CaptureItem {
     'modifiedAt': modifiedAt.toIso8601String(),
     'size': size,
     'tags': tags,
+    'sourceTitle': sourceTitle,
+    'sourceId': sourceId,
   };
 }

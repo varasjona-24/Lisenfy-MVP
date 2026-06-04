@@ -5,12 +5,15 @@ import 'package:get_storage/get_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../domain/capture_tag_collection.dart';
 import '../domain/capture_item.dart';
 
 class CaptureGalleryStore {
   static const directoryName = 'ListenfyCaptures';
   static const _tagsKey = 'capture_gallery_tags';
   static const _tagColorsKey = 'capture_gallery_tag_colors';
+  static const _sourceKey = 'capture_gallery_sources';
+  static const _tagCollectionsKey = 'capture_gallery_tag_collections';
 
   CaptureGalleryStore(this._box);
 
@@ -26,12 +29,15 @@ class CaptureGalleryStore {
   Future<String> saveCapture({
     required Uint8List bytes,
     required String title,
+    String? sourceTitle,
+    String? sourceId,
   }) async {
     final dir = await captureDirectory();
     final fileName =
         'listenfy_capture_${sanitizeFileName(title)}_${DateTime.now().millisecondsSinceEpoch}.jpg';
     final file = File(p.join(dir.path, fileName));
     await file.writeAsBytes(bytes, flush: true);
+    await setSource(file.path, title: sourceTitle ?? title, sourceId: sourceId);
     return file.path;
   }
 
@@ -50,6 +56,8 @@ class CaptureGalleryStore {
           modifiedAt: stat.modified,
           size: stat.size,
           tags: tagsFor(entity.path),
+          sourceTitle: sourceFor(entity.path).title,
+          sourceId: sourceFor(entity.path).id,
         ),
       );
     }
@@ -76,9 +84,14 @@ class CaptureGalleryStore {
     }
     final renamed = await file.rename(candidate);
     final tags = tagsFor(path);
+    final source = sourceFor(path);
     if (tags.isNotEmpty) {
       await removeTags(path);
       await setTags(renamed.path, tags);
+    }
+    if (source.title != null || source.id != null) {
+      await removeSource(path);
+      await setSource(renamed.path, title: source.title, sourceId: source.id);
     }
     return renamed.path;
   }
@@ -89,6 +102,7 @@ class CaptureGalleryStore {
       await file.delete();
     }
     await removeTags(path);
+    await removeSource(path);
   }
 
   List<String> tagsFor(String path) {
@@ -108,9 +122,27 @@ class CaptureGalleryStore {
       next[path] = normalized;
     }
     await _box.write(_tagsKey, next);
+    for (final tag in normalized) {
+      await ensureTagCollection(tag, thumbnailPath: path);
+    }
   }
 
   Map<String, int> tagColors() {
+    final rawCollections = _box.read<Map>(_tagCollectionsKey) ?? const {};
+    final colors = <String, int>{};
+    for (final entry in rawCollections.entries) {
+      final key = entry.key.toString().trim().toLowerCase();
+      final value = entry.value;
+      if (key.isEmpty || value is! Map) continue;
+      final color = value['colorValue'];
+      final parsed = color is num ? color.toInt() : int.tryParse('$color');
+      if (parsed != null) colors[key] = parsed;
+    }
+    colors.addAll(_legacyTagColors());
+    return colors;
+  }
+
+  Map<String, int> _legacyTagColors() {
     final raw = _box.read<Map>(_tagColorsKey) ?? const {};
     final colors = <String, int>{};
     for (final entry in raw.entries) {
@@ -125,13 +157,153 @@ class CaptureGalleryStore {
   }
 
   Future<void> setTagColor(String tag, int colorValue) async {
+    await setTagCollection(tag, colorValue: colorValue);
+  }
+
+  Map<String, CaptureTagCollection> tagCollections({
+    required int fallbackColor,
+  }) {
+    final raw = _box.read<Map>(_tagCollectionsKey) ?? const {};
+    final legacyColors = _legacyTagColors();
+    final collections = <String, CaptureTagCollection>{};
+    for (final entry in raw.entries) {
+      final key = entry.key.toString().trim().toLowerCase();
+      final value = entry.value;
+      if (key.isEmpty || value is! Map) continue;
+      collections[key] = CaptureTagCollection.fromJson(
+        value,
+        fallbackName: key,
+        fallbackColor: legacyColors[key] ?? fallbackColor,
+      );
+    }
+    for (final entry in legacyColors.entries) {
+      collections.putIfAbsent(
+        entry.key,
+        () => CaptureTagCollection(name: entry.key, colorValue: entry.value),
+      );
+    }
+    return collections;
+  }
+
+  Future<void> ensureTagCollection(
+    String tag, {
+    String? thumbnailPath,
+    int fallbackColor = 0xFF7C8BA1,
+  }) async {
     final clean = tag.trim();
     if (clean.isEmpty) return;
     final next = Map<String, dynamic>.from(
-      _box.read<Map>(_tagColorsKey) ?? const {},
+      _box.read<Map>(_tagCollectionsKey) ?? const {},
     );
-    next[clean.toLowerCase()] = colorValue;
-    await _box.write(_tagColorsKey, next);
+    final key = clean.toLowerCase();
+    if (next.containsKey(key)) return;
+    next[key] = CaptureTagCollection(
+      name: clean,
+      colorValue: tagColors()[key] ?? fallbackColor,
+      thumbnailPath: thumbnailPath,
+    ).toJson();
+    await _box.write(_tagCollectionsKey, next);
+  }
+
+  Future<void> setTagCollection(
+    String tag, {
+    String? name,
+    int? colorValue,
+    String? thumbnailPath,
+  }) async {
+    final clean = tag.trim();
+    if (clean.isEmpty) return;
+    final key = clean.toLowerCase();
+    final collections = tagCollections(fallbackColor: 0xFF7C8BA1);
+    final current =
+        collections[key] ??
+        CaptureTagCollection(
+          name: clean,
+          colorValue: tagColors()[key] ?? 0xFF7C8BA1,
+        );
+    final next = Map<String, dynamic>.from(
+      _box.read<Map>(_tagCollectionsKey) ?? const {},
+    );
+    next[key] = CaptureTagCollection(
+      name: name?.trim().isNotEmpty == true ? name!.trim() : current.name,
+      colorValue: colorValue ?? current.colorValue,
+      thumbnailPath: thumbnailPath?.trim().isNotEmpty == true
+          ? thumbnailPath!.trim()
+          : current.thumbnailPath,
+    ).toJson();
+    await _box.write(_tagCollectionsKey, next);
+  }
+
+  Future<void> renameTag(String oldTag, String nextName) async {
+    final oldKey = oldTag.trim().toLowerCase();
+    final cleanName = nextName.trim();
+    final newKey = cleanName.toLowerCase();
+    if (oldKey.isEmpty || newKey.isEmpty || oldKey == newKey) return;
+
+    final rawTags = _box.read<Map>(_tagsKey) ?? const {};
+    final updatedTags = Map<String, dynamic>.from(rawTags);
+    for (final entry in rawTags.entries) {
+      final tags = normalizeTags(
+        (entry.value is List ? entry.value as List : const [])
+            .map((e) => e.toString())
+            .map((tag) => tag.trim().toLowerCase() == oldKey ? cleanName : tag),
+      );
+      updatedTags[entry.key.toString()] = tags;
+    }
+    await _box.write(_tagsKey, updatedTags);
+
+    final rawCollections = Map<String, dynamic>.from(
+      _box.read<Map>(_tagCollectionsKey) ?? const {},
+    );
+    final current = rawCollections.remove(oldKey);
+    if (current is Map) {
+      final parsed = CaptureTagCollection.fromJson(
+        current,
+        fallbackName: oldTag,
+        fallbackColor: tagColors()[oldKey] ?? 0xFF7C8BA1,
+      );
+      rawCollections[newKey] = CaptureTagCollection(
+        name: cleanName,
+        colorValue: parsed.colorValue,
+        thumbnailPath: parsed.thumbnailPath,
+      ).toJson();
+      await _box.write(_tagCollectionsKey, rawCollections);
+    }
+  }
+
+  ({String? title, String? id}) sourceFor(String path) {
+    final raw = _box.read<Map>(_sourceKey) ?? const {};
+    final value = raw[path];
+    if (value is! Map) return (title: null, id: null);
+    final title = value['title']?.toString().trim();
+    final id = value['id']?.toString().trim();
+    return (
+      title: title == null || title.isEmpty ? null : title,
+      id: id == null || id.isEmpty ? null : id,
+    );
+  }
+
+  Future<void> setSource(String path, {String? title, String? sourceId}) async {
+    final cleanTitle = title?.trim();
+    final cleanId = sourceId?.trim();
+    if ((cleanTitle == null || cleanTitle.isEmpty) &&
+        (cleanId == null || cleanId.isEmpty)) {
+      return;
+    }
+    final raw = _box.read<Map>(_sourceKey) ?? const {};
+    final next = Map<String, dynamic>.from(raw);
+    next[path] = {
+      if (cleanTitle != null && cleanTitle.isNotEmpty) 'title': cleanTitle,
+      if (cleanId != null && cleanId.isNotEmpty) 'id': cleanId,
+    };
+    await _box.write(_sourceKey, next);
+  }
+
+  Future<void> removeSource(String path) async {
+    final raw = _box.read<Map>(_sourceKey) ?? const {};
+    if (!raw.containsKey(path)) return;
+    final next = Map<String, dynamic>.from(raw)..remove(path);
+    await _box.write(_sourceKey, next);
   }
 
   Future<void> removeTags(String path) async {
