@@ -68,7 +68,7 @@ class MiniPlayerBar extends StatelessWidget {
         onPrev: canPrev ? () async => audioCtrl.previous() : null,
         onNext: canNext ? () async => audioCtrl.next() : null,
         onClose: () async {
-          audioCtrl?.persistResumePositionNow();
+          audio.persistCurrentTrackResumePositionNow();
           await audio.stopAndHidePreservingSession();
         },
         onOpen: () => Get.toNamed(AppRoutes.audioPlayer),

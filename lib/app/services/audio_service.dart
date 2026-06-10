@@ -40,7 +40,9 @@ class AudioService extends GetxService {
   static const _sessionIndexKey = 'audio_session_index';
   static const _sessionPositionMsKey = 'audio_session_position_ms';
   static const _sessionWasPlayingKey = 'audio_session_was_playing';
-  static const _resumePromptPendingKey = 'audio_resume_prompt_pending';
+  static const _resumePositionsKey = 'audio_resume_positions';
+  static const _resumePromptThreshold = Duration(seconds: 5);
+  static const _resumeNearEndThreshold = Duration(seconds: 10);
 
   final Rx<PlaybackState> state = PlaybackState.stopped.obs;
   final RxBool isPlaying = false.obs;
@@ -72,15 +74,12 @@ class AudioService extends GetxService {
   DateTime _positionOverrideUntil = DateTime.fromMillisecondsSinceEpoch(0);
   Duration _positionOverride = Duration.zero;
   bool _nextHandlerStopShouldHardStop = false;
-  bool _resumePromptPendingCache = false;
   bool _hiddenSessionSnapshotPreserved = false;
   Timer? _lastItemPersistTimer;
   Timer? _homeWidgetUpdateTimer;
   MediaItem? _pendingLastItem;
   MediaVariant? _pendingLastVariant;
   String _lastHomeWidgetSignature = '';
-
-  bool get resumePromptPending => _resumePromptPendingCache;
 
   void _showMiniPlayerForPlayback() {
     _hiddenSessionSnapshotPreserved = false;
@@ -151,8 +150,7 @@ class AudioService extends GetxService {
     await session.configure(const AudioSessionConfiguration.music());
 
     _shuffleEnabled = _storage.read<bool>(_shuffleEnabledKey) ?? false;
-    _resumePromptPendingCache =
-        _storage.read<bool>(_resumePromptPendingKey) ?? false;
+    _storage.remove('audio_resume_prompt_pending');
     final storedSpeed = _storage.read<double>(_speedKey);
     if (storedSpeed != null && storedSpeed > 0) {
       speed.value = storedSpeed;
@@ -597,22 +595,51 @@ class AudioService extends GetxService {
     _publishPosition(Duration.zero);
   }
 
-  Future<void> stopFromNotificationClose() async {
-    _hiddenSessionSnapshotPreserved = false;
-    if (hasSourceLoaded) {
-      _persistSessionSnapshot();
-    }
-    _resumePromptPendingCache = true;
-    _storage.write(_resumePromptPendingKey, true);
-    miniPlayerDismissed.value = true;
+  void persistCurrentTrackResumePositionNow() {
+    final item = currentItem.value;
+    if (item == null || !hasSourceLoaded) return;
 
-    await _player.stop();
-    _publishPosition(Duration.zero);
-    isPlaying.value = false;
-    isLoading.value = false;
-    state.value = PlaybackState.stopped;
-    _keepLastItem = currentItem.value != null;
-    _notifyHandler();
+    persistTrackResumePosition(
+      item: item,
+      position: currentPosition,
+      duration:
+          currentDuration ??
+          Duration(seconds: item.effectiveDurationSeconds ?? 0),
+    );
+  }
+
+  void persistTrackResumePosition({
+    required MediaItem item,
+    required Duration position,
+    required Duration duration,
+  }) {
+    final publicId = item.publicId.trim();
+    final key = publicId.isNotEmpty ? publicId : item.id.trim();
+    if (key.isEmpty) return;
+
+    final raw = _storage.read<Map>(_resumePositionsKey);
+    final next = raw == null
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(raw);
+    final nearEnd =
+        duration > Duration.zero &&
+        position >= duration - _resumeNearEndThreshold;
+
+    if (position <= _resumePromptThreshold || nearEnd) {
+      next.remove(key);
+    } else {
+      next[key] = position.inMilliseconds;
+    }
+
+    if (next.length > 300) {
+      final overflow = next.length - 300;
+      final keys = next.keys.take(overflow).toList(growable: false);
+      for (final oldKey in keys) {
+        next.remove(oldKey);
+      }
+    }
+
+    _storage.write(_resumePositionsKey, next);
   }
 
   Future<void> seek(Duration position) async {
@@ -1067,22 +1094,7 @@ class AudioService extends GetxService {
     if (autoPlay) {
       _showMiniPlayerForPlayback();
     }
-    final ok = await _restoreSessionIfAny(autoPlayOverride: autoPlay);
-    if (ok) {
-      _resumePromptPendingCache = false;
-      _storage.write(_resumePromptPendingKey, false);
-    }
-    return ok;
-  }
-
-  Future<void> dismissResumePrompt({required bool discardSession}) async {
-    _resumePromptPendingCache = false;
-    _storage.write(_resumePromptPendingKey, false);
-    if (discardSession) {
-      _clearSessionSnapshot();
-      clearLastItem();
-      await stop();
-    }
+    return _restoreSessionIfAny(autoPlayOverride: autoPlay);
   }
 
   void _persistSessionSnapshot({bool throttle = false}) {

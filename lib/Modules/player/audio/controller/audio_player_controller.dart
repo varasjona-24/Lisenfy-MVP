@@ -152,11 +152,6 @@ class AudioPlayerController extends GetxController {
   }
 
   Future<void> _applyRouteArgs(dynamic args) async {
-    if (audioService.resumePromptPending) {
-      await _handleResumePrompt(args);
-      return;
-    }
-
     if (args is! Map) return;
     final rawQueue = args['queue'];
     final rawIndex = args['index'];
@@ -176,52 +171,6 @@ class AudioPlayerController extends GetxController {
       allowLoadedCurrentResume: !sameAsActiveQueue,
     );
     await _playCurrent(forceReload: true, resumePosition: resumePosition);
-  }
-
-  Future<bool> _handleResumePrompt(dynamic args) async {
-    final resume = await Get.dialog<bool>(
-      AlertDialog(
-        title: const Text('Continuar reproducción'),
-        content: const Text(
-          'Cerraste la notificación. ¿Deseas continuar desde donde se quedó?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(result: false),
-            child: const Text('No'),
-          ),
-          FilledButton(
-            onPressed: () => Get.back(result: true),
-            child: const Text('Sí'),
-          ),
-        ],
-      ),
-      barrierDismissible: true,
-    );
-
-    if (resume == true) {
-      final ok = await audioService.restorePersistedSession(autoPlay: true);
-      if (ok) {
-        _syncFromService();
-        _resetCountSession();
-        _resetAutoPauseSession();
-        return true;
-      }
-    }
-
-    await audioService.dismissResumePrompt(discardSession: true);
-
-    if (args is! Map) return true;
-    final rawQueue = args['queue'];
-    final rawIndex = args['index'];
-    final items = _extractItems(rawQueue);
-    if (items.isEmpty) return true;
-    queue.assignAll(items);
-    currentIndex.value = (rawIndex is int ? rawIndex : 0)
-        .clamp(0, items.length - 1)
-        .toInt();
-    await _playCurrent(forceReload: true, resumePosition: Duration.zero);
-    return true;
   }
 
   List<MediaItem> _extractItems(dynamic rawQueue) {
@@ -323,33 +272,11 @@ class AudioPlayerController extends GetxController {
     final total = duration.value > Duration.zero
         ? duration.value
         : Duration(seconds: item.effectiveDurationSeconds ?? 0);
-    final key = _stableTrackKey(item);
-    final raw = _storage.read<Map>(_resumePositionsKey);
-    final next = raw == null
-        ? <String, dynamic>{}
-        : Map<String, dynamic>.from(raw);
-
-    final nearEnd =
-        total > Duration.zero && value >= total - _resumeNearEndThreshold;
-    if (value <= _resumePromptThreshold || nearEnd) {
-      next.remove(key);
-    } else {
-      next[key] = value.inMilliseconds;
-    }
-
-    if (next.length > 300) {
-      final overflow = next.length - 300;
-      final keys = next.keys.take(overflow).toList(growable: false);
-      for (final oldKey in keys) {
-        next.remove(oldKey);
-      }
-    }
-
-    _storage.write(_resumePositionsKey, next);
-  }
-
-  void persistResumePositionNow() {
-    _persistResumePositionForCurrent(audioService.currentPosition, force: true);
+    audioService.persistTrackResumePosition(
+      item: item,
+      position: value,
+      duration: total,
+    );
   }
 
   void _clearStoredResumePosition(MediaItem item) {
@@ -500,12 +427,6 @@ class AudioPlayerController extends GetxController {
         _sameItemKey(loadedItem, item)) {
       await audioService.toggle();
       return;
-    }
-
-    if (audioService.resumePromptPending) {
-      final handled = await _handleResumePrompt(Get.arguments);
-      _syncFromService();
-      if (handled) return;
     }
 
     if (!audioService.hasSourceLoaded ||
