@@ -575,8 +575,15 @@ class SourcesController extends GetxController {
   }
 
   Future<void> deleteTopic(SourceThemeTopic topic) async {
+    final children = topicPlaylists
+        .where((playlist) => playlist.topicId == topic.id)
+        .toList();
+    for (final playlist in children) {
+      await _topicPlaylistStore.remove(playlist.id);
+    }
     await _topicStore.remove(topic.id);
     await _loadTopics();
+    await _loadTopicPlaylists();
   }
 
   Future<void> updateTopic(SourceThemeTopic topic) async {
@@ -623,6 +630,21 @@ class SourcesController extends GetxController {
   }
 
   Future<void> deleteTopicPlaylist(SourceThemeTopicPlaylist playlist) async {
+    final descendants = <SourceThemeTopicPlaylist>[];
+    void collect(String parentId) {
+      final children = topicPlaylists
+          .where((candidate) => candidate.parentId == parentId)
+          .toList();
+      for (final child in children) {
+        descendants.add(child);
+        collect(child.id);
+      }
+    }
+
+    collect(playlist.id);
+    for (final descendant in descendants.reversed) {
+      await _topicPlaylistStore.remove(descendant.id);
+    }
     await _topicPlaylistStore.remove(playlist.id);
     await _loadTopicPlaylists();
   }

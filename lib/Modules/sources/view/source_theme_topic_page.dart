@@ -118,6 +118,13 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           title: Text(topic.title),
           onToggleMode: null,
           showLocalConnectAction: false,
+          extraActions: [
+            IconButton(
+              tooltip: 'Eliminar Collection',
+              icon: const Icon(Icons.delete_outline_rounded),
+              onPressed: () => _confirmDeleteTopic(topic),
+            ),
+          ],
         ),
         body: AppGradientBackground(
           child: RefreshIndicator(
@@ -245,6 +252,31 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _confirmDeleteTopic(SourceThemeTopic topic) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminar Collection'),
+        content: Text(
+          '¿Eliminar "${topic.title}" y todas sus Collections internas?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _sources.deleteTopic(topic);
+    if (mounted) Get.back(result: true);
   }
 
   Widget _itemsSection(SourceThemeTopic topic) {

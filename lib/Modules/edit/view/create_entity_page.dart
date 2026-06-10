@@ -27,8 +27,9 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
 
   bool get _isTopic => _args.type == CreateEntityType.topic;
   bool get _isTopicPlaylist => _args.type == CreateEntityType.topicPlaylist;
+  bool get _isCaptureTag => _args.type == CreateEntityType.captureTag;
   bool get _isCollection => _isTopic || _isTopicPlaylist;
-  bool get _usesWideCover => _isCollection;
+  bool get _usesWideCover => _isCollection || _isCaptureTag;
 
   @override
   void initState() {
@@ -56,6 +57,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
   }
 
   String _title() {
+    if (_isCaptureTag) return 'Nueva etiqueta';
     return _isCollection ? 'Nueva Collection' : 'Nueva playlist';
   }
 
@@ -141,14 +143,23 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
       Get.snackbar(
-        _isTopicPlaylist ? 'Collection' : 'Playlist',
+        _isCaptureTag
+            ? 'Etiqueta'
+            : _isTopicPlaylist
+            ? 'Collection'
+            : 'Playlist',
         'El nombre no puede estar vacio',
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
     }
 
-    final ok = _isTopic
+    final ok = _isCaptureTag
+        ? await _controller.createCaptureTag(
+            name: name,
+            colorValue: _colorValue,
+          )
+        : _isTopic
         ? await _controller.createTopic(
             themeId: _args.themeId!,
             name: name,
@@ -171,7 +182,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
 
     if (!ok && mounted) {
       Get.snackbar(
-        'Collections',
+        _isCaptureTag ? 'Etiquetas' : 'Collections',
         'Límite de 10 niveles alcanzado',
         snackPosition: SnackPosition.BOTTOM,
       );
@@ -197,7 +208,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
   Widget _fallbackThumb(ThemeData theme) {
     return Center(
       child: Icon(
-        Icons.queue_music_rounded,
+        _isCaptureTag ? Icons.folder_rounded : Icons.queue_music_rounded,
         size: 44,
         color: theme.colorScheme.onSurfaceVariant,
       ),
@@ -253,7 +264,9 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
                     Expanded(
                       child: Text(
                         _nameCtrl.text.isEmpty
-                            ? (_isCollection
+                            ? (_isCaptureTag
+                                  ? 'Nueva etiqueta'
+                                  : _isCollection
                                   ? 'Nueva Collection'
                                   : 'Nueva playlist')
                             : _nameCtrl.text,
@@ -286,16 +299,24 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
                 padding: const EdgeInsets.all(16),
                 child: TextField(
                   controller: _nameCtrl,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Nombre',
-                    prefixIcon: Icon(Icons.queue_music_rounded),
+                    prefixIcon: Icon(
+                      _isCaptureTag
+                          ? Icons.folder_rounded
+                          : Icons.queue_music_rounded,
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 12),
             Text(
-              _isCollection ? 'Portada y color de Collection' : 'Portada',
+              _isCaptureTag
+                  ? 'Color de etiqueta'
+                  : _isCollection
+                  ? 'Portada y color de Collection'
+                  : 'Portada',
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -311,30 +332,32 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _CoverActionTile(
-                      icon: Icons.photo_library_rounded,
-                      title: 'Elegir imagen',
-                      subtitle: 'Usar una portada guardada en el dispositivo',
-                      onTap: _pickLocalThumbnail,
-                    ),
-                    const SizedBox(height: 8),
-                    _CoverActionTile(
-                      icon: Icons.public_rounded,
-                      title: 'Buscar en web',
-                      subtitle: 'Encontrar y recortar una portada online',
-                      onTap: _searchWebThumbnail,
-                    ),
-                    if ((_localThumbPath ?? '').trim().isNotEmpty) ...[
+                    if (!_isCaptureTag) ...[
+                      _CoverActionTile(
+                        icon: Icons.photo_library_rounded,
+                        title: 'Elegir imagen',
+                        subtitle: 'Usar una portada guardada en el dispositivo',
+                        onTap: _pickLocalThumbnail,
+                      ),
                       const SizedBox(height: 8),
                       _CoverActionTile(
-                        icon: Icons.hide_image_rounded,
-                        title: 'Quitar portada',
-                        subtitle: 'Volver al icono predeterminado',
-                        onTap: _clearThumbnail,
-                        destructive: true,
+                        icon: Icons.public_rounded,
+                        title: 'Buscar en web',
+                        subtitle: 'Encontrar y recortar una portada online',
+                        onTap: _searchWebThumbnail,
                       ),
+                      if ((_localThumbPath ?? '').trim().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _CoverActionTile(
+                          icon: Icons.hide_image_rounded,
+                          title: 'Quitar portada',
+                          subtitle: 'Volver al icono predeterminado',
+                          onTap: _clearThumbnail,
+                          destructive: true,
+                        ),
+                      ],
                     ],
-                    if (_isCollection) ...[
+                    if (_isCollection || _isCaptureTag) ...[
                       const SizedBox(height: 14),
                       Align(
                         alignment: Alignment.centerLeft,
@@ -350,6 +373,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
                         color: _colorValue != null
                             ? Color(_colorValue!)
                             : theme.colorScheme.primary,
+                        showLabel: !_isCaptureTag,
                         onChanged: (c) => setState(() {
                           _colorValue = c.toARGB32();
                         }),

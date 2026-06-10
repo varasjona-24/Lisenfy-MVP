@@ -8,10 +8,12 @@ class SourceColorPickerField extends StatelessWidget {
     super.key,
     required this.color,
     required this.onChanged,
+    this.showLabel = true,
   });
 
   final Color color;
   final ValueChanged<Color> onChanged;
+  final bool showLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -24,11 +26,10 @@ class SourceColorPickerField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Color',
-          style: theme.textTheme.labelLarge,
-        ),
-        const SizedBox(height: 8),
+        if (showLabel) ...[
+          Text('Color', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
+        ],
         Container(
           height: 36,
           decoration: BoxDecoration(
@@ -45,27 +46,21 @@ class SourceColorPickerField extends StatelessWidget {
           label: 'R',
           value: r.toDouble(),
           color: const Color(0xFFE53935),
-          onChanged: (v) => onChanged(
-            Color.fromARGB(255, v.round(), g, b),
-          ),
+          onChanged: (v) => onChanged(Color.fromARGB(255, v.round(), g, b)),
         ),
         _colorSlider(
           context,
           label: 'G',
           value: g.toDouble(),
           color: const Color(0xFF43A047),
-          onChanged: (v) => onChanged(
-            Color.fromARGB(255, r, v.round(), b),
-          ),
+          onChanged: (v) => onChanged(Color.fromARGB(255, r, v.round(), b)),
         ),
         _colorSlider(
           context,
           label: 'B',
           value: b.toDouble(),
           color: const Color(0xFF1E88E5),
-          onChanged: (v) => onChanged(
-            Color.fromARGB(255, r, g, v.round()),
-          ),
+          onChanged: (v) => onChanged(Color.fromARGB(255, r, g, v.round())),
         ),
         const SizedBox(height: 8),
         Text(
@@ -87,10 +82,7 @@ class SourceColorPickerField extends StatelessWidget {
       children: [
         SizedBox(
           width: 18,
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium,
-          ),
+          child: Text(label, style: Theme.of(context).textTheme.labelMedium),
         ),
         Expanded(
           child: SliderTheme(

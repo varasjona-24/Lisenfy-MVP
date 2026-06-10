@@ -6,8 +6,11 @@ import 'package:get/get.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../edit/controller/edit_entity_controller.dart';
+import '../../sources/ui/source_filter_toolbar.dart';
 import '../controller/capture_gallery_controller.dart';
 import '../domain/capture_gallery_models.dart';
+
+enum _CaptureTagSort { name, count, date, size }
 
 class CaptureTagsPage extends StatefulWidget {
   const CaptureTagsPage({super.key});
@@ -20,6 +23,8 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
   final CaptureGalleryController controller =
       Get.find<CaptureGalleryController>();
   final TextEditingController _searchCtrl = TextEditingController();
+  _CaptureTagSort _sort = _CaptureTagSort.name;
+  bool _ascending = true;
 
   @override
   void dispose() {
@@ -35,15 +40,58 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
     return Obx(() {
       final folders = controller.tagFolders;
       final query = _searchCtrl.text.trim().toLowerCase();
-      final visibleFolders = query.isEmpty
-          ? folders
-          : folders.where((folder) {
-              return folder.tag.toLowerCase().contains(query);
-            }).toList();
+      final visibleFolders =
+          (query.isEmpty
+                ? folders.toList()
+                : folders.where((folder) {
+                    return folder.tag.toLowerCase().contains(query);
+                  }).toList())
+            ..sort((a, b) {
+              final comparison = switch (_sort) {
+                _CaptureTagSort.name => a.tag.toLowerCase().compareTo(
+                  b.tag.toLowerCase(),
+                ),
+                _CaptureTagSort.count => a.count.compareTo(b.count),
+                _CaptureTagSort.date => _latestModifiedAt(
+                  a,
+                ).compareTo(_latestModifiedAt(b)),
+                _CaptureTagSort.size => _folderSize(
+                  a,
+                ).compareTo(_folderSize(b)),
+              };
+              return _ascending ? comparison : -comparison;
+            });
 
       return Scaffold(
         backgroundColor: scheme.surface,
         appBar: AppBar(
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Etiquetas',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: .72),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${folders.length}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          centerTitle: true,
           forceMaterialTransparency: true,
           actions: [
             IconButton(
@@ -62,31 +110,16 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Etiquetas',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
+                    SourceFilterToolbar(
                       controller: _searchCtrl,
-                      onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        labelText: 'Buscar etiqueta',
-                        prefixIcon: const Icon(Icons.search_rounded),
-                        suffixIcon: query.isEmpty
-                            ? null
-                            : IconButton(
-                                icon: const Icon(Icons.close_rounded),
-                                onPressed: () {
-                                  _searchCtrl.clear();
-                                  setState(() {});
-                                },
-                              ),
-                        filled: true,
-                        fillColor: scheme.surfaceContainer,
-                      ),
+                      query: query,
+                      hintText: 'Buscar etiqueta',
+                      onQueryChanged: (_) => setState(() {}),
+                      onClearQuery: () {
+                        _searchCtrl.clear();
+                        setState(() {});
+                      },
+                      onSort: _showSortSheet,
                     ),
                   ],
                 ),
@@ -148,7 +181,8 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
                           final folder = visibleFolders[index];
                           return _TagFolderTile(
                             folder: folder,
-                            onEdit: () => _editFolder(context, folder),
+                            onOptions: () =>
+                                _showFolderOptions(context, folder),
                             onTap: () {
                               final tag = folder.tag;
                               if (Navigator.of(context).canPop()) {
@@ -185,97 +219,208 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
   }
 
   Future<void> _createTag(BuildContext context) async {
-    final nameCtrl = TextEditingController();
-    var colorValue = CaptureGalleryController.defaultTagColor;
-    final created = await showDialog<bool>(
+    final changed = await Get.toNamed(
+      AppRoutes.createEntity,
+      preventDuplicates: false,
+      arguments: const CreateEntityArgs.captureTag(
+        storageId: 'capture_tag_create',
+        initialColorValue: CaptureGalleryController.defaultTagColor,
+      ),
+    );
+    if (changed == true) await controller.reload();
+  }
+
+  Future<void> _showSortSheet() async {
+    final scheme = Theme.of(context).colorScheme;
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (dialogContext) {
-        final theme = Theme.of(dialogContext);
-        final scheme = theme.colorScheme;
-        const colors = <int>[
-          0xFFFF5252,
-          0xFFFFD740,
-          0xFF4CE76B,
-          0xFF42A5F5,
-          0xFFB56CFF,
-          0xFFFF9F40,
-          0xFFB0B8C4,
-        ];
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Crear etiqueta'),
-              content: Column(
+      showDragHandle: true,
+      backgroundColor: scheme.surface,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          void pick(_CaptureTagSort next) {
+            setState(() {
+              if (_sort == next) {
+                _ascending = !_ascending;
+              } else {
+                _sort = next;
+                _ascending = next == _CaptureTagSort.name;
+              }
+            });
+            setSheetState(() {});
+          }
+
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextField(
-                    controller: nameCtrl,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre',
-                      hintText: 'Ej: Rojo, favoritos, escena...',
-                    ),
-                  ),
-                  const SizedBox(height: 18),
                   Text(
-                    'Color',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
+                    'Ordenar etiquetas',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      for (final value in colors)
-                        InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: () => setDialogState(() => colorValue = value),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Color(value),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: colorValue == value
-                                    ? scheme.onSurface
-                                    : scheme.outlineVariant,
-                                width: colorValue == value ? 3 : 1,
-                              ),
-                            ),
-                            child: const SizedBox(width: 30, height: 30),
-                          ),
-                        ),
-                    ],
+                  const SizedBox(height: 14),
+                  _TagSortOption(
+                    icon: Icons.sort_by_alpha_rounded,
+                    label: 'Nombre',
+                    selected: _sort == _CaptureTagSort.name,
+                    ascending: _ascending,
+                    onTap: () => pick(_CaptureTagSort.name),
+                  ),
+                  const SizedBox(height: 8),
+                  _TagSortOption(
+                    icon: Icons.numbers_rounded,
+                    label: 'Número de capturas',
+                    selected: _sort == _CaptureTagSort.count,
+                    ascending: _ascending,
+                    onTap: () => pick(_CaptureTagSort.count),
+                  ),
+                  const SizedBox(height: 8),
+                  _TagSortOption(
+                    icon: Icons.access_time_rounded,
+                    label: 'Antigüedad',
+                    selected: _sort == _CaptureTagSort.date,
+                    ascending: _ascending,
+                    onTap: () => pick(_CaptureTagSort.date),
+                  ),
+                  const SizedBox(height: 8),
+                  _TagSortOption(
+                    icon: Icons.data_usage_rounded,
+                    label: 'Peso por carpeta',
+                    selected: _sort == _CaptureTagSort.size,
+                    ascending: _ascending,
+                    onTap: () => pick(_CaptureTagSort.size),
                   ),
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    if (nameCtrl.text.trim().isEmpty) return;
-                    Navigator.of(dialogContext).pop(true);
-                  },
-                  child: const Text('Crear'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
-    final name = nameCtrl.text.trim();
-    nameCtrl.dispose();
-    if (created != true || name.isEmpty) return;
-    await controller.setTagCollection(
-      tag: name,
-      name: name,
-      colorValue: colorValue,
+  }
+
+  DateTime _latestModifiedAt(CaptureTagFolder folder) {
+    if (folder.captures.isEmpty) {
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+    return folder.captures
+        .map((capture) => capture.modifiedAt)
+        .reduce((a, b) => a.isAfter(b) ? a : b);
+  }
+
+  int _folderSize(CaptureTagFolder folder) {
+    return folder.captures.fold<int>(
+      0,
+      (total, capture) => total + capture.size,
+    );
+  }
+
+  Future<void> _showFolderOptions(
+    BuildContext context,
+    CaptureTagFolder folder,
+  ) async {
+    final scheme = Theme.of(context).colorScheme;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: scheme.surface,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_rounded),
+              title: const Text('Editar'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _editFolder(context, folder);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: scheme.error),
+              title: Text('Eliminar', style: TextStyle(color: scheme.error)),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _confirmDeleteTag(context, folder);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteTag(
+    BuildContext context,
+    CaptureTagFolder folder,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminar etiqueta'),
+        content: Text('¿Eliminar "${folder.tag}" de ${folder.count} capturas?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await controller.deleteTag(folder.key);
+  }
+}
+
+class _TagSortOption extends StatelessWidget {
+  const _TagSortOption({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.ascending,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final bool ascending;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return ListTile(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      tileColor: selected
+          ? scheme.primaryContainer
+          : scheme.surfaceContainerHighest.withValues(alpha: .55),
+      leading: Icon(icon, color: selected ? scheme.primary : null),
+      title: Text(
+        label,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+        ),
+      ),
+      trailing: selected
+          ? Icon(
+              ascending
+                  ? Icons.arrow_upward_rounded
+                  : Icons.arrow_downward_rounded,
+              color: scheme.primary,
+            )
+          : null,
+      onTap: onTap,
     );
   }
 }
@@ -284,12 +429,12 @@ class _TagFolderTile extends StatelessWidget {
   const _TagFolderTile({
     required this.folder,
     required this.onTap,
-    required this.onEdit,
+    required this.onOptions,
   });
 
   final CaptureTagFolder folder;
   final VoidCallback onTap;
-  final VoidCallback onEdit;
+  final VoidCallback onOptions;
 
   @override
   Widget build(BuildContext context) {
@@ -355,7 +500,7 @@ class _TagFolderTile extends StatelessWidget {
                           minimumSize: const Size(32, 32),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
-                        onPressed: onEdit,
+                        onPressed: onOptions,
                         iconSize: 16,
                         icon: const Icon(Icons.more_horiz_rounded),
                         tooltip: 'Editar etiqueta',

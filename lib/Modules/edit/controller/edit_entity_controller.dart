@@ -113,7 +113,7 @@ class EditEntityArgs {
       capture = null;
 }
 
-enum CreateEntityType { playlist, topic, topicPlaylist }
+enum CreateEntityType { playlist, topic, topicPlaylist, captureTag }
 
 class CreateEntityArgs {
   final CreateEntityType type;
@@ -156,6 +156,16 @@ class CreateEntityArgs {
     this.initialColorValue,
   }) : type = CreateEntityType.topicPlaylist,
        themeId = null;
+
+  const CreateEntityArgs.captureTag({
+    required this.storageId,
+    this.initialName,
+    this.initialColorValue,
+  }) : type = CreateEntityType.captureTag,
+       themeId = null,
+       topicId = null,
+       parentId = null,
+       depth = null;
 }
 
 class MediaCleanupAnalysis {
@@ -879,5 +889,19 @@ class EditEntityController extends GetxController {
       colorValue: colorValue,
     );
     return ok;
+  }
+
+  Future<bool> createCaptureTag({required String name, int? colorValue}) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return false;
+    await _capturesStore.setTagCollection(
+      trimmed,
+      name: trimmed,
+      colorValue: colorValue,
+    );
+    if (Get.isRegistered<CaptureGalleryController>()) {
+      await Get.find<CaptureGalleryController>().reload();
+    }
+    return true;
   }
 }

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../edit/controller/edit_entity_controller.dart';
+import '../../sources/ui/source_filter_toolbar.dart';
 import '../controller/capture_gallery_controller.dart';
 import '../domain/capture_gallery_models.dart';
 import '../ui/capture_action_sheet.dart';
@@ -258,37 +259,15 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                    child: SearchBar(
+                    child: SourceFilterToolbar(
                       controller: _searchCtrl,
+                      query: query,
                       hintText: 'Buscar por nombre o etiqueta…',
-                      leading: const Icon(Icons.search_rounded),
-                      trailing: [
-                        if (query.isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Icons.close_rounded),
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              _controller.setQuery('');
-                            },
-                          ),
-                      ],
-                      elevation: const WidgetStatePropertyAll(0),
-                      backgroundColor: WidgetStatePropertyAll(
-                        scheme.surfaceContainerHigh.withValues(alpha: .65),
-                      ),
-                      side: WidgetStatePropertyAll(
-                        BorderSide(
-                          color: scheme.outlineVariant.withValues(alpha: .4),
-                        ),
-                      ),
-                      shape: WidgetStatePropertyAll(
-                        RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      padding: const WidgetStatePropertyAll(
-                        EdgeInsets.symmetric(horizontal: 12),
-                      ),
+                      onQueryChanged: _controller.setQuery,
+                      onClearQuery: () {
+                        _searchCtrl.clear();
+                        _controller.setQuery('');
+                      },
                     ),
                   ),
                   Expanded(

@@ -8,7 +8,7 @@ class SourceFilterToolbar extends StatelessWidget {
     required this.hintText,
     required this.onQueryChanged,
     required this.onClearQuery,
-    required this.onSort,
+    this.onSort,
     this.gridView,
     this.onToggleGridView,
     this.gridTooltip,
@@ -20,7 +20,7 @@ class SourceFilterToolbar extends StatelessWidget {
   final String hintText;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearQuery;
-  final VoidCallback onSort;
+  final VoidCallback? onSort;
   final bool? gridView;
   final VoidCallback? onToggleGridView;
   final String? gridTooltip;
@@ -63,12 +63,14 @@ class SourceFilterToolbar extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        IconButton(
-          tooltip: 'Ordenar',
-          onPressed: onSort,
-          icon: const Icon(Icons.sort_rounded),
-        ),
+        if (onSort != null) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Ordenar',
+            onPressed: onSort,
+            icon: const Icon(Icons.sort_rounded),
+          ),
+        ],
         if (showViewToggle) ...[
           const SizedBox(width: 4),
           IconButton(

@@ -271,6 +271,33 @@ class CaptureGalleryStore {
     }
   }
 
+  Future<void> deleteTag(String tag) async {
+    final key = tag.trim().toLowerCase();
+    if (key.isEmpty) return;
+
+    final rawTags = _box.read<Map>(_tagsKey) ?? const {};
+    final updatedTags = <String, dynamic>{};
+    for (final entry in rawTags.entries) {
+      final tags = normalizeTags(
+        (entry.value is List ? entry.value as List : const [])
+            .map((value) => value.toString())
+            .where((value) => value.trim().toLowerCase() != key),
+      );
+      if (tags.isNotEmpty) updatedTags[entry.key.toString()] = tags;
+    }
+    await _box.write(_tagsKey, updatedTags);
+
+    final collections = Map<String, dynamic>.from(
+      _box.read<Map>(_tagCollectionsKey) ?? const {},
+    )..remove(key);
+    await _box.write(_tagCollectionsKey, collections);
+
+    final legacyColors = Map<String, dynamic>.from(
+      _box.read<Map>(_tagColorsKey) ?? const {},
+    )..remove(key);
+    await _box.write(_tagColorsKey, legacyColors);
+  }
+
   ({String? title, String? id}) sourceFor(String path) {
     final raw = _box.read<Map>(_sourceKey) ?? const {};
     final value = raw[path];

@@ -147,6 +147,11 @@ class CaptureGalleryController extends GetxController {
     await reload();
   }
 
+  Future<void> deleteTag(String tag) async {
+    await _galleryStore.deleteTag(tag);
+    await reload();
+  }
+
   int colorForTag(String tag) {
     final key = tag.trim().toLowerCase();
     return tagCollections[key]?.colorValue ?? tagColors[key] ?? defaultTagColor;
