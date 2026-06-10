@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:get/get.dart';
 import 'package:table_calendar/table_calendar.dart';
 
@@ -29,7 +30,7 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
     final home = Get.find<HomeController>();
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         title: ListenfyLogo(size: 28, color: scheme.primary),
         backgroundColor: scheme.surface,
@@ -106,7 +107,7 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
             onRefresh: controller.loadHistory,
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              cacheExtent: 900,
+              scrollCacheExtent: const ScrollCacheExtent.pixels(900),
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(

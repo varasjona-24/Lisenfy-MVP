@@ -31,7 +31,16 @@ class ArtistsPage extends GetView<ArtistsController> {
       return Scaffold(
         backgroundColor: Colors.transparent,
         extendBody: true,
-        appBar: AppTopBar(title: ListenfyLogo(size: 28, color: scheme.primary)),
+        appBar: AppTopBar(
+          title: ListenfyLogo(size: 28, color: scheme.primary),
+          extraActions: [
+            IconButton(
+              tooltip: 'Listenfly Atlas',
+              icon: const Icon(Icons.public_rounded),
+              onPressed: () => Get.toNamed(AppRoutes.worldMode),
+            ),
+          ],
+        ),
         body: AppGradientBackground(
           child: Stack(
             children: [
@@ -54,8 +63,6 @@ class ArtistsPage extends GetView<ArtistsController> {
                                 ),
                                 sliver: SliverList.list(
                                   children: [
-                                    _atlasCard(theme),
-                                    const SizedBox(height: AppSpacing.md),
                                     _header(theme),
                                     const SizedBox(height: AppSpacing.md),
                                     _recentArtists(theme),
@@ -136,37 +143,6 @@ class ArtistsPage extends GetView<ArtistsController> {
         filled: true,
         fillColor: theme.colorScheme.surfaceContainer,
       ),
-    );
-  }
-
-  Widget _atlasCard(ThemeData theme) {
-    final scheme = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Listenfly Atlas',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Explora tu música por regiones y estaciones locales.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _FeaturePortalCard(
-          icon: Icons.public_rounded,
-          title: 'Mapa musical',
-          subtitle:
-              'Selecciona una región y genera estaciones con tus canciones.',
-          detail: '${controller.regionCount} regiones con música disponible',
-          onAction: () => Get.toNamed(AppRoutes.worldMode),
-        ),
-      ],
     );
   }
 
@@ -479,78 +455,6 @@ class ArtistsPage extends GetView<ArtistsController> {
       ArtistSort.plays => ascending ? 'Menor a mayor' : 'Mayor a menor',
       ArtistSort.random => ascending ? 'Aleatorio' : 'Aleatorio',
     };
-  }
-}
-
-class _FeaturePortalCard extends StatelessWidget {
-  const _FeaturePortalCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.detail,
-    required this.onAction,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String detail;
-  final VoidCallback onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: onAction,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: scheme.outlineVariant.withAlpha(80)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: scheme.primary.withAlpha(30),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: scheme.primary),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$subtitle $detail',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
-          ],
-        ),
-      ),
-    );
   }
 }
 

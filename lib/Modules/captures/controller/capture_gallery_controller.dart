@@ -163,15 +163,17 @@ class CaptureGalleryController extends GetxController {
         grouped.putIfAbsent(key, () => <CaptureItem>[]).add(capture);
       }
     }
-    final folders = grouped.entries.map((entry) {
-      final collection = tagCollections[entry.key];
+    final keys = <String>{...tagCollections.keys, ...grouped.keys};
+    final folders = keys.map((key) {
+      final collection = tagCollections[key];
       return CaptureTagFolder(
-        key: entry.key,
-        tag: collection?.name ?? labels[entry.key] ?? entry.key,
-        colorValue:
-            collection?.colorValue ?? tagColors[entry.key] ?? defaultTagColor,
+        key: key,
+        tag: collection?.name ?? labels[key] ?? key,
+        colorValue: collection?.colorValue ?? tagColors[key] ?? defaultTagColor,
         thumbnailPath: collection?.thumbnailPath,
-        captures: List<CaptureItem>.unmodifiable(entry.value),
+        captures: List<CaptureItem>.unmodifiable(
+          grouped[key] ?? const <CaptureItem>[],
+        ),
       );
     }).toList();
     folders.sort((a, b) => a.tag.toLowerCase().compareTo(b.tag.toLowerCase()));

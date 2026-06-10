@@ -31,6 +31,13 @@ class SourcesPage extends GetView<SourcesController> {
       appBar: AppTopBar(
         title: ListenfyLogo(size: 28, color: scheme.primary),
         showLocalConnectAction: false,
+        extraActions: [
+          IconButton(
+            tooltip: 'Capturas',
+            icon: const Icon(Icons.photo_library_rounded),
+            onPressed: () => Get.toNamed(AppRoutes.captureGallery),
+          ),
+        ],
       ),
       body: AppGradientBackground(
         child: Stack(
@@ -51,8 +58,6 @@ class SourcesPage extends GetView<SourcesController> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _captureCard(theme),
-                        const SizedBox(height: AppSpacing.lg),
                         _header(theme: theme, scheme: scheme, home: home),
                         const SizedBox(height: AppSpacing.lg),
 
@@ -166,106 +171,6 @@ class SourcesPage extends GetView<SourcesController> {
         'forceKind': theme.forceKind,
         'themeId': theme.id,
       },
-    );
-  }
-
-  Widget _captureCard(ThemeData theme) {
-    final scheme = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Capturas',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Organiza fotogramas por etiquetas, colores y portadas.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _CollectionPortalCard(
-          icon: Icons.photo_library_rounded,
-          title: 'Galería de capturas',
-          subtitle:
-              'Agrupa imágenes por carpetas de etiquetas y úsales como portada.',
-          onAction: () => Get.toNamed(AppRoutes.captureGallery),
-        ),
-      ],
-    );
-  }
-}
-
-class _CollectionPortalCard extends StatelessWidget {
-  const _CollectionPortalCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onAction,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: onAction,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: scheme.outlineVariant.withAlpha(80)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: scheme.primary.withAlpha(30),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: scheme.primary),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
-          ],
-        ),
-      ),
     );
   }
 }

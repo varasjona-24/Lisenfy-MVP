@@ -201,6 +201,7 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
       final query = _controller.query.value;
 
       return Scaffold(
+        backgroundColor: scheme.surface,
         appBar: AppBar(
           title: Text(
             _controller.hasSelection

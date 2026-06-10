@@ -223,6 +223,8 @@ abstract class AppPages {
       name: AppRoutes.downloadsHistory,
       page: () => const DownloadHistoryPage(),
       binding: DownloadHistoryBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 240),
     ),
 
     // History
@@ -235,16 +237,22 @@ abstract class AppPages {
       name: AppRoutes.listeningStats,
       page: () => const ListeningStatsPage(),
       binding: ListeningStatsBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 240),
     ),
     GetPage(
       name: AppRoutes.captureTags,
       page: () => const CaptureTagsPage(),
       binding: CaptureGalleryBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 240),
     ),
     GetPage(
       name: AppRoutes.captureGallery,
       page: () => const CaptureGalleryPage(),
       binding: CaptureGalleryBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 240),
     ),
 
     // Playlists
@@ -293,6 +301,8 @@ abstract class AppPages {
       name: AppRoutes.worldMode,
       page: () => const WorldModePage(),
       binding: WorldModeBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 240),
     ),
 
     // Video Player

@@ -9,9 +9,6 @@ import '../../../app/data/local/local_library_store.dart';
 import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/utils/artist_credit_parser.dart';
-import '../../../app/utils/country_catalog.dart';
-import '../../world_mode/agent/local_affinity_engine.dart';
-import '../../world_mode/domain/entities/world_region_catalog.dart';
 import '../data/artist_store.dart';
 import '../domain/artist_profile.dart';
 
@@ -59,9 +56,6 @@ class ArtistsController extends GetxController {
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
   final ArtistStore _artistStore = Get.find<ArtistStore>();
   final GetStorage _storage = GetStorage();
-  late final LocalAffinityEngine _affinityEngine = LocalAffinityEngine(
-    artistStore: _artistStore,
-  );
 
   final RxList<ArtistGroup> artists = <ArtistGroup>[].obs;
   final RxList<ArtistGroup> recentArtists = <ArtistGroup>[].obs;
@@ -71,7 +65,6 @@ class ArtistsController extends GetxController {
   final RxBool sortAscending = true.obs;
   final RxBool bandsMinimized = false.obs;
   final RxBool singersMinimized = false.obs;
-  final RxInt atlasRegionCount = 0.obs;
 
   String? _normalizeCountryCode(String? raw) {
     final value = (raw ?? '').trim().toUpperCase();
@@ -115,10 +108,6 @@ class ArtistsController extends GetxController {
           .toList();
       final profiles = await _artistStore.readAll();
       final profilesByKey = {for (final p in profiles) p.key: p};
-      atlasRegionCount.value = _countAtlasRegions(
-        items: items,
-        profiles: profiles,
-      );
       final memberKeysReferencedByBands = <String>{};
       for (final profile in profiles) {
         if (profile.kind != ArtistProfileKind.band) continue;
@@ -231,104 +220,6 @@ class ArtistsController extends GetxController {
           countryCode.contains(q) ||
           region.contains(q);
     }).toList();
-  }
-
-  int get regionCount => atlasRegionCount.value;
-
-  int _countAtlasRegions({
-    required List<MediaItem> items,
-    required List<ArtistProfile> profiles,
-  }) {
-    final artistRegionIndex = _buildArtistRegionIndex(profiles);
-    final regions = <String>{};
-    for (final item in items) {
-      if (!item.hasAudioLocal) continue;
-      regions.addAll(
-        _resolveAtlasRegionsForItem(
-          item: item,
-          artistRegionIndex: artistRegionIndex,
-        ),
-      );
-    }
-    return regions.length;
-  }
-
-  Map<String, Set<String>> _buildArtistRegionIndex(
-    List<ArtistProfile> profiles,
-  ) {
-    if (profiles.isEmpty) return const <String, Set<String>>{};
-    final index = <String, Set<String>>{};
-
-    void addKey(String rawKey, Set<String> regions) {
-      final key = ArtistCreditParser.normalizeKey(rawKey);
-      if (key.isEmpty || key == 'unknown' || regions.isEmpty) return;
-      index.putIfAbsent(key, () => <String>{}).addAll(regions);
-    }
-
-    for (final profile in profiles) {
-      final regions = _regionsFromCountryInputs(
-        countryCode: profile.countryCode,
-        countryName: profile.country,
-      );
-      if (regions.isEmpty) continue;
-      addKey(profile.key, regions);
-      addKey(profile.displayName, regions);
-      for (final memberKey in profile.memberKeys) {
-        addKey(memberKey, regions);
-      }
-    }
-    return index;
-  }
-
-  Set<String> _regionsFromCountryInputs({
-    String? countryCode,
-    String? countryName,
-  }) {
-    final out = <String>{};
-    final codeCandidate = (countryCode ?? '').trim().toUpperCase();
-    if (codeCandidate.length == 2) {
-      out.addAll(WorldRegionCatalog.regionCodesForCountry(codeCandidate));
-    }
-
-    final byName = CountryCatalog.findByName(
-      _sanitizeCountryLabel(countryName),
-    );
-    if (byName != null) {
-      out.addAll(WorldRegionCatalog.regionCodesForCountry(byName.code));
-    }
-    return out;
-  }
-
-  Set<String> _resolveAtlasRegionsForItem({
-    required MediaItem item,
-    required Map<String, Set<String>> artistRegionIndex,
-  }) {
-    final regions = <String>{};
-    final credits = ArtistCreditParser.parse(item.displaySubtitle);
-    final artistNames = <String>{
-      credits.primaryArtist,
-      ...credits.allArtists,
-      item.displaySubtitle,
-    };
-    for (final artistName in artistNames) {
-      final key = ArtistCreditParser.normalizeKey(artistName);
-      if (key.isEmpty || key == 'unknown') continue;
-      regions.addAll(artistRegionIndex[key] ?? const <String>{});
-    }
-
-    final itemCountryCode = _affinityEngine.resolveCountryCode(item);
-    if (itemCountryCode != null) {
-      regions.addAll(WorldRegionCatalog.regionCodesForCountry(itemCountryCode));
-    }
-    return regions;
-  }
-
-  String _sanitizeCountryLabel(String? raw) {
-    var text = (raw ?? '').trim();
-    text = text.replaceAll(RegExp(r'[\u{1F1E6}-\u{1F1FF}]', unicode: true), '');
-    text = text.replaceAll(RegExp(r'[\(\)\[\]\{\}]'), ' ');
-    text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-    return text;
   }
 
   void setQuery(String value) {

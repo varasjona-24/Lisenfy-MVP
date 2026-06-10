@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:listenfy/Modules/home/controller/home_controller.dart';
+import 'package:listenfy/app/routes/app_routes.dart';
 import 'package:listenfy/app/ui/themes/app_spacing.dart';
 import 'package:listenfy/app/ui/widgets/branding/listenfy_logo.dart';
 import 'package:listenfy/app/ui/widgets/layout/app_gradient_background.dart';
@@ -74,7 +75,21 @@ class DownloadsPage extends GetView<DownloadsController> {
       return Scaffold(
         backgroundColor: Colors.transparent,
         extendBody: true,
-        appBar: AppTopBar(title: ListenfyLogo(size: 28, color: scheme.primary)),
+        appBar: AppTopBar(
+          title: ListenfyLogo(size: 28, color: scheme.primary),
+          extraActions: [
+            IconButton(
+              tooltip: 'Historial de imports',
+              icon: const Icon(Icons.history_rounded),
+              onPressed: () => Get.toNamed(AppRoutes.downloadsHistory),
+            ),
+            IconButton(
+              tooltip: 'Listenfy Wrapped',
+              icon: const Icon(Icons.auto_graph_rounded),
+              onPressed: () => Get.toNamed(AppRoutes.listeningStats),
+            ),
+          ],
+        ),
         body: AppGradientBackground(
           child: Stack(
             children: [

@@ -87,7 +87,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
 
-enum _TopBarMenuAction { captures, localConnect, settings }
+enum _TopBarMenuAction { localConnect, settings }
 
 class _TopBarMenuEntryData {
   const _TopBarMenuEntryData({
@@ -124,13 +124,6 @@ class _TopBarOverflowMenu extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     final items = <_TopBarMenuEntryData>[
-      _TopBarMenuEntryData(
-        action: _TopBarMenuAction.captures,
-        icon: Icons.photo_library_rounded,
-        label: 'Capturas',
-        subtitle: 'Galería local del reproductor',
-        tint: scheme.tertiary,
-      ),
       if (showLocalConnectAction)
         _TopBarMenuEntryData(
           action: _TopBarMenuAction.localConnect,
@@ -166,9 +159,6 @@ class _TopBarOverflowMenu extends StatelessWidget {
       icon: Icon(Icons.more_horiz_rounded, color: scheme.onSurface),
       onSelected: (value) {
         switch (value) {
-          case _TopBarMenuAction.captures:
-            Get.toNamed(AppRoutes.captureGallery);
-            break;
           case _TopBarMenuAction.localConnect:
             (onLocalConnect ?? () => Get.toNamed(AppRoutes.localConnect))
                 .call();
