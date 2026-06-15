@@ -34,6 +34,7 @@ import '../../../Modules/recommendations/data/recommendation_store.dart';
 import '../../../Modules/recommendations/data/recommendation_feedback_store.dart';
 import '../../../Modules/recommendations/application/recommendation_feedback_service.dart';
 import '../../../Modules/recommendations/domain/contracts/recommendation_engine.dart';
+import 'settings_controller.dart';
 
 // Empaqueta un directorio en ZIP (sin compresión / STORE) fuera del hilo
 // principal para evitar ANR. STORE es mucho más rápido que Deflate porque no
@@ -1298,6 +1299,27 @@ class BackupRestoreController extends GetxController {
         captureTagCollectionsJson.add({'key': entry.key, 'data': data});
       }
 
+      final settingsController = Get.find<SettingsController>();
+      final backgroundImageRels = <String>[];
+      String? activeBackgroundImageRel;
+      for (final imagePath in settingsController.appBackgroundImagePaths) {
+        final rel = await copyToBackup(imagePath);
+        if (rel == null) continue;
+        backgroundImageRels.add(rel);
+        if (imagePath == settingsController.appBackgroundImagePath.value) {
+          activeBackgroundImageRel = rel;
+        }
+      }
+      final appearancePayload = <String, dynamic>{
+        'appBackgroundImagePaths': backgroundImageRels,
+        if (activeBackgroundImageRel != null)
+          'appBackgroundImagePath': activeBackgroundImageRel,
+        'smartBackgroundCarouselEnabled':
+            settingsController.smartBackgroundCarouselEnabled.value,
+        'orderedBackgroundCarouselEnabled':
+            settingsController.orderedBackgroundCarouselEnabled.value,
+      };
+
       currentOperation.value = 'Empaquetando archivo ZIP (sin comprimir)...';
       progress.value = 0.8;
 
@@ -1355,12 +1377,18 @@ class BackupRestoreController extends GetxController {
         'captureGallery': capturesJson,
         'captureTagCollections': captureTagCollectionsJson,
         'homeLayout': homeLayoutPayload,
+        'appearance': appearancePayload,
         ...recommendationPayload,
         ...recommendationFeedbackPayload,
       };
 
       final manifestFile = File(p.join(tempDir.path, 'manifest.json'));
       await manifestFile.writeAsString(jsonEncode(manifest), flush: true);
+      final appearanceFile = File(p.join(tempDir.path, 'appearance.json'));
+      await appearanceFile.writeAsString(
+        jsonEncode(appearancePayload),
+        flush: true,
+      );
 
       await backupDir.create(recursive: true);
       final zipPath = p.join(backupDir.path, _backupFileName());
@@ -1521,6 +1549,64 @@ class BackupRestoreController extends GetxController {
           zipPath: path,
           entry: entry,
           outputPath: dest.path,
+        );
+      }
+
+      Map<String, dynamic>? appearancePayload;
+      if (!useStreamingManifest && manifest?['appearance'] is Map) {
+        appearancePayload = Map<String, dynamic>.from(
+          manifest!['appearance'] as Map,
+        );
+      } else {
+        final appearanceEntry = zipIndex.find('appearance.json');
+        if (appearanceEntry != null) {
+          final appearanceFile = File(p.join(tempDir.path, 'appearance.json'));
+          await _extractZipBackupEntry(
+            zipPath: path,
+            entry: appearanceEntry,
+            outputPath: appearanceFile.path,
+          );
+          final raw = jsonDecode(await appearanceFile.readAsString());
+          if (raw is Map) {
+            appearancePayload = Map<String, dynamic>.from(raw);
+          }
+        }
+      }
+      if (appearancePayload != null && Get.isRegistered<SettingsController>()) {
+        final backgroundImageRels =
+            (appearancePayload['appBackgroundImagePaths'] as List?)
+                ?.map((value) => value.toString().trim())
+                .where((value) => value.isNotEmpty)
+                .toList() ??
+            <String>[];
+        final legacyBackgroundImageRel =
+            appearancePayload['appBackgroundImagePath']?.toString().trim();
+        if (backgroundImageRels.isEmpty &&
+            legacyBackgroundImageRel != null &&
+            legacyBackgroundImageRel.isNotEmpty) {
+          backgroundImageRels.add(legacyBackgroundImageRel);
+        }
+
+        final restoredBackgroundPaths = <String>[];
+        for (final rel in backgroundImageRels) {
+          await restoreFile(rel);
+          final restoredPath = resolveRel(rel);
+          if (restoredPath != null) restoredBackgroundPaths.add(restoredPath);
+        }
+        final restoredActivePath =
+            legacyBackgroundImageRel == null || legacyBackgroundImageRel.isEmpty
+            ? null
+            : resolveRel(legacyBackgroundImageRel);
+        await Get.find<SettingsController>().restoreAppBackgroundImages(
+          restoredBackgroundPaths,
+          activePath: restoredActivePath,
+        );
+        final settingsController = Get.find<SettingsController>();
+        await settingsController.setOrderedBackgroundCarouselEnabled(
+          appearancePayload['orderedBackgroundCarouselEnabled'] == true,
+        );
+        await settingsController.setSmartBackgroundCarouselEnabled(
+          appearancePayload['smartBackgroundCarouselEnabled'] == true,
         );
       }
 

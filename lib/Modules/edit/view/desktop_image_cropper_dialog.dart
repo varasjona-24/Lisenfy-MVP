@@ -12,11 +12,13 @@ class DesktopImageCropperDialog extends StatefulWidget {
     required this.sourcePath,
     required this.ratioX,
     required this.ratioY,
+    this.title = 'Recortar imagen',
   });
 
   final String sourcePath;
   final double ratioX;
   final double ratioY;
+  final String title;
 
   @override
   State<DesktopImageCropperDialog> createState() =>
@@ -159,7 +161,7 @@ class _DesktopImageCropperDialogState extends State<DesktopImageCropperDialog> {
               Row(
                 children: [
                   Text(
-                    'Recortar portada',
+                    widget.title,
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
