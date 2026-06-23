@@ -9,7 +9,7 @@ import 'package:listenfy/app/core/presentation/getx_state_controller.dart';
 import 'package:listenfy/app/core/presentation/view_status.dart';
 
 import '../../../app/models/media_item.dart';
-import '../../home/controller/home_controller.dart';
+import '../../Home/Controller/home_controller.dart';
 
 // ============================
 // 📅 BLOC: HISTORIAL DE IMPORTS

@@ -3,7 +3,7 @@ import 'package:listenfy/Modules/history/controller/history_controller.dart';
 import 'package:listenfy/Modules/history/data/repositories/history_repository_impl.dart';
 import 'package:listenfy/Modules/history/domain/contracts/history_repository.dart';
 import 'package:listenfy/Modules/history/domain/usecases/load_history_items_usecase.dart';
-import 'package:listenfy/Modules/home/controller/home_controller.dart';
+import 'package:listenfy/Modules/Home/Controller/home_controller.dart';
 import 'package:listenfy/app/data/repo/media_repository.dart';
 
 // ============================

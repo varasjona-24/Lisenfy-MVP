@@ -6,10 +6,12 @@ class RecommendationCollection {
     required this.title,
     required this.subtitle,
     required this.items,
+    this.expiresAt,
   });
 
   final String id;
   final String title;
   final String subtitle;
   final List<MediaItem> items;
+  final int? expiresAt;
 }

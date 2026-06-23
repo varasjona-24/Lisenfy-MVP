@@ -22,7 +22,7 @@ import '../../../app/models/media_item.dart';
 import '../../edit/controller/edit_entity_controller.dart';
 import '../../edit/view/desktop_image_cropper_dialog.dart';
 
-import '../../home/controller/home_controller.dart';
+import '../../Home/Controller/home_controller.dart';
 import '../../player/audio/controller/audio_player_controller.dart';
 import '../controller/playlists_controller.dart';
 import '../domain/playlist.dart';

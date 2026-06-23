@@ -14,7 +14,30 @@ import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/ui/widgets/media/app_media_items_view.dart';
 import '../../../app/utils/format_bytes.dart';
-import '../controller/home_controller.dart';
+import '../Controller/home_controller.dart';
+
+class SectionListRouteData {
+  const SectionListRouteData({
+    required this.title,
+    required this.items,
+    required this.onItemTap,
+    required this.onItemLongPress,
+    this.onShuffle,
+    this.itemHintBuilder,
+  });
+
+  final String title;
+  final List<MediaItem> items;
+  final FutureOr<void> Function(MediaItem item, int index) onItemTap;
+  final FutureOr<void> Function(
+    MediaItem item,
+    int index, {
+    VoidCallback? onStartMultiSelect,
+  })
+  onItemLongPress;
+  final void Function(List<MediaItem> queue)? onShuffle;
+  final String? Function(MediaItem item, int index)? itemHintBuilder;
+}
 
 class SectionListPage extends StatefulWidget {
   const SectionListPage({
@@ -37,6 +60,25 @@ class SectionListPage extends StatefulWidget {
     this.forceGrid = false,
     this.rectangularGrid = false,
   });
+
+  SectionListPage.fromRouteData(SectionListRouteData data, {super.key})
+    : title = data.title,
+      items = data.items,
+      onItemTap = data.onItemTap,
+      onItemLongPress = data.onItemLongPress,
+      onShuffle = data.onShuffle,
+      itemHintBuilder = data.itemHintBuilder,
+      itemTrailingBuilder = null,
+      onInterested = null,
+      onHideTrack = null,
+      onHideArtist = null,
+      onDeleteSelected = null,
+      itemsRefreshBuilder = null,
+      sourceId = null,
+      startInSelectionMode = false,
+      initialSelectionItemId = null,
+      forceGrid = false,
+      rectangularGrid = false;
 
   final String title;
   final List<MediaItem> items;

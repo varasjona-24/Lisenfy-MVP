@@ -19,7 +19,7 @@ import '../../captures/data/capture_gallery_store.dart';
 import '../../captures/domain/capture_item.dart';
 import '../../captures/domain/capture_tag_folder.dart';
 import '../../downloads/controller/downloads_controller.dart';
-import '../../home/controller/home_controller.dart';
+import '../../Home/Controller/home_controller.dart';
 import '../../player/audio/controller/audio_player_controller.dart';
 import '../../playlists/controller/playlists_controller.dart';
 import '../../playlists/data/playlist_store.dart';

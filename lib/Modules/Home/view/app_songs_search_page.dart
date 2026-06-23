@@ -10,7 +10,7 @@ import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/media/app_media_items_view.dart';
-import '../controller/home_controller.dart';
+import '../Controller/home_controller.dart';
 
 enum _SongLibrarySort { importedAt, title, artist, size, plays, duration }
 

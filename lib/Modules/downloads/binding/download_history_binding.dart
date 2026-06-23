@@ -2,7 +2,7 @@ import 'package:get/get.dart';
 import 'package:listenfy/Modules/downloads/data/repositories/downloads_repository_impl.dart';
 import 'package:listenfy/Modules/downloads/domain/contracts/downloads_repository.dart';
 import 'package:listenfy/Modules/downloads/domain/usecases/load_download_history_items_usecase.dart';
-import 'package:listenfy/Modules/home/controller/home_controller.dart';
+import 'package:listenfy/Modules/Home/Controller/home_controller.dart';
 import 'package:listenfy/app/data/repo/media_repository.dart';
 
 import '../controller/download_history_controller.dart';
@@ -32,7 +32,7 @@ class DownloadHistoryBinding extends Bindings {
     }
 
     if (!Get.isRegistered<DownloadHistoryController>()) {
-      Get.put(
+      Get.put<DownloadHistoryController>(
         DownloadHistoryController(
           loadHistoryItemsUseCase: Get.find<LoadDownloadHistoryItemsUseCase>(),
           homeController: Get.isRegistered<HomeController>()

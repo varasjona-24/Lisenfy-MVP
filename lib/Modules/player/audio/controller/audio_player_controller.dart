@@ -10,6 +10,7 @@ import '../../../../app/data/local/local_library_store.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../../app/services/audio_service.dart';
 import '../../../../app/services/spatial_audio_service.dart';
+import '../../../recommendations/data/listening_event_store.dart';
 
 enum CoverStyle { square, vinyl, landscape, wave, miniSpectrum }
 
@@ -28,6 +29,10 @@ class AudioPlayerController extends GetxController {
       Get.find<PlaybackSettingsController>();
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
   final GetStorage _storage = GetStorage();
+  final ListeningEventStore? _listeningEvents =
+      Get.isRegistered<ListeningEventStore>()
+      ? Get.find<ListeningEventStore>()
+      : null;
   static const _repeatModeKey = 'audio_repeat_mode';
   static const _resumePositionsKey = 'audio_resume_positions';
   static const _countThreshold = Duration(seconds: 20);
@@ -949,6 +954,17 @@ class AudioPlayerController extends GetxController {
         lastCompletedAt: markCompleted ? now : existing.lastCompletedAt,
       );
       await _store.upsert(updated);
+    }
+    if (sessionProgress != null && _listeningEvents != null) {
+      await _listeningEvents.add(
+        ListeningEvent(
+          trackKey: publicId.isNotEmpty ? 'p:$publicId' : 'i:${seed.id}',
+          occurredAt: now,
+          progress: sessionProgress,
+          completed: markCompleted,
+          skipped: markSkip && !markCompleted,
+        ),
+      );
     }
   }
 

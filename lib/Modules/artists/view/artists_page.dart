@@ -11,7 +11,7 @@ import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/utils/country_catalog.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/controllers/navigation_controller.dart';
-import 'package:listenfy/Modules/home/controller/home_controller.dart';
+import 'package:listenfy/Modules/Home/Controller/home_controller.dart';
 import '../controller/artists_controller.dart';
 import '../domain/artist_profile.dart';
 import '../../edit/controller/edit_entity_controller.dart';

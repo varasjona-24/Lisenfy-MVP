@@ -4,7 +4,7 @@ import 'package:listenfy/app/models/history_group.dart';
 import 'package:listenfy/Modules/history/domain/entities/history_kind_filter.dart';
 import 'package:listenfy/Modules/history/domain/usecases/load_history_items_usecase.dart';
 import 'package:listenfy/Modules/history/state/history_state.dart';
-import 'package:listenfy/Modules/home/controller/home_controller.dart';
+import 'package:listenfy/Modules/Home/Controller/home_controller.dart';
 import 'package:listenfy/app/core/presentation/getx_state_controller.dart';
 import 'package:listenfy/app/core/presentation/view_status.dart';
 import 'package:listenfy/app/models/media_item.dart';

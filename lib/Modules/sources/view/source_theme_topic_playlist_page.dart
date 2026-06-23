@@ -12,7 +12,7 @@ import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/media/app_media_items_view.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/routes/app_routes.dart';
-import '../../home/controller/home_controller.dart';
+import '../../Home/Controller/home_controller.dart';
 import '../../edit/controller/edit_entity_controller.dart';
 import '../controller/sources_controller.dart';
 import '../domain/source_origin.dart';

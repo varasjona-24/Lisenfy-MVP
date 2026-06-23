@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -21,8 +23,6 @@ import '../../recommendations/domain/recommendation_collection.dart';
 import '../../recommendations/domain/recommendation_models.dart';
 import '../../recommendations/application/usecases/build_recommendation_collections_use_case.dart';
 import '../../recommendations/application/usecases/get_or_build_daily_recommendations_use_case.dart';
-import '../../recommendations/application/usecases/refresh_daily_recommendations_use_case.dart';
-import '../../recommendations/application/usecases/recommendation_refresh_policy_use_case.dart';
 import '../../recommendations/application/recommendation_feedback_service.dart';
 import '../../sources/data/source_theme_topic_store.dart';
 import '../../sources/data/source_theme_topic_playlist_store.dart';
@@ -40,10 +40,6 @@ class HomeController extends GetxController {
       Get.find<BuildRecommendationCollectionsUseCase>();
   final GetOrBuildDailyRecommendationsUseCase _getRecommendationsForDay =
       Get.find<GetOrBuildDailyRecommendationsUseCase>();
-  final RefreshDailyRecommendationsUseCase _refreshRecommendations =
-      Get.find<RefreshDailyRecommendationsUseCase>();
-  final RecommendationRefreshPolicyUseCase _refreshPolicy =
-      Get.find<RecommendationRefreshPolicyUseCase>();
   final RecommendationFeedbackService? _feedbackService =
       Get.isRegistered<RecommendationFeedbackService>()
       ? Get.find<RecommendationFeedbackService>()
@@ -79,8 +75,6 @@ class HomeController extends GetxController {
   final RxList<MediaItem> recommended = <MediaItem>[].obs;
   final RxList<MediaItem> fullRecommended = <MediaItem>[].obs;
   final RxBool isRecommendationsLoading = false.obs;
-  final RxBool canRecommendationRefresh = true.obs;
-  final RxnString recommendationRefreshHint = RxnString();
   final RxMap<String, String> recommendationReasonsById =
       <String, String>{}.obs;
   final RxList<RecommendationCollection> recommendationCollections =
@@ -129,9 +123,9 @@ class HomeController extends GetxController {
   ];
   static const int _recommendedPreviewLimit = 12;
   static const int _recommendedFullLimit = 80;
-  bool _hasArtistLocaleMetadata = false;
   Map<String, _ArtistLocaleEntry> _artistLocaleByKey =
       const <String, _ArtistLocaleEntry>{};
+  Timer? _recommendationCycleTimer;
 
   @override
   void onInit() {
@@ -1245,7 +1239,6 @@ class HomeController extends GetxController {
         await _loadRecommendationsForCurrentMode();
       } else {
         _clearRecommendations();
-        _syncRecommendationRefreshAvailability();
       }
     } catch (e) {
       print('Error loading home: $e');
@@ -1431,44 +1424,6 @@ class HomeController extends GetxController {
       _loadRecommendationsForCurrentMode();
     } else {
       _clearRecommendations();
-      _syncRecommendationRefreshAvailability();
-    }
-  }
-
-  Future<void> refreshRecommendations() async {
-    if (mode.value == HomeMode.video) {
-      _clearRecommendations();
-      _syncRecommendationRefreshAvailability();
-      return;
-    }
-
-    final recommendationMode = _currentRecommendationMode();
-    if (!_refreshPolicy.canRefresh(mode: recommendationMode)) {
-      final hint =
-          _refreshPolicy.nextHint(mode: recommendationMode) ??
-          'Ya usaste el refresh manual de hoy';
-      recommendationRefreshHint.value = hint;
-      canRecommendationRefresh.value = false;
-      Get.snackbar('Para ti hoy', hint, snackPosition: SnackPosition.BOTTOM);
-      return;
-    }
-
-    isRecommendationsLoading.value = true;
-    try {
-      _artistLocaleByKey = await _loadArtistLocaleMap();
-      _hasArtistLocaleMetadata = _artistLocaleByKey.isNotEmpty;
-      final set = await _refreshRecommendations.call(mode: recommendationMode);
-      _applyRecommendationSet(set);
-    } catch (e) {
-      print('Error refreshing recommendations: $e');
-      Get.snackbar(
-        'Para ti hoy',
-        'No se pudieron actualizar las recomendaciones',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    } finally {
-      _syncRecommendationRefreshAvailability();
-      isRecommendationsLoading.value = false;
     }
   }
 
@@ -1628,28 +1583,25 @@ class HomeController extends GetxController {
   Future<void> _loadRecommendationsForCurrentMode() async {
     if (mode.value == HomeMode.video) {
       _clearRecommendations();
-      _syncRecommendationRefreshAvailability();
       return;
     }
 
-    if (_allItems.isEmpty) {
+    final audioCount = _allItems.where((item) => item.hasAudioLocal).length;
+    if (audioCount < 60) {
       _clearRecommendations();
-      _syncRecommendationRefreshAvailability();
       return;
     }
 
     isRecommendationsLoading.value = true;
     try {
       _artistLocaleByKey = await _loadArtistLocaleMap();
-      _hasArtistLocaleMetadata = _artistLocaleByKey.isNotEmpty;
       final set = await _getRecommendationsForDay.call(
         mode: _currentRecommendationMode(),
       );
-      _applyRecommendationSet(set);
+      await _applyRecommendationSet(set);
     } catch (e) {
       print('Error loading recommendations: $e');
     } finally {
-      _syncRecommendationRefreshAvailability();
       isRecommendationsLoading.value = false;
     }
   }
@@ -1739,7 +1691,7 @@ class HomeController extends GetxController {
     return 'Porque escuchaste musica de $country';
   }
 
-  void _applyRecommendationSet(RecommendationDailySet set) {
+  Future<void> _applyRecommendationSet(RecommendationDailySet set) async {
     final isAudioMode = mode.value == HomeMode.audio;
     bool matchesMode(MediaItem item) =>
         isAudioMode ? item.hasAudioLocal : item.hasVideoLocal;
@@ -1788,21 +1740,17 @@ class HomeController extends GetxController {
       if (resolved.length >= _recommendedFullLimit) break;
     }
 
-    fullRecommended.assignAll(resolved.take(_recommendedFullLimit));
-    recommended.assignAll(resolved.take(_recommendedPreviewLimit));
-    final collections = _buildCollections.call(
+    final collections = await _buildCollections.call(
       BuildRecommendationCollectionsInput(
         entries: resolvedEntries,
-        dateKey: set.dateKey,
-        recommendationMode: set.mode,
-        manualRefreshCount: set.manualRefreshCount,
-        hasArtistLocaleMetadata: _hasArtistLocaleMetadata,
+        library: filtered,
         resolveLocaleSignal: _resolveItemLocaleSignal,
         stableKeyOf: _itemStableKey,
+        now: DateTime.now(),
       ),
     );
     for (final collection in collections) {
-      if (!collection.id.startsWith('regional-')) continue;
+      if (!collection.id.startsWith('region-')) continue;
       for (final item in collection.items) {
         final reason = _regionalReasonForItem(item);
         if ((reason ?? '').trim().isEmpty) continue;
@@ -1813,31 +1761,71 @@ class HomeController extends GetxController {
         }
       }
     }
+    final mixedItems = <MediaItem>[];
+    final mixedKeys = <String>{};
+    for (final collection in collections) {
+      for (final item in collection.items) {
+        if (mixedKeys.add(_itemStableKey(item))) mixedItems.add(item);
+      }
+    }
+    fullRecommended.assignAll(mixedItems.take(_recommendedFullLimit));
+    recommended.assignAll(mixedItems.take(_recommendedPreviewLimit));
     recommendationReasonsById.assignAll(reasons);
     recommendationCollections.assignAll(collections);
+    _scheduleRecommendationCycleRefresh(collections);
   }
 
-  void _syncRecommendationRefreshAvailability() {
-    if (mode.value == HomeMode.video) {
-      canRecommendationRefresh.value = false;
-      recommendationRefreshHint.value = null;
-      return;
-    }
+  void _scheduleRecommendationCycleRefresh(
+    List<RecommendationCollection> collections,
+  ) {
+    _recommendationCycleTimer?.cancel();
+    if (collections.isEmpty) return;
+    final expiresAt = collections.first.expiresAt;
+    if (expiresAt == null) return;
+    final delay = Duration(
+      milliseconds: max(
+        1000,
+        expiresAt - DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+    _recommendationCycleTimer = Timer(delay, () {
+      if (mode.value == HomeMode.audio && !isClosed) {
+        _loadRecommendationsForCurrentMode();
+      }
+    });
+  }
 
-    final recommendationMode = _currentRecommendationMode();
-    canRecommendationRefresh.value = _refreshPolicy.canRefresh(
-      mode: recommendationMode,
+  Future<void> markRecommendationMixOpened(
+    RecommendationCollection collection,
+  ) {
+    return _buildCollections.markOpened(collection.id);
+  }
+
+  String get recommendationCycleHint {
+    if (recommendationCollections.isEmpty) return '';
+    final expiresAt = recommendationCollections.first.expiresAt;
+    if (expiresAt == null) return '';
+    final remaining = Duration(
+      milliseconds: expiresAt - DateTime.now().millisecondsSinceEpoch,
     );
-    recommendationRefreshHint.value = _refreshPolicy.nextHint(
-      mode: recommendationMode,
-    );
+    if (remaining <= Duration.zero) return 'Nuevo ciclo disponible';
+    final hours = remaining.inHours;
+    final minutes = remaining.inMinutes.remainder(60);
+    return 'Nuevos mixes en ${hours}h ${minutes}m';
   }
 
   void _clearRecommendations() {
+    _recommendationCycleTimer?.cancel();
     recommended.clear();
     fullRecommended.clear();
     recommendationReasonsById.clear();
     recommendationCollections.clear();
+  }
+
+  @override
+  void onClose() {
+    _recommendationCycleTimer?.cancel();
+    super.onClose();
   }
 
   RecommendationMode _currentRecommendationMode() {

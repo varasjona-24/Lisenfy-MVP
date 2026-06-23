@@ -6,7 +6,7 @@ import 'package:get/get.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/routes/app_routes.dart';
-import '../controller/home_controller.dart';
+import '../Controller/home_controller.dart';
 
 class MediaSearchDelegate extends SearchDelegate<MediaItem?> {
   MediaSearchDelegate(this.controller);

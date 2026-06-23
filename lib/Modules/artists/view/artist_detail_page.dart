@@ -9,7 +9,7 @@ import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
-import 'package:listenfy/Modules/home/controller/home_controller.dart';
+import 'package:listenfy/Modules/Home/Controller/home_controller.dart';
 import '../../../app/routes/app_routes.dart';
 import '../controller/artists_controller.dart';
 import '../domain/artist_profile.dart';

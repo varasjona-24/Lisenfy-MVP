@@ -1,152 +1,167 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:listenfy/Modules/recommendations/application/usecases/build_recommendation_collections_use_case.dart';
+import 'package:listenfy/Modules/recommendations/data/recommendation_mix_store.dart';
+import 'package:listenfy/Modules/recommendations/data/listening_event_store.dart';
 import 'package:listenfy/Modules/recommendations/domain/recommendation_models.dart';
 import 'package:listenfy/Modules/sources/domain/source_origin.dart';
 import 'package:listenfy/app/models/media_item.dart';
 
 void main() {
-  group('BuildRecommendationCollectionsUseCase', () {
-    const useCase = BuildRecommendationCollectionsUseCase();
+  group('BuildRecommendationCollectionsUseCase v2', () {
+    test('oculta Para ti hoy con menos de 60 audios', () async {
+      final useCase = _useCase();
+      final now = DateTime(2026, 6, 22, 10);
+      final items = _items(59, now: now);
 
-    test('retorna vacio cuando no hay entradas', () {
-      final collections = useCase.call(
-        const BuildRecommendationCollectionsInput(
-          entries: <RecommendationCollectionSeed>[],
-          dateKey: '2026-04-06',
-          recommendationMode: RecommendationMode.audio,
-          manualRefreshCount: 0,
-          hasArtistLocaleMetadata: false,
-          resolveLocaleSignal: _noLocale,
-          stableKeyOf: _stableKeyOf,
-        ),
-      );
+      final result = await useCase.call(_input(items, now));
 
-      expect(collections, isEmpty);
+      expect(result, isEmpty);
     });
 
-    test('incluye mix regional cuando hay metadata de artista', () {
-      final entries = List.generate(24, (i) {
-        final item = _buildItem(
-          id: 'id-$i',
-          publicId: 'pub-$i',
-          title: 'Tema $i',
-          subtitle: 'Artista $i',
-          playCount: i + 1,
-          fullListenCount: i ~/ 2,
-          skipCount: i % 3,
-        );
-        final reason = i.isEven
-            ? RecommendationReasonCode.regionMatch
-            : RecommendationReasonCode.genreMatch;
-        return RecommendationCollectionSeed(
-          item: item,
-          entry: RecommendationEntry(
-            itemId: item.id,
-            publicId: item.publicId,
-            score: 0.7,
-            reasonCode: reason,
-            reasonText: 'motivo $i',
-            generatedAt: DateTime(2026, 4, 6).millisecondsSinceEpoch,
-          ),
-        );
-      });
+    test('genera dos mixes de 10 desde 60 audios sin solaparse', () async {
+      final useCase = _useCase();
+      final now = DateTime(2026, 6, 22, 10);
+      final items = _items(60, now: now);
 
-      final collections = useCase.call(
-        BuildRecommendationCollectionsInput(
-          entries: entries,
-          dateKey: '2026-04-06',
-          recommendationMode: RecommendationMode.audio,
-          manualRefreshCount: 0,
-          hasArtistLocaleMetadata: true,
-          resolveLocaleSignal: (item) {
-            final id = int.tryParse(item.id.split('-').last) ?? 0;
-            return RecommendationLocaleSignal(
-              regionKey: id.isEven ? 'latino' : 'asiatico',
-              countryName: id.isEven ? 'Colombia' : 'Japon',
-            );
-          },
-          stableKeyOf: _stableKeyOf,
-        ),
-      );
+      final result = await useCase.call(_input(items, now));
 
-      expect(collections, isNotEmpty);
-      expect(collections.first.id.startsWith('regional-'), isTrue);
+      expect(result, hasLength(2));
+      expect(result.every((mix) => mix.items.length == 10), isTrue);
+      final first = result.first.items.map((item) => item.id).toSet();
+      final second = result.last.items.map((item) => item.id).toSet();
+      expect(first.intersection(second), isEmpty);
     });
 
-    test('no crea coleccion regional cuando no hay metadata', () {
-      final entries = List.generate(18, (i) {
-        final item = _buildItem(
-          id: 'raw-$i',
-          publicId: 'raw-pub-$i',
-          title: 'Song $i',
-          subtitle: 'Artist $i',
-          playCount: 4 + i,
-        );
-        return RecommendationCollectionSeed(
-          item: item,
-          entry: RecommendationEntry(
-            itemId: item.id,
-            publicId: item.publicId,
-            score: 0.5,
-            reasonCode: RecommendationReasonCode.recentAffinity,
-            reasonText: 'actividad',
-            generatedAt: DateTime(2026, 4, 6).millisecondsSinceEpoch,
-          ),
-        );
-      });
+    test('mantiene el ciclo durante 15 horas y después lo rota', () async {
+      final useCase = _useCase();
+      final start = DateTime(2026, 6, 22, 5);
+      final items = _items(100, now: start);
 
-      final collections = useCase.call(
-        BuildRecommendationCollectionsInput(
-          entries: entries,
-          dateKey: '2026-04-06',
-          recommendationMode: RecommendationMode.audio,
-          manualRefreshCount: 0,
-          hasArtistLocaleMetadata: false,
-          resolveLocaleSignal: _noLocale,
-          stableKeyOf: _stableKeyOf,
+      final first = await useCase.call(_input(items, start));
+      final sameCycle = await useCase.call(
+        _input(items, start.add(const Duration(hours: 14, minutes: 59))),
+      );
+      final nextCycle = await useCase.call(
+        _input(items, start.add(const Duration(hours: 15, minutes: 1))),
+      );
+
+      expect(_mixIds(first), _mixIds(sameCycle));
+      expect(_allItemIds(first), isNot(equals(_allItemIds(nextCycle))));
+      expect(_allItemIds(first).intersection(_allItemIds(nextCycle)), isEmpty);
+    });
+
+    test('aplica tamaños 15 y 20 según el tamaño de biblioteca', () async {
+      final now = DateTime(2026, 6, 22, 14);
+      final medium = await _useCase().call(_input(_items(151, now: now), now));
+      final large = await _useCase().call(_input(_items(301, now: now), now));
+
+      expect(medium.every((mix) => mix.items.length == 15), isTrue);
+      expect(large.every((mix) => mix.items.length == 20), isTrue);
+    });
+
+    test('el mix regional sobrevive al ciclo siguiente', () async {
+      final useCase = _useCase();
+      final start = DateTime(2026, 6, 22, 8);
+      final items = _items(90, now: start);
+      RecommendationLocaleSignal locale(MediaItem item) {
+        final index = int.parse(item.id.split('-').last);
+        return RecommendationLocaleSignal(
+          regionKey: index.isEven ? 'latino' : 'anglo',
+          countryName: index.isEven ? 'Ecuador' : 'Estados Unidos',
+        );
+      }
+
+      final first = await useCase.call(
+        _input(items, start, localeResolver: locale),
+      );
+      final regional = first.firstWhere((mix) => mix.id.startsWith('region-'));
+      final second = await useCase.call(
+        _input(
+          items,
+          start.add(const Duration(hours: 16)),
+          localeResolver: locale,
         ),
       );
 
-      expect(collections, isNotEmpty);
-      expect(collections.any((c) => c.id.startsWith('regional-')), isFalse);
+      expect(second.any((mix) => mix.id == regional.id), isTrue);
     });
   });
 }
 
-RecommendationLocaleSignal? _noLocale(MediaItem _) => null;
-
-String _stableKeyOf(MediaItem item) {
-  if (item.publicId.trim().isNotEmpty) return 'p:${item.publicId.trim()}';
-  return 'i:${item.id.trim()}';
+BuildRecommendationCollectionsUseCase _useCase() {
+  return BuildRecommendationCollectionsUseCase(
+    store: RecommendationMixStore.memory(),
+    listeningEventStore: ListeningEventStore.memory(),
+  );
 }
 
-MediaItem _buildItem({
-  required String id,
-  required String publicId,
-  required String title,
-  required String subtitle,
-  int playCount = 0,
-  int skipCount = 0,
-  int fullListenCount = 0,
+BuildRecommendationCollectionsInput _input(
+  List<MediaItem> items,
+  DateTime now, {
+  RecommendationLocaleSignal? Function(MediaItem)? localeResolver,
 }) {
-  return MediaItem(
-    id: id,
-    publicId: publicId,
-    title: title,
-    subtitle: subtitle,
-    source: MediaSource.local,
-    variants: const <MediaVariant>[
-      MediaVariant(
-        kind: MediaVariantKind.audio,
-        format: 'mp3',
-        fileName: 'x.mp3',
-        createdAt: 1,
-        localPath: '/tmp/x.mp3',
-      ),
-    ],
-    origin: SourceOrigin.generic,
-    playCount: playCount,
-    skipCount: skipCount,
-    fullListenCount: fullListenCount,
+  return BuildRecommendationCollectionsInput(
+    entries: items
+        .map(
+          (item) => RecommendationCollectionSeed(
+            item: item,
+            entry: RecommendationEntry(
+              itemId: item.id,
+              publicId: item.publicId,
+              score: item.playCount.toDouble(),
+              reasonCode: RecommendationReasonCode.recentAffinity,
+              reasonText: 'Actividad local',
+              generatedAt: now.millisecondsSinceEpoch,
+            ),
+          ),
+        )
+        .toList(),
+    library: items,
+    resolveLocaleSignal: localeResolver ?? (_) => null,
+    stableKeyOf: (item) => 'p:${item.publicId}',
+    now: now,
   );
+}
+
+List<MediaItem> _items(int count, {required DateTime now}) {
+  return List.generate(count, (index) {
+    final lastPlayed = index % 3 == 0
+        ? now.subtract(Duration(days: 25 + (index % 20))).millisecondsSinceEpoch
+        : null;
+    return MediaItem(
+      id: 'id-$index',
+      publicId: 'pub-$index',
+      title: 'Canción $index',
+      subtitle: 'Artista ${index % 12}',
+      source: MediaSource.local,
+      variants: [
+        MediaVariant(
+          kind: MediaVariantKind.audio,
+          format: 'mp3',
+          fileName: '$index.mp3',
+          localPath: '/tmp/$index.mp3',
+          createdAt: now
+              .subtract(Duration(days: index % 90))
+              .millisecondsSinceEpoch,
+        ),
+      ],
+      origin: SourceOrigin.device,
+      playCount: index % 18,
+      fullListenCount: index % 7,
+      skipCount: index % 4,
+      avgListenProgress: (index % 10) / 10,
+      lastPlayedAt: lastPlayed,
+    );
+  });
+}
+
+List<String> _mixIds(List<dynamic> mixes) {
+  return mixes.map<String>((mix) => mix.id as String).toList();
+}
+
+Set<String> _allItemIds(List<dynamic> mixes) {
+  return mixes
+      .expand<MediaItem>((mix) => mix.items as List<MediaItem>)
+      .map((item) => item.id)
+      .toSet();
 }

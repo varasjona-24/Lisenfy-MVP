@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:listenfy/Modules/home/controller/home_controller.dart';
+import 'package:listenfy/Modules/Home/Controller/home_controller.dart';
 import 'package:listenfy/app/routes/app_routes.dart';
 import 'package:listenfy/app/ui/themes/app_spacing.dart';
 import 'package:listenfy/app/ui/widgets/branding/listenfy_logo.dart';

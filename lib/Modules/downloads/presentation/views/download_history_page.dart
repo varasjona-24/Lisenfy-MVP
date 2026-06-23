@@ -11,7 +11,7 @@ import '../../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../../app/ui/widgets/media/app_media_items_view.dart';
 import '../../../../app/ui/widgets/media/media_history_item_tile.dart';
-import '../../../home/controller/home_controller.dart';
+import '../../../Home/Controller/home_controller.dart';
 import '../../controller/download_history_controller.dart';
 import '../widgets/download_history_filter_row.dart';
 import '../widgets/download_history_search_field.dart';

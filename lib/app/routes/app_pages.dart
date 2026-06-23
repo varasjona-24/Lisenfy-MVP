@@ -3,10 +3,10 @@ import 'package:get/get.dart';
 import 'app_routes.dart';
 
 // Entry / Home
-import 'package:listenfy/Modules/home/binding/home_binding.dart';
-import 'package:listenfy/Modules/home/view/home_entry_page.dart';
-import 'package:listenfy/Modules/home/view/home_page.dart';
-import 'package:listenfy/Modules/home/view/section_list_page.dart';
+import 'package:listenfy/Modules/Home/binding/home_binding.dart';
+import 'package:listenfy/Modules/Home/view/home_entry_page.dart';
+import 'package:listenfy/Modules/Home/view/home_page.dart';
+import 'package:listenfy/Modules/Home/view/section_list_page.dart';
 
 // Player
 import 'package:listenfy/Modules/player/audio/binding/audio_player_binding.dart';
@@ -60,7 +60,7 @@ import 'package:listenfy/Modules/player/audio/view/queue_page.dart';
 import 'package:listenfy/Modules/player/Video/view/video_queue_page.dart';
 import 'package:listenfy/Modules/artists/view/artist_detail_page.dart';
 import 'package:listenfy/Modules/playlists/view/playlist_detail_page.dart';
-import 'package:listenfy/Modules/home/view/app_songs_search_page.dart';
+import 'package:listenfy/Modules/Home/view/app_songs_search_page.dart';
 import 'package:listenfy/Modules/sources/view/source_library_page.dart';
 import 'package:listenfy/Modules/sources/view/source_theme_topic_page.dart';
 import 'package:listenfy/Modules/sources/view/source_theme_topic_playlist_page.dart';
@@ -89,6 +89,10 @@ abstract class AppPages {
     GetPage(
       name: AppRoutes.homeSectionList,
       page: () {
+        final typedArgs = Get.arguments;
+        if (typedArgs is SectionListRouteData) {
+          return SectionListPage.fromRouteData(typedArgs);
+        }
         final args = Get.arguments as Map<String, dynamic>? ?? {};
         return SectionListPage(
           title: args['title'] ?? 'Sección',

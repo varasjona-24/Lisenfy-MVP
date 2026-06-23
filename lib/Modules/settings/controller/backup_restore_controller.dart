@@ -29,7 +29,7 @@ import '../../../Modules/sources/domain/source_theme_pill.dart';
 import '../../../Modules/sources/domain/source_theme_topic.dart';
 import '../../../Modules/sources/domain/source_theme_topic_playlist.dart';
 import '../../../Modules/downloads/controller/downloads_controller.dart';
-import '../../../Modules/home/controller/home_controller.dart';
+import '../../../Modules/Home/Controller/home_controller.dart';
 import '../../../Modules/recommendations/data/recommendation_store.dart';
 import '../../../Modules/recommendations/data/recommendation_feedback_store.dart';
 import '../../../Modules/recommendations/application/recommendation_feedback_service.dart';

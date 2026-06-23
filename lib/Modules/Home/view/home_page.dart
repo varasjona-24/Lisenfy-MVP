@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import 'package:listenfy/Modules/home/controller/home_controller.dart';
+import 'package:listenfy/Modules/Home/Controller/home_controller.dart';
 import 'package:listenfy/Modules/recommendations/domain/recommendation_collection.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
@@ -18,6 +18,7 @@ import '../../../app/routes/app_routes.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
+import 'section_list_page.dart';
 
 part 'widgets/home_editor_widgets.dart';
 
@@ -260,19 +261,12 @@ class HomePage extends GetView<HomeController> {
                                                 ),
                                           },
                                         ),
-                                        trailing: IconButton(
-                                          splashRadius: 18,
-                                          icon: const Icon(
-                                            Icons.refresh_rounded,
-                                            size: 20,
-                                          ),
-                                          onPressed:
-                                              controller
-                                                  .canRecommendationRefresh
-                                                  .value
-                                              ? controller
-                                                    .refreshRecommendations
-                                              : null,
+                                        trailing: Text(
+                                          controller.recommendationCycleHint,
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                                color: scheme.onSurfaceVariant,
+                                              ),
                                         ),
                                       ),
                                       const SizedBox(height: 10),
@@ -292,6 +286,10 @@ class HomePage extends GetView<HomeController> {
                                           collections: controller
                                               .recommendationCollections,
                                           onTap: (collection, _) {
+                                            controller
+                                                .markRecommendationMixOpened(
+                                                  collection,
+                                                );
                                             Get.toNamed(
                                               AppRoutes.homeSectionList,
                                               arguments: {
@@ -827,20 +825,18 @@ class _HomeOrderedSections extends StatelessWidget {
           children: [
             _SectionHeader(
               title: 'Para ti hoy',
-              onTap: () => _openList(
+              onTap: () => _openRecommendationList(
                 context,
                 title: 'Para ti hoy',
                 items: controller.fullItemsForHomeWidget(
                   HomeWidgetId.recommendations,
                 ),
-                sourceId: HomeWidgetId.recommendations,
               ),
-              trailing: IconButton(
-                splashRadius: 18,
-                icon: const Icon(Icons.refresh_rounded, size: 20),
-                onPressed: controller.canRecommendationRefresh.value
-                    ? controller.refreshRecommendations
-                    : null,
+              trailing: Text(
+                controller.recommendationCycleHint,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -852,11 +848,14 @@ class _HomeOrderedSections extends StatelessWidget {
             else
               _RecommendationCollectionsRow(
                 collections: controller.recommendationCollections,
-                onTap: (collection, _) => _openList(
-                  context,
-                  title: collection.title,
-                  items: collection.items,
-                ),
+                onTap: (collection, _) {
+                  controller.markRecommendationMixOpened(collection);
+                  _openRecommendationList(
+                    context,
+                    title: collection.title,
+                    items: collection.items,
+                  );
+                },
               ),
           ],
         );
@@ -979,6 +978,30 @@ class _HomeOrderedSections extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _openRecommendationList(
+    BuildContext context, {
+    required String title,
+    required List<MediaItem> items,
+  }) {
+    Get.toNamed(
+      AppRoutes.homeSectionList,
+      arguments: SectionListRouteData(
+        title: title,
+        items: items,
+        itemHintBuilder: controller.recommendationHintFor,
+        onItemTap: (item, index) => controller.openMedia(item, index, items),
+        onItemLongPress: (item, _, {onStartMultiSelect}) =>
+            actions.showItemActions(
+              context,
+              item,
+              onChanged: controller.loadHome,
+              onStartMultiSelect: onStartMultiSelect,
+            ),
+        onShuffle: (queue) => controller.openMedia(queue.first, 0, queue),
+      ),
     );
   }
 
