@@ -14,6 +14,8 @@ import '../controller/playback_settings_controller.dart';
 import '../controller/sleep_timer_controller.dart';
 import '../controller/equalizer_controller.dart';
 import '../controller/backup_restore_controller.dart';
+import '../controller/notification_settings_controller.dart';
+import '../../../app/services/notification_service.dart';
 
 class SettingsBinding extends Bindings {
   @override
@@ -65,5 +67,12 @@ class SettingsBinding extends Bindings {
       () => BackupRestoreController(),
       fenix: true,
     );
+    if (!Get.isRegistered<NotificationSettingsController>() &&
+        Get.isRegistered<NotificationService>()) {
+      Get.lazyPut<NotificationSettingsController>(
+        () => NotificationSettingsController(),
+        fenix: true,
+      );
+    }
   }
 }

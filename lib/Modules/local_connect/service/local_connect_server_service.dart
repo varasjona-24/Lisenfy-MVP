@@ -12,6 +12,7 @@ import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/services/audio_service.dart';
 import '../../../app/data/local/local_library_store.dart';
+import '../../../app/services/notification_service.dart';
 import '../../artists/data/artist_store.dart';
 import '../data/server/local_connect_pairing_manager.dart';
 import '../data/server/local_connect_playback_sync.dart';
@@ -157,6 +158,11 @@ class LocalConnectServerService extends GetxService {
       payload: <String, dynamic>{'clientId': session.clientId},
     );
     _refreshState();
+    if (Get.isRegistered<NotificationService>()) {
+      await Get.find<NotificationService>().showConnectApproved(
+        session.clientName,
+      );
+    }
   }
 
   Future<void> rejectPairingRequest(String requestId) async {
@@ -1008,14 +1014,22 @@ class LocalConnectServerService extends GetxService {
     if (_lastNotifiedRequestId == newest.id) return;
     _lastNotifiedRequestId = newest.id;
 
-    if (Get.currentRoute == AppRoutes.localConnect) return;
-
     final clientLabel = newest.clientName.trim().isEmpty
         ? 'cliente web'
         : newest.clientName.trim();
     final truncatedLabel = clientLabel.length > 42
         ? '${clientLabel.substring(0, 42)}...'
         : clientLabel;
+
+    if (Get.isRegistered<NotificationService>()) {
+      unawaited(
+        Get.find<NotificationService>().showConnectRequest(truncatedLabel),
+      );
+    }
+
+    // La notificación del sistema debe publicarse incluso si el usuario está
+    // viendo Connect. Solo evitamos duplicarla con un snackbar en esa pantalla.
+    if (Get.currentRoute == AppRoutes.localConnect) return;
 
     Get.snackbar(
       'Listenfy Connect',

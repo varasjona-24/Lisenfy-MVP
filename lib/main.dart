@@ -29,10 +29,12 @@ import 'app/services/spatial8d_generation_service.dart';
 import 'app/services/video_service.dart';
 import 'app/services/karaoke_remote_pipeline_service.dart';
 import 'app/services/deep_link_service.dart';
+import 'app/services/notification_service.dart';
 import 'Modules/settings/controller/settings_controller.dart';
 import 'Modules/settings/controller/playback_settings_controller.dart';
 import 'Modules/settings/controller/sleep_timer_controller.dart';
 import 'Modules/settings/controller/equalizer_controller.dart';
+import 'Modules/settings/controller/notification_settings_controller.dart';
 import 'Modules/downloads/controller/downloads_controller.dart';
 import 'Modules/downloads/data/repositories/downloads_repository_impl.dart';
 import 'Modules/downloads/domain/contracts/downloads_repository.dart';
@@ -65,11 +67,18 @@ Future<void> main() async {
   // 🧭 Controller global de navegación
   Get.put(NavigationController(), permanent: true);
 
+  // 🔔 Notificaciones locales
+  Get.put<NotificationService>(
+    await NotificationService().init(),
+    permanent: true,
+  );
+
   // ⚙️ Controller global de configuración
   Get.put(SettingsController(), permanent: true);
   Get.put(PlaybackSettingsController(), permanent: true);
   Get.put(SleepTimerController(), permanent: true);
   Get.put(EqualizerController(), permanent: true);
+  Get.put(NotificationSettingsController(), permanent: true);
 
   // 🎵 Audio global (CLAVE)
   final appAudio = AudioService();
@@ -83,7 +92,7 @@ Future<void> main() async {
       androidNotificationChannelName: 'Reproducción',
       androidNotificationChannelDescription: 'Controles de reproducción',
       androidNotificationOngoing: true,
-      androidNotificationIcon: 'mipmap/ic_launcher',
+      androidNotificationIcon: 'drawable/ic_notification',
       preloadArtwork: true,
     ),
   );
@@ -218,6 +227,9 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     _checkPermissions();
     unawaited(Get.find<DeepLinkService>().start());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Get.find<NotificationService>().flushPendingNavigation();
+    });
     _notificationClickSub = aud.AudioService.notificationClicked.listen((
       clicked,
     ) {
@@ -238,14 +250,9 @@ class _MyAppState extends State<MyApp> {
   Future<void> _checkPermissions() async {
     if (Platform.isAndroid) {
       final isBtGranted = await Permission.bluetoothConnect.isGranted;
-      final isNotifGranted = await Permission.notification.isGranted;
 
-      if (!isBtGranted || !isNotifGranted) {
-        await [
-          Permission.notification,
-          Permission.bluetoothConnect,
-          Permission.bluetoothScan,
-        ].request();
+      if (!isBtGranted) {
+        await [Permission.bluetoothConnect, Permission.bluetoothScan].request();
       }
     }
   }

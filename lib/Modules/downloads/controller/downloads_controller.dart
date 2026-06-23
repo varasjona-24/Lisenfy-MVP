@@ -19,6 +19,7 @@ import '../../../app/data/local/local_library_store.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/services/local_media_metadata_service.dart';
+import '../../../app/services/notification_service.dart';
 import '../domain/usecases/load_download_items_usecase.dart';
 import '../service/download_task_service.dart';
 import '../state/downloads_state.dart';
@@ -553,10 +554,18 @@ class DownloadsController extends GetxStateController<DownloadsState> {
 
       await _store.upsert(importedItem);
       await load();
+      if (Get.isRegistered<NotificationService>()) {
+        await Get.find<NotificationService>().showImportSuccess();
+      }
 
       return importedItem;
     } catch (e) {
       debugPrint('Import failed: $e');
+      if (Get.isRegistered<NotificationService>()) {
+        await Get.find<NotificationService>().showImportFailure(
+          'No se pudo copiar el archivo a la biblioteca.',
+        );
+      }
       return null;
     } finally {
       importing.value = false;

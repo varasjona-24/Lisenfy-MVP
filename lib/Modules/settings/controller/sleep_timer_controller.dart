@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 import '../../../app/services/audio_service.dart';
+import '../../../app/services/notification_service.dart';
 
 /// Gestiona: sleep timer (con fade-out) y pausa por inactividad.
 class SleepTimerController extends GetxController {
@@ -133,6 +134,9 @@ class SleepTimerController extends GetxController {
           _restoreVolume();
           audio.refreshNotification();
         }
+        if (Get.isRegistered<NotificationService>()) {
+          await Get.find<NotificationService>().showSleepTimerFinished();
+        }
         return;
       }
 
@@ -215,6 +219,9 @@ class SleepTimerController extends GetxController {
         final audio = Get.find<AudioService>();
         if (audio.isPlaying.value) {
           await audio.pause();
+          if (Get.isRegistered<NotificationService>()) {
+            await Get.find<NotificationService>().showInactivityPause();
+          }
         }
       }
     });

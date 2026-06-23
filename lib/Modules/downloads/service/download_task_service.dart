@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 import '../../../app/data/repo/media_repository.dart';
+import '../../../app/services/notification_service.dart';
 
 class DownloadTaskService extends GetxService {
   final MediaRepository _repo = Get.find<MediaRepository>();
@@ -42,6 +43,11 @@ class DownloadTaskService extends GetxService {
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.orange,
       );
+      if (Get.isRegistered<NotificationService>()) {
+        await Get.find<NotificationService>().showImportFailure(
+          'La importación está esperando una conexión Wi-Fi.',
+        );
+      }
       return false;
     } catch (_) {
       return true;
@@ -115,6 +121,9 @@ class DownloadTaskService extends GetxService {
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.green,
         );
+        if (Get.isRegistered<NotificationService>()) {
+          await Get.find<NotificationService>().showImportSuccess();
+        }
       } else {
         Get.snackbar(
           'Imports',
@@ -122,6 +131,11 @@ class DownloadTaskService extends GetxService {
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.orange,
         );
+        if (Get.isRegistered<NotificationService>()) {
+          await Get.find<NotificationService>().showImportFailure(
+            'La web tardó demasiado o no es compatible.',
+          );
+        }
       }
       return ok;
     } catch (e) {
@@ -150,6 +164,9 @@ class DownloadTaskService extends GetxService {
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
       );
+      if (Get.isRegistered<NotificationService>()) {
+        await Get.find<NotificationService>().showImportFailure(msg);
+      }
 
       debugPrint('downloadFromUrl error: $e');
       return false;
