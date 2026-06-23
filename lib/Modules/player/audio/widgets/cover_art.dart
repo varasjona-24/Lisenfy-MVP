@@ -17,8 +17,14 @@ import 'turntable_needle.dart';
 class CoverArt extends StatelessWidget {
   final AudioPlayerController controller;
   final MediaItem item;
+  final double size;
 
-  const CoverArt({super.key, required this.controller, required this.item});
+  const CoverArt({
+    super.key,
+    required this.controller,
+    required this.item,
+    this.size = 280,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -27,27 +33,41 @@ class CoverArt extends StatelessWidget {
     return Obx(() {
       final style = controller.coverStyle.value;
 
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        switchInCurve: Curves.easeOut,
-        switchOutCurve: Curves.easeIn,
-        child: switch (style) {
-          CoverStyle.square => _SquareCover(colors: colors, item: item),
-          CoverStyle.vinyl => _VinylCover(colors: colors, item: item),
-          CoverStyle.landscape => _SquareCover(colors: colors, item: item),
-          CoverStyle.wave => _WaveCover(
-            colors: colors,
-            item: item,
-            controller: controller,
-            displayMode: _WaveDisplayMode.wave,
+      return SizedBox.square(
+        dimension: size,
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: SizedBox.square(
+            dimension: 280,
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: switch (style) {
+                  CoverStyle.square => _SquareCover(colors: colors, item: item),
+                  CoverStyle.vinyl => _VinylCover(colors: colors, item: item),
+                  CoverStyle.landscape => _SquareCover(
+                    colors: colors,
+                    item: item,
+                  ),
+                  CoverStyle.wave => _WaveCover(
+                    colors: colors,
+                    item: item,
+                    controller: controller,
+                    displayMode: _WaveDisplayMode.wave,
+                  ),
+                  CoverStyle.miniSpectrum => _WaveCover(
+                    colors: colors,
+                    item: item,
+                    controller: controller,
+                    displayMode: _WaveDisplayMode.miniSpectrum,
+                  ),
+                },
+              ),
+            ),
           ),
-          CoverStyle.miniSpectrum => _WaveCover(
-            colors: colors,
-            item: item,
-            controller: controller,
-            displayMode: _WaveDisplayMode.miniSpectrum,
-          ),
-        },
+        ),
       );
     });
   }
