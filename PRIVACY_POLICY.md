@@ -26,7 +26,7 @@ Some optional features can transfer data only when you intentionally use them, s
 - importing media from a URL;
 - sharing media with another Listenfy device;
 - using Listenfy Connect on your local Wi-Fi network;
-- uploading cookies or media to a backend you configure for advanced processing;
+- uploading cookies or media to the Listenfy/JV24Dev-controlled backend for advanced processing;
 - opening external websites such as Ko-fi.
 
 ## Data Listenfy accesses or stores
@@ -37,7 +37,7 @@ Listenfy can access audio, video, and image files that you select or import. Thi
 
 Purpose: to build and manage your local media library, play media, edit metadata, show covers, organize playlists and collections, restore playback, and create backups.
 
-Storage: locally on your device, unless you choose to export, share, transfer, or process files with an optional backend.
+Storage: locally on your device, unless you choose to export, share, transfer, or process files with the Listenfy/JV24Dev-controlled backend.
 
 ### Photos, images, and camera
 
@@ -89,18 +89,16 @@ You should only provide cookies or backend tokens that you understand and contro
 
 ### Optional backend processing uploads
 
-Some optional processing features, such as 8D/spatial audio generation or instrumental/vocal generation, may upload the selected audio file to a configured processing backend.
+Some optional processing features, such as 8D/spatial audio generation or instrumental/vocal generation, may upload the selected audio file to a processing backend controlled by Listenfy/JV24Dev.
 
-If the backend is operated by Listenfy/JV24Dev, uploaded audio files are used only to complete the requested processing task, are intended to be processed temporarily, and are not used for analytics, advertising, profiling, machine learning training, or shared with third parties.
-
-If you configure or use a third-party or self-hosted backend, that backend operator controls its own processing, retention, deletion, and security practices. You should only use a backend that you trust.
+Uploaded audio files are used only to complete the requested processing task, are intended to be processed temporarily, and are not used for analytics, advertising, profiling, machine learning training, or shared with third parties.
 
 ## When data may leave your device
 
 Listenfy is local-first, but data may leave your device in these user-initiated situations:
 
-1. **Media imports from URLs**: Listenfy may connect to remote websites or a configured backend to download or process media that you request.
-2. **Optional backend processing**: if you use features such as 8D/spatial audio or instrumental/vocal generation with a backend, selected media and related metadata may be sent to that backend only to perform the processing task you requested.
+1. **Media imports from URLs**: Listenfy may connect to remote websites or the Listenfy/JV24Dev-controlled backend to download or process media that you request.
+2. **Optional backend processing**: if you use features such as 8D/spatial audio or instrumental/vocal generation, selected media and related metadata may be sent to the Listenfy/JV24Dev-controlled backend only to perform the processing task you requested.
 3. **Listenfy Connect**: when enabled, your device can expose a local web interface over your Wi-Fi network. Paired devices may receive playback status, queue information, selected media metadata, and streamed media content.
 4. **Nearby/local transfers**: when you share media with another device, selected files and metadata are transferred to that device.
 5. **Backups and exports**: when you create a backup ZIP or export files, the resulting files can be copied, shared, or stored wherever you choose.
@@ -113,7 +111,7 @@ Listenfy does not sell your data.
 Listenfy may open or interact with third-party services only as needed for selected features, such as:
 
 - websites used for user-requested URL imports;
-- optional backends configured by the user for processing;
+- the Listenfy/JV24Dev-controlled backend for optional processing;
 - Ko-fi for voluntary donations;
 - Android/Google platform services required by system features such as media playback, notifications, camera scanning, and nearby connectivity.
 
