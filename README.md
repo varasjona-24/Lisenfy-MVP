@@ -165,6 +165,10 @@ It covers:
 - Backup, restore, and what's included
 - Limitations and troubleshooting
 
+## Privacy Policy
+
+Listenfy's privacy policy is available here: [PRIVACY_POLICY.md](./PRIVACY_POLICY.md).
+
 ---
 
 ## Known Limitations (Transparency First)

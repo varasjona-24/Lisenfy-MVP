@@ -196,7 +196,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val ACTION_WIDGET_UPDATE =
-            "com.example.listenfy.ACTION_WIDGET_UPDATE"
+            "com.jv24dev.listenfy.ACTION_WIDGET_UPDATE"
 
         const val PREFS = "player_widget"
         const val KEY_TITLE = "title"

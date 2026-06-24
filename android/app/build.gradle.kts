@@ -31,7 +31,7 @@ android {
 
     defaultConfig {
         // Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.listenfy"
+        applicationId = "com.jv24dev.listenfy"
 
         // Flutter defaults
         minSdk = flutter.minSdkVersion

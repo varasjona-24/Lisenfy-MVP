@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_custom_tabs/flutter_custom_tabs.dart';
 import 'package:get/get.dart';
 
 import '../../controller/settings_controller.dart';
@@ -7,6 +8,45 @@ import '../widgets/value_pill.dart';
 
 class AboutSection extends GetView<SettingsController> {
   const AboutSection({super.key});
+
+  static final Uri _kofiUri = Uri.parse('https://ko-fi.com/jonyssa24');
+  static final Uri _privacyPolicyUri = Uri.parse(
+    'https://github.com/varasjona-24/Lisenfy-MVP/blob/main/PRIVACY_POLICY.md',
+  );
+
+  Future<void> _openExternalLink(
+    BuildContext context,
+    Uri uri, {
+    required String fallbackMessage,
+  }) async {
+    final scheme = Theme.of(context).colorScheme;
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      await launchUrl(
+        uri,
+        prefersDeepLink: false,
+        customTabsOptions: CustomTabsOptions(
+          browser: const CustomTabsBrowserConfiguration(
+            prefersDefaultBrowser: true,
+          ),
+          colorSchemes: CustomTabsColorSchemes.defaults(
+            toolbarColor: scheme.surface,
+          ),
+          showTitle: true,
+          urlBarHidingEnabled: true,
+          shareState: CustomTabsShareState.on,
+          instantAppsEnabled: false,
+          closeButton: CustomTabsCloseButton(
+            icon: CustomTabsCloseButtonIcons.back,
+          ),
+          animations: CustomTabsSystemAnimations.slideIn(),
+        ),
+      );
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(content: Text(fallbackMessage)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +78,7 @@ class AboutSection extends GetView<SettingsController> {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.dividerColor.withOpacity(.12)),
+            side: BorderSide(color: theme.dividerColor.withValues(alpha: .12)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -96,7 +136,46 @@ class AboutSection extends GetView<SettingsController> {
                 ),
 
                 const SizedBox(height: 14),
-                Divider(color: theme.dividerColor.withOpacity(.12)),
+                Divider(color: theme.dividerColor.withValues(alpha: .12)),
+                const SizedBox(height: 12),
+
+                InfoTile(
+                  icon: Icons.volunteer_activism_rounded,
+                  title: 'Apoya Listenfy',
+                  subtitle:
+                      'Donación voluntaria para apoyar el desarrollo del proyecto.',
+                  trailing: FilledButton.tonalIcon(
+                    onPressed: () => _openExternalLink(
+                      context,
+                      _kofiUri,
+                      fallbackMessage:
+                          'No se pudo abrir Ko-fi. Inténtalo nuevamente.',
+                    ),
+                    icon: const Icon(Icons.local_cafe_rounded, size: 18),
+                    label: const Text('Ko-fi'),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                InfoTile(
+                  icon: Icons.privacy_tip_rounded,
+                  title: 'Política de privacidad',
+                  subtitle: 'Cómo Listenfy accede, usa y protege tus datos.',
+                  trailing: OutlinedButton.icon(
+                    onPressed: () => _openExternalLink(
+                      context,
+                      _privacyPolicyUri,
+                      fallbackMessage:
+                          'No se pudo abrir la política de privacidad.',
+                    ),
+                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                    label: const Text('Ver'),
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+                Divider(color: theme.dividerColor.withValues(alpha: .12)),
                 const SizedBox(height: 12),
 
                 // Reset settings (misma lógica, pero con confirmación)
@@ -128,6 +207,7 @@ class AboutSection extends GetView<SettingsController> {
 
                       if (ok == true) {
                         controller.resetSettings();
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Ajustes restablecidos.'),
