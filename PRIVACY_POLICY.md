@@ -11,8 +11,9 @@ This Privacy Policy explains what data Listenfy accesses, how that data is used,
 App name: Listenfy  
 Android package: `com.jv24dev.listenfy`  
 Developer: JV24Dev / Listenfy project
+Email: <varas.jona@gmail.com>
 
-For privacy questions, requests, or concerns, contact the developer through the GitHub repository:
+For privacy questions, requests, or concerns, contact the developer by email or through the GitHub repository:
 
 <https://github.com/varasjona-24/Lisenfy-MVP/issues>
 
@@ -86,12 +87,20 @@ Purpose: to support user-initiated importing or backend processing features.
 
 You should only provide cookies or backend tokens that you understand and control.
 
+### Optional backend processing uploads
+
+Some optional processing features, such as 8D/spatial audio generation or instrumental/vocal generation, may upload the selected audio file to a configured processing backend.
+
+If the backend is operated by Listenfy/JV24Dev, uploaded audio files are used only to complete the requested processing task, are intended to be processed temporarily, and are not used for analytics, advertising, profiling, machine learning training, or shared with third parties.
+
+If you configure or use a third-party or self-hosted backend, that backend operator controls its own processing, retention, deletion, and security practices. You should only use a backend that you trust.
+
 ## When data may leave your device
 
 Listenfy is local-first, but data may leave your device in these user-initiated situations:
 
 1. **Media imports from URLs**: Listenfy may connect to remote websites or a configured backend to download or process media that you request.
-2. **Optional backend processing**: if you use features such as 8D/spatial audio or instrumental/vocal generation with a backend, selected media and related metadata may be sent to that backend.
+2. **Optional backend processing**: if you use features such as 8D/spatial audio or instrumental/vocal generation with a backend, selected media and related metadata may be sent to that backend only to perform the processing task you requested.
 3. **Listenfy Connect**: when enabled, your device can expose a local web interface over your Wi-Fi network. Paired devices may receive playback status, queue information, selected media metadata, and streamed media content.
 4. **Nearby/local transfers**: when you share media with another device, selected files and metadata are transferred to that device.
 5. **Backups and exports**: when you create a backup ZIP or export files, the resulting files can be copied, shared, or stored wherever you choose.
