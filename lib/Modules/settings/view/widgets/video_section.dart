@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -21,7 +23,7 @@ class VideoSection extends StatelessWidget {
               const Icon(Icons.movie_rounded, size: 18),
               const SizedBox(width: 8),
               Text(
-                'Video',
+                tr('settings.video.title'),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -47,13 +49,13 @@ class VideoSection extends StatelessWidget {
                     dense: true,
                     secondary: const Icon(Icons.label_off_rounded),
                     title: Text(
-                      'Ocultar etiquetas de estado',
+                      tr('settings.video.hide_status'),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     subtitle: Text(
-                      'Oculta Pendiente, Seguir viendo, Visto y Completado sin cambiar el progreso guardado.',
+                      tr('settings.video.hide_status_subtitle'),
                       style: theme.textTheme.bodySmall,
                     ),
                     value: playback.hideVideoStatusLabels.value,
@@ -69,13 +71,13 @@ class VideoSection extends StatelessWidget {
                     dense: true,
                     secondary: const Icon(Icons.timelapse_rounded),
                     title: Text(
-                      'Ocultar etiquetas en videos de 13 min o menos',
+                      tr('settings.video.hide_short_status'),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     subtitle: Text(
-                      'Útil para ocultar el estado visual en clips cortos o episodios breves. Viene apagado por defecto.',
+                      tr('settings.video.hide_short_status_subtitle'),
                       style: theme.textTheme.bodySmall,
                     ),
                     value: playback.hideShortVideoStatusLabels.value,

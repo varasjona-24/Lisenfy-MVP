@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 
 import '../../../../../app/routes/app_routes.dart';
@@ -66,8 +68,8 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
               color: scheme.primary,
             ),
             tooltip: mode == AppMediaMode.audio
-                ? 'Modo Audio (tocar para Video)'
-                : 'Modo Video (tocar para Audio)',
+                ? tr('nav.audio_mode_tooltip')
+                : tr('nav.video_mode_tooltip'),
             onPressed: onToggleMode,
           ),
 
@@ -128,16 +130,16 @@ class _TopBarOverflowMenu extends StatelessWidget {
         _TopBarMenuEntryData(
           action: _TopBarMenuAction.localConnect,
           icon: Icons.cast_connected_rounded,
-          label: 'Listenfy Connect',
-          subtitle: 'Control remoto y sesión local',
+          label: tr('nav.listenfy_connect'),
+          subtitle: tr('nav.listenfy_connect_subtitle'),
           tint: scheme.primary,
         ),
       if (showSettingsAction)
         _TopBarMenuEntryData(
           action: _TopBarMenuAction.settings,
           icon: Icons.settings_rounded,
-          label: 'Ajustes',
-          subtitle: 'Preferencias y herramientas',
+          label: tr('nav.settings'),
+          subtitle: tr('nav.settings_subtitle'),
           tint: scheme.secondary,
         ),
     ];
@@ -147,7 +149,7 @@ class _TopBarOverflowMenu extends StatelessWidget {
     }
 
     return PopupMenuButton<_TopBarMenuAction>(
-      tooltip: 'Más opciones',
+      tooltip: tr('nav.more_options'),
       padding: const EdgeInsets.only(right: 6),
       offset: const Offset(0, 10),
       elevation: 10,
@@ -174,7 +176,7 @@ class _TopBarOverflowMenu extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
           height: 0,
           child: Text(
-            'Accesos rápidos',
+            tr('nav.quick_access'),
             style: theme.textTheme.labelLarge?.copyWith(
               color: scheme.onSurfaceVariant,
               fontWeight: FontWeight.w800,

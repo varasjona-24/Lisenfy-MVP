@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 import 'package:app_settings/app_settings.dart';
 
@@ -42,7 +44,7 @@ class AudioSection extends StatelessWidget {
               const Icon(Icons.volume_up_rounded, size: 18),
               const SizedBox(width: 8),
               Text(
-                'Audio',
+                tr('settings.audio.title'),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -57,7 +59,7 @@ class AudioSection extends StatelessWidget {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.dividerColor.withOpacity(.12)),
+            side: BorderSide(color: theme.dividerColor.withValues(alpha: .12)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -66,8 +68,8 @@ class AudioSection extends StatelessWidget {
                 // Default volume
                 Obx(
                   () => SectionBlock(
-                    title: 'Volumen por defecto',
-                    subtitle: 'Define el nivel inicial de reproducción.',
+                    title: tr('settings.audio.default_volume'),
+                    subtitle: tr('settings.audio.default_volume_subtitle'),
                     trailing: ValuePill(
                       text: '${playback.defaultVolume.value.toInt()}%',
                     ),
@@ -94,7 +96,7 @@ class AudioSection extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 8),
-                Divider(color: theme.dividerColor.withOpacity(.12)),
+                Divider(color: theme.dividerColor.withValues(alpha: .12)),
                 const SizedBox(height: 8),
 
                 // Autoplay
@@ -103,13 +105,13 @@ class AudioSection extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                     dense: true,
                     title: Text(
-                      'Reproducción automática',
+                      tr('settings.audio.autoplay'),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     subtitle: Text(
-                      'Reproduce la siguiente pista al finalizar la actual.',
+                      tr('settings.audio.autoplay_subtitle'),
                       style: theme.textTheme.bodySmall,
                     ),
                     value: playback.autoPlayNext.value,
@@ -136,7 +138,7 @@ class AudioSection extends StatelessWidget {
                           ),
                         ),
                         subtitle: Text(
-                          'Mezcla canciones al final/inicio de la transición.',
+                          tr('settings.audio.crossfade_subtitle'),
                           style: theme.textTheme.bodySmall,
                         ),
                         value: crossfadeEnabled,
@@ -153,8 +155,8 @@ class AudioSection extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       SectionBlock(
-                        title: 'Duración del crossfade',
-                        subtitle: 'En segundos',
+                        title: tr('settings.audio.crossfade_duration'),
+                        subtitle: tr('settings.audio.seconds'),
                         trailing: ValuePill(
                           text: crossfadeEnabled
                               ? '${playback.crossfadeSeconds.value}s'
@@ -187,7 +189,7 @@ class AudioSection extends StatelessWidget {
                 }),
 
                 const SizedBox(height: 8),
-                Divider(color: theme.dividerColor.withOpacity(.12)),
+                Divider(color: theme.dividerColor.withValues(alpha: .12)),
                 const SizedBox(height: 8),
 
                 // Equalizer
@@ -195,10 +197,10 @@ class AudioSection extends StatelessWidget {
                   if (!equalizer.eqAvailable.value) {
                     return InfoTile(
                       icon: Icons.graphic_eq_rounded,
-                      title: 'Ecualizador',
+                      title: tr('settings.audio.equalizer'),
                       subtitle: equalizer.eqUnavailableMessage.value.isNotEmpty
                           ? equalizer.eqUnavailableMessage.value
-                          : 'Disponible solo en Android.',
+                          : tr('settings.audio.android_only'),
                     );
                   }
 
@@ -206,8 +208,8 @@ class AudioSection extends StatelessWidget {
                       equalizer.eqGains.isEmpty) {
                     return InfoTile(
                       icon: Icons.graphic_eq_rounded,
-                      title: 'Ecualizador',
-                      subtitle: 'Cargando parámetros…',
+                      title: tr('settings.audio.equalizer'),
+                      subtitle: tr('settings.audio.loading_params'),
                       trailing: const SizedBox(
                         width: 18,
                         height: 18,
@@ -216,40 +218,40 @@ class AudioSection extends StatelessWidget {
                     );
                   }
 
-                  final presets = const <String, String>{
+                  final presets = <String, String>{
                     'normal': 'Normal',
-                    'custom': 'Personalizado',
+                    'custom': tr('settings.audio.preset_custom'),
                     'bass': 'Bass',
-                    'treble': 'Agudos',
+                    'treble': tr('settings.audio.preset_treble'),
                     'vocal': 'Vocal',
                     'podcast': 'Podcast',
-                    'movie': 'Cine',
+                    'movie': tr('settings.audio.preset_movie'),
                     'gaming': 'Gaming',
                     'pop': 'Pop',
                     'rock': 'Rock',
                     'jazz': 'Jazz',
-                    'classical': 'Clásica',
-                    'acoustic': 'Acústica',
+                    'classical': tr('settings.audio.preset_classical'),
+                    'acoustic': tr('settings.audio.preset_acoustic'),
                     'hiphop': 'Hip-Hop',
                     'rnb': 'R&B',
                     'dance': 'Dance',
                     'edm': 'EDM',
-                    'latin': 'Latina',
+                    'latin': tr('settings.audio.preset_latin'),
                     'metal': 'Metal',
                     'piano': 'Piano',
                     'blues': 'Blues',
                     'country': 'Country',
                     'reggae': 'Reggae',
                     'electronic': 'Electronic',
-                    'night': 'Noche',
+                    'night': tr('settings.audio.preset_night'),
                     'loudness': 'Loudness',
                   };
 
                   final presetGroups = [
                     _EqPresetGroupSpec(
                       id: 'basicos',
-                      title: 'Básicos',
-                      subtitle: 'Perfiles rápidos para uso general.',
+                      title: tr('settings.audio.group_basic'),
+                      subtitle: tr('settings.audio.group_basic_subtitle'),
                       icon: Icons.tune_rounded,
                       keys: const [
                         'normal',
@@ -261,8 +263,8 @@ class AudioSection extends StatelessWidget {
                     ),
                     _EqPresetGroupSpec(
                       id: 'musica_1',
-                      title: 'Música',
-                      subtitle: 'Perfiles populares y balanceados.',
+                      title: tr('settings.audio.group_music'),
+                      subtitle: tr('settings.audio.group_music_subtitle'),
                       icon: Icons.library_music_rounded,
                       keys: const [
                         'pop',
@@ -275,8 +277,8 @@ class AudioSection extends StatelessWidget {
                     ),
                     _EqPresetGroupSpec(
                       id: 'musica_2',
-                      title: 'Géneros',
-                      subtitle: 'Perfiles con más carácter.',
+                      title: tr('settings.audio.group_genres'),
+                      subtitle: tr('settings.audio.group_genres_subtitle'),
                       icon: Icons.graphic_eq_rounded,
                       keys: const [
                         'hiphop',
@@ -289,16 +291,15 @@ class AudioSection extends StatelessWidget {
                     ),
                     _EqPresetGroupSpec(
                       id: 'voz_escena',
-                      title: 'Voz y Escena',
-                      subtitle:
-                          'Mejora diálogo, voz o sensación de cine/juego.',
+                      title: tr('settings.audio.group_voice_scene'),
+                      subtitle: tr('settings.audio.group_voice_scene_subtitle'),
                       icon: Icons.record_voice_over_rounded,
                       keys: const ['podcast', 'movie', 'gaming'],
                     ),
                     _EqPresetGroupSpec(
                       id: 'extras',
-                      title: 'Extras',
-                      subtitle: 'Perfiles situacionales y colores adicionales.',
+                      title: tr('settings.audio.group_extras'),
+                      subtitle: tr('settings.audio.group_extras_subtitle'),
                       icon: Icons.auto_awesome_rounded,
                       keys: const [
                         'blues',
@@ -323,7 +324,7 @@ class AudioSection extends StatelessWidget {
                           ),
                         ),
                         subtitle: Text(
-                          'Ajusta las frecuencias de audio.',
+                          tr('settings.audio.eq_subtitle'),
                           style: theme.textTheme.bodySmall,
                         ),
                         value: equalizer.eqEnabled.value,
@@ -332,9 +333,8 @@ class AudioSection extends StatelessWidget {
                       const SizedBox(height: 8),
 
                       SectionBlock(
-                        title: 'Presets',
-                        subtitle:
-                            'Perfiles organizados en secciones desplegables.',
+                        title: tr('settings.audio.presets'),
+                        subtitle: tr('settings.audio.presets_subtitle'),
                         trailing: ValuePill(
                           text:
                               presets[equalizer.eqPreset.value] ??
@@ -401,7 +401,7 @@ class AudioSection extends StatelessWidget {
                 }),
 
                 const SizedBox(height: 8),
-                Divider(color: theme.dividerColor.withOpacity(.12)),
+                Divider(color: theme.dividerColor.withValues(alpha: .12)),
                 const SizedBox(height: 8),
 
                 // Sleep timer
@@ -418,7 +418,7 @@ class AudioSection extends StatelessWidget {
                           ),
                         ),
                         subtitle: Text(
-                          'Detiene la reproducción después de un tiempo.',
+                          tr('settings.audio.sleep_timer_subtitle'),
                           style: theme.textTheme.bodySmall,
                         ),
                         value: sleepTimer.sleepTimerEnabled.value,
@@ -431,10 +431,17 @@ class AudioSection extends StatelessWidget {
                           child: Padding(
                             padding: const EdgeInsets.only(bottom: 6.0),
                             child: Text(
-                              'Tiempo restante: ${formatRemaining(sleepTimer.sleepRemaining.value)}',
+                              tr(
+                                'settings.audio.remaining',
+                                args: [
+                                  formatRemaining(
+                                    sleepTimer.sleepRemaining.value,
+                                  ),
+                                ],
+                              ),
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(
-                                  0.7,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.7,
                                 ),
                               ),
                             ),
@@ -443,8 +450,8 @@ class AudioSection extends StatelessWidget {
                       const SizedBox(height: 6),
 
                       SectionBlock(
-                        title: 'Duración',
-                        subtitle: 'En minutos',
+                        title: tr('settings.audio.duration'),
+                        subtitle: tr('settings.audio.minutes'),
                         trailing: ValuePill(
                           text: sleepTimer.sleepTimerEnabled.value
                               ? '${sleepTimer.sleepTimerMinutes.value}m'
@@ -494,8 +501,13 @@ class AudioSection extends StatelessWidget {
                         ),
                         subtitle: Text(
                           sleepTimer.fadeOutEnabled.value
-                              ? 'El volumen bajará los últimos ~${(sleepTimer.sleepTimerMinutes.value * 60 * 0.05).clamp(10, 60).toInt()}s'
-                              : 'La música se detendrá de golpe.',
+                              ? tr(
+                                  'settings.audio.fade_out_on',
+                                  args: [
+                                    '${(sleepTimer.sleepTimerMinutes.value * 60 * 0.05).clamp(10, 60).toInt()}',
+                                  ],
+                                )
+                              : tr('settings.audio.fade_out_off'),
                           style: theme.textTheme.bodySmall,
                         ),
                         value: sleepTimer.fadeOutEnabled.value,
@@ -506,7 +518,7 @@ class AudioSection extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 8),
-                Divider(color: theme.dividerColor.withOpacity(.12)),
+                Divider(color: theme.dividerColor.withValues(alpha: .12)),
                 const SizedBox(height: 8),
 
                 // Inactivity pause
@@ -523,7 +535,7 @@ class AudioSection extends StatelessWidget {
                           ),
                         ),
                         subtitle: Text(
-                          'Si no interactúas, se pausa automáticamente.',
+                          tr('settings.audio.inactivity_pause_subtitle'),
                           style: theme.textTheme.bodySmall,
                         ),
                         value: sleepTimer.inactivityPauseEnabled.value,
@@ -531,8 +543,8 @@ class AudioSection extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       SectionBlock(
-                        title: 'Tiempo de inactividad',
-                        subtitle: 'En minutos',
+                        title: tr('settings.audio.inactivity_time'),
+                        subtitle: tr('settings.audio.minutes'),
                         trailing: ValuePill(
                           text: sleepTimer.inactivityPauseEnabled.value
                               ? '${sleepTimer.inactivityPauseMinutes.value}m'
@@ -569,7 +581,7 @@ class AudioSection extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 8),
-                Divider(color: theme.dividerColor.withOpacity(.12)),
+                Divider(color: theme.dividerColor.withValues(alpha: .12)),
                 const SizedBox(height: 8),
 
                 // Output / Bluetooth
@@ -578,13 +590,13 @@ class AudioSection extends StatelessWidget {
                   dense: true,
                   leading: const Icon(Icons.bluetooth_audio_rounded),
                   title: Text(
-                    'Salida de audio',
+                    tr('settings.audio.audio_output'),
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   subtitle: Text(
-                    'Gestiona tu dispositivo Bluetooth desde Ajustes.',
+                    tr('settings.audio.audio_output_subtitle'),
                     style: theme.textTheme.bodySmall,
                   ),
                   trailing: OutlinedButton.icon(
@@ -592,7 +604,7 @@ class AudioSection extends StatelessWidget {
                       type: AppSettingsType.bluetooth,
                     ),
                     icon: const Icon(Icons.settings_rounded, size: 18),
-                    label: const Text('Ajustes'),
+                    label: Text(tr('settings.audio.settings_button')),
                   ),
                 ),
 
@@ -610,8 +622,8 @@ class AudioSection extends StatelessWidget {
                       if (loading) {
                         return InfoTile(
                           icon: Icons.sync_rounded,
-                          title: 'Buscando dispositivos…',
-                          subtitle: 'Verificando el estado del Bluetooth.',
+                          title: tr('settings.audio.searching_devices'),
+                          subtitle: tr('settings.audio.checking_bluetooth'),
                           trailing: const SizedBox(
                             width: 18,
                             height: 18,
@@ -628,11 +640,10 @@ class AudioSection extends StatelessWidget {
                       if (!bluetoothOn) {
                         return InfoTile(
                           icon: Icons.bluetooth_disabled_rounded,
-                          title: 'Bluetooth desactivado',
-                          subtitle:
-                              'Actívalo para detectar y usar dispositivos de audio.',
+                          title: tr('settings.audio.bluetooth_off'),
+                          subtitle: tr('settings.audio.bluetooth_off_subtitle'),
                           trailing: IconButton(
-                            tooltip: 'Abrir ajustes',
+                            tooltip: tr('settings.audio.open_settings'),
                             onPressed: () => AppSettings.openAppSettings(
                               type: AppSettingsType.bluetooth,
                             ),
@@ -644,11 +655,10 @@ class AudioSection extends StatelessWidget {
                       if (devices.isEmpty) {
                         return InfoTile(
                           icon: Icons.headphones_rounded,
-                          title: 'Sin dispositivos conectados',
-                          subtitle:
-                              'Conecta un dispositivo para mostrarlo aquí.',
+                          title: tr('settings.audio.no_devices'),
+                          subtitle: tr('settings.audio.no_devices_subtitle'),
                           trailing: IconButton(
-                            tooltip: 'Actualizar',
+                            tooltip: tr('settings.audio.refresh'),
                             onPressed: settings.refreshBluetoothDevices,
                             icon: const Icon(Icons.refresh_rounded),
                           ),
@@ -662,7 +672,7 @@ class AudioSection extends StatelessWidget {
                             child: Padding(
                               padding: const EdgeInsets.only(bottom: 10),
                               child: Text(
-                                'Dispositivos detectados',
+                                tr('settings.audio.detected_devices'),
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -680,7 +690,7 @@ class AudioSection extends StatelessWidget {
                             child: TextButton.icon(
                               onPressed: settings.refreshBluetoothDevices,
                               icon: const Icon(Icons.refresh_rounded),
-                              label: const Text('Actualizar'),
+                              label: Text(tr('settings.audio.refresh')),
                             ),
                           ),
                         ],
@@ -742,9 +752,9 @@ class _EqPresetGroupTile extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withOpacity(.28),
+        color: scheme.surfaceContainerHighest.withValues(alpha: .28),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: scheme.outlineVariant.withOpacity(.35)),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: .35)),
       ),
       child: Theme(
         data: theme.copyWith(dividerColor: Colors.transparent),

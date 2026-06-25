@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter_custom_tabs/flutter_custom_tabs.dart';
 import 'package:get/get.dart';
 
@@ -63,7 +65,7 @@ class AboutSection extends GetView<SettingsController> {
               const Icon(Icons.info_outline_rounded, size: 18),
               const SizedBox(width: 8),
               Text(
-                'Información',
+                tr('settings.about.title'),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -85,9 +87,9 @@ class AboutSection extends GetView<SettingsController> {
             child: Column(
               children: [
                 // Version (aquí sigue fijo porque pediste misma lógica)
-                const InfoTile(
+                InfoTile(
                   icon: Icons.verified_rounded,
-                  title: 'Versión',
+                  title: tr('settings.about.version'),
                   subtitle: '1.0.0',
                 ),
 
@@ -104,11 +106,11 @@ class AboutSection extends GetView<SettingsController> {
                       final value = snap.data;
 
                       if (loading) {
-                        return const InfoTile(
+                        return InfoTile(
                           icon: Icons.storage_rounded,
-                          title: 'Almacenamiento',
-                          subtitle: 'Calculando…',
-                          trailing: SizedBox(
+                          title: tr('settings.about.storage'),
+                          subtitle: tr('settings.about.calculating'),
+                          trailing: const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
@@ -118,9 +120,9 @@ class AboutSection extends GetView<SettingsController> {
 
                       return InfoTile(
                         icon: Icons.storage_rounded,
-                        title: 'Almacenamiento',
+                        title: tr('settings.about.storage'),
                         subtitle: value ?? '—',
-                        trailing: const ValuePill(text: 'Local'),
+                        trailing: ValuePill(text: tr('common.local')),
                       );
                     },
                   );
@@ -129,10 +131,10 @@ class AboutSection extends GetView<SettingsController> {
                 const SizedBox(height: 10),
 
                 // Last update (si no es real, idealmente quítalo o automatízalo luego)
-                const InfoTile(
+                InfoTile(
                   icon: Icons.update_rounded,
-                  title: 'Última actualización',
-                  subtitle: '20 de enero de 2026',
+                  title: tr('settings.about.last_update'),
+                  subtitle: tr('settings.about.last_update_value'),
                 ),
 
                 const SizedBox(height: 14),
@@ -141,15 +143,13 @@ class AboutSection extends GetView<SettingsController> {
 
                 InfoTile(
                   icon: Icons.volunteer_activism_rounded,
-                  title: 'Apoya Listenfy',
-                  subtitle:
-                      'Donación voluntaria para apoyar el desarrollo del proyecto.',
+                  title: tr('settings.about.support_title'),
+                  subtitle: tr('settings.about.support_subtitle'),
                   trailing: FilledButton.tonalIcon(
                     onPressed: () => _openExternalLink(
                       context,
                       _kofiUri,
-                      fallbackMessage:
-                          'No se pudo abrir Ko-fi. Inténtalo nuevamente.',
+                      fallbackMessage: tr('settings.about.kofi_error'),
                     ),
                     icon: const Icon(Icons.local_cafe_rounded, size: 18),
                     label: const Text('Ko-fi'),
@@ -160,17 +160,16 @@ class AboutSection extends GetView<SettingsController> {
 
                 InfoTile(
                   icon: Icons.privacy_tip_rounded,
-                  title: 'Política de privacidad',
-                  subtitle: 'Cómo Listenfy accede, usa y protege tus datos.',
+                  title: tr('settings.about.privacy_title'),
+                  subtitle: tr('settings.about.privacy_subtitle'),
                   trailing: OutlinedButton.icon(
                     onPressed: () => _openExternalLink(
                       context,
                       _privacyPolicyUri,
-                      fallbackMessage:
-                          'No se pudo abrir la política de privacidad.',
+                      fallbackMessage: tr('settings.about.privacy_error'),
                     ),
                     icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                    label: const Text('Ver'),
+                    label: Text(tr('common.see')),
                   ),
                 ),
 
@@ -186,20 +185,17 @@ class AboutSection extends GetView<SettingsController> {
                       final ok = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          title: const Text('Restablecer ajustes'),
-                          content: const Text(
-                            'Esto restaurará los ajustes a sus valores por defecto. '
-                            'No elimina tu biblioteca, solo preferencias.',
-                          ),
+                          title: Text(tr('settings.about.reset_title')),
+                          content: Text(tr('settings.about.reset_body')),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('Cancelar'),
+                              child: Text(tr('common.cancel')),
                             ),
                             FilledButton.icon(
                               onPressed: () => Navigator.pop(ctx, true),
                               icon: const Icon(Icons.restart_alt_rounded),
-                              label: const Text('Restablecer'),
+                              label: Text(tr('common.reset')),
                             ),
                           ],
                         ),
@@ -209,14 +205,14 @@ class AboutSection extends GetView<SettingsController> {
                         controller.resetSettings();
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Ajustes restablecidos.'),
+                          SnackBar(
+                            content: Text(tr('settings.about.reset_done')),
                           ),
                         );
                       }
                     },
                     icon: const Icon(Icons.restart_alt_rounded),
-                    label: const Text('Restablecer ajustes'),
+                    label: Text(tr('settings.about.reset_title')),
                   ),
                 ),
               ],

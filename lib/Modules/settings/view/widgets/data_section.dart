@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:app_settings/app_settings.dart';
@@ -32,7 +34,7 @@ class DataSection extends StatelessWidget {
               const Icon(Icons.cloud_download_rounded, size: 18),
               const SizedBox(width: 8),
               Text(
-                'Datos y descargas',
+                tr('settings.data.title'),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -59,15 +61,21 @@ class DataSection extends StatelessWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SectionHeader(
-                        title: 'Uso de datos',
-                        subtitle: 'Controla cuándo usar datos móviles.',
+                      SectionHeader(
+                        title: tr('settings.data.usage'),
+                        subtitle: tr('settings.data.usage_subtitle'),
                       ),
                       const SizedBox(height: 8),
                       ChoiceChipRow(
-                        options: const [
-                          ChoiceOption(value: 'wifi_only', label: 'Solo Wi-Fi'),
-                          ChoiceOption(value: 'all', label: 'Wi-Fi y móvil'),
+                        options: [
+                          ChoiceOption(
+                            value: 'wifi_only',
+                            label: tr('settings.data.wifi_only'),
+                          ),
+                          ChoiceOption(
+                            value: 'all',
+                            label: tr('settings.data.wifi_mobile'),
+                          ),
                         ],
                         selectedValue: playback.dataUsage.value,
                         onSelected: (v) => playback.setDataUsage(v),
@@ -89,8 +97,11 @@ class DataSection extends StatelessWidget {
                       icon: const Icon(Icons.delete_sweep_rounded),
                       label: Text(
                         settings.cacheSummary.value == 'Calculando...'
-                            ? 'Limpiar caché'
-                            : 'Limpiar caché (${settings.cacheSummary.value})',
+                            ? tr('settings.data.clear_cache')
+                            : tr(
+                                'settings.data.clear_cache_with_size',
+                                args: [settings.cacheSummary.value],
+                              ),
                       ),
                     ),
                   ),
@@ -120,9 +131,7 @@ class DataSection extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Para mostrar el reproductor en pantalla de bloqueo, '
-                            'desactiva temporalmente el ahorro de batería y '
-                            'luego vuelve a activarlo.',
+                            tr('settings.data.battery_note'),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurface,
                               height: 1.3,
@@ -135,14 +144,13 @@ class DataSection extends StatelessWidget {
                   const SizedBox(height: 12),
                   InfoTile(
                     icon: Icons.battery_saver_rounded,
-                    title: 'Ahorro de batería',
-                    subtitle:
-                        'Desactívalo para ver controles en pantalla de bloqueo.',
+                    title: tr('settings.data.battery_saver'),
+                    subtitle: tr('settings.data.battery_saver_subtitle'),
                     trailing: TextButton(
                       onPressed: () => AppSettings.openAppSettings(
                         type: AppSettingsType.batteryOptimization,
                       ),
-                      child: const Text('Abrir'),
+                      child: Text(tr('common.open')),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -172,17 +180,14 @@ class DataSection extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Respaldo actual: completo',
+                              tr('settings.data.backup_title'),
                               style: theme.textTheme.labelLarge?.copyWith(
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Incluye toda la media offline (audio, video, imágenes) '
-                              'y la configuración de la pantalla de inicio (orden y '
-                              'widgets). Los archivos se empaquetan sin comprimir '
-                              '(modo STORE) para mayor velocidad.',
+                              tr('settings.data.backup_body'),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 height: 1.25,
                               ),
@@ -218,7 +223,9 @@ class DataSection extends StatelessWidget {
                                 )
                               : const Icon(Icons.archive_rounded),
                           label: Text(
-                            isExporting ? 'Exportando...' : 'Exportar ZIP',
+                            isExporting
+                                ? tr('settings.data.exporting')
+                                : tr('settings.data.export_zip'),
                           ),
                         ),
                       ),
@@ -238,7 +245,9 @@ class DataSection extends StatelessWidget {
                                 )
                               : const Icon(Icons.restore_rounded),
                           label: Text(
-                            isImporting ? 'Importando...' : 'Restaurar ZIP',
+                            isImporting
+                                ? tr('settings.data.importing')
+                                : tr('settings.data.restore_zip'),
                           ),
                         ),
                       ),

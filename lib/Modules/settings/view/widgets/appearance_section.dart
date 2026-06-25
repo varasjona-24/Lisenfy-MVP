@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -40,7 +42,7 @@ class AppearanceSection extends GetView<SettingsController> {
               const Icon(Icons.palette_rounded, size: 18),
               const SizedBox(width: 8),
               Text(
-                'Apariencia',
+                tr('settings.appearance.title'),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -64,24 +66,24 @@ class AppearanceSection extends GetView<SettingsController> {
                 // Theme mode
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: SectionHeader(
-                        title: 'Modo',
-                        subtitle: 'Cambia entre claro y oscuro.',
+                        title: tr('settings.appearance.mode_title'),
+                        subtitle: tr('settings.appearance.mode_subtitle'),
                       ),
                     ),
                     Obx(
                       () => SegmentedButton<Brightness>(
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: Brightness.light,
-                            label: Text('Claro'),
-                            icon: Icon(Icons.light_mode_rounded),
+                            label: Text(tr('settings.appearance.light')),
+                            icon: const Icon(Icons.light_mode_rounded),
                           ),
                           ButtonSegment(
                             value: Brightness.dark,
-                            label: Text('Oscuro'),
-                            icon: Icon(Icons.dark_mode_rounded),
+                            label: Text(tr('settings.appearance.dark')),
+                            icon: const Icon(Icons.dark_mode_rounded),
                           ),
                         ],
                         selected: {controller.brightness.value},
@@ -106,10 +108,12 @@ class AppearanceSection extends GetView<SettingsController> {
                     children: [
                       Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: SectionHeader(
-                              title: 'Paleta',
-                              subtitle: 'Personaliza el estilo de la app.',
+                              title: tr('settings.appearance.palette_title'),
+                              subtitle: tr(
+                                'settings.appearance.palette_subtitle',
+                              ),
                             ),
                           ),
                           ValuePill(text: selected.toUpperCase()),
@@ -123,37 +127,37 @@ class AppearanceSection extends GetView<SettingsController> {
                           scrollDirection: Axis.horizontal,
                           children: [
                             PaletteTile(
-                              label: 'Rojo',
+                              label: tr('settings.appearance.colors.red'),
                               color: const Color.fromARGB(255, 170, 88, 60),
                               selected: selected == 'red',
                               onTap: () => controller.setPalette('red'),
                             ),
                             PaletteTile(
-                              label: 'Verde',
+                              label: tr('settings.appearance.colors.green'),
                               color: const Color.fromARGB(255, 62, 86, 66),
                               selected: selected == 'green',
                               onTap: () => controller.setPalette('green'),
                             ),
                             PaletteTile(
-                              label: 'Azul',
+                              label: tr('settings.appearance.colors.blue'),
                               color: const Color.fromARGB(255, 54, 90, 150),
                               selected: selected == 'blue',
                               onTap: () => controller.setPalette('blue'),
                             ),
                             PaletteTile(
-                              label: 'Amarillo',
+                              label: tr('settings.appearance.colors.yellow'),
                               color: const Color.fromARGB(255, 196, 154, 92),
                               selected: selected == 'yellow',
                               onTap: () => controller.setPalette('yellow'),
                             ),
                             PaletteTile(
-                              label: 'Gris',
+                              label: tr('settings.appearance.colors.gray'),
                               color: const Color(0xFF4F4F4F),
                               selected: selected == 'gray',
                               onTap: () => controller.setPalette('gray'),
                             ),
                             PaletteTile(
-                              label: 'Morado',
+                              label: tr('settings.appearance.colors.purple'),
                               color: const Color(0xFF6A4FA3),
                               selected: selected == 'purple',
                               onTap: () => controller.setPalette('purple'),
@@ -177,28 +181,27 @@ class AppearanceSection extends GetView<SettingsController> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SectionHeader(
-                        title: 'Fondo de pantalla',
-                        subtitle:
-                            'Ajusta una imagen en formato vertical y úsala detrás del contenido.',
+                      SectionHeader(
+                        title: tr('settings.appearance.wallpaper_title'),
+                        subtitle: tr('settings.appearance.wallpaper_subtitle'),
                       ),
                       const SizedBox(height: 12),
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Carrusel inteligente'),
-                        subtitle: const Text(
-                          'Cambia el fondo cada 1 hora y 30 minutos.',
+                        title: Text(tr('settings.appearance.smart_carousel')),
+                        subtitle: Text(
+                          tr('settings.appearance.smart_carousel_subtitle'),
                         ),
                         value: controller.smartBackgroundCarouselEnabled.value,
                         onChanged: controller.setSmartBackgroundCarouselEnabled,
                       ),
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Mostrar en orden'),
+                        title: Text(tr('settings.appearance.ordered_carousel')),
                         subtitle: Text(
                           controller.orderedBackgroundCarouselEnabled.value
-                              ? 'Recorre los fondos en el orden del carrusel.'
-                              : 'Selecciona el siguiente fondo al azar.',
+                              ? tr('settings.appearance.ordered_carousel_on')
+                              : tr('settings.appearance.ordered_carousel_off'),
                         ),
                         value:
                             controller.orderedBackgroundCarouselEnabled.value,
@@ -222,12 +225,14 @@ class AppearanceSection extends GetView<SettingsController> {
                             FilledButton.tonalIcon(
                               onPressed: controller.selectAppBackgroundImage,
                               icon: const Icon(Icons.folder_open_rounded),
-                              label: const Text('Elegir archivo'),
+                              label: Text(
+                                tr('settings.appearance.choose_file'),
+                              ),
                             ),
                             FilledButton.tonalIcon(
                               onPressed: () => _searchWebBackground(context),
                               icon: const Icon(Icons.public_rounded),
-                              label: const Text('Buscar en web'),
+                              label: Text(tr('settings.appearance.search_web')),
                             ),
                           ];
 
@@ -362,7 +367,7 @@ class _BackgroundCarouselState extends State<_BackgroundCarousel> {
                   ),
                   child: Center(
                     child: IconButton(
-                      tooltip: 'Quitar fondo',
+                      tooltip: tr('settings.appearance.remove_wallpaper'),
                       onPressed: () => widget.onDelete(imagePath),
                       icon: const Icon(Icons.delete_outline_rounded),
                       iconSize: 34,

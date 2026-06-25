@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 
 import '../controller/settings_controller.dart';
@@ -9,6 +11,7 @@ import 'widgets/video_section.dart';
 import 'widgets/about_section.dart';
 import 'widgets/guide_section.dart';
 import 'widgets/notifications_section.dart';
+import 'widgets/language_section.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 
 class SettingsView extends GetView<SettingsController> {
@@ -23,7 +26,7 @@ class SettingsView extends GetView<SettingsController> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(' Configuración'),
+        title: Text(tr('settings.title')),
         centerTitle: true,
         elevation: 0,
         backgroundColor: barColor,
@@ -39,6 +42,10 @@ class SettingsView extends GetView<SettingsController> {
               children: [
                 // 🎨 Sección de Apariencia
                 const AppearanceSection(),
+                const SizedBox(height: 24),
+
+                // 🌐 Sección de idioma
+                const LanguageSection(),
                 const SizedBox(height: 24),
 
                 // 🔊 Sección de Audio

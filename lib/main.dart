@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:audio_service/audio_service.dart' as aud;
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -52,6 +54,7 @@ import 'Modules/recommendations/domain/contracts/recommendation_engine.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await EasyLocalization.ensureInitialized();
   await GetStorage.init();
 
   // Eliminado bloqueo de UI en main()
@@ -211,7 +214,14 @@ Future<void> main() async {
     }
   }
 
-  runApp(const MyApp());
+  runApp(
+    EasyLocalization(
+      supportedLocales: const [Locale('es'), Locale('en')],
+      path: 'assets/translations',
+      fallbackLocale: const Locale('es'),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatefulWidget {
@@ -267,10 +277,13 @@ class _MyAppState extends State<MyApp> {
       final mode = themeCtrl.themeMode.value;
 
       return GetMaterialApp(
-        title: 'Listenfy',
+        title: tr('app.name'),
         debugShowCheckedModeBanner: false,
         initialRoute: AppRoutes.entry,
         getPages: AppPages.routes,
+        locale: context.locale,
+        supportedLocales: context.supportedLocales,
+        localizationsDelegates: context.localizationDelegates,
 
         routingCallback: (routing) {
           final current = routing?.current;

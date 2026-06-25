@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class AppBottomNav extends StatelessWidget {
   final int currentIndex;
@@ -57,31 +58,31 @@ class AppBottomNav extends StatelessWidget {
 
           iconSize: 24,
 
-          items: const [
+          items: [
             BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
+              icon: const Icon(Icons.home_outlined),
+              activeIcon: const Icon(Icons.home),
+              label: tr('nav.home'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.queue_music_outlined),
-              activeIcon: Icon(Icons.queue_music),
-              label: 'Playlists',
+              icon: const Icon(Icons.queue_music_outlined),
+              activeIcon: const Icon(Icons.queue_music),
+              label: tr('nav.playlists'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Artists',
+              icon: const Icon(Icons.person_outline),
+              activeIcon: const Icon(Icons.person),
+              label: tr('nav.artists'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.download_outlined),
-              activeIcon: Icon(Icons.download),
-              label: 'Imports',
+              icon: const Icon(Icons.download_outlined),
+              activeIcon: const Icon(Icons.download),
+              label: tr('nav.imports'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.source_outlined),
-              activeIcon: Icon(Icons.source),
-              label: 'Collections',
+              icon: const Icon(Icons.source_outlined),
+              activeIcon: const Icon(Icons.source),
+              label: tr('nav.collections'),
             ),
           ],
         ),

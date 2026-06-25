@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -21,7 +23,7 @@ class NotificationsSection extends StatelessWidget {
               const Icon(Icons.notifications_active_rounded, size: 18),
               const SizedBox(width: 8),
               Text(
-                'Notificaciones',
+                tr('settings.notifications.title'),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -45,12 +47,12 @@ class NotificationsSection extends StatelessWidget {
                 children: [
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Notificaciones de Listenfy',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                    title: Text(
+                      tr('settings.notifications.master_title'),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    subtitle: const Text(
-                      'Control general para todos los avisos de Listenfy.',
+                    subtitle: Text(
+                      tr('settings.notifications.master_subtitle'),
                     ),
                     value: enabled,
                     onChanged: controller.setNotificationsEnabled,
@@ -58,40 +60,42 @@ class NotificationsSection extends StatelessWidget {
                   Divider(color: theme.dividerColor.withValues(alpha: .12)),
                   _NotificationToggle(
                     icon: Icons.download_done_rounded,
-                    title: 'Importaciones',
-                    subtitle: 'Completadas, fallidas o bloqueadas.',
+                    title: tr('settings.notifications.imports_title'),
+                    subtitle: tr('settings.notifications.imports_subtitle'),
                     value: controller.importsEnabled.value,
                     enabled: enabled,
                     onChanged: controller.setImportsEnabled,
                   ),
                   _NotificationToggle(
                     icon: Icons.devices_rounded,
-                    title: 'Listenfy Connect',
-                    subtitle: 'Solicitudes y dispositivos sincronizados.',
+                    title: tr('settings.notifications.connect_title'),
+                    subtitle: tr('settings.notifications.connect_subtitle'),
                     value: controller.connectEnabled.value,
                     enabled: enabled,
                     onChanged: controller.setConnectEnabled,
                   ),
                   _NotificationToggle(
                     icon: Icons.bedtime_rounded,
-                    title: 'Reproducción y temporizadores',
-                    subtitle: 'Timer de sueño y pausa por inactividad.',
+                    title: tr('settings.notifications.timers_title'),
+                    subtitle: tr('settings.notifications.timers_subtitle'),
                     value: controller.timersEnabled.value,
                     enabled: enabled,
                     onChanged: controller.setTimersEnabled,
                   ),
                   _NotificationToggle(
                     icon: Icons.insights_rounded,
-                    title: 'Resumen semanal',
-                    subtitle: 'Cada domingo a las 7:00 p. m.',
+                    title: tr('settings.notifications.weekly_title'),
+                    subtitle: tr('settings.notifications.weekly_subtitle'),
                     value: controller.weeklyEnabled.value,
                     enabled: enabled,
                     onChanged: controller.setWeeklyEnabled,
                   ),
                   _NotificationToggle(
                     icon: Icons.auto_awesome_rounded,
-                    title: 'Mixes personalizados',
-                    subtitle: 'Nuevas recomendaciones todos los días.',
+                    title: tr('settings.notifications.recommendations_title'),
+                    subtitle: tr(
+                      'settings.notifications.recommendations_subtitle',
+                    ),
                     value: controller.recommendationsEnabled.value,
                     enabled: enabled,
                     onChanged: controller.setRecommendationsEnabled,
