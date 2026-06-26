@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
@@ -101,8 +103,8 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
     return Obx(() {
       final topic = _topic;
       if (topic == null) {
-        return const Scaffold(
-          body: Center(child: Text('Collection no encontrada')),
+        return Scaffold(
+          body: Center(child: Text(tr('sources.collection_not_found'))),
         );
       }
       final lists = _sources.playlistsForTopic(topic.id);
@@ -111,7 +113,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
         backgroundColor: Colors.transparent,
         appBar: AppTopBar(
           leading: IconButton(
-            tooltip: 'Volver',
+            tooltip: tr('sources.back'),
             onPressed: Get.back,
             icon: const Icon(Icons.arrow_back_rounded),
           ),
@@ -120,7 +122,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           showLocalConnectAction: false,
           extraActions: [
             IconButton(
-              tooltip: 'Eliminar Collection',
+              tooltip: tr('sources.delete_collection'),
               icon: const Icon(Icons.delete_outline_rounded),
               onPressed: () => _confirmDeleteTopic(topic),
             ),
@@ -227,7 +229,8 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
   }
 
   String _buildTopicMetaLine(SourceThemeTopic topic, int listCount) {
-    final base = '${topic.itemIds.length} items · $listCount Collections';
+    final base =
+        '${topic.itemIds.length} ${tr('sources.items')} · $listCount ${tr('sources.collection')}';
     if (_topicSizeLabel == null || _topicSizeLabel!.isEmpty) return base;
     return '$base · ${_topicSizeLabel!}';
   }
@@ -239,7 +242,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           child: FilledButton.tonalIcon(
             onPressed: () => _addItems(topic),
             icon: const Icon(Icons.add_rounded),
-            label: const Text('Items'),
+            label: Text(tr('sources.items')),
           ),
         ),
         const SizedBox(width: 8),
@@ -247,7 +250,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           child: FilledButton.tonalIcon(
             onPressed: () => _addTopicPlaylist(topic),
             icon: const Icon(Icons.playlist_add_rounded),
-            label: const Text('Collection'),
+            label: Text(tr('sources.collection')),
           ),
         ),
       ],
@@ -258,18 +261,18 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Eliminar Collection'),
+        title: Text(tr('sources.delete_collection')),
         content: Text(
-          '¿Eliminar "${topic.title}" y todas sus Collections internas?',
+          tr('sources.delete_collection_deep_body', args: [topic.title]),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Eliminar'),
+            child: Text(tr('common.delete')),
           ),
         ],
       ),
@@ -298,7 +301,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             sliver: SliverToBoxAdapter(
               child: Text(
-                'No hay items todavía.',
+                tr('sources.no_items_yet'),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -316,7 +319,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Items',
+                      tr('sources.items'),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -333,7 +336,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 sliver: SliverToBoxAdapter(
                   child: Text(
-                    'No hay items con ese título.',
+                    tr('sources.no_items_title'),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -476,8 +479,8 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
         if (filtered.isEmpty)
           Text(
             list.isEmpty
-                ? 'No hay Collections aún.'
-                : 'No hay Collections con ese nombre.',
+                ? tr('sources.no_collections')
+                : tr('sources.no_items_found'),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -535,7 +538,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
     return SourceFilterToolbar(
       controller: _listSearchController,
       query: _listQuery,
-      hintText: 'Buscar Collection',
+      hintText: tr('sources.search_collection'),
       onQueryChanged: (value) => setState(() => _listQuery = value),
       onClearQuery: () {
         _listSearchController.clear();
@@ -550,8 +553,8 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           _collectionsGridView,
         );
       },
-      gridTooltip: 'Ver Collections como grid',
-      listTooltip: 'Ver Collections como lista',
+      gridTooltip: tr('sources.view_grid'),
+      listTooltip: tr('sources.view_list'),
     );
   }
 
@@ -559,7 +562,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
     return SourceFilterToolbar(
       controller: _itemSearchController,
       query: _itemQuery,
-      hintText: 'Buscar item',
+      hintText: tr('sources.search_item'),
       onQueryChanged: (value) => setState(() => _itemQuery = value),
       onClearQuery: () {
         _itemSearchController.clear();
@@ -579,10 +582,10 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
   Future<void> _openItemSortSheet() async {
     await showSortOptionsSheet(
       context: context,
-      title: 'Ordenar items',
+      title: tr('sources.sort_items'),
       optionsBuilder: () => [
         SortSheetOption(
-          label: 'Recientes primero',
+          label: tr('sources.recent_first'),
           selected: _itemSort == _SourceItemSort.recent,
           onTap: () {
             setState(() => _itemSort = _SourceItemSort.recent);
@@ -590,7 +593,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           },
         ),
         SortSheetOption(
-          label: 'Nombre',
+          label: tr('sources.name'),
           selected: _itemSort == _SourceItemSort.title,
           onTap: () {
             setState(() => _itemSort = _SourceItemSort.title);
@@ -598,7 +601,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           },
         ),
         SortSheetOption(
-          label: 'Tamaño',
+          label: tr('sources.size'),
           selected: _itemSort == _SourceItemSort.size,
           onTap: () {
             setState(() => _itemSort = _SourceItemSort.size);
@@ -606,7 +609,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           },
         ),
         SortSheetOption(
-          label: 'Duración',
+          label: tr('sources.duration'),
           selected: _itemSort == _SourceItemSort.duration,
           onTap: () {
             setState(() => _itemSort = _SourceItemSort.duration);
@@ -622,10 +625,10 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
   Future<void> _openCollectionSortSheet() async {
     await showSortOptionsSheet(
       context: context,
-      title: 'Ordenar Collections',
+      title: tr('sources.sort_collections'),
       optionsBuilder: () => [
         SortSheetOption(
-          label: 'Recientes primero',
+          label: tr('sources.recent_first'),
           selected: _listSort == _SourceListSort.recent,
           onTap: () {
             setState(() => _listSort = _SourceListSort.recent);
@@ -633,7 +636,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           },
         ),
         SortSheetOption(
-          label: 'Nombre',
+          label: tr('sources.name'),
           selected: _listSort == _SourceListSort.name,
           onTap: () {
             setState(() => _listSort = _SourceListSort.name);
@@ -641,7 +644,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           },
         ),
         SortSheetOption(
-          label: 'Más items',
+          label: tr('sources.more_items'),
           selected: _listSort == _SourceListSort.items,
           onTap: () {
             setState(() => _listSort = _SourceListSort.items);
@@ -649,7 +652,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
           },
         ),
         SortSheetOption(
-          label: 'Más Collections',
+          label: tr('sources.more_collections'),
           selected: _listSort == _SourceListSort.subfolders,
           onTap: () {
             setState(() => _listSort = _SourceListSort.subfolders);
@@ -774,7 +777,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
             children: [
               ListTile(
                 leading: const Icon(Icons.edit_rounded),
-                title: const Text('Editar'),
+                title: Text(tr('sources.edit')),
                 onTap: () async {
                   Navigator.of(ctx).pop();
                   await _actions.openEditPage(item);
@@ -783,7 +786,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
               ),
               ListTile(
                 leading: const Icon(Icons.remove_circle_outline),
-                title: const Text('Quitar de la lista'),
+                title: Text(tr('sources.remove_from_list')),
                 onTap: () async {
                   Navigator.of(ctx).pop();
                   await _sources.removeItemFromTopic(topic, item);

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -132,8 +134,8 @@ class NotificationService extends GetxService {
       categoryKey: importsEnabledKey,
       defaultValue: true,
       id: _importNotificationId,
-      title: 'Importación finalizada',
-      body: 'Tu archivo se agregó correctamente a la biblioteca.',
+      title: tr('notifications.imports.success_title'),
+      body: tr('notifications.imports.success_body'),
       payload: AppRoutes.downloads,
       details: _importsDetails,
     );
@@ -144,7 +146,7 @@ class NotificationService extends GetxService {
       categoryKey: importsEnabledKey,
       defaultValue: true,
       id: _importNotificationId,
-      title: 'Error de importación',
+      title: tr('notifications.imports.failure_title'),
       body: message,
       payload: AppRoutes.downloads,
       details: _importsDetails,
@@ -156,8 +158,8 @@ class NotificationService extends GetxService {
       categoryKey: connectEnabledKey,
       defaultValue: true,
       id: _connectNotificationId,
-      title: 'Solicitud de conexión',
-      body: '$clientName solicita acceso a Listenfy Connect.',
+      title: tr('notifications.connect.request_title'),
+      body: tr('notifications.connect.request_body', args: [clientName]),
       payload: AppRoutes.localConnect,
       details: _connectDetails,
     );
@@ -168,8 +170,8 @@ class NotificationService extends GetxService {
       categoryKey: connectEnabledKey,
       defaultValue: true,
       id: _connectNotificationId,
-      title: 'Dispositivo conectado',
-      body: '$clientName se sincronizó correctamente con Listenfy.',
+      title: tr('notifications.connect.approved_title'),
+      body: tr('notifications.connect.approved_body', args: [clientName]),
       payload: AppRoutes.localConnect,
       details: _connectDetails,
     );
@@ -180,8 +182,8 @@ class NotificationService extends GetxService {
       categoryKey: timersEnabledKey,
       defaultValue: true,
       id: _timerNotificationId,
-      title: 'Temporizador finalizado',
-      body: 'La reproducción se detuvo según el temporizador configurado.',
+      title: tr('notifications.timers.sleep_title'),
+      body: tr('notifications.timers.sleep_body'),
       payload: AppRoutes.audioPlayer,
       details: _timersDetails,
     );
@@ -192,8 +194,8 @@ class NotificationService extends GetxService {
       categoryKey: timersEnabledKey,
       defaultValue: true,
       id: _timerNotificationId,
-      title: 'Reproducción pausada',
-      body: 'La reproducción se pausó después de un periodo sin actividad.',
+      title: tr('notifications.timers.inactivity_title'),
+      body: tr('notifications.timers.inactivity_body'),
       payload: AppRoutes.audioPlayer,
       details: _timersDetails,
     );
@@ -298,9 +300,8 @@ class NotificationService extends GetxService {
       await _plugin.cancel(id: _weeklyNotificationId);
       await _plugin.zonedSchedule(
         id: _weeklyNotificationId,
-        title: 'Tu resumen semanal está listo',
-        body:
-            'Descubre tus canciones, artistas y hábitos de escucha de esta semana.',
+        title: tr('notifications.weekly.title'),
+        body: tr('notifications.weekly.body'),
         scheduledDate: scheduledDate,
         notificationDetails: _weeklyDetails,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -319,8 +320,8 @@ class NotificationService extends GetxService {
       await _plugin.cancel(id: _recommendationsNotificationId);
       await _plugin.zonedSchedule(
         id: _recommendationsNotificationId,
-        title: 'Nuevos mixes para ti',
-        body: 'Tus recomendaciones personalizadas ya están listas.',
+        title: tr('notifications.recommendations.title'),
+        body: tr('notifications.recommendations.body'),
         scheduledDate: scheduledDate,
         notificationDetails: _recommendationsDetails,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -395,54 +396,56 @@ class NotificationService extends GetxService {
     });
   }
 
-  static const _importsDetails = NotificationDetails(
+  static NotificationDetails get _importsDetails => NotificationDetails(
     android: AndroidNotificationDetails(
       'listenfy_imports',
-      'Importaciones',
-      channelDescription: 'Resultados de importaciones y descargas',
+      tr('notifications.imports.channel_name'),
+      channelDescription: tr('notifications.imports.channel_description'),
       importance: Importance.high,
       priority: Priority.high,
     ),
-    iOS: DarwinNotificationDetails(),
+    iOS: const DarwinNotificationDetails(),
   );
 
-  static const _connectDetails = NotificationDetails(
+  static NotificationDetails get _connectDetails => NotificationDetails(
     android: AndroidNotificationDetails(
       'listenfy_connect',
-      'Listenfy Connect',
-      channelDescription: 'Solicitudes y sincronización de dispositivos',
+      tr('notifications.connect.channel_name'),
+      channelDescription: tr('notifications.connect.channel_description'),
       importance: Importance.high,
       priority: Priority.high,
     ),
-    iOS: DarwinNotificationDetails(),
+    iOS: const DarwinNotificationDetails(),
   );
 
-  static const _timersDetails = NotificationDetails(
+  static NotificationDetails get _timersDetails => NotificationDetails(
     android: AndroidNotificationDetails(
       'listenfy_timers',
-      'Reproducción y temporizadores',
-      channelDescription: 'Temporizador de sueño y pausa por inactividad',
+      tr('notifications.timers.channel_name'),
+      channelDescription: tr('notifications.timers.channel_description'),
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
     ),
-    iOS: DarwinNotificationDetails(),
+    iOS: const DarwinNotificationDetails(),
   );
 
-  static const _weeklyDetails = NotificationDetails(
+  static NotificationDetails get _weeklyDetails => NotificationDetails(
     android: AndroidNotificationDetails(
       'listenfy_weekly',
-      'Resumen semanal de Listenfy',
-      channelDescription: 'Resumen semanal de actividad en Listenfy',
+      tr('notifications.weekly.channel_name'),
+      channelDescription: tr('notifications.weekly.channel_description'),
     ),
-    iOS: DarwinNotificationDetails(),
+    iOS: const DarwinNotificationDetails(),
   );
 
-  static const _recommendationsDetails = NotificationDetails(
+  static NotificationDetails get _recommendationsDetails => NotificationDetails(
     android: AndroidNotificationDetails(
       'listenfy_recommendations',
-      'Mixes personalizados',
-      channelDescription: 'Selección diaria de música recomendada',
+      tr('notifications.recommendations.channel_name'),
+      channelDescription: tr(
+        'notifications.recommendations.channel_description',
+      ),
     ),
-    iOS: DarwinNotificationDetails(),
+    iOS: const DarwinNotificationDetails(),
   );
 }

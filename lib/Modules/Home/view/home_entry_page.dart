@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -110,7 +112,7 @@ class HomeEntryPage extends GetView<HomeController> {
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 320),
                           child: Text(
-                            'Escucha, descarga y organiza tu música',
+                            tr('home.entry.tagline'),
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: scheme.onSurface.withOpacity(

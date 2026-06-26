@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 
 import 'source_origin.dart';
@@ -37,8 +39,8 @@ class SourcePillsCatalog {
   // ============================
   static VoidCallback placeholderTap(String title) {
     return () => Get.snackbar(
-      'Source',
-      '$title (pendiente)',
+      tr('sources.source'),
+      tr('sources.pending', args: [title]),
       snackPosition: SnackPosition.BOTTOM,
       margin: const EdgeInsets.all(12),
     );

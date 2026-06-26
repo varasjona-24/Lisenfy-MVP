@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
@@ -84,20 +86,22 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
                     Expanded(
                       child: Text(
                         isVideoMode
-                            ? 'Biblioteca de videos'
-                            : 'Biblioteca de audios',
+                            ? tr('home.search.video_library')
+                            : tr('home.search.audio_library'),
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Ordenar',
+                      tooltip: tr('common.options'),
                       onPressed: () => _openSortSheet(context),
                       icon: const Icon(Icons.sort_rounded),
                     ),
                     IconButton(
-                      tooltip: _gridView ? 'Ver como lista' : 'Ver cuadrícula',
+                      tooltip: _gridView
+                          ? tr('home.section.list_view')
+                          : tr('home.section.grid_view'),
                       onPressed: () => setState(() => _gridView = !_gridView),
                       icon: Icon(
                         _gridView
@@ -111,7 +115,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 child: Text(
-                  '${list.length} resultados',
+                  tr('home.search.results', args: ['${list.length}']),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -127,8 +131,8 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
                   onChanged: (value) => setState(() => _query = value.trim()),
                   decoration: InputDecoration(
                     hintText: isVideoMode
-                        ? 'Buscar por título'
-                        : 'Buscar por título o artista',
+                        ? tr('home.search.by_title')
+                        : tr('home.search.by_title_artist'),
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: _query.isEmpty
                         ? null
@@ -147,7 +151,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
                 child: list.isEmpty
                     ? Center(
                         child: Text(
-                          'No hay resultados.',
+                          tr('home.search.no_results'),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
@@ -406,7 +410,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
         Get.toNamed(
           AppRoutes.homeSectionList,
           arguments: {
-            'title': 'Resultados de búsqueda',
+            'title': tr('home.search.results_title'),
             'items': list,
             'onItemTap': (MediaItem tapped, int tapIndex) =>
                 _home.openMedia(tapped, tapIndex < 0 ? 0 : tapIndex, list),

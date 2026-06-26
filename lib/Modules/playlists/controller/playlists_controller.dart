@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -222,28 +224,28 @@ class PlaylistsController extends GetxController {
     smartPlaylists.assignAll([
       SmartPlaylist(
         id: 'smart_favorites',
-        title: 'Mis favoritos',
+        title: tr('playlists.smart.favorites'),
         items: favorites,
         colors: const [Color(0xFFB32D5D), Color(0xFFE35D8A)],
         icon: Icons.favorite_rounded,
       ),
       SmartPlaylist(
         id: 'smart_latest',
-        title: 'Últimos agregados',
+        title: tr('playlists.smart.latest'),
         items: latest,
         colors: const [Color(0xFF0E6E7F), Color(0xFF20B6C9)],
         icon: Icons.cloud_download_rounded,
       ),
       SmartPlaylist(
         id: 'smart_recent',
-        title: 'Reproducciones recientes',
+        title: tr('playlists.smart.recent'),
         items: recent,
         colors: const [Color(0xFF3E4C9A), Color(0xFF6E7BD6)],
         icon: Icons.history_rounded,
       ),
       SmartPlaylist(
         id: 'smart_most',
-        title: 'Más reproducido',
+        title: tr('playlists.smart.most'),
         items: mostPlayed,
         colors: const [Color(0xFFB3552E), Color(0xFFE18B5C)],
         icon: Icons.local_fire_department_rounded,

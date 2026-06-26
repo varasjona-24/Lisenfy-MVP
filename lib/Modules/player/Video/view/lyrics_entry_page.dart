@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:listenfy/app/ui/widgets/dialogs/lyrics_search_dialog.dart';
@@ -50,20 +52,15 @@ class LyricsEntryPage extends StatefulWidget {
 class _LyricsEntryPageState extends State<LyricsEntryPage> {
   static const String _musicalBreakSymbol = '♪';
 
-  static const Map<String, String> _languageLabels = {
-    'es': 'Español',
-    'en': 'Inglés',
-    'ja': 'Japonés',
-    'ko': 'Coreano',
-    'pt': 'Portugués',
-    'fr': 'Francés',
-    'it': 'Italiano',
-    'de': 'Alemán',
-  };
-
-  static const Map<String, String> _extraTranslationLabels = {
-    'ja-romaji': 'Japonés (Romaji)',
-    'ko-romaja': 'Coreano (Romaja)',
+  static const Set<String> _languageCodes = {
+    'es',
+    'en',
+    'ja',
+    'ko',
+    'pt',
+    'fr',
+    'it',
+    'de',
   };
 
   final TextEditingController _titleController = TextEditingController();
@@ -92,7 +89,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     if (query.isEmpty) {
       Get.snackbar(
         'Letras',
-        'Ingresa titulo o artista para buscar.',
+        'lyrics.search_query_empty'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -356,7 +353,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     if (_audioService == null) {
       Get.snackbar(
         'Karaoke',
-        'Reproduce la canción en el player para sincronizar.',
+        'lyrics.play_from_player'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -366,7 +363,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     if (lines.isEmpty) {
       Get.snackbar(
         'Karaoke',
-        'Primero agrega la letra principal.',
+        'lyrics.add_main_lyrics'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -380,7 +377,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     if (current.length >= lines.length) {
       Get.snackbar(
         'Karaoke',
-        'Todas las lineas ya fueron marcadas.',
+        'lyrics.all_lines_marked'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -417,7 +414,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     if (_targetLang == _lyricsLang) {
       Get.snackbar(
         'Traduccion',
-        'El idioma objetivo debe ser diferente al idioma principal.',
+        'lyrics.different_target_lang'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -448,7 +445,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
       } else {
         Get.snackbar(
           'Traduccion',
-          'No se pudo traducir en este momento.',
+          'lyrics.translation_failed'.tr,
           snackPosition: SnackPosition.BOTTOM,
         );
       }
@@ -505,7 +502,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     _lyricsController.text = (entryArgs.lyrics ?? '').trim();
 
     final rawMainLang = (entryArgs.lyricsLanguage ?? '').trim().toLowerCase();
-    if (_languageLabels.containsKey(rawMainLang)) {
+    if (_languageCodes.contains(rawMainLang)) {
       _lyricsLang = rawMainLang;
     }
     _targetLang = _lyricsLang == 'es' ? 'en' : 'es';
@@ -530,10 +527,10 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
   }
 
   List<DropdownMenuItem<String>> _languageItems() {
-    return _languageLabels.entries
+    return _languageCodes
         .map(
-          (entry) =>
-              DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+          (code) =>
+              DropdownMenuItem(value: code, child: Text(_languageLabel(code))),
         )
         .toList(growable: false);
   }
@@ -570,7 +567,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
   }
 
   void _ensureLanguageStateSanity() {
-    if (!_languageLabels.containsKey(_targetLang)) {
+    if (!_languageCodes.contains(_targetLang)) {
       _targetLang = _lyricsLang == 'es' ? 'en' : 'es';
     }
     if (_activePreviewKey.trim().isEmpty) {
@@ -587,9 +584,17 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
 
   String _translationLabel(String key) {
     final normalized = key.trim().toLowerCase();
-    return _extraTranslationLabels[normalized] ??
-        _languageLabels[normalized] ??
-        key;
+    return switch (normalized) {
+      'ja-romaji' => tr('player.languages.ja_romaji'),
+      'ko-romaja' => tr('player.languages.ko_romaja'),
+      _ => _languageLabel(normalized),
+    };
+  }
+
+  String _languageLabel(String key) {
+    final normalized = key.trim().toLowerCase();
+    if (!_languageCodes.contains(normalized)) return key;
+    return tr('player.languages.$normalized');
   }
 
   void _save() {
@@ -792,10 +797,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     final primaryLines = _primaryLyricsLines();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Editor de letras'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Editor de letras'), centerTitle: true),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
@@ -839,10 +841,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Idioma',
-                    style: theme.textTheme.labelLarge,
-                  ),
+                  Text('Idioma', style: theme.textTheme.labelLarge),
                   const SizedBox(height: 6),
                   _languageDropdown(
                     value: _lyricsLang,
@@ -877,8 +876,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
               theme: theme,
               icon: Icons.translate_rounded,
               title: 'Traducciones',
-              subtitle:
-                  'Genera, edita y guarda variantes de letra por idioma.',
+              subtitle: 'Genera, edita y guarda variantes de letra por idioma.',
               child: Column(
                 children: [
                   Row(
@@ -929,7 +927,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Aun no hay traducciones guardadas.',
+                        tr('player.lyrics.no_translations'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -948,7 +946,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
                                 setState(() {
                                   final key = entry.key.trim().toLowerCase();
                                   _activePreviewKey = key;
-                                  if (_languageLabels.containsKey(key)) {
+                                  if (_languageCodes.contains(key)) {
                                     _targetLang = key;
                                   }
                                   _translationPreviewController.text =

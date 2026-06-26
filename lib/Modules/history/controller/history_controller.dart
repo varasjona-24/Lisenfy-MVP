@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:listenfy/app/models/history_group.dart';
@@ -119,6 +121,7 @@ class HistoryController extends GetxStateController<HistoryState> {
         : HistoryKindFilter.video;
     setFilter(desired);
   }
+
   // 🧩 HELPERS DE TRANSFORMACIÓN
   // ============================
   List<MediaItem> _filterItems(List<MediaItem> list, HistoryKindFilter kind) {
@@ -198,7 +201,9 @@ class HistoryController extends GetxStateController<HistoryState> {
 
     return monthKeys.map((mKey) {
       final monthItems = monthBucket[mKey]!;
-      final date = DateTime.fromMillisecondsSinceEpoch(monthItems.first.lastPlayedAt ?? 0);
+      final date = DateTime.fromMillisecondsSinceEpoch(
+        monthItems.first.lastPlayedAt ?? 0,
+      );
 
       return HistoryGroup(
         id: mKey,
@@ -209,7 +214,10 @@ class HistoryController extends GetxStateController<HistoryState> {
     }).toList();
   }
 
-  List<HistoryGroup> _buildWeeklyGroups(List<MediaItem> items, String monthKey) {
+  List<HistoryGroup> _buildWeeklyGroups(
+    List<MediaItem> items,
+    String monthKey,
+  ) {
     final Map<int, List<MediaItem>> weekBucket = {};
     for (final item in items) {
       final ts = item.lastPlayedAt ?? 0;
@@ -222,7 +230,9 @@ class HistoryController extends GetxStateController<HistoryState> {
 
     return weekNums.map((wn) {
       final weekItems = weekBucket[wn]!;
-      final date = DateTime.fromMillisecondsSinceEpoch(weekItems.first.lastPlayedAt ?? 0);
+      final date = DateTime.fromMillisecondsSinceEpoch(
+        weekItems.first.lastPlayedAt ?? 0,
+      );
 
       return HistoryGroup(
         id: '$monthKey-W$wn',
@@ -245,16 +255,42 @@ class HistoryController extends GetxStateController<HistoryState> {
     final other = DateTime(date.year, date.month, date.day);
     final diff = today.difference(other).inDays;
 
-    if (diff == 0) return 'Hoy';
-    if (diff == 1) return 'Ayer';
+    if (diff == 0) return tr('history.today');
+    if (diff == 1) return tr('history.yesterday');
 
-    final weekdays = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    final weekdays = [
+      '',
+      tr('wrapped.labels.weekdays.monday'),
+      tr('wrapped.labels.weekdays.tuesday'),
+      tr('wrapped.labels.weekdays.wednesday'),
+      tr('wrapped.labels.weekdays.thursday'),
+      tr('wrapped.labels.weekdays.friday'),
+      tr('wrapped.labels.weekdays.saturday'),
+      tr('wrapped.labels.weekdays.sunday'),
+    ];
     final dayName = weekdays[date.weekday];
-    return '$dayName ${date.day}/${date.month}';
+    return tr(
+      'history.date_label',
+      args: [dayName, '${date.day}', '${date.month}'],
+    );
   }
 
   String _monthLabel(DateTime date, DateTime now) {
-    final months = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    final months = [
+      '',
+      'Enero',
+      'Febrero',
+      'Marzo',
+      'Abril',
+      'Mayo',
+      'Junio',
+      'Julio',
+      'Agosto',
+      'Septiembre',
+      'Octubre',
+      'Noviembre',
+      'Diciembre',
+    ];
     final monthName = months[date.month];
 
     if (date.year == now.year) {

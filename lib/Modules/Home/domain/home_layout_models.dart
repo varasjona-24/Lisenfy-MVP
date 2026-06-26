@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 enum HomeMode { audio, video }
@@ -28,15 +30,15 @@ extension HomeWidgetIdX on HomeWidgetId {
   };
 
   String get label => switch (this) {
-    HomeWidgetId.favorites => 'Mis favoritos',
-    HomeWidgetId.recommendations => 'Para ti hoy',
-    HomeWidgetId.continueWatching => 'Seguir viendo',
-    HomeWidgetId.mostPlayed => 'Más reproducido',
-    HomeWidgetId.recentlyPlayed => 'Reproducciones recientes',
-    HomeWidgetId.featured => 'Destacado',
-    HomeWidgetId.latestDownloads => 'Últimos imports',
-    HomeWidgetId.notPlayed => 'Por escuchar',
-    HomeWidgetId.randomMix => 'Mix aleatorio',
+    HomeWidgetId.favorites => tr('home.widgets.favorites'),
+    HomeWidgetId.recommendations => tr('home.widgets.recommendations'),
+    HomeWidgetId.continueWatching => tr('home.widgets.continueWatching'),
+    HomeWidgetId.mostPlayed => tr('home.widgets.mostPlayed'),
+    HomeWidgetId.recentlyPlayed => tr('home.widgets.recentlyPlayed'),
+    HomeWidgetId.featured => tr('home.widgets.featured'),
+    HomeWidgetId.latestDownloads => tr('home.widgets.latestDownloads'),
+    HomeWidgetId.notPlayed => tr('home.widgets.notPlayed'),
+    HomeWidgetId.randomMix => tr('home.widgets.randomMix'),
   };
 
   IconData get icon => switch (this) {
@@ -79,13 +81,13 @@ extension HomeMediaSortX on HomeMediaSort {
   String get key => name;
 
   String get label => switch (this) {
-    HomeMediaSort.title => 'Nombre de canción',
-    HomeMediaSort.artist => 'Nombre del artista',
-    HomeMediaSort.importedAt => 'Tiempo añadido',
-    HomeMediaSort.size => 'Tamaño',
-    HomeMediaSort.plays => 'Reproducciones',
-    HomeMediaSort.duration => 'Duración',
-    HomeMediaSort.recent => 'Última reproducción',
+    HomeMediaSort.title => tr('home.sort.title'),
+    HomeMediaSort.artist => tr('home.sort.artist'),
+    HomeMediaSort.importedAt => tr('home.sort.importedAt'),
+    HomeMediaSort.size => tr('home.sort.size'),
+    HomeMediaSort.plays => tr('home.sort.plays'),
+    HomeMediaSort.duration => tr('home.sort.duration'),
+    HomeMediaSort.recent => tr('home.sort.recent'),
   };
 
   IconData get icon => switch (this) {

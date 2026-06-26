@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:get/get.dart';
@@ -341,22 +343,31 @@ class _BankingCalendarSection extends StatelessWidget {
               ),
             ),
             items: [
-              const DropdownMenuItem(value: 'byDay', child: Text('Por día')),
-              const DropdownMenuItem(value: 'all', child: Text('Todo')),
-              const DropdownMenuItem(
-                value: 'lastWeek',
-                child: Text('Última semana'),
+              DropdownMenuItem(
+                value: 'byDay',
+                child: Text(tr('downloads.history_filters.by_day')),
               ),
-              const DropdownMenuItem(
+              DropdownMenuItem(
+                value: 'all',
+                child: Text(tr('downloads.history_filters.all')),
+              ),
+              DropdownMenuItem(
+                value: 'lastWeek',
+                child: Text(tr('downloads.history_filters.last_week')),
+              ),
+              DropdownMenuItem(
                 value: 'lastMonth',
-                child: Text('Último mes'),
+                child: Text(tr('downloads.history_filters.last_month')),
               ),
               DropdownMenuItem(
                 value: 'custom',
                 child: Text(
                   currentFilter == 'custom'
-                      ? 'Personalizado (${controller.customDateRangeLabel()})'
-                      : 'Personalizado',
+                      ? tr(
+                          'downloads.history_filters.custom_with_range',
+                          args: [controller.customDateRangeLabel()],
+                        )
+                      : tr('downloads.history_filters.custom'),
                 ),
               ),
             ],
@@ -651,8 +662,8 @@ class _BankingCalendarSection extends StatelessWidget {
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
       currentDate: DateTime.now(),
-      saveText: 'Aplicar',
-      cancelText: 'Cancelar',
+      saveText: tr('common.apply'),
+      cancelText: tr('common.cancel'),
     );
 
     if (picked != null) {
@@ -661,9 +672,9 @@ class _BankingCalendarSection extends StatelessWidget {
       if (diff > 75) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Máximo 2.5 meses (75 días)'),
-              duration: Duration(seconds: 2),
+            SnackBar(
+              content: Text(tr('downloads.history_filters.max_range')),
+              duration: const Duration(seconds: 2),
             ),
           );
         }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 // ============================
 // 🎨 UI: COLOR PICKER
@@ -19,15 +20,15 @@ class SourceColorPickerField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textColor = theme.colorScheme.onSurface;
-    final r = color.red;
-    final g = color.green;
-    final b = color.blue;
+    final r = (color.r * 255.0).round().clamp(0, 255);
+    final g = (color.g * 255.0).round().clamp(0, 255);
+    final b = (color.b * 255.0).round().clamp(0, 255);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showLabel) ...[
-          Text('Color', style: theme.textTheme.labelLarge),
+          Text(tr('sources.color'), style: theme.textTheme.labelLarge),
           const SizedBox(height: 8),
         ],
         Container(
@@ -36,7 +37,7 @@ class SourceColorPickerField extends StatelessWidget {
             color: color,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: theme.colorScheme.onSurface.withOpacity(0.2),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
             ),
           ),
         ),
@@ -64,7 +65,7 @@ class SourceColorPickerField extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          '#${color.value.toRadixString(16).padLeft(8, '0').toUpperCase()}',
+          '#${color.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}',
           style: theme.textTheme.labelMedium?.copyWith(color: textColor),
         ),
       ],
@@ -89,7 +90,7 @@ class SourceColorPickerField extends StatelessWidget {
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: color,
               thumbColor: color,
-              overlayColor: color.withOpacity(0.2),
+              overlayColor: color.withValues(alpha: 0.2),
             ),
             child: Slider(
               min: 0,

@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -43,7 +45,7 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
       backgroundColor: scheme.surface,
       appBar: AppBar(
         title: Text(
-          'Listenfy Wrapped',
+          tr('wrapped.title'),
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w800,
           ),
@@ -74,14 +76,14 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Aún no hay suficientes datos',
+                      tr('wrapped.empty_title'),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Importa canciones y empieza a escuchar para ver tu Wrapped.',
+                      tr('wrapped.empty_body'),
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
@@ -215,14 +217,14 @@ class _WrappedBodyState extends State<_WrappedBody>
                   fontWeight: FontWeight.w800,
                   fontSize: 13,
                 ),
-                tabs: const [
+                tabs: [
                   Tab(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.download_rounded, size: 16),
-                        SizedBox(width: 6),
-                        Text('Imports'),
+                        const Icon(Icons.download_rounded, size: 16),
+                        const SizedBox(width: 6),
+                        Text(tr('wrapped.tabs.imports')),
                       ],
                     ),
                   ),
@@ -230,9 +232,9 @@ class _WrappedBodyState extends State<_WrappedBody>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.graphic_eq_rounded, size: 16),
-                        SizedBox(width: 6),
-                        Text('Audio'),
+                        const Icon(Icons.graphic_eq_rounded, size: 16),
+                        const SizedBox(width: 6),
+                        Text(tr('wrapped.tabs.audio')),
                       ],
                     ),
                   ),
@@ -240,9 +242,9 @@ class _WrappedBodyState extends State<_WrappedBody>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.video_collection_rounded, size: 16),
-                        SizedBox(width: 6),
-                        Text('Video'),
+                        const Icon(Icons.video_collection_rounded, size: 16),
+                        const SizedBox(width: 6),
+                        Text(tr('wrapped.tabs.video')),
                       ],
                     ),
                   ),
@@ -287,7 +289,10 @@ class _ImportsTab extends StatelessWidget {
         .map(
           (artist) => RankedRowData(
             title: artist.name,
-            subtitle: '${artist.tracks} canciones importadas',
+            subtitle: tr(
+              'wrapped.imports.imported_songs',
+              args: ['${artist.tracks}'],
+            ),
             value: '${artist.imports}',
             maxValue: stats.topImportedArtists.isEmpty
                 ? 1
@@ -329,7 +334,7 @@ class _ImportsTab extends StatelessWidget {
                     const Text('📥', style: TextStyle(fontSize: 26)),
                     const SizedBox(width: 8),
                     Text(
-                      'Tus Descargas e Imports',
+                      tr('wrapped.imports.hero_title'),
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
@@ -363,40 +368,45 @@ class _ImportsTab extends StatelessWidget {
               final metrics = [
                 FieldMetricData(
                   icon: Icons.file_download_done_rounded,
-                  label: 'Archivos',
+                  label: tr('wrapped.imports.files'),
                   value: '${stats.totalImportFiles}',
-                  caption:
-                      '${stats.importedAudioFiles} audio · ${stats.importedVideoFiles} video',
+                  caption: tr(
+                    'wrapped.imports.files_caption',
+                    args: [
+                      '${stats.importedAudioFiles}',
+                      '${stats.importedVideoFiles}',
+                    ],
+                  ),
                 ),
                 FieldMetricData(
                   icon: Icons.sd_storage_rounded,
-                  label: 'Peso local',
+                  label: tr('wrapped.imports.local_weight'),
                   value: stats.totalImportSizeLabel,
-                  caption: 'Tamaño total en almacenamiento',
+                  caption: tr('wrapped.imports.local_weight_caption'),
                 ),
                 FieldMetricData(
                   icon: Icons.analytics_rounded,
-                  label: 'Tamaño medio',
+                  label: tr('wrapped.imports.avg_size'),
                   value: stats.averageFileSizeLabel,
-                  caption: 'Peso promedio por archivo',
+                  caption: tr('wrapped.imports.avg_size_caption'),
                 ),
                 FieldMetricData(
                   icon: Icons.file_present_rounded,
-                  label: 'Formato común',
+                  label: tr('wrapped.imports.common_format'),
                   value: stats.mostCommonFormat,
-                  caption: 'Tipo de archivo predominante',
+                  caption: tr('wrapped.imports.common_format_caption'),
                 ),
                 FieldMetricData(
                   icon: Icons.calendar_month_rounded,
-                  label: 'Mes fuerte',
+                  label: tr('wrapped.imports.strong_month'),
                   value: stats.topImportMonthLabel,
-                  caption: 'Mayor cantidad de descargas',
+                  caption: tr('wrapped.imports.strong_month_caption'),
                 ),
                 FieldMetricData(
                   icon: Icons.today_rounded,
-                  label: 'Día activo',
+                  label: tr('wrapped.imports.active_day'),
                   value: stats.mostActiveImportWeekday,
-                  caption: 'Día favorito para importar',
+                  caption: tr('wrapped.imports.active_day_caption'),
                 ),
               ];
 
@@ -425,8 +435,8 @@ class _ImportsTab extends StatelessWidget {
             2,
             SectionHeader(
               emoji: '📊',
-              title: 'Actividad de Imports',
-              subtitle: 'Archivos importados por mes',
+              title: tr('wrapped.imports.activity_title'),
+              subtitle: tr('wrapped.imports.activity_subtitle'),
               gradient: kImportGradient,
             ),
           ),
@@ -440,8 +450,8 @@ class _ImportsTab extends StatelessWidget {
             3,
             SectionHeader(
               emoji: '🎤',
-              title: 'Artistas más Importados',
-              subtitle: 'Basado en archivos locales',
+              title: tr('wrapped.imports.top_artists_title'),
+              subtitle: tr('wrapped.imports.top_artists_subtitle'),
               gradient: kImportGradient,
             ),
           ),
@@ -496,37 +506,43 @@ class _AudioTab extends StatelessWidget {
               final metrics = [
                 FieldMetricData(
                   icon: Icons.library_music_rounded,
-                  label: 'Canciones',
+                  label: tr('wrapped.audio.songs'),
                   value: '${stats.importedAudioItems}',
-                  caption: '${stats.audioLibraryDurationLabel} guardadas',
+                  caption: tr(
+                    'wrapped.audio.saved_duration',
+                    args: [stats.audioLibraryDurationLabel],
+                  ),
                 ),
                 FieldMetricData(
                   icon: Icons.watch_later_rounded,
-                  label: 'Tiempo escuchado',
+                  label: tr('wrapped.audio.listening_time'),
                   value: stats.estimatedListeningTimeLabel,
-                  caption: 'Tiempo estimado de reproducción',
+                  caption: tr('wrapped.audio.listening_time_caption'),
                 ),
                 FieldMetricData(
                   icon: Icons.access_time_filled_rounded,
-                  label: 'Horario favorito',
+                  label: tr('wrapped.audio.favorite_time'),
                   value: stats.favoriteTimeOfDay,
-                  caption: 'Momento con más actividad',
+                  caption: tr('wrapped.audio.favorite_time_caption'),
                 ),
                 FieldMetricData(
                   icon: Icons.people_rounded,
-                  label: 'Diversidad de artistas',
+                  label: tr('wrapped.audio.artist_diversity'),
                   value: '${stats.artistDiversityCount}',
-                  caption: 'Artistas distintos escuchados',
+                  caption: tr('wrapped.audio.artist_diversity_caption'),
                 ),
                 FieldMetricData(
                   icon: Icons.repeat_rounded,
-                  label: 'Reproducciones',
+                  label: tr('wrapped.audio.plays'),
                   value: '${stats.totalPlays}',
-                  caption: '${stats.recentTracks} activas en 30 días',
+                  caption: tr(
+                    'wrapped.audio.recent_tracks_caption',
+                    args: ['${stats.recentTracks}'],
+                  ),
                 ),
                 FieldMetricData(
                   icon: Icons.done_all_rounded,
-                  label: 'Completadas',
+                  label: tr('wrapped.audio.completed'),
                   value: '${stats.totalCompleted}',
                   caption: stats.audioCompletionRateLabel,
                 ),
@@ -559,8 +575,8 @@ class _AudioTab extends StatelessWidget {
           4,
           SectionHeader(
             emoji: '📊',
-            title: 'Tu Biblioteca',
-            subtitle: 'Distribución de contenido',
+            title: tr('wrapped.audio.library_title'),
+            subtitle: tr('wrapped.audio.library_subtitle'),
             gradient: kMusicGradient,
           ),
         ),
@@ -573,8 +589,8 @@ class _AudioTab extends StatelessWidget {
             5,
             SectionHeader(
               emoji: '🎤',
-              title: 'Top Artistas',
-              subtitle: 'Por número de escuchas',
+              title: tr('wrapped.audio.top_artists_title'),
+              subtitle: tr('wrapped.audio.top_artists_subtitle'),
               gradient: kMusicGradient,
             ),
           ),
@@ -593,8 +609,8 @@ class _AudioTab extends StatelessWidget {
             7,
             SectionHeader(
               emoji: '🏆',
-              title: 'Top Canciones',
-              subtitle: 'Las que más sonaron',
+              title: tr('wrapped.audio.top_tracks_title'),
+              subtitle: tr('wrapped.audio.top_tracks_subtitle'),
               gradient: kMusicGradient,
             ),
           ),
@@ -607,7 +623,8 @@ class _AudioTab extends StatelessWidget {
                     (item) => RankedRowData(
                       title: item.title,
                       subtitle: item.displaySubtitle,
-                      value: '${ListeningStats.listenScoreFor(item)} plays',
+                      value:
+                          '${ListeningStats.listenScoreFor(item)} ${tr('wrapped.audio.plays_unit')}',
                       maxValue: stats.topTracks.isNotEmpty
                           ? ListeningStats.listenScoreFor(stats.topTracks.first)
                           : 1,
@@ -627,8 +644,8 @@ class _AudioTab extends StatelessWidget {
             8,
             SectionHeader(
               emoji: '🌍',
-              title: 'Regiones Favoritas',
-              subtitle: 'Tu música por origen',
+              title: tr('wrapped.audio.regions_title'),
+              subtitle: tr('wrapped.audio.regions_subtitle'),
               gradient: kMusicGradient,
             ),
           ),
@@ -641,8 +658,8 @@ class _AudioTab extends StatelessWidget {
           9,
           SectionHeader(
             emoji: '⏭',
-            title: 'Completadas vs Saltadas',
-            subtitle: 'Tu paciencia musical',
+            title: tr('wrapped.audio.completed_skipped_title'),
+            subtitle: tr('wrapped.audio.completed_skipped_subtitle'),
             gradient: kMusicGradient,
           ),
         ),
@@ -678,9 +695,10 @@ class _VideoTab extends StatelessWidget {
           (item) => RankedRowData(
             title: item.title,
             subtitle: item.displaySubtitle.isEmpty
-                ? 'Video'
+                ? tr('wrapped.video.fallback')
                 : item.displaySubtitle,
-            value: '${ListeningStats.listenScoreFor(item)} plays',
+            value:
+                '${ListeningStats.listenScoreFor(item)} ${tr('wrapped.audio.plays_unit')}',
             maxValue: stats.topVideos.isEmpty
                 ? 1
                 : ListeningStats.listenScoreFor(stats.topVideos.first),
@@ -695,7 +713,7 @@ class _VideoTab extends StatelessWidget {
           (col) => RankedRowData(
             title: col.name,
             subtitle: col.subtitle,
-            value: '${col.items} videos',
+            value: tr('wrapped.video.videos_unit', args: ['${col.items}']),
             maxValue: stats.topCollections.isEmpty
                 ? 1
                 : stats.topCollections.first.items,
@@ -736,7 +754,7 @@ class _VideoTab extends StatelessWidget {
                     const Text('🎬', style: TextStyle(fontSize: 26)),
                     const SizedBox(width: 8),
                     Text(
-                      'Video + Collections',
+                      tr('wrapped.video.hero_title'),
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
@@ -747,8 +765,14 @@ class _VideoTab extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   stats.largestCollectionCount <= 0
-                      ? 'Organiza tus videos en Collections para ver más señales.'
-                      : 'Collection dominante: ${stats.largestCollectionName} con ${stats.largestCollectionCount} items.',
+                      ? tr('wrapped.video.hero_empty')
+                      : tr(
+                          'wrapped.video.hero_dominant',
+                          args: [
+                            stats.largestCollectionName,
+                            '${stats.largestCollectionCount}',
+                          ],
+                        ),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: Colors.white.withValues(alpha: 0.9),
                     height: 1.35,
@@ -772,40 +796,54 @@ class _VideoTab extends StatelessWidget {
               final metrics = [
                 FieldMetricData(
                   icon: Icons.video_library_rounded,
-                  label: 'Videos',
+                  label: tr('wrapped.video.videos'),
                   value: '${stats.importedVideoItems}',
-                  caption: '${stats.videoLibraryDurationLabel} guardados',
+                  caption: tr(
+                    'wrapped.video.saved',
+                    args: [stats.videoLibraryDurationLabel],
+                  ),
                 ),
                 FieldMetricData(
                   icon: Icons.play_circle_rounded,
-                  label: 'Reproducciones',
+                  label: tr('wrapped.video.plays'),
                   value: '${stats.videoPlays}',
-                  caption: '${stats.videoRecentItems} activos en 30 días',
+                  caption: tr(
+                    'wrapped.video.active_30d',
+                    args: ['${stats.videoRecentItems}'],
+                  ),
                 ),
                 FieldMetricData(
                   icon: Icons.folder_special_rounded,
-                  label: 'Collections',
+                  label: tr('wrapped.video.collections'),
                   value: '${stats.totalVideoCollections}',
-                  caption:
-                      '${stats.rootVideoCollections} principales · ${stats.videoSubCollections} subcarpetas',
+                  caption: tr(
+                    'wrapped.video.collections_caption',
+                    args: [
+                      '${stats.rootVideoCollections}',
+                      '${stats.videoSubCollections}',
+                    ],
+                  ),
                 ),
                 FieldMetricData(
                   icon: Icons.pie_chart_rounded,
-                  label: 'Organización',
+                  label: tr('wrapped.video.organization'),
                   value: stats.organizedVideoPercentageLabel,
-                  caption: 'Videos organizados en carpetas',
+                  caption: tr('wrapped.video.organization_caption'),
                 ),
                 FieldMetricData(
                   icon: Icons.linked_camera_rounded,
-                  label: 'Promedio por carpeta',
+                  label: tr('wrapped.video.avg_folder'),
                   value: stats.averageVideosPerCollectionLabel,
-                  caption: 'Videos por Collection',
+                  caption: tr('wrapped.video.avg_folder_caption'),
                 ),
                 FieldMetricData(
                   icon: Icons.link_rounded,
-                  label: 'Items enlazados',
+                  label: tr('wrapped.video.linked_items'),
                   value: '${stats.collectionLinkedItems}',
-                  caption: '${stats.emptyVideoCollections} Collections vacías',
+                  caption: tr(
+                    'wrapped.video.empty_collections',
+                    args: ['${stats.emptyVideoCollections}'],
+                  ),
                 ),
               ];
 
@@ -834,8 +872,8 @@ class _VideoTab extends StatelessWidget {
             2,
             SectionHeader(
               emoji: '📺',
-              title: 'Videos más Vistos',
-              subtitle: 'Por número de reproducciones',
+              title: tr('wrapped.video.top_videos_title'),
+              subtitle: tr('wrapped.video.top_videos_subtitle'),
               gradient: kVideoGradient,
             ),
           ),
@@ -849,8 +887,8 @@ class _VideoTab extends StatelessWidget {
             3,
             SectionHeader(
               emoji: '📁',
-              title: 'Top Colecciones',
-              subtitle: 'Las más grandes',
+              title: tr('wrapped.video.top_collections_title'),
+              subtitle: tr('wrapped.video.top_collections_subtitle'),
               gradient: kVideoGradient,
             ),
           ),
@@ -1108,7 +1146,7 @@ class _AnimatedHeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final topArtist = stats.topArtists.isEmpty
-        ? 'tu biblioteca'
+        ? tr('wrapped.audio.hero_library')
         : stats.topArtists.first.name;
 
     return Container(
@@ -1136,7 +1174,7 @@ class _AnimatedHeroCard extends StatelessWidget {
               const Text('🎵', style: TextStyle(fontSize: 28)),
               const SizedBox(width: 10),
               Text(
-                'Listenfy Wrapped',
+                tr('wrapped.title'),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
@@ -1166,7 +1204,7 @@ class _AnimatedHeroCard extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Text(
-                      'reproducciones',
+                      tr('wrapped.audio.hero_plays'),
                       style: theme.textTheme.titleSmall?.copyWith(
                         color: Colors.white.withValues(alpha: 0.8),
                       ),
@@ -1180,7 +1218,13 @@ class _AnimatedHeroCard extends StatelessWidget {
           Container(height: 1, color: Colors.white.withValues(alpha: 0.25)),
           const SizedBox(height: 12),
           Text(
-            'Tu artista dominante es $topArtist con ${stats.topArtists.isEmpty ? 0 : stats.topArtists.first.plays} plays.',
+            tr(
+              'wrapped.audio.hero_dominant_artist',
+              args: [
+                topArtist,
+                '${stats.topArtists.isEmpty ? 0 : stats.topArtists.first.plays}',
+              ],
+            ),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
               height: 1.4,
@@ -1213,10 +1257,10 @@ class _MoodCard extends StatelessWidget {
     final ratio = stats.totalPlays == 0
         ? 0.0
         : stats.totalCompleted / stats.totalPlays;
-    if (ratio >= 0.75) return 'Oyente Fiel';
-    if (ratio >= 0.5) return 'Melómano';
-    if (ratio >= 0.25) return 'Explorador';
-    return 'Selectivo';
+    if (ratio >= 0.75) return tr('wrapped.audio.mood_faithful');
+    if (ratio >= 0.5) return tr('wrapped.audio.mood_melomaniac');
+    if (ratio >= 0.25) return tr('wrapped.audio.mood_explorer');
+    return tr('wrapped.audio.mood_selective');
   }
 
   String get _desc {
@@ -1224,15 +1268,15 @@ class _MoodCard extends StatelessWidget {
         ? 0.0
         : stats.totalCompleted / stats.totalPlays;
     if (ratio >= 0.75) {
-      return 'Escuchas tus canciones de principio a fin. ¡Eres muy fiel!';
+      return tr('wrapped.audio.mood_faithful_desc');
     }
     if (ratio >= 0.5) {
-      return 'Buen balance entre exploración y disfrute profundo.';
+      return tr('wrapped.audio.mood_melomaniac_desc');
     }
     if (ratio >= 0.25) {
-      return 'Te gusta descubrir, aunque a veces saltas rápido.';
+      return tr('wrapped.audio.mood_explorer_desc');
     }
-    return 'Eres muy selectivo. Das pocas canciones por terminadas.';
+    return tr('wrapped.audio.mood_selective_desc');
   }
 
   Color get _color {
@@ -1276,7 +1320,7 @@ class _MoodCard extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      'Tu mood: ',
+                      tr('wrapped.audio.mood_prefix'),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -1354,7 +1398,7 @@ class _MetricsCardState extends State<_MetricsCard>
               Icon(Icons.bar_chart_rounded, color: scheme.primary, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Métricas clave',
+                tr('wrapped.audio.key_metrics'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -1367,7 +1411,7 @@ class _MetricsCardState extends State<_MetricsCard>
             builder: (context, child) => Column(
               children: [
                 _ProgressMetric(
-                  label: 'Promedio escuchado',
+                  label: tr('wrapped.audio.avg_listened'),
                   value: s.averageProgressPercent / 100,
                   displayText: '${s.averageProgressPercent}%',
                   color: kMusicGradient[0],
@@ -1375,7 +1419,7 @@ class _MetricsCardState extends State<_MetricsCard>
                 ),
                 const SizedBox(height: 12),
                 _ProgressMetric(
-                  label: 'Tasa de completadas',
+                  label: tr('wrapped.audio.completion_rate'),
                   value: s.totalPlays == 0
                       ? 0
                       : s.totalCompleted / s.totalPlays,
@@ -1385,13 +1429,18 @@ class _MetricsCardState extends State<_MetricsCard>
                 ),
                 const SizedBox(height: 12),
                 _ProgressMetric(
-                  label: 'Actividad reciente (30d)',
+                  label: tr('wrapped.audio.recent_activity_30d'),
                   value: (s.totalPlays == 0)
                       ? 0
                       : (s.recentTracks / max(s.totalPlays, 1))
                             .clamp(0, 1)
                             .toDouble(),
-                  displayText: '${s.recentTracks} canciones',
+                  displayText: tr(
+                    s.recentTracks == 1
+                        ? 'common.songs.one'
+                        : 'common.songs.other',
+                    args: ['${s.recentTracks}'],
+                  ),
                   color: const Color(0xFFFFD166),
                   anim: _anim.value,
                 ),
@@ -1662,8 +1711,8 @@ class _TopTrackHero extends StatelessWidget {
                     gradient: const LinearGradient(colors: kMusicGradient),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text(
-                    '🏆 #1 MÁS ESCUCHADA',
+                  child: Text(
+                    tr('wrapped.labels.top_track_badge'),
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
@@ -2326,13 +2375,13 @@ class _CompletedVsSkippedCardState extends State<_CompletedVsSkippedCard>
           Row(
             children: [
               StatBubble(
-                label: 'Completadas',
+                label: tr('wrapped.audio.completed'),
                 value: '${s.totalCompleted}',
                 color: const Color(0xFF06D6A0),
               ),
               const SizedBox(width: 12),
               StatBubble(
-                label: 'Saltadas',
+                label: tr('wrapped.audio.skipped'),
                 value: '$totalSkips',
                 color: const Color(0xFFFF6B6B),
               ),

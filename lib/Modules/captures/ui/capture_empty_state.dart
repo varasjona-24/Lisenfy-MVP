@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 class CaptureEmptyState extends StatelessWidget {
@@ -20,14 +22,14 @@ class CaptureEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Aún no hay capturas',
+              tr('captures.gallery.empty_state'),
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Las capturas tomadas desde el reproductor aparecerán aquí.',
+              tr('captures.gallery.empty_body'),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
@@ -301,7 +303,7 @@ class HomeController extends GetxController {
               id: playlistSectionId,
               kind: HomeCustomSectionKind.playlist,
               targetId: '',
-              title: 'Listas de reproducción',
+              title: tr('home.custom.playlists'),
               layout: playlistLayout,
             ),
           );
@@ -333,7 +335,7 @@ class HomeController extends GetxController {
               id: playlistSectionId,
               kind: HomeCustomSectionKind.playlist,
               targetId: playlistIds.join('|'),
-              title: 'Listas de reproducción',
+              title: tr('home.custom.playlists'),
               layout: section.layout,
             );
           }
@@ -578,9 +580,12 @@ class HomeController extends GetxController {
     var modeIndex = 0;
     final nextOrder = <HomeWidgetId>[];
     for (final id in homeWidgetOrder) {
-      if (currentMode == HomeMode.video && id.audioOnly) {
+      final belongsToMode = currentMode == HomeMode.video
+          ? id.videoHomeSupported
+          : !id.videoOnly;
+      if (!belongsToMode) {
         nextOrder.add(id);
-      } else {
+      } else if (modeIndex < modeItems.length) {
         nextOrder.add(modeItems[modeIndex]);
         modeIndex++;
       }
@@ -665,7 +670,7 @@ class HomeController extends GetxController {
         id: current.id,
         kind: HomeCustomSectionKind.playlist,
         targetId: ids.join('|'),
-        title: 'Listas de reproducción',
+        title: tr('home.custom.playlists'),
         layout: current.layout,
       );
       _persistHomeLayout();
@@ -677,7 +682,7 @@ class HomeController extends GetxController {
         id: sectionId,
         kind: HomeCustomSectionKind.playlist,
         targetId: cleanId,
-        title: 'Listas de reproducción',
+        title: tr('home.custom.playlists'),
       ),
     );
     _persistHomeLayout();
@@ -1512,8 +1517,8 @@ class HomeController extends GetxController {
     } catch (e) {
       print('Error deleting local item: $e');
       Get.snackbar(
-        'Downloads',
-        'Error al eliminar',
+        'dialogs.downloads.title'.tr,
+        'dialogs.downloads.delete_error'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -1542,8 +1547,8 @@ class HomeController extends GetxController {
     } catch (e) {
       print('Error toggling favorite: $e');
       Get.snackbar(
-        'Favoritos',
-        'No se pudo actualizar',
+        'dialogs.favorites.title'.tr,
+        'dialogs.favorites.update_error'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
     }

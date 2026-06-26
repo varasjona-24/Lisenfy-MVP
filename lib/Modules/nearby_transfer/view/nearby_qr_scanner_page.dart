@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -15,7 +17,7 @@ class _NearbyQrScannerPageState extends State<NearbyQrScannerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Escanear QR Listenfy')),
+      appBar: AppBar(title: Text(tr('nearby.scanner_title'))),
       body: MobileScanner(
         controller: MobileScannerController(
           detectionSpeed: DetectionSpeed.noDuplicates,

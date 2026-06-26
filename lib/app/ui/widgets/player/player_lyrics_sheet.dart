@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -30,17 +32,17 @@ class PlayerLyricsSheet extends StatefulWidget {
 }
 
 class _PlayerLyricsSheetState extends State<PlayerLyricsSheet> {
-  static const Map<String, String> _langLabels = <String, String>{
-    'es': 'Español',
-    'en': 'Inglés',
-    'ja': 'Japonés',
-    'ja-romaji': 'Japonés (Romaji)',
-    'ko': 'Coreano',
-    'ko-romaja': 'Coreano (Romaja)',
-    'pt': 'Portugués',
-    'fr': 'Francés',
-    'it': 'Italiano',
-    'de': 'Alemán',
+  static const Set<String> _langCodes = <String>{
+    'es',
+    'en',
+    'ja',
+    'ja-romaji',
+    'ko',
+    'ko-romaja',
+    'pt',
+    'fr',
+    'it',
+    'de',
   };
 
   Map<String, String> _byLang = const <String, String>{};
@@ -75,7 +77,17 @@ class _PlayerLyricsSheetState extends State<PlayerLyricsSheet> {
     return map;
   }
 
-  String _langLabel(String lang) => _langLabels[lang] ?? lang.toUpperCase();
+  String _langLabel(String lang) {
+    final normalized = lang.trim().toLowerCase();
+    return switch (normalized) {
+      'ja-romaji' => tr('player.languages.ja_romaji'),
+      'ko-romaja' => tr('player.languages.ko_romaja'),
+      _ when _langCodes.contains(normalized) => tr(
+        'player.languages.$normalized',
+      ),
+      _ => lang.toUpperCase(),
+    };
+  }
 
   void _applyItem(MediaItem item) {
     final next = _buildLyricsMap(item);
@@ -192,7 +204,7 @@ class _PlayerLyricsSheetState extends State<PlayerLyricsSheet> {
                     : _byLang.isEmpty
                     ? Center(
                         child: Text(
-                          'Esta canción no tiene letras guardadas.',
+                          tr('player.lyrics.empty'),
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,

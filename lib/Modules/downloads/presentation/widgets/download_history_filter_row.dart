@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/download_history_filter.dart';
@@ -17,14 +19,14 @@ class DownloadHistoryFilterRow extends StatelessWidget {
     return Row(
       children: [
         _FilterChip(
-          label: 'Música',
+          label: tr('downloads.media_music'),
           icon: Icons.music_note_rounded,
           isSelected: selected == DownloadHistoryFilter.audio,
           onTap: () => onSelect(DownloadHistoryFilter.audio),
         ),
         const SizedBox(width: 12),
         _FilterChip(
-          label: 'Videos',
+          label: tr('downloads.media_videos'),
           icon: Icons.videocam_rounded,
           isSelected: selected == DownloadHistoryFilter.video,
           onTap: () => onSelect(DownloadHistoryFilter.video),
@@ -59,10 +61,14 @@ class _FilterChip extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? scheme.primary : scheme.surfaceContainerHigh.withValues(alpha: 0.5),
+            color: isSelected
+                ? scheme.primary
+                : scheme.surfaceContainerHigh.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isSelected ? scheme.primary : scheme.outlineVariant.withValues(alpha: 0.3),
+              color: isSelected
+                  ? scheme.primary
+                  : scheme.outlineVariant.withValues(alpha: 0.3),
             ),
           ),
           child: Row(
@@ -78,7 +84,9 @@ class _FilterChip extends StatelessWidget {
                 label,
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                  color: isSelected ? scheme.onPrimary : scheme.onSurfaceVariant,
+                  color: isSelected
+                      ? scheme.onPrimary
+                      : scheme.onSurfaceVariant,
                 ),
               ),
             ],

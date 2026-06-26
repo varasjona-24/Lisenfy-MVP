@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -103,7 +105,7 @@ class SourceThemeTopicPlaylistController extends GetxController {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('Editar lista'),
+          title: Text(tr('sources.edit_list')),
           content: StatefulBuilder(
             builder: (ctx2, setState) {
               Future<void> pickWeb() async {
@@ -130,18 +132,18 @@ class SourceThemeTopicPlaylistController extends GetxController {
                   TextField(
                     controller: TextEditingController(text: name),
                     onChanged: (v) => name = v,
-                    decoration: const InputDecoration(hintText: 'Nombre'),
+                    decoration: InputDecoration(hintText: tr('sources.name')),
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: pickWeb,
                     icon: const Icon(Icons.public_rounded),
-                    label: const Text('Buscar imagen'),
+                    label: Text(tr('sources.image_search')),
                   ),
                   OutlinedButton.icon(
                     onPressed: pickLocal,
                     icon: const Icon(Icons.folder_open_rounded),
-                    label: const Text('Elegir local'),
+                    label: Text(tr('sources.choose_local')),
                   ),
                 ],
               );
@@ -150,7 +152,7 @@ class SourceThemeTopicPlaylistController extends GetxController {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar'),
+              child: Text(tr('common.cancel')),
             ),
             FilledButton(
               onPressed: () async {
@@ -171,7 +173,7 @@ class SourceThemeTopicPlaylistController extends GetxController {
                   ),
                 );
               },
-              child: const Text('Guardar'),
+              child: Text(tr('common.save')),
             ),
           ],
         );

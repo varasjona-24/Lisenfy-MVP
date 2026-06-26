@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -163,7 +165,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                 : null;
 
             if (item == null) {
-              return const Center(child: Text('No hay vídeo'));
+              return Center(child: Text(tr('player.video_empty')));
             }
 
             return Stack(
@@ -295,9 +297,9 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
             return Container(
               color: theme.colorScheme.surfaceContainerHighest,
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: const Center(
+              child: Center(
                 child: Text(
-                  'No se pudo obtener el tamaño del vídeo.',
+                  tr('player.video_size_error'),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -759,7 +761,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Velocidad de reproducción',
+                  tr('player.playback_speed'),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),

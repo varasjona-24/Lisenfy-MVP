@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:listenfy/Modules/history/controller/history_controller.dart';
@@ -44,7 +46,7 @@ class HistoryPage extends GetView<HistoryController> {
           if (vm.groups.isEmpty) {
             return Center(
               child: Text(
-                'Aún no hay historial.',
+                tr('history.empty'),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -70,7 +72,7 @@ class HistoryPage extends GetView<HistoryController> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Historial',
+                            tr('history.title'),
                             style: theme.textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.w800,
                             ),
@@ -78,8 +80,8 @@ class HistoryPage extends GetView<HistoryController> {
                         ),
                         IconButton(
                           tooltip: isGrid
-                              ? 'Vista de cuadrícula'
-                              : 'Vista de lista',
+                              ? tr('home.section.grid_view')
+                              : tr('home.section.list_view'),
                           onPressed: controller.toggleGridView,
                           icon: Icon(
                             isGrid

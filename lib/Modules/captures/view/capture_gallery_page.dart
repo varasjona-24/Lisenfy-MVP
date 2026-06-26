@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -47,16 +49,21 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eliminar captura'),
-        content: Text('¿Eliminar "${capture.name}"?'),
+        title: Text('captures.gallery.delete_title'.tr),
+        content: Text(
+          'captures.gallery.delete_confirm'.tr.replaceFirst(
+            '{name}',
+            capture.name,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
+            child: Text('captures.gallery.cancel_button'.tr),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Eliminar'),
+            child: Text('captures.gallery.delete_button'.tr),
           ),
         ],
       ),
@@ -78,7 +85,14 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
     await _controller.applyCover(capture: capture, target: target);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Portada actualizada para ${target.label}.')),
+      SnackBar(
+        content: Text(
+          'captures.gallery.cover_updated'.tr.replaceFirst(
+            '{label}',
+            target.label,
+          ),
+        ),
+      ),
     );
   }
 
@@ -96,7 +110,7 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
     final changed = _controller.toggleSelection(capture);
     if (!changed) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Puedes seleccionar hasta 20 imágenes.')),
+        SnackBar(content: Text('captures.gallery.max_selection'.tr)),
       );
     }
   }
@@ -217,12 +231,12 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
           actions: [
             if (_controller.hasSelection) ...[
               IconButton(
-                tooltip: 'Compartir externo',
+                tooltip: tr('common.share'),
                 icon: const Icon(Icons.bluetooth_searching_rounded),
                 onPressed: _controller.shareSelected,
               ),
               IconButton(
-                tooltip: 'Cancelar selección',
+                tooltip: tr('home.section.cancel_selection'),
                 icon: const Icon(Icons.close_rounded),
                 onPressed: _controller.clearSelection,
               ),

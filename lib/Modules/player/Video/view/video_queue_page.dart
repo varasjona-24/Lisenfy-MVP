@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -45,16 +47,13 @@ class _VideoQueuePageState extends State<VideoQueuePage>
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cola de reproducción'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(tr('player.queue_title')), centerTitle: true),
       body: Obx(() {
         final queue = controller.queue;
         final idx = controller.currentIndex.value;
 
         if (queue.isEmpty) {
-          return const Center(child: Text('La cola está vacía'));
+          return Center(child: Text(tr('player.queue_empty')));
         }
 
         final totalSeconds = queue.fold<int>(

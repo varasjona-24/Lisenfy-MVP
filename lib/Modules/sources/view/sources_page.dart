@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 
 import '../../Home/Controller/home_controller.dart';
@@ -33,7 +35,7 @@ class SourcesPage extends GetView<SourcesController> {
         showLocalConnectAction: false,
         extraActions: [
           IconButton(
-            tooltip: 'Capturas',
+            tooltip: tr('sources.captures'),
             icon: const Icon(Icons.photo_library_rounded),
             onPressed: () => Get.toNamed(AppRoutes.captureGallery),
           ),
@@ -95,7 +97,7 @@ class SourcesPage extends GetView<SourcesController> {
           children: [
             Expanded(
               child: Text(
-                'Listenfy Collections',
+                tr('sources.title'),
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -105,7 +107,7 @@ class SourcesPage extends GetView<SourcesController> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Explora tu contenido organizado por Collections.',
+          tr('sources.subtitle'),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -202,7 +204,7 @@ class _ThemeCardState extends State<_ThemeCard> {
         ? 'Video'
         : theme.forceKind?.name == 'audio'
         ? 'Audio'
-        : 'Mixto';
+        : tr('sources.mixed');
 
     return AnimatedScale(
       scale: cardScale,

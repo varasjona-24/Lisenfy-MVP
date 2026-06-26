@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:file_picker/file_picker.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
@@ -439,8 +441,8 @@ class SourcesController extends GetxController {
   List<SourceTheme> get themes => [
     SourceTheme(
       id: 'movies',
-      title: 'Películas y series',
-      subtitle: 'Descargas y catálogos de video',
+      title: tr('sources.themes.movies_title'),
+      subtitle: tr('sources.themes.movies_subtitle'),
       icon: Icons.local_movies_rounded,
       colors: const [Color(0xFF2C2F7A), Color(0xFF5D6BE0)],
       defaultOrigins: [
@@ -453,8 +455,8 @@ class SourcesController extends GetxController {
     ),
     SourceTheme(
       id: 'tutorials',
-      title: 'Tutoriales',
-      subtitle: 'Guías, cursos y prácticas',
+      title: tr('sources.themes.tutorials_title'),
+      subtitle: tr('sources.themes.tutorials_subtitle'),
       icon: Icons.handyman_rounded,
       colors: const [Color(0xFF1E4D6B), Color(0xFF3E8BC9)],
       defaultOrigins: [

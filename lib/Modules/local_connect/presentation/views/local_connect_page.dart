@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -14,7 +16,7 @@ class LocalConnectPage extends GetView<LocalConnectController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Listenfy Connect')),
+      appBar: AppBar(title: Text(tr('connect.title'))),
       body: AppGradientBackground(
         child: Obx(() {
           final running = controller.isRunning.value;
@@ -188,14 +190,16 @@ class _ConnectCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Abrir en computadora',
+                    tr('connect.open_computer'),
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
                 _StatusPill(
-                  label: running ? 'Servidor activo' : 'Servidor detenido',
+                  label: running
+                      ? tr('connect.server_active')
+                      : tr('connect.server_stopped'),
                   icon: running ? Icons.wifi_rounded : Icons.wifi_off_rounded,
                   color: running ? Colors.green : scheme.onSurfaceVariant,
                 ),
@@ -203,7 +207,7 @@ class _ConnectCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Misma WiFi. Abre la URL o escanea el QR.',
+              tr('connect.same_wifi'),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -215,7 +219,7 @@ class _ConnectCard extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: running ? null : onStart,
                     icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text('Iniciar'),
+                    label: Text(tr('connect.start')),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -223,7 +227,7 @@ class _ConnectCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: running ? onStop : null,
                     icon: const Icon(Icons.stop_rounded),
-                    label: const Text('Detener'),
+                    label: Text(tr('connect.stop')),
                   ),
                 ),
               ],
@@ -231,7 +235,7 @@ class _ConnectCard extends StatelessWidget {
             const SizedBox(height: 12),
             if (!running || url.isEmpty)
               _EmptyMessage(
-                text: 'Inicia la sesión para mostrar el enlace y el QR.',
+                text: tr('connect.empty_start'),
                 icon: Icons.info_outline_rounded,
               )
             else ...[
@@ -259,13 +263,13 @@ class _ConnectCard extends StatelessWidget {
                     onPressed: () async {
                       await Clipboard.setData(ClipboardData(text: url));
                       Get.snackbar(
-                        'Listenfy Connect',
-                        'URL copiada al portapapeles',
+                        tr('connect.title'),
+                        tr('connect.url_copied'),
                         snackPosition: SnackPosition.BOTTOM,
                       );
                     },
                     icon: const Icon(Icons.copy_rounded),
-                    label: const Text('Copiar URL'),
+                    label: Text(tr('connect.copy_url')),
                   );
 
                   final shareButton = OutlinedButton.icon(
@@ -274,14 +278,14 @@ class _ConnectCard extends StatelessWidget {
                         await Share.share(url, subject: 'Listenfy Connect');
                       } catch (_) {
                         Get.snackbar(
-                          'Listenfy Connect',
-                          'No se pudo compartir la URL',
+                          tr('connect.title'),
+                          tr('connect.share_error'),
                           snackPosition: SnackPosition.BOTTOM,
                         );
                       }
                     },
                     icon: const Icon(Icons.share_rounded),
-                    label: const Text('Compartir'),
+                    label: Text(tr('common.share')),
                   );
 
                   if (constraints.maxWidth < 360) {
@@ -351,15 +355,15 @@ class _QrCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'QR de acceso',
+              tr('connect.qr_title'),
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 10),
             if (!running || url.isEmpty)
-              const _EmptyMessage(
-                text: 'Sin URL activa',
+              _EmptyMessage(
+                text: tr('connect.no_active_url'),
                 icon: Icons.qr_code_2_rounded,
               )
             else
@@ -421,7 +425,7 @@ class _PendingCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Solicitudes de conexión ',
+                    tr('connect.requests'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleMedium?.copyWith(
@@ -431,7 +435,10 @@ class _PendingCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 _StatusPill(
-                  label: 'Pendientes: ${pending.length}',
+                  label: tr(
+                    'connect.pending_count',
+                    args: ['${pending.length}'],
+                  ),
                   icon: Icons.devices_rounded,
                   color: pending.isEmpty
                       ? scheme.onSurfaceVariant
@@ -441,8 +448,8 @@ class _PendingCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             if (pending.isEmpty)
-              const _EmptyMessage(
-                text: 'No hay solicitudes pendientes.',
+              _EmptyMessage(
+                text: tr('connect.no_pending'),
                 icon: Icons.check_circle_outline_rounded,
               )
             else
@@ -508,14 +515,14 @@ class _PairRequestTile extends StatelessWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: onReject,
-                  child: const Text('Rechazar'),
+                  child: Text(tr('connect.reject')),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: FilledButton(
                   onPressed: onApprove,
-                  child: const Text('Aprobar'),
+                  child: Text(tr('connect.approve')),
                 ),
               ),
             ],
@@ -549,14 +556,17 @@ class _ClientsCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Clientes autorizados',
+                    tr('connect.authorized_clients'),
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
                 _StatusPill(
-                  label: 'Conectados: $connectedCount',
+                  label: tr(
+                    'connect.connected_count',
+                    args: ['$connectedCount'],
+                  ),
                   icon: Icons.lan_rounded,
                   color: connectedCount > 0
                       ? Colors.green
@@ -566,8 +576,8 @@ class _ClientsCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             if (clients.isEmpty)
-              const _EmptyMessage(
-                text: 'Aún no hay clientes autorizados.',
+              _EmptyMessage(
+                text: tr('connect.no_clients'),
                 icon: Icons.computer_outlined,
               )
             else
@@ -608,7 +618,7 @@ class _ClientsCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Hora límite: $expiryLimit',
+                          tr('connect.deadline', args: [expiryLimit]),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -618,7 +628,9 @@ class _ClientsCard extends StatelessWidget {
                       ],
                     ),
                     trailing: _StatusPill(
-                      label: connected ? 'Conectado' : 'Inactivo',
+                      label: connected
+                          ? tr('connect.connected')
+                          : tr('connect.inactive'),
                       icon: connected
                           ? Icons.check_circle_rounded
                           : Icons.schedule_rounded,
@@ -718,9 +730,12 @@ String _formatExpiryRelative(DateTime expiresAt) {
   final now = DateTime.now();
   final diff = expiresAt.difference(now);
   if (diff.isNegative) {
-    return 'Expiró hace ${_formatDurationCompact(diff.abs())}';
+    return tr(
+      'connect.expired_ago',
+      args: [_formatDurationCompact(diff.abs())],
+    );
   }
-  return 'Expira en ${_formatDurationCompact(diff)}';
+  return tr('connect.expires_in', args: [_formatDurationCompact(diff)]);
 }
 
 String _formatDurationCompact(Duration duration) {

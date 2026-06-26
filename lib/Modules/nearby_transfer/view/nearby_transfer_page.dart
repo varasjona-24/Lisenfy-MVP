@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -16,8 +18,8 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
     final items = controller.outgoingItems;
     if (items.isEmpty) {
       Get.snackbar(
-        'Transferencia',
-        'Abre esta pantalla desde una canción para generar QR de envío.',
+        tr('nearby.transfer'),
+        tr('nearby.open_from_song'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -26,8 +28,8 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
     final inviteUri = await controller.prepareInviteUriForSelectedItem();
     if (inviteUri == null) {
       Get.snackbar(
-        'Transferencia',
-        'No se pudo preparar el envío para esta canción.',
+        tr('nearby.transfer'),
+        tr('nearby.prepare_error'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -45,8 +47,8 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'QR de envío Listenfy',
+                Text(
+                  tr('nearby.send_qr_title'),
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 12),
@@ -59,9 +61,9 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '${items.length == 1 ? 'Canción: ${items.first.title}' : 'Selección: ${items.length} archivos'}\n'
-                  'Dispositivo emisor: ${controller.nickName}\n\n'
-                  'Escanea este QR desde Listenfy en el otro teléfono para iniciar descarga con metadata.',
+                  '${items.length == 1 ? tr('nearby.song', args: [items.first.title]) : tr('nearby.selection', args: ['${items.length}'])}\n'
+                  '${tr('nearby.sender', args: [controller.nickName])}\n\n'
+                  '${tr('nearby.scan_hint')}',
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -71,19 +73,19 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                         onPressed: () async {
                           await Clipboard.setData(ClipboardData(text: payload));
                           Get.snackbar(
-                            'QR',
-                            'Código copiado al portapapeles.',
+                            tr('nearby.qr'),
+                            tr('nearby.copied'),
                             snackPosition: SnackPosition.BOTTOM,
                           );
                         },
-                        child: const Text('Copiar enlace'),
+                        child: Text(tr('nearby.copy_link')),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: FilledButton(
                         onPressed: () => Get.back<void>(),
-                        child: const Text('Cerrar'),
+                        child: Text(tr('common.close')),
                       ),
                     ),
                   ],
@@ -106,16 +108,16 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
         final invite = ListenfyDeepLink.parseNearbyInviteRaw(raw);
         if (invite == null) {
           Get.snackbar(
-            'QR no válido',
-            'No se pudo leer la invitación de transferencia.',
+            tr('nearby.invalid_qr'),
+            tr('nearby.invalid_invite'),
             snackPosition: SnackPosition.BOTTOM,
           );
           return;
         }
         await controller.startReceiveFromInvite(invite);
         Get.snackbar(
-          'Transferencia',
-          'Conectando con ${invite.senderName} para recibir "${invite.title}".',
+          tr('nearby.transfer'),
+          tr('nearby.connecting', args: [invite.senderName, invite.title]),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -129,8 +131,8 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
         return;
       case ListenfyDeepLinkTarget.unknown:
         Get.snackbar(
-          'QR no válido',
-          'Ese código no corresponde a una acción de Listenfy.',
+          tr('nearby.invalid_qr'),
+          tr('nearby.unknown_qr'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -144,10 +146,10 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Transferencia offline'),
+        title: Text(tr('nearby.offline_title')),
         actions: [
           IconButton(
-            tooltip: 'Escanear QR',
+            tooltip: tr('nearby.scan_qr'),
             onPressed: () {
               _scanAndHandleQr();
             },
@@ -189,7 +191,7 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Centro de transferencia',
+                              tr('nearby.center'),
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),
@@ -210,8 +212,13 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                           _StatusBadge(
                             icon: Icons.link_rounded,
                             label: controller.connectedPeers.isNotEmpty
-                                ? '${controller.connectedPeers.length} conectado(s)'
-                                : 'Sin conexión',
+                                ? tr(
+                                    'nearby.connected_count',
+                                    args: [
+                                      '${controller.connectedPeers.length}',
+                                    ],
+                                  )
+                                : tr('nearby.no_connection'),
                             active: controller.connectedPeers.isNotEmpty,
                           ),
                         ],
@@ -236,8 +243,11 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                             children: [
                               Text(
                                 items.length == 1
-                                    ? 'Canción lista para enviar'
-                                    : '${items.length} archivos listos para enviar',
+                                    ? tr('nearby.song_ready')
+                                    : tr(
+                                        'nearby.files_ready',
+                                        args: ['${items.length}'],
+                                      ),
                                 style: theme.textTheme.labelLarge?.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -246,7 +256,13 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                               Text(
                                 items.length == 1
                                     ? item.title
-                                    : '${item.title} y ${items.length - 1} más',
+                                    : tr(
+                                        'nearby.and_more',
+                                        args: [
+                                          item.title,
+                                          '${items.length - 1}',
+                                        ],
+                                      ),
                                 style: theme.textTheme.bodyLarge,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
@@ -272,7 +288,7 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Acciones',
+                        tr('nearby.actions'),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
@@ -283,8 +299,8 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                           Expanded(
                             child: _ActionCard(
                               icon: Icons.qr_code_rounded,
-                              title: 'Mostrar QR',
-                              subtitle: 'Invitar dispositivo',
+                              title: tr('nearby.show_qr'),
+                              subtitle: tr('nearby.invite_device'),
                               onTap: () {
                                 _showSendInviteQr();
                               },
@@ -294,8 +310,8 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                           Expanded(
                             child: _ActionCard(
                               icon: Icons.qr_code_scanner_rounded,
-                              title: 'Escanear QR',
-                              subtitle: 'Unirse y recibir',
+                              title: tr('nearby.scan_qr'),
+                              subtitle: tr('nearby.join_receive'),
                               onTap: () {
                                 _scanAndHandleQr();
                               },
@@ -313,7 +329,7 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Transferencias',
+                          tr('nearby.transfers'),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),

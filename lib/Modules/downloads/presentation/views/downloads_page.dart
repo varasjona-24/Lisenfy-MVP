@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 import 'package:listenfy/Modules/Home/Controller/home_controller.dart';
 import 'package:listenfy/app/routes/app_routes.dart';
@@ -79,12 +81,12 @@ class DownloadsPage extends GetView<DownloadsController> {
           title: ListenfyLogo(size: 28, color: scheme.primary),
           extraActions: [
             IconButton(
-              tooltip: 'Historial de imports',
+              tooltip: tr('downloads.history'),
               icon: const Icon(Icons.history_rounded),
               onPressed: () => Get.toNamed(AppRoutes.downloadsHistory),
             ),
             IconButton(
-              tooltip: 'Listenfy Wrapped',
+              tooltip: tr('downloads.wrapped'),
               icon: const Icon(Icons.auto_graph_rounded),
               onPressed: () => Get.toNamed(AppRoutes.listeningStats),
             ),

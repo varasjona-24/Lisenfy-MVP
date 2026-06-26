@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -72,24 +74,24 @@ class DownloadsPill extends GetView<DownloadsController> {
                   _importActionTile(
                     context: context,
                     icon: Icons.folder_open_rounded,
-                    title: 'Importar desde archivo local',
-                    subtitle: 'Selecciona archivos de tu almacenamiento',
+                    title: tr('downloads.local_import_title'),
+                    subtitle: tr('downloads.local_import_subtitle'),
                     onTap: () => _pickLocalFiles(context),
                   ),
                   Divider(height: 1, color: scheme.outlineVariant),
                   _importActionTile(
                     context: context,
                     icon: Icons.qr_code_scanner_rounded,
-                    title: 'Escanear QR Listenfy',
-                    subtitle: 'Recibir canción desde otro Listenfy',
+                    title: tr('downloads.scan_qr_title'),
+                    subtitle: tr('downloads.scan_qr_subtitle'),
                     onTap: () => _scanListenfyQr(),
                   ),
                   Divider(height: 1, color: scheme.outlineVariant),
                   _importActionTile(
                     context: context,
                     icon: Icons.public_rounded,
-                    title: 'Buscador web',
-                    subtitle: 'Pega un enlace para abrir el navegador ',
+                    title: tr('downloads.web_search_title'),
+                    subtitle: tr('downloads.web_search_subtitle'),
                     onTap: () async {
                       final size = MediaQuery.of(context).size;
                       final scheme = Theme.of(context).colorScheme;
@@ -239,15 +241,15 @@ class DownloadsPill extends GetView<DownloadsController> {
         return;
       case ListenfyDeepLinkTarget.openLocalImport:
         Get.snackbar(
-          'QR Listenfy',
-          'Listo. Ya estás en la sección de importación.',
+          'qr.listenfy_title'.tr,
+          'qr.import_ready'.tr,
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
       case ListenfyDeepLinkTarget.unknown:
         Get.snackbar(
-          'QR no válido',
-          'Ese código no corresponde a una acción de Listenfy.',
+          'qr.invalid_title'.tr,
+          'qr.invalid_body'.tr,
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -309,7 +311,7 @@ class DownloadsPill extends GetView<DownloadsController> {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Cerrar',
+                          tooltip: tr('common.close'),
                           onPressed: () {
                             controller.clearLocalFilesForImport();
                             Navigator.of(ctx).pop();
@@ -320,7 +322,7 @@ class DownloadsPill extends GetView<DownloadsController> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Selecciona qué archivos quieres importar a la biblioteca.',
+                      tr('downloads.select_files_hint'),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -514,8 +516,8 @@ class DownloadsPill extends GetView<DownloadsController> {
     final result = await controller.importLocalFileToApp(item);
     if (result != null && context.mounted) {
       Get.snackbar(
-        '✅ Importado',
-        '${item.title} agregado a tu biblioteca',
+        'imports.imported_title'.tr,
+        'imports.imported_body'.tr.replaceFirst('{}', item.title),
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -529,7 +531,7 @@ class DownloadsPill extends GetView<DownloadsController> {
     if (items.isEmpty) {
       Get.snackbar(
         'Imports',
-        'No hay archivos seleccionados para importar.',
+        'imports.no_files_selected'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -552,8 +554,13 @@ class DownloadsPill extends GetView<DownloadsController> {
     Get.snackbar(
       'Imports',
       failed == 0
-          ? 'Se importaron $success archivo(s).'
-          : 'Importados: $success · Fallidos: $failed',
+          ? 'imports.import_success_single'.tr.replaceFirst(
+              '{}',
+              success.toString(),
+            )
+          : 'imports.import_success_multiple'.tr
+                .replaceFirst('{}', '$success')
+                .replaceFirst('{}', '$failed'),
       snackPosition: SnackPosition.BOTTOM,
     );
   }
@@ -628,7 +635,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Cerrar',
+                    tooltip: tr('common.close'),
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
@@ -668,7 +675,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
               ),
               const SizedBox(height: 14),
               Text(
-                'Tipo de importación',
+                tr('downloads.import_type'),
                 style: theme.textTheme.labelLarge?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),

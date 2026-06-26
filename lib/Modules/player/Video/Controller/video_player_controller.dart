@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -210,7 +212,7 @@ class VideoPlayerController extends GetxController {
     final item = currentItemOrNull;
     final variant = currentVideoVariant;
     if (item == null || variant == null) {
-      error.value = 'Este archivo está corrupto o no existe, selecciona otro.';
+      error.value = tr('player.video_corrupt');
       return;
     }
 
@@ -220,7 +222,7 @@ class VideoPlayerController extends GetxController {
   Future<void> _playItem(MediaItem item, MediaVariant variant) async {
     // Validar variante
     if (!variant.isValid) {
-      error.value = 'Variante de video no válida.';
+      error.value = tr('player.invalid_video_variant');
       return;
     }
 
@@ -419,18 +421,26 @@ class VideoPlayerController extends GetxController {
 
       final shouldResume = await Get.dialog<bool>(
         AlertDialog(
-          title: const Text('Continuar video'),
+          title: Text('player.video.continue_title'.tr),
           content: Text(
-            'Este video quedó en ${_fmtDuration(resume)}. ¿Quieres retomarlo desde ahí o reproducirlo desde el principio?',
+            'player.video.continue_body'.tr.replaceFirst(
+              '{}',
+              _fmtDuration(resume),
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Get.back(result: false),
-              child: const Text('Desde el principio'),
+              child: Text('player.video.start_btn'.tr),
             ),
             FilledButton(
               onPressed: () => Get.back(result: true),
-              child: Text('Retomar ${_fmtDuration(resume)}'),
+              child: Text(
+                'player.video.continue_btn'.tr.replaceFirst(
+                  '{}',
+                  _fmtDuration(resume),
+                ),
+              ),
             ),
           ],
         ),

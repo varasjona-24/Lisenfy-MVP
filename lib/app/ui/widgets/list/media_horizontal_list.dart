@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 import '../../../models/media_item.dart';
@@ -159,14 +161,14 @@ class _MediaHorizontalListState extends State<MediaHorizontalList> {
           if (_selectionMode) ...[
             const SizedBox(width: 6),
             IconButton(
-              tooltip: 'Borrar seleccionados',
+              tooltip: tr('home.section.delete_selected'),
               onPressed: _selectedCount == 0 || widget.onDeleteSelected == null
                   ? null
                   : _deleteSelected,
               icon: const Icon(Icons.delete_sweep_rounded),
             ),
             IconButton(
-              tooltip: 'Cancelar selección',
+              tooltip: tr('home.section.cancel_selection'),
               onPressed: () {
                 setState(() {
                   _selectionMode = false;

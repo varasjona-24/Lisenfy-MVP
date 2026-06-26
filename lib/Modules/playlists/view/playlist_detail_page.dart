@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -238,21 +240,21 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
       children: [
         Expanded(
           child: Text(
-            '$count canciones',
+            tr('playlists.detail.songs_count', args: ['$count']),
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
             ),
           ),
         ),
         IconButton(
-          tooltip: 'Ordenar',
+          tooltip: tr('common.options'),
           onPressed: () => _openSortSheet(Get.context!),
           icon: const Icon(Icons.sort_rounded),
         ),
         IconButton(
           tooltip: controller.detailGridView.value
-              ? 'Vista de cuadrícula'
-              : 'Vista de lista',
+              ? tr('home.section.grid_view')
+              : tr('home.section.list_view'),
           onPressed: controller.toggleDetailGridView,
           icon: Icon(
             controller.detailGridView.value
@@ -292,44 +294,44 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ordenar por',
+                      tr('playlists.detail.sort_by'),
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 16),
                     _PlaylistSortOption(
-                      label: 'Tiempo añadido a la lista',
+                      label: tr('playlists.detail.sort_added'),
                       selected: sort == PlaylistTrackSort.addedAt,
                       onTap: () =>
                           controller.setTrackSort(PlaylistTrackSort.addedAt),
                     ),
                     _PlaylistSortOption(
-                      label: 'Nombre de cancion',
+                      label: tr('playlists.detail.sort_title'),
                       selected: sort == PlaylistTrackSort.title,
                       onTap: () =>
                           controller.setTrackSort(PlaylistTrackSort.title),
                     ),
                     _PlaylistSortOption(
-                      label: 'Nombre del artista',
+                      label: tr('playlists.detail.sort_artist'),
                       selected: sort == PlaylistTrackSort.artist,
                       onTap: () =>
                           controller.setTrackSort(PlaylistTrackSort.artist),
                     ),
                     _PlaylistSortOption(
-                      label: 'Tamano',
+                      label: tr('playlists.detail.sort_size'),
                       selected: sort == PlaylistTrackSort.size,
                       onTap: () =>
                           controller.setTrackSort(PlaylistTrackSort.size),
                     ),
                     _PlaylistSortOption(
-                      label: 'Reproducciones',
+                      label: tr('playlists.detail.sort_plays'),
                       selected: sort == PlaylistTrackSort.plays,
                       onTap: () =>
                           controller.setTrackSort(PlaylistTrackSort.plays),
                     ),
                     _PlaylistSortOption(
-                      label: 'Duracion',
+                      label: tr('playlists.detail.sort_duration'),
                       selected: sort == PlaylistTrackSort.duration,
                       onTap: () =>
                           controller.setTrackSort(PlaylistTrackSort.duration),
@@ -342,12 +344,12 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
                       ),
                     ),
                     _PlaylistSortOption(
-                      label: 'Mayor a menor / recientes primero',
+                      label: tr('playlists.detail.desc_recent'),
                       selected: !asc,
                       onTap: () => controller.setTrackSortAscending(false),
                     ),
                     _PlaylistSortOption(
-                      label: 'Menor a mayor / antiguos primero',
+                      label: tr('playlists.detail.asc_oldest'),
                       selected: asc,
                       onTap: () => controller.setTrackSortAscending(true),
                     ),
@@ -364,7 +366,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
                           side: BorderSide(color: scheme.outlineVariant),
                         ),
                         child: Text(
-                          'Cerrar',
+                          tr('common.close'),
                           style: theme.textTheme.labelLarge?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: scheme.onSurfaceVariant,
@@ -406,13 +408,13 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
               if (canRemoveFromPlaylist)
                 ListTile(
                   leading: const Icon(Icons.remove_circle_outline_rounded),
-                  title: const Text('Quitar de esta playlist'),
+                  title: Text(tr('playlists.detail.remove_from_playlist')),
                   onTap: () =>
                       Navigator.of(ctx).pop(_TrackAction.removeFromPlaylist),
                 ),
               ListTile(
                 leading: const Icon(Icons.tune_rounded),
-                title: const Text('Más acciones'),
+                title: Text(tr('playlists.detail.more_actions')),
                 onTap: () => Navigator.of(ctx).pop(_TrackAction.moreActions),
               ),
             ],
@@ -448,7 +450,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
         if (context.mounted) {
           Get.snackbar(
             'Playlist',
-            'Canción eliminada de la lista',
+            tr('playlists.detail.removed'),
             snackPosition: SnackPosition.BOTTOM,
           );
         }

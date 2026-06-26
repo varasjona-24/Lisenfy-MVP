@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
@@ -157,7 +159,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
         extendBody: true,
         appBar: AppTopBar(
           leading: IconButton(
-            tooltip: 'Volver',
+            tooltip: tr('sources.back'),
             onPressed: Get.back,
             icon: const Icon(Icons.arrow_back_rounded),
           ),
@@ -246,7 +248,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                                   Padding(
                                     padding: const EdgeInsets.only(top: 12),
                                     child: Text(
-                                      'No hay contenido aquí todavía.',
+                                      tr('sources.empty_content'),
                                       style: theme.textTheme.bodyMedium
                                           ?.copyWith(
                                             color: theme
@@ -420,7 +422,9 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
           ),
         ),
         IconButton(
-          tooltip: _gridView ? 'Ver como lista' : 'Ver como cuadrícula',
+          tooltip: _gridView
+              ? tr('home.section.list_view')
+              : tr('home.section.grid_view'),
           onPressed: () => setState(() => _gridView = !_gridView),
           icon: Icon(
             _gridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
@@ -466,13 +470,13 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
             }),
             const Spacer(),
             IconButton.filledTonal(
-              tooltip: 'Nueva Collection',
+              tooltip: tr('sources.new_collection'),
               icon: const Icon(Icons.create_new_folder_rounded),
               onPressed: () {
                 if (limitReached) {
                   Get.snackbar(
-                    'Collections',
-                    'Límite de 10 Collections alcanzado',
+                    tr('sources.collection'),
+                    tr('sources.collection_limit'),
                     snackPosition: SnackPosition.BOTTOM,
                   );
                   return;
@@ -486,7 +490,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
         SourceFilterToolbar(
           controller: _topicSearchController,
           query: _topicQuery,
-          hintText: 'Buscar Collection',
+          hintText: tr('sources.search_collection'),
           onQueryChanged: (value) => setState(() => _topicQuery = value),
           onClearQuery: () {
             _topicSearchController.clear();
@@ -498,8 +502,8 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
             setState(() => _topicsGridView = !_topicsGridView);
             _storage.write('source_library_topics_grid_view', _topicsGridView);
           },
-          gridTooltip: 'Ver Collections como grid',
-          listTooltip: 'Ver Collections como lista',
+          gridTooltip: tr('sources.view_grid'),
+          listTooltip: tr('sources.view_list'),
         ),
       ],
     );
@@ -517,10 +521,10 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
   Future<void> _openTopicSortSheet() async {
     await showSortOptionsSheet(
       context: context,
-      title: 'Ordenar Collections',
+      title: tr('sources.sort_collections'),
       optionsBuilder: () => [
         SortSheetOption(
-          label: 'Recientes primero',
+          label: tr('sources.recent_first'),
           selected: _topicSort == _TopicSort.recent,
           onTap: () {
             setState(() => _topicSort = _TopicSort.recent);
@@ -528,7 +532,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
           },
         ),
         SortSheetOption(
-          label: 'Nombre',
+          label: tr('sources.name'),
           selected: _topicSort == _TopicSort.name,
           onTap: () {
             setState(() => _topicSort = _TopicSort.name);
@@ -536,7 +540,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
           },
         ),
         SortSheetOption(
-          label: 'Más items',
+          label: tr('sources.more_items'),
           selected: _topicSort == _TopicSort.items,
           onTap: () {
             setState(() => _topicSort = _TopicSort.items);
@@ -544,7 +548,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
           },
         ),
         SortSheetOption(
-          label: 'Más Collections',
+          label: tr('sources.more_collections'),
           selected: _topicSort == _TopicSort.lists,
           onTap: () {
             setState(() => _topicSort = _TopicSort.lists);
@@ -594,8 +598,8 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
       });
       if (topics.isEmpty) {
         final emptyText = allTopics.isEmpty
-            ? 'Crea una Collection para agrupar contenidos.'
-            : 'No hay Collections con ese nombre.';
+            ? tr('sources.create_collection_first')
+            : tr('sources.no_items_found');
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 18),
           child: Text(
@@ -686,16 +690,18 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar Collection'),
-        content: Text('¿Eliminar "${topic.title}"?'),
+        title: Text(tr('sources.delete_collection')),
+        content: Text(
+          tr('sources.delete_collection_body', args: [topic.title]),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Eliminar'),
+            child: Text(tr('common.delete')),
           ),
         ],
       ),

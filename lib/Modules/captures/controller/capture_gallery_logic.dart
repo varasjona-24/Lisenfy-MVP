@@ -1,3 +1,6 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
+
 import '../domain/capture_gallery_models.dart';
 
 class CaptureGalleryLogic {
@@ -36,15 +39,20 @@ class CaptureGalleryLogic {
   }) {
     if (option != current) {
       return switch (option) {
-        CaptureSort.date => 'Más reciente primero',
-        CaptureSort.size => 'Mayor a menor',
+        CaptureSort.date => tr('captures.sort.newest_first'),
+        CaptureSort.size => tr('home.section.high_to_low'),
         CaptureSort.name => 'A-Z',
       };
     }
     return switch (option) {
       CaptureSort.date =>
-        ascending ? 'Más antiguo primero' : 'Más reciente primero',
-      CaptureSort.size => ascending ? 'Menor a mayor' : 'Mayor a menor',
+        ascending
+            ? tr('captures.sort.oldest_first')
+            : tr('captures.sort.newest_first'),
+      CaptureSort.size =>
+        ascending
+            ? tr('home.section.low_to_high')
+            : tr('home.section.high_to_low'),
       CaptureSort.name => ascending ? 'A-Z' : 'Z-A',
     };
   }

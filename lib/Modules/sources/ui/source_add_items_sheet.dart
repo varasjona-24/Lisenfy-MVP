@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 import '../../../app/models/media_item.dart';
 import '../../../app/ui/widgets/media/app_media_items_view.dart';
@@ -64,7 +65,7 @@ class _SourceAddItemsSheetState extends State<SourceAddItemsSheet> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Agregar items',
+                          tr('sources.add_items'),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -72,7 +73,7 @@ class _SourceAddItemsSheetState extends State<SourceAddItemsSheet> {
                       ),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cerrar'),
+                        child: Text(tr('common.close')),
                       ),
                     ],
                   ),
@@ -93,8 +94,8 @@ class _SourceAddItemsSheetState extends State<SourceAddItemsSheet> {
                               },
                             ),
                       hintText: hasVideoItems
-                          ? 'Buscar por titulo'
-                          : 'Buscar por cancion o artista',
+                          ? tr('sources.search_title')
+                          : tr('sources.search_song_artist'),
                       border: const OutlineInputBorder(),
                     ),
                   ),
@@ -108,14 +109,21 @@ class _SourceAddItemsSheetState extends State<SourceAddItemsSheet> {
                           Icons.library_music_rounded,
                           size: 18,
                         ),
-                        label: Text('${widget.items.length} disponibles'),
+                        label: Text(
+                          tr(
+                            'sources.available',
+                            args: ['${widget.items.length}'],
+                          ),
+                        ),
                       ),
                       Chip(
                         avatar: const Icon(
                           Icons.check_circle_rounded,
                           size: 18,
                         ),
-                        label: Text('${_selected.length} seleccionados'),
+                        label: Text(
+                          tr('sources.selected', args: ['${_selected.length}']),
+                        ),
                       ),
                       if (_query.trim().isNotEmpty)
                         Chip(
@@ -123,7 +131,9 @@ class _SourceAddItemsSheetState extends State<SourceAddItemsSheet> {
                             Icons.filter_alt_rounded,
                             size: 18,
                           ),
-                          label: Text('${items.length} resultados'),
+                          label: Text(
+                            tr('sources.results', args: ['${items.length}']),
+                          ),
                         ),
                     ],
                   ),
@@ -137,8 +147,8 @@ class _SourceAddItemsSheetState extends State<SourceAddItemsSheet> {
                         padding: const EdgeInsets.all(24),
                         child: Text(
                           widget.items.isEmpty
-                              ? 'No hay items disponibles para esta Collection.'
-                              : 'No se encontraron items.',
+                              ? tr('sources.no_items_available')
+                              : tr('sources.no_items_found'),
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: scheme.onSurfaceVariant,
@@ -172,8 +182,11 @@ class _SourceAddItemsSheetState extends State<SourceAddItemsSheet> {
                   icon: const Icon(Icons.add_rounded),
                   label: Text(
                     _selected.isEmpty
-                        ? 'Selecciona items'
-                        : 'Agregar ${_selected.length} seleccionados',
+                        ? tr('sources.select_items')
+                        : tr(
+                            'sources.add_selected',
+                            args: ['${_selected.length}'],
+                          ),
                   ),
                 ),
               ),

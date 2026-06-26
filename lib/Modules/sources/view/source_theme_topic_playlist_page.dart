@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
@@ -100,8 +102,8 @@ class _SourceThemeTopicPlaylistPageState
     return Obx(() {
       final playlist = _playlist;
       if (playlist == null) {
-        return const Scaffold(
-          body: Center(child: Text('Collection no encontrada')),
+        return Scaffold(
+          body: Center(child: Text(tr('sources.collection_not_found'))),
         );
       }
 
@@ -114,7 +116,7 @@ class _SourceThemeTopicPlaylistPageState
         backgroundColor: Colors.transparent,
         appBar: AppTopBar(
           leading: IconButton(
-            tooltip: 'Volver',
+            tooltip: tr('sources.back'),
             onPressed: Get.back,
             icon: const Icon(Icons.arrow_back_rounded),
           ),
@@ -188,7 +190,7 @@ class _SourceThemeTopicPlaylistPageState
           child: FilledButton.tonalIcon(
             onPressed: () => _addItems(playlist),
             icon: const Icon(Icons.add_rounded),
-            label: const Text('Items'),
+            label: Text(tr('sources.items')),
           ),
         ),
         const SizedBox(width: 8),
@@ -196,7 +198,7 @@ class _SourceThemeTopicPlaylistPageState
           child: FilledButton.tonalIcon(
             onPressed: () => _addSubList(playlist),
             icon: const Icon(Icons.create_new_folder_rounded),
-            label: const Text('Collection'),
+            label: Text(tr('sources.collection')),
           ),
         ),
       ],
@@ -220,7 +222,7 @@ class _SourceThemeTopicPlaylistPageState
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             sliver: SliverToBoxAdapter(
               child: Text(
-                'No hay items todavía.',
+                tr('sources.no_items_yet'),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -239,7 +241,7 @@ class _SourceThemeTopicPlaylistPageState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Items',
+                      tr('sources.items'),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -256,7 +258,7 @@ class _SourceThemeTopicPlaylistPageState
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 sliver: SliverToBoxAdapter(
                   child: Text(
-                    'No hay items con ese título.',
+                    tr('sources.no_items_title'),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -387,8 +389,8 @@ class _SourceThemeTopicPlaylistPageState
         if (filtered.isEmpty)
           Text(
             lists.isEmpty
-                ? 'No hay Collections aún.'
-                : 'No hay Collections con ese nombre.',
+                ? tr('sources.no_collections')
+                : tr('sources.no_items_found'),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -446,7 +448,7 @@ class _SourceThemeTopicPlaylistPageState
     return SourceFilterToolbar(
       controller: _subListSearchController,
       query: _subListQuery,
-      hintText: 'Buscar Collection',
+      hintText: tr('sources.search_collection'),
       onQueryChanged: (value) => setState(() => _subListQuery = value),
       onClearQuery: () {
         _subListSearchController.clear();
@@ -461,8 +463,8 @@ class _SourceThemeTopicPlaylistPageState
           _collectionsGridView,
         );
       },
-      gridTooltip: 'Ver Collections como grid',
-      listTooltip: 'Ver Collections como lista',
+      gridTooltip: tr('sources.view_grid'),
+      listTooltip: tr('sources.view_list'),
     );
   }
 
@@ -470,7 +472,7 @@ class _SourceThemeTopicPlaylistPageState
     return SourceFilterToolbar(
       controller: _itemSearchController,
       query: _itemQuery,
-      hintText: 'Buscar item',
+      hintText: tr('sources.search_item'),
       onQueryChanged: (value) => setState(() => _itemQuery = value),
       onClearQuery: () {
         _itemSearchController.clear();
@@ -490,10 +492,10 @@ class _SourceThemeTopicPlaylistPageState
   Future<void> _openItemSortSheet() async {
     await showSortOptionsSheet(
       context: context,
-      title: 'Ordenar items',
+      title: tr('sources.sort_items'),
       optionsBuilder: () => [
         SortSheetOption(
-          label: 'Recientes primero',
+          label: tr('sources.recent_first'),
           selected: _itemSort == _SourcePlaylistItemSort.recent,
           onTap: () {
             setState(() => _itemSort = _SourcePlaylistItemSort.recent);
@@ -501,7 +503,7 @@ class _SourceThemeTopicPlaylistPageState
           },
         ),
         SortSheetOption(
-          label: 'Nombre',
+          label: tr('sources.name'),
           selected: _itemSort == _SourcePlaylistItemSort.title,
           onTap: () {
             setState(() => _itemSort = _SourcePlaylistItemSort.title);
@@ -509,7 +511,7 @@ class _SourceThemeTopicPlaylistPageState
           },
         ),
         SortSheetOption(
-          label: 'Tamaño',
+          label: tr('sources.size'),
           selected: _itemSort == _SourcePlaylistItemSort.size,
           onTap: () {
             setState(() => _itemSort = _SourcePlaylistItemSort.size);
@@ -517,7 +519,7 @@ class _SourceThemeTopicPlaylistPageState
           },
         ),
         SortSheetOption(
-          label: 'Duración',
+          label: tr('sources.duration'),
           selected: _itemSort == _SourcePlaylistItemSort.duration,
           onTap: () {
             setState(() => _itemSort = _SourcePlaylistItemSort.duration);
@@ -533,10 +535,10 @@ class _SourceThemeTopicPlaylistPageState
   Future<void> _openCollectionSortSheet() async {
     await showSortOptionsSheet(
       context: context,
-      title: 'Ordenar Collections',
+      title: tr('sources.sort_collections'),
       optionsBuilder: () => [
         SortSheetOption(
-          label: 'Recientes primero',
+          label: tr('sources.recent_first'),
           selected: _subListSort == _SourceSubListSort.recent,
           onTap: () {
             setState(() => _subListSort = _SourceSubListSort.recent);
@@ -547,7 +549,7 @@ class _SourceThemeTopicPlaylistPageState
           },
         ),
         SortSheetOption(
-          label: 'Nombre',
+          label: tr('sources.name'),
           selected: _subListSort == _SourceSubListSort.name,
           onTap: () {
             setState(() => _subListSort = _SourceSubListSort.name);
@@ -558,7 +560,7 @@ class _SourceThemeTopicPlaylistPageState
           },
         ),
         SortSheetOption(
-          label: 'Más items',
+          label: tr('sources.more_items'),
           selected: _subListSort == _SourceSubListSort.items,
           onTap: () {
             setState(() => _subListSort = _SourceSubListSort.items);
@@ -569,7 +571,7 @@ class _SourceThemeTopicPlaylistPageState
           },
         ),
         SortSheetOption(
-          label: 'Más Collections',
+          label: tr('sources.more_collections'),
           selected: _subListSort == _SourceSubListSort.subfolders,
           onTap: () {
             setState(() => _subListSort = _SourceSubListSort.subfolders);
@@ -618,7 +620,8 @@ class _SourceThemeTopicPlaylistPageState
   // 🧾 META / SIZE
   // ============================
   String _buildMetaLine(int itemCount, int listCount) {
-    final base = '$itemCount items · $listCount Collections';
+    final base =
+        '$itemCount ${tr('sources.items')} · $listCount ${tr('sources.collection')}';
     if (_playlistSizeLabel == null || _playlistSizeLabel!.isEmpty) return base;
     return '$base · ${_playlistSizeLabel!}';
   }
@@ -743,7 +746,7 @@ class _SourceThemeTopicPlaylistPageState
             children: [
               ListTile(
                 leading: const Icon(Icons.edit_rounded),
-                title: const Text('Editar'),
+                title: Text(tr('sources.edit')),
                 onTap: () async {
                   Navigator.of(ctx).pop();
                   await _actions.openEditPage(item);
@@ -752,7 +755,7 @@ class _SourceThemeTopicPlaylistPageState
               ),
               ListTile(
                 leading: const Icon(Icons.remove_circle_outline),
-                title: const Text('Quitar de la lista'),
+                title: Text(tr('sources.remove_from_list')),
                 onTap: () async {
                   Navigator.of(ctx).pop();
                   await _removeItem(playlist, item);

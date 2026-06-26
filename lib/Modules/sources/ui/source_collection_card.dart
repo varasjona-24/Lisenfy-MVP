@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -97,7 +99,8 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
     Color onTint,
     ImageProvider? provider,
   ) {
-    final isAllCompleted = widget.completedCount != null &&
+    final isAllCompleted =
+        widget.completedCount != null &&
         widget.itemCount > 0 &&
         widget.completedCount == widget.itemCount;
 
@@ -180,7 +183,8 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
     Color onTint,
     ImageProvider? provider,
   ) {
-    final isAllCompleted = widget.completedCount != null &&
+    final isAllCompleted =
+        widget.completedCount != null &&
         widget.itemCount > 0 &&
         widget.completedCount == widget.itemCount;
 
@@ -263,7 +267,11 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
             color: base.withValues(alpha: 0.16),
             child: provider != null
                 ? Image(image: provider, fit: BoxFit.cover)
-                : Icon(Icons.folder_rounded, color: onTint, size: width > 110 ? 34 : 32),
+                : Icon(
+                    Icons.folder_rounded,
+                    color: onTint,
+                    size: width > 110 ? 34 : 32,
+                  ),
           ),
         ),
         if (isAllCompleted)
@@ -277,7 +285,7 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
                 borderRadius: BorderRadius.circular(4),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.25),
+                    color: Colors.black.withValues(alpha: 0.25),
                     blurRadius: 2,
                     offset: const Offset(0, 1),
                   ),
@@ -376,7 +384,7 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
 
   Widget _actionsButton(Color onTint) {
     return IconButton(
-      tooltip: 'Opciones',
+      tooltip: tr('sources.options'),
       onPressed: _openActionsSheet,
       icon: Icon(Icons.more_vert_rounded, color: onTint.withValues(alpha: 0.9)),
     );
@@ -399,7 +407,7 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
             children: [
               ListTile(
                 leading: const Icon(Icons.edit_rounded),
-                title: const Text('Editar'),
+                title: Text(tr('sources.edit')),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   widget.onEdit();
@@ -410,7 +418,10 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
                   Icons.delete_outline_rounded,
                   color: scheme.error,
                 ),
-                title: Text('Eliminar', style: TextStyle(color: scheme.error)),
+                title: Text(
+                  tr('common.delete'),
+                  style: TextStyle(color: scheme.error),
+                ),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   widget.onDelete();

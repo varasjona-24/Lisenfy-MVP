@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
@@ -60,8 +62,8 @@ class MediaActionsController extends GetxController {
     } catch (e) {
       debugPrint('Error toggling favorite: $e');
       Get.snackbar(
-        'Favoritos',
-        'No se pudo actualizar',
+        tr('dialogs.favorites.title'),
+        tr('dialogs.favorites.update_error'),
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -88,14 +90,14 @@ class MediaActionsController extends GetxController {
 
       Get.snackbar(
         'Imports',
-        'Eliminado correctamente',
+        tr('media_actions.delete_success'),
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
       debugPrint('Error deleting media: $e');
       Get.snackbar(
         'Imports',
-        'Error al eliminar',
+        tr('media_actions.delete_error'),
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -109,16 +111,16 @@ class MediaActionsController extends GetxController {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar'),
-        content: const Text('¿Eliminar este archivo importado?'),
+        title: Text(tr('media_actions.delete_file_title')),
+        content: Text(tr('media_actions.delete_file_body')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Eliminar'),
+            child: Text(tr('common.delete')),
           ),
         ],
       ),
@@ -163,19 +165,17 @@ class MediaActionsController extends GetxController {
 
       if (deletedCount > 0) {
         final msg = deletedCount == 1
-            ? 'Se eliminó 1 archivo'
-            : 'Se eliminaron $deletedCount archivos';
+            ? tr('media_actions.deleted_one')
+            : tr('media_actions.deleted_many', args: ['$deletedCount']);
         Get.snackbar(
           'Imports',
-          failedCount > 0
-              ? '$msg ($failedCount error${failedCount > 1 ? 's' : ''})'
-              : msg,
+          failedCount > 0 ? '$msg ($failedCount ${tr('common.error')})' : msg,
           snackPosition: SnackPosition.BOTTOM,
         );
       } else if (failedCount > 0) {
         Get.snackbar(
           'Imports',
-          'Error al eliminar archivos',
+          tr('media_actions.delete_files_error'),
           snackPosition: SnackPosition.BOTTOM,
         );
       }
@@ -183,7 +183,7 @@ class MediaActionsController extends GetxController {
       debugPrint('Error in deleteMultipleFromDevice: $e');
       Get.snackbar(
         'Imports',
-        'Error al eliminar archivos',
+        tr('media_actions.delete_files_error'),
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -199,18 +199,18 @@ class MediaActionsController extends GetxController {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar archivos'),
+        title: Text(tr('media_actions.delete_files_title')),
         content: Text(
-          '¿Eliminar ${items.length} archivo${items.length > 1 ? 's' : ''} importado${items.length > 1 ? 's' : ''}?\n\nEsta acción no se puede deshacer.',
+          tr('media_actions.delete_files_body', args: ['${items.length}']),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Eliminar'),
+            child: Text(tr('common.delete')),
           ),
         ],
       ),
@@ -278,8 +278,8 @@ class MediaActionsController extends GetxController {
 
       if (files.isEmpty) {
         Get.snackbar(
-          'Compartir',
-          'No hay archivos locales para compartir.',
+          tr('media_actions.share'),
+          tr('media_actions.no_local_files'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -287,8 +287,8 @@ class MediaActionsController extends GetxController {
 
       if (totalBytes > externalShareLimitBytes) {
         Get.snackbar(
-          'Compartir externo',
-          'La selección supera el límite de 300 MB.',
+          tr('media_actions.share_external'),
+          tr('media_actions.external_limit'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -296,24 +296,24 @@ class MediaActionsController extends GetxController {
 
       await Share.shareXFiles(
         files,
-        subject: 'Archivos compartidos desde Listenfy',
+        subject: tr('media_actions.shared_files_subject'),
         text: files.length == 1
-            ? 'Comparte este archivo con otra app o dispositivo.'
-            : 'Comparte estos archivos con otra app o dispositivo.',
+            ? tr('media_actions.share_one_text')
+            : tr('media_actions.share_many_text'),
       );
 
       if (skipped > 0) {
         Get.snackbar(
-          'Compartir',
-          'Se omitieron $skipped item${skipped > 1 ? 's' : ''} sin archivo local.',
+          tr('media_actions.share'),
+          tr('media_actions.skipped_items', args: ['$skipped']),
           snackPosition: SnackPosition.BOTTOM,
         );
       }
     } catch (e) {
       debugPrint('Error sharing media selection: $e');
       Get.snackbar(
-        'Compartir',
-        'No se pudo compartir la selección.',
+        tr('media_actions.share'),
+        tr('media_actions.share_failed'),
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -326,7 +326,7 @@ class MediaActionsController extends GetxController {
     if (totalBytes > listenfyConnectShareLimitBytes) {
       Get.snackbar(
         'Listenfy Connect',
-        'La selección supera el límite interno de 1 GB.',
+        tr('media_actions.internal_limit'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -341,8 +341,8 @@ class MediaActionsController extends GetxController {
 
       if (variant == null) {
         Get.snackbar(
-          'Compartir',
-          'No hay archivo local para compartir.',
+          tr('media_actions.share'),
+          tr('media_actions.no_local_file'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -351,8 +351,8 @@ class MediaActionsController extends GetxController {
       final localPath = variant.localPath?.trim();
       if (localPath == null || localPath.isEmpty) {
         Get.snackbar(
-          'Compartir',
-          'No hay archivo local para compartir.',
+          tr('media_actions.share'),
+          tr('media_actions.no_local_file'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -361,8 +361,8 @@ class MediaActionsController extends GetxController {
       final mediaFile = File(localPath);
       if (!await mediaFile.exists()) {
         Get.snackbar(
-          'Compartir',
-          'El archivo ya no existe en el dispositivo.',
+          tr('media_actions.share'),
+          tr('media_actions.file_missing'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -376,14 +376,14 @@ class MediaActionsController extends GetxController {
             mimeType: _guessMimeType(variant),
           ),
         ],
-        subject: 'Archivo compartido desde Listenfy',
-        text: 'Comparte esta canción/video con otra app o dispositivo.',
+        subject: tr('media_actions.shared_file_subject'),
+        text: tr('media_actions.share_song_text'),
       );
     } catch (e) {
       debugPrint('Error sharing song: $e');
       Get.snackbar(
-        'Compartir',
-        'No se pudo compartir la canción.',
+        tr('media_actions.share'),
+        tr('media_actions.song_share_failed'),
         snackPosition: SnackPosition.BOTTOM,
       );
     }

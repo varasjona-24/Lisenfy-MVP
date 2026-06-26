@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:get/get.dart';
 
@@ -120,7 +122,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                   sameCurrentItem && (currentVariant?.isSpatial8d ?? false);
 
               if (item == null) {
-                return const Center(child: Text('No hay nada reproduciéndose'));
+                return Center(child: Text(tr('player.nothing_playing')));
               }
 
               if (coverStyle == CoverStyle.landscape) {
@@ -301,7 +303,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                                               stereoOn || lockedByBinaural;
                                           return _PlayerQuickActionTile(
                                             icon: Icons.surround_sound_rounded,
-                                            label: 'Estéreo',
+                                            label: tr('player.stereo'),
                                             value: effectiveOn ? 'On' : 'Off',
                                             active: effectiveOn,
                                             onTap: lockedByBinaural
@@ -700,21 +702,23 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
 
   String _labelFor(CoverStyle style) {
     return switch (style) {
-      CoverStyle.square => 'normal',
-      CoverStyle.vinyl => 'disco',
-      CoverStyle.landscape => 'paisaje',
-      CoverStyle.wave => 'ondas',
-      CoverStyle.miniSpectrum => 'mini espectro',
+      CoverStyle.square => tr('player.visualizer.styles.square'),
+      CoverStyle.vinyl => tr('player.visualizer.styles.vinyl'),
+      CoverStyle.landscape => tr('player.visualizer.styles.landscape'),
+      CoverStyle.wave => tr('player.visualizer.styles.wave'),
+      CoverStyle.miniSpectrum => tr('player.visualizer.styles.miniSpectrum'),
     };
   }
 
   String _descriptionFor(CoverStyle style) {
     return switch (style) {
-      CoverStyle.square => 'Vista clásica centrada en la carátula.',
-      CoverStyle.vinyl => 'Vista de disco con presencia visual.',
-      CoverStyle.landscape => 'Portada grande con fondo inmersivo.',
-      CoverStyle.wave => 'Forma de onda amplia y estable.',
-      CoverStyle.miniSpectrum => 'Espectro circular más dinámico.',
+      CoverStyle.square => tr('player.visualizer.descriptions.square'),
+      CoverStyle.vinyl => tr('player.visualizer.descriptions.vinyl'),
+      CoverStyle.landscape => tr('player.visualizer.descriptions.landscape'),
+      CoverStyle.wave => tr('player.visualizer.descriptions.wave'),
+      CoverStyle.miniSpectrum => tr(
+        'player.visualizer.descriptions.miniSpectrum',
+      ),
     };
   }
 
@@ -748,7 +752,7 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Visualizador',
+                  tr('player.visualizer.title'),
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.4,
@@ -756,7 +760,7 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Elige cómo quieres ver la portada y la animación del reproductor.',
+                  tr('player.visualizer.subtitle'),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),

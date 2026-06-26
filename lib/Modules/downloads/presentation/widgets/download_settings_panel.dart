@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -32,7 +34,7 @@ class DownloadSettingsPanel extends GetView<DownloadsController> {
               children: [
                 const SizedBox(width: 1),
                 Text(
-                  'Configuración de descargas',
+                  tr('downloads.settings_title'),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -47,7 +49,7 @@ class DownloadSettingsPanel extends GetView<DownloadsController> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Calidad de descarga',
+                    tr('downloads.quality_title'),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -72,7 +74,7 @@ class DownloadSettingsPanel extends GetView<DownloadsController> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Uso de datos',
+                    tr('downloads.data_usage_title'),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -105,7 +107,7 @@ class DownloadSettingsPanel extends GetView<DownloadsController> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Las descargas usarán diferentes estándares según el tipo: audio (MP3/M4A) o video (MP4/MKV).',
+                      tr('downloads.standards_note'),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),

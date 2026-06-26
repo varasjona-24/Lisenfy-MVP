@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 
 import '../../../app/models/media_item.dart';
@@ -92,8 +94,8 @@ class WorldModeController extends GetxController {
   Future<void> playStation(CountryStationEntity station) async {
     if (!station.hasPlayableTracks) {
       Get.snackbar(
-        'World Mode',
-        'Esta estación no tiene pistas locales reproducibles.',
+        'world_mode.title'.tr,
+        'world_mode.no_playable_tracks'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -128,8 +130,8 @@ class WorldModeController extends GetxController {
     final next = await _repository.continueStation(station: station, limit: 20);
     if (next.isEmpty) {
       Get.snackbar(
-        'World Mode',
-        'No hay más canciones disponibles ahora.',
+        'world_mode.title'.tr,
+        'world_mode.no_more_songs'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -154,7 +156,7 @@ class WorldModeController extends GetxController {
       );
       stations.assignAll(result);
     } catch (_) {
-      errorMessage.value = 'No se pudieron generar estaciones para la región';
+      errorMessage.value = tr('world_mode.generation_error');
     } finally {
       isLoadingStations.value = false;
     }

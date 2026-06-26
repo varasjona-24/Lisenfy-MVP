@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -1015,7 +1017,7 @@ class LocalConnectServerService extends GetxService {
     _lastNotifiedRequestId = newest.id;
 
     final clientLabel = newest.clientName.trim().isEmpty
-        ? 'cliente web'
+        ? tr('connect.web_client')
         : newest.clientName.trim();
     final truncatedLabel = clientLabel.length > 42
         ? '${clientLabel.substring(0, 42)}...'
@@ -1032,8 +1034,8 @@ class LocalConnectServerService extends GetxService {
     if (Get.currentRoute == AppRoutes.localConnect) return;
 
     Get.snackbar(
-      'Listenfy Connect',
-      'Nueva solicitud de emparejamiento: $truncatedLabel',
+      tr('connect.title'),
+      tr('connect.new_pairing', args: [truncatedLabel]),
       snackPosition: SnackPosition.TOP,
       duration: const Duration(seconds: 7),
       margin: const EdgeInsets.all(12),
@@ -1043,7 +1045,7 @@ class LocalConnectServerService extends GetxService {
             Get.toNamed(AppRoutes.localConnect);
           }
         },
-        child: const Text('Revisar'),
+        child: Text(tr('connect.review')),
       ),
     );
   }

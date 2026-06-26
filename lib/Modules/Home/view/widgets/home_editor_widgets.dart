@@ -60,9 +60,7 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
           .where((id) => id.videoHomeSupported)
           .toList(growable: false);
     }
-    return _order
-        .where((id) => !id.audioOnly && !id.videoOnly)
-        .toList(growable: false);
+    return _order.where((id) => !id.videoOnly).toList(growable: false);
   }
 
   HomeCustomSectionLayout _layoutForWidget(HomeWidgetId id) {
@@ -96,16 +94,18 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
     final modeItems = _visibleItems.toList(growable: true);
     if (oldIndex < 0 || oldIndex >= modeItems.length) return;
     if (newIndex < 0 || newIndex > modeItems.length) return;
-    if (newIndex > oldIndex) newIndex -= 1;
     final moved = modeItems.removeAt(oldIndex);
     modeItems.insert(newIndex, moved);
 
     var modeIndex = 0;
     final nextOrder = <HomeWidgetId>[];
     for (final id in _order) {
-      if (mode == HomeMode.video && id.audioOnly) {
+      final belongsToMode = mode == HomeMode.video
+          ? id.videoHomeSupported
+          : !id.videoOnly;
+      if (!belongsToMode) {
         nextOrder.add(id);
-      } else {
+      } else if (modeIndex < modeItems.length) {
         nextOrder.add(modeItems[modeIndex]);
         modeIndex++;
       }
@@ -217,23 +217,23 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
           id: current.id,
           kind: HomeCustomSectionKind.playlist,
           targetId: ids.join('|'),
-          title: 'Listas de reproducción',
+          title: _homeCustomTitle(HomeCustomSectionKind.playlist),
           layout: current.layout,
         );
       } else {
         _customSections.add(
-          const HomeCustomSection(
+          HomeCustomSection(
             id: sectionId,
             kind: HomeCustomSectionKind.playlist,
             targetId: '',
-            title: 'Listas de reproducción',
+            title: _homeCustomTitle(HomeCustomSectionKind.playlist),
           ),
         );
         _customSections[_customSections.length - 1] = HomeCustomSection(
           id: sectionId,
           kind: HomeCustomSectionKind.playlist,
           targetId: cleanId,
-          title: 'Listas de reproducción',
+          title: _homeCustomTitle(HomeCustomSectionKind.playlist),
         );
       }
     });
@@ -258,7 +258,7 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
           id: current.id,
           kind: HomeCustomSectionKind.artist,
           targetId: keys.join('|'),
-          title: 'Artistas',
+          title: _homeCustomTitle(HomeCustomSectionKind.artist),
           layout: current.layout,
         );
       } else {
@@ -267,7 +267,7 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
             id: sectionId,
             kind: HomeCustomSectionKind.artist,
             targetId: cleanKey,
-            title: 'Artistas',
+            title: _homeCustomTitle(HomeCustomSectionKind.artist),
           ),
         );
       }
@@ -293,7 +293,7 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
           id: current.id,
           kind: HomeCustomSectionKind.collection,
           targetId: ids.join('|'),
-          title: 'Collections',
+          title: _homeCustomTitle(HomeCustomSectionKind.collection),
           layout: HomeCustomSectionLayout.cards,
         );
       } else {
@@ -302,7 +302,7 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
             id: sectionId,
             kind: HomeCustomSectionKind.collection,
             targetId: cleanId,
-            title: 'Collections',
+            title: _homeCustomTitle(HomeCustomSectionKind.collection),
           ),
         );
       }
@@ -340,7 +340,7 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Editar inicio',
+                      tr('home.editor.title'),
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -348,143 +348,150 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
                   ),
                   TextButton(
                     onPressed: _reset,
-                    child: const Text('Restablecer'),
+                    child: Text(tr('common.reset')),
                   ),
                   const SizedBox(width: 4),
-                  FilledButton(onPressed: _save, child: const Text('Guardar')),
+                  FilledButton(
+                    onPressed: _save,
+                    child: Text(tr('common.save')),
+                  ),
                 ],
               ),
             ),
             Expanded(
-              child: ListView(
-                controller: scrollController,
+              child: ReorderableListView.builder(
+                scrollController: scrollController,
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                children: [
-                  ReorderableListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    buildDefaultDragHandles: false,
-                    proxyDecorator: (child, index, animation) {
-                      return AnimatedBuilder(
-                        animation: animation,
-                        builder: (context, child) {
-                          final t = Curves.easeOut.transform(animation.value);
-                          return Transform.scale(
-                            scale: 1 + (0.025 * t),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: child,
-                            ),
-                          );
-                        },
-                        child: child,
+                buildDefaultDragHandles: false,
+                proxyDecorator: (child, index, animation) {
+                  return AnimatedBuilder(
+                    animation: animation,
+                    builder: (context, child) {
+                      final t = Curves.easeOut.transform(animation.value);
+                      return Transform.scale(
+                        scale: 1 + (0.025 * t),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: child,
+                        ),
                       );
                     },
-                    onReorder: _moveWidget,
-                    itemCount: items.length,
-                    itemBuilder: (context, index) {
-                      final id = items[index];
-                      final enabled = _enabled.contains(id);
-                      return _EditableHomeWidgetRow(
-                        key: ValueKey(id.key),
-                        id: id,
-                        index: index,
-                        enabled: enabled,
-                        layout: _layoutForWidget(id),
-                        onToggle: () => _toggleWidget(id),
-                        onLayoutToggle:
-                            mode == HomeMode.video || id.hasFixedLayout
-                            ? null
-                            : () => _toggleWidgetLayout(id),
-                      );
-                    },
-                  ),
-                  if (mode == HomeMode.audio) ...[
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _showPlaylistPicker(context),
-                            icon: const Icon(
-                              Icons.queue_music_rounded,
-                              size: 18,
+                    child: child,
+                  );
+                },
+                onReorderItem: _moveWidget,
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final id = items[index];
+                  final enabled = _enabled.contains(id);
+                  return _EditableHomeWidgetRow(
+                    key: ValueKey(id.key),
+                    id: id,
+                    index: index,
+                    enabled: enabled,
+                    layout: _layoutForWidget(id),
+                    onToggle: () => _toggleWidget(id),
+                    onLayoutToggle: mode == HomeMode.video || id.hasFixedLayout
+                        ? null
+                        : () => _toggleWidgetLayout(id),
+                  );
+                },
+                footer: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (mode == HomeMode.audio) ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _showPlaylistPicker(context),
+                              icon: const Icon(
+                                Icons.queue_music_rounded,
+                                size: 18,
+                              ),
+                              label: Text(tr('home.editor.add_playlist')),
                             ),
-                            label: const Text('Playlist'),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _showArtistPicker(context),
-                            icon: const Icon(Icons.person_rounded, size: 18),
-                            label: const Text('Artista'),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _showArtistPicker(context),
+                              icon: const Icon(Icons.person_rounded, size: 18),
+                              label: Text(tr('home.editor.add_artist')),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showCollectionPicker(context),
-                        icon: const Icon(Icons.video_library_rounded, size: 18),
-                        label: const Text('Collection'),
+                        ],
                       ),
-                    ),
-                  ],
-                  if (_customSections.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    ..._customSections.map((section) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(
-                            section.kind.icon,
-                            color: scheme.primary,
+                    ] else ...[
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showCollectionPicker(context),
+                          icon: const Icon(
+                            Icons.video_library_rounded,
+                            size: 18,
                           ),
-                          title: Text(
-                            section.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          subtitle: Text(
-                            'Vista: ${section.layout.label}',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: 'Cambiar vista',
-                                onPressed: mode == HomeMode.video
-                                    ? null
-                                    : () => _toggleCustomSectionLayout(
-                                        section.id,
-                                      ),
-                                icon: Icon(section.layout.icon),
-                              ),
-                              IconButton(
-                                tooltip: 'Quitar',
-                                onPressed: () =>
-                                    _removeCustomSection(section.id),
-                                icon: const Icon(Icons.close_rounded),
-                              ),
-                            ],
-                          ),
+                          label: Text(tr('home.editor.add_collection')),
                         ),
-                      );
-                    }),
+                      ),
+                    ],
+                    if (_customSections.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      ..._customSections.map((section) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              section.kind.icon,
+                              color: scheme.primary,
+                            ),
+                            title: Text(
+                              section.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            subtitle: Text(
+                              tr(
+                                'home.editor.view',
+                                args: [_homeLayoutLabel(section.layout)],
+                              ),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  tooltip: tr('home.actions.change_view'),
+                                  onPressed: mode == HomeMode.video
+                                      ? null
+                                      : () => _toggleCustomSectionLayout(
+                                          section.id,
+                                        ),
+                                  icon: Icon(section.layout.icon),
+                                ),
+                                IconButton(
+                                  tooltip: tr('home.actions.remove'),
+                                  onPressed: () =>
+                                      _removeCustomSection(section.id),
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ],
@@ -622,9 +629,9 @@ class _HomePlaylistPickerSheetState extends State<_HomePlaylistPickerSheet> {
           children: [
             _HomePickerHeader(
               icon: Icons.queue_music_rounded,
-              title: 'Agregar playlists',
+              title: tr('home.editor.add_playlists'),
               searchController: _searchCtrl,
-              searchHint: 'Buscar playlist',
+              searchHint: tr('home.editor.search_playlist_artist'),
               query: _query,
               onQueryChanged: (value) => setState(() => _query = value),
               onClear: () {
@@ -634,16 +641,22 @@ class _HomePlaylistPickerSheetState extends State<_HomePlaylistPickerSheet> {
               chips: [
                 _HomePickerChipData(
                   icon: Icons.library_music_rounded,
-                  label: '${widget.playlists.length} disponibles',
+                  label: tr(
+                    'home.editor.available',
+                    args: ['${widget.playlists.length}'],
+                  ),
                 ),
                 _HomePickerChipData(
                   icon: Icons.check_circle_rounded,
-                  label: '${_selected.length} seleccionadas',
+                  label: tr(
+                    'home.editor.selected_female',
+                    args: ['${_selected.length}'],
+                  ),
                 ),
                 if (query.isNotEmpty)
                   _HomePickerChipData(
                     icon: Icons.filter_alt_rounded,
-                    label: '${items.length} resultados',
+                    label: tr('home.editor.results', args: ['${items.length}']),
                   ),
               ],
             ),
@@ -652,9 +665,9 @@ class _HomePlaylistPickerSheetState extends State<_HomePlaylistPickerSheet> {
                   ? _HomePickerEmptyText(
                       text: query.isEmpty
                           ? widget.totalCount == 0
-                                ? 'No hay playlists disponibles.'
-                                : 'Todas las playlists ya estan en inicio.'
-                          : 'No se encontraron playlists.',
+                                ? tr('home.editor.no_playlists')
+                                : tr('home.editor.all_playlists_added')
+                          : tr('home.editor.no_playlist_results'),
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -666,8 +679,7 @@ class _HomePlaylistPickerSheetState extends State<_HomePlaylistPickerSheet> {
                         return _HomeChoiceTile(
                           selected: _selected.contains(playlist.id),
                           title: playlist.name,
-                          subtitle:
-                              '${playlist.count} cancion${playlist.count != 1 ? 'es' : ''}',
+                          subtitle: _songsCountLabel(playlist.count),
                           image: playlist.cover,
                           fallbackIcon: Icons.queue_music_rounded,
                           onTap: () => _toggle(playlist.id),
@@ -677,8 +689,11 @@ class _HomePlaylistPickerSheetState extends State<_HomePlaylistPickerSheet> {
             ),
             _HomePickerSubmitButton(
               selectedCount: _selected.length,
-              emptyLabel: 'Selecciona playlists',
-              activeLabel: 'Agregar ${_selected.length} seleccionadas',
+              emptyLabel: tr('home.editor.select_playlists'),
+              activeLabel: tr(
+                'home.editor.add_selected_female',
+                args: ['${_selected.length}'],
+              ),
               onPressed: _selected.isEmpty
                   ? null
                   : () => Navigator.of(context).pop(_selected.toList()),
@@ -756,9 +771,9 @@ class _HomeCollectionPickerSheetState
           children: [
             _HomePickerHeader(
               icon: Icons.video_library_rounded,
-              title: 'Agregar Collections',
+              title: tr('home.editor.add_collections'),
               searchController: _searchCtrl,
-              searchHint: 'Buscar Collection',
+              searchHint: tr('home.editor.search_collection'),
               query: _query,
               onQueryChanged: (value) => setState(() => _query = value),
               onClear: () {
@@ -768,16 +783,22 @@ class _HomeCollectionPickerSheetState
               chips: [
                 _HomePickerChipData(
                   icon: Icons.collections_bookmark_rounded,
-                  label: '${widget.collections.length} disponibles',
+                  label: tr(
+                    'home.editor.available',
+                    args: ['${widget.collections.length}'],
+                  ),
                 ),
                 _HomePickerChipData(
                   icon: Icons.check_circle_rounded,
-                  label: '${_selected.length} seleccionadas',
+                  label: tr(
+                    'home.editor.selected_female',
+                    args: ['${_selected.length}'],
+                  ),
                 ),
                 if (query.isNotEmpty)
                   _HomePickerChipData(
                     icon: Icons.filter_alt_rounded,
-                    label: '${items.length} resultados',
+                    label: tr('home.editor.results', args: ['${items.length}']),
                   ),
               ],
             ),
@@ -786,9 +807,9 @@ class _HomeCollectionPickerSheetState
                   ? _HomePickerEmptyText(
                       text: query.isEmpty
                           ? widget.totalCount == 0
-                                ? 'No hay Collections disponibles.'
-                                : 'Todas las Collections ya estan en inicio.'
-                          : 'No se encontraron Collections.',
+                                ? tr('home.editor.no_collections')
+                                : tr('home.editor.all_collections_added')
+                          : tr('home.editor.no_collection_results'),
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -811,8 +832,11 @@ class _HomeCollectionPickerSheetState
             ),
             _HomePickerSubmitButton(
               selectedCount: _selected.length,
-              emptyLabel: 'Selecciona Collections',
-              activeLabel: 'Agregar ${_selected.length} seleccionadas',
+              emptyLabel: tr('home.editor.select_collections'),
+              activeLabel: tr(
+                'home.editor.add_selected_female',
+                args: ['${_selected.length}'],
+              ),
               onPressed: _selected.isEmpty
                   ? null
                   : () => Navigator.of(context).pop(_selected.toList()),
@@ -866,9 +890,9 @@ class _HomeArtistPickerSheetState extends State<_HomeArtistPickerSheet> {
           children: [
             _HomePickerHeader(
               icon: Icons.person_add_alt_rounded,
-              title: 'Agregar artistas',
+              title: tr('home.editor.add_artists'),
               searchController: _searchCtrl,
-              searchHint: 'Buscar artista',
+              searchHint: tr('home.editor.search_artist'),
               query: _query,
               onQueryChanged: (value) => setState(() => _query = value),
               onClear: () {
@@ -878,16 +902,22 @@ class _HomeArtistPickerSheetState extends State<_HomeArtistPickerSheet> {
               chips: [
                 _HomePickerChipData(
                   icon: Icons.groups_rounded,
-                  label: '${widget.artists.length} disponibles',
+                  label: tr(
+                    'home.editor.available',
+                    args: ['${widget.artists.length}'],
+                  ),
                 ),
                 _HomePickerChipData(
                   icon: Icons.check_circle_rounded,
-                  label: '${_selected.length} seleccionados',
+                  label: tr(
+                    'home.editor.selected_male',
+                    args: ['${_selected.length}'],
+                  ),
                 ),
                 if (query.isNotEmpty)
                   _HomePickerChipData(
                     icon: Icons.filter_alt_rounded,
-                    label: '${items.length} resultados',
+                    label: tr('home.editor.results', args: ['${items.length}']),
                   ),
               ],
             ),
@@ -896,9 +926,9 @@ class _HomeArtistPickerSheetState extends State<_HomeArtistPickerSheet> {
                   ? _HomePickerEmptyText(
                       text: query.isEmpty
                           ? widget.totalCount == 0
-                                ? 'No hay artistas disponibles.'
-                                : 'Todos los artistas ya estan en inicio.'
-                          : 'No se encontraron artistas.',
+                                ? tr('home.editor.no_artists')
+                                : tr('home.editor.all_artists_added')
+                          : tr('home.editor.no_artist_results'),
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -910,8 +940,7 @@ class _HomeArtistPickerSheetState extends State<_HomeArtistPickerSheet> {
                         return _HomeChoiceTile(
                           selected: _selected.contains(artist.key),
                           title: artist.name,
-                          subtitle:
-                              '${artist.count} cancion${artist.count != 1 ? 'es' : ''}',
+                          subtitle: _songsCountLabel(artist.count),
                           image: artist.thumbnail,
                           fallbackIcon: Icons.person_rounded,
                           circleImage: true,
@@ -922,8 +951,11 @@ class _HomeArtistPickerSheetState extends State<_HomeArtistPickerSheet> {
             ),
             _HomePickerSubmitButton(
               selectedCount: _selected.length,
-              emptyLabel: 'Selecciona artistas',
-              activeLabel: 'Agregar ${_selected.length} seleccionados',
+              emptyLabel: tr('home.editor.select_artists'),
+              activeLabel: tr(
+                'home.editor.add_selected_male',
+                args: ['${_selected.length}'],
+              ),
               onPressed: _selected.isEmpty
                   ? null
                   : () => Navigator.of(context).pop(_selected.toList()),
@@ -986,7 +1018,7 @@ class _HomePickerHeader extends StatelessWidget {
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cerrar'),
+                child: Text(tr('common.close')),
               ),
             ],
           ),
@@ -1200,7 +1232,7 @@ class _EditableHomeWidgetRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    id.label,
+                    _homeWidgetTitle(id),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyLarge?.copyWith(
@@ -1211,7 +1243,9 @@ class _EditableHomeWidgetRow extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    id.hasFixedLayout ? 'Vista especial' : layout.label,
+                    id.hasFixedLayout
+                        ? tr('home.editor.special_view')
+                        : _homeLayoutLabel(layout),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall?.copyWith(
@@ -1224,7 +1258,7 @@ class _EditableHomeWidgetRow extends StatelessWidget {
             ),
             if (onLayoutToggle != null)
               IconButton(
-                tooltip: 'Cambiar vista',
+                tooltip: tr('home.actions.change_view'),
                 onPressed: enabled ? onLayoutToggle : null,
                 icon: Icon(
                   layout.icon,

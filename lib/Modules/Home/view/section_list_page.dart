@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -277,8 +279,8 @@ class _SectionListPageState extends State<SectionListPage> {
   void _toggleItemSelection(MediaItem item) {
     if (!_canSelect(item)) {
       Get.snackbar(
-        'Selección',
-        'Este item no tiene archivo local para usar.',
+        'dialogs.selection.title'.tr,
+        'dialogs.selection.no_local_file'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -296,8 +298,8 @@ class _SectionListPageState extends State<SectionListPage> {
   void _startMultiSelectFromItem(MediaItem item) {
     if (!_canSelect(item)) {
       Get.snackbar(
-        'Selección',
-        'Este item no tiene archivo local para usar.',
+        'dialogs.selection.title'.tr,
+        'dialogs.selection.no_local_file'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -313,8 +315,8 @@ class _SectionListPageState extends State<SectionListPage> {
     final selectedIds = selectedItems.map((e) => e.id).toSet();
     if (selectedItems.isEmpty) {
       Get.snackbar(
-        'Selección',
-        'No hay items seleccionados.',
+        'dialogs.selection.title'.tr,
+        'dialogs.selection.no_items_selected'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -354,8 +356,8 @@ class _SectionListPageState extends State<SectionListPage> {
     final selectedItems = _selectedItems;
     if (selectedItems.isEmpty) {
       Get.snackbar(
-        'Compartir',
-        'No hay items seleccionados.',
+        'dialogs.sharing.title'.tr,
+        'dialogs.sharing.no_items'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -369,8 +371,8 @@ class _SectionListPageState extends State<SectionListPage> {
     final selectedItems = _selectedItems;
     if (selectedItems.isEmpty) {
       Get.snackbar(
-        'Listenfy Connect',
-        'No hay items seleccionados.',
+        'dialogs.connect.title'.tr,
+        'dialogs.connect.no_items'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -390,7 +392,7 @@ class _SectionListPageState extends State<SectionListPage> {
       appBar: AppBar(
         title: _selectionMode
             ? Text(
-                'Seleccionados: $_selectedCount',
+                tr('home.section.selected', args: ['$_selectedCount']),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -403,26 +405,26 @@ class _SectionListPageState extends State<SectionListPage> {
         actions: _selectionMode
             ? [
                 IconButton(
-                  tooltip: 'Compartir externo (máx. 300 MB)',
+                  tooltip: tr('home.section.share_external'),
                   onPressed: _selectedCount == 0
                       ? null
                       : _shareSelectedExternally,
                   icon: const Icon(Icons.ios_share_rounded),
                 ),
                 IconButton(
-                  tooltip: 'Listenfy Connect (máx. 1 GB)',
+                  tooltip: tr('home.section.connect_transfer'),
                   onPressed: _selectedCount == 0
                       ? null
                       : _transferSelectedInternally,
                   icon: const Icon(Icons.wifi_tethering_rounded),
                 ),
                 IconButton(
-                  tooltip: 'Borrar seleccionados',
+                  tooltip: tr('home.section.delete_selected'),
                   onPressed: _selectedCount == 0 ? null : _deleteSelectedItems,
                   icon: const Icon(Icons.delete_sweep_rounded),
                 ),
                 IconButton(
-                  tooltip: 'Cancelar selección',
+                  tooltip: tr('home.section.cancel_selection'),
                   onPressed: () => _toggleSelectionMode(false),
                   icon: const Icon(Icons.close_rounded),
                 ),
@@ -431,8 +433,8 @@ class _SectionListPageState extends State<SectionListPage> {
                 if (!widget.forceGrid)
                   IconButton(
                     tooltip: _gridMode
-                        ? 'Vista de cuadrícula'
-                        : 'Vista de lista',
+                        ? tr('home.section.grid_view')
+                        : tr('home.section.list_view'),
                     onPressed: () {
                       setState(() {
                         _gridMode = !_gridMode;
@@ -504,7 +506,7 @@ class _SectionListPageState extends State<SectionListPage> {
                 widget.onShuffle?.call(queue);
               },
               icon: const Icon(Icons.shuffle_rounded),
-              label: const Text('Reproducción aleatoria'),
+              label: Text(tr('home.section.shuffle')),
             ),
           ),
         ],
@@ -516,13 +518,16 @@ class _SectionListPageState extends State<SectionListPage> {
             children: [
               _SelectionInfoChip(
                 icon: Icons.check_circle_rounded,
-                label: '$_selectedCount seleccionados',
+                label: tr(
+                  'home.section.selected_count',
+                  args: ['$_selectedCount'],
+                ),
               ),
               _SelectionInfoChip(
                 icon: Icons.sd_storage_rounded,
                 label: selectedBytes > 0
                     ? formatBytes(selectedBytes)
-                    : 'Calculando tamaño',
+                    : tr('home.section.calculating_size'),
               ),
             ],
           ),
@@ -630,10 +635,13 @@ class _SectionListPageState extends State<SectionListPage> {
     return switch (sort) {
       HomeMediaSort.title || HomeMediaSort.artist => ascending ? 'A-Z' : 'Z-A',
       HomeMediaSort.importedAt || HomeMediaSort.recent =>
-        ascending ? 'Más antiguo primero' : 'Más reciente primero',
-      HomeMediaSort.plays ||
-      HomeMediaSort.size ||
-      HomeMediaSort.duration => ascending ? 'Menor a mayor' : 'Mayor a menor',
+        ascending
+            ? tr('home.section.oldest_first')
+            : tr('home.section.newest_first'),
+      HomeMediaSort.plays || HomeMediaSort.size || HomeMediaSort.duration =>
+        ascending
+            ? tr('home.section.low_to_high')
+            : tr('home.section.high_to_low'),
     };
   }
 

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -21,6 +23,25 @@ import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import 'section_list_page.dart';
 
 part 'widgets/home_editor_widgets.dart';
+
+String _homeWidgetTitle(HomeWidgetId id) => tr('home.widgets.${id.key}');
+
+String _homeCustomTitle(HomeCustomSectionKind kind) => switch (kind) {
+  HomeCustomSectionKind.playlist => tr('home.custom.playlists'),
+  HomeCustomSectionKind.artist => tr('home.custom.artists'),
+  HomeCustomSectionKind.smart => tr('home.custom.smart'),
+  HomeCustomSectionKind.collection => tr('home.custom.collections'),
+};
+
+String _homeLayoutLabel(HomeCustomSectionLayout layout) => switch (layout) {
+  HomeCustomSectionLayout.cards => tr('home.layout.cards'),
+  HomeCustomSectionLayout.list => tr('home.layout.list'),
+};
+
+String _songsCountLabel(int count) => tr(
+  count == 1 ? 'common.songs.one' : 'common.songs.other',
+  args: ['$count'],
+);
 
 /// ===============================================================
 /// HOME PAGE (corregida)
@@ -65,7 +86,7 @@ class HomePage extends GetView<HomeController> {
           onToggleMode: controller.toggleMode,
           extraActions: [
             IconButton(
-              tooltip: 'Editar inicio',
+              tooltip: tr('home.actions.edit_home'),
               icon: const Icon(Icons.dashboard_customize_rounded),
               onPressed: () => _openHomeEditorSheet(
                 context,
@@ -125,12 +146,16 @@ class HomePage extends GetView<HomeController> {
                                         ) &&
                                         controller.favorites.isNotEmpty) ...[
                                       MediaHorizontalList(
-                                        title: 'Mis favoritos',
+                                        title: _homeWidgetTitle(
+                                          HomeWidgetId.favorites,
+                                        ),
                                         items: controller.favorites,
                                         onHeaderTap: () => Get.toNamed(
                                           AppRoutes.homeSectionList,
                                           arguments: {
-                                            'title': 'Mis favoritos',
+                                            'title': _homeWidgetTitle(
+                                              HomeWidgetId.favorites,
+                                            ),
                                             'items': controller.fullFavorites,
                                             'onItemTap': (item, index) =>
                                                 controller.openMedia(
@@ -173,7 +198,9 @@ class HomePage extends GetView<HomeController> {
                                             onStartMultiSelect: () => Get.toNamed(
                                               AppRoutes.homeSectionList,
                                               arguments: {
-                                                'title': 'Mis favoritos',
+                                                'title': _homeWidgetTitle(
+                                                  HomeWidgetId.favorites,
+                                                ),
                                                 'items':
                                                     controller.fullFavorites,
                                                 'onItemTap': (item, index) =>
@@ -226,11 +253,15 @@ class HomePage extends GetView<HomeController> {
                                                 .isRecommendationsLoading
                                                 .value)) ...[
                                       _SectionHeader(
-                                        title: 'Para ti hoy',
+                                        title: _homeWidgetTitle(
+                                          HomeWidgetId.recommendations,
+                                        ),
                                         onTap: () => Get.toNamed(
                                           AppRoutes.homeSectionList,
                                           arguments: {
-                                            'title': 'Para ti hoy',
+                                            'title': _homeWidgetTitle(
+                                              HomeWidgetId.recommendations,
+                                            ),
                                             'items': controller.fullRecommended,
                                             'itemHintBuilder': controller
                                                 .recommendationHintFor,
@@ -337,11 +368,15 @@ class HomePage extends GetView<HomeController> {
                                         ) &&
                                         controller.mostPlayed.isNotEmpty) ...[
                                       _SectionHeader(
-                                        title: 'Más reproducido',
+                                        title: _homeWidgetTitle(
+                                          HomeWidgetId.mostPlayed,
+                                        ),
                                         onTap: () => Get.toNamed(
                                           AppRoutes.homeSectionList,
                                           arguments: {
-                                            'title': 'Más reproducido',
+                                            'title': _homeWidgetTitle(
+                                              HomeWidgetId.mostPlayed,
+                                            ),
                                             'items': controller.fullMostPlayed,
                                             'itemTrailingBuilder':
                                                 (MediaItem item, int _) =>
@@ -391,7 +426,9 @@ class HomePage extends GetView<HomeController> {
                                             onStartMultiSelect: () => Get.toNamed(
                                               AppRoutes.homeSectionList,
                                               arguments: {
-                                                'title': 'Más reproducido',
+                                                'title': _homeWidgetTitle(
+                                                  HomeWidgetId.mostPlayed,
+                                                ),
                                                 'items':
                                                     controller.fullMostPlayed,
                                                 'itemTrailingBuilder':
@@ -443,12 +480,16 @@ class HomePage extends GetView<HomeController> {
                                         ) &&
                                         controller.recentlyPlayed.isNotEmpty)
                                       MediaHorizontalList(
-                                        title: 'Reproducciones recientes',
+                                        title: _homeWidgetTitle(
+                                          HomeWidgetId.recentlyPlayed,
+                                        ),
                                         items: controller.recentlyPlayed,
                                         onHeaderTap: () => Get.toNamed(
                                           AppRoutes.homeSectionList,
                                           arguments: {
-                                            'title': 'Reproducciones recientes',
+                                            'title': _homeWidgetTitle(
+                                              HomeWidgetId.recentlyPlayed,
+                                            ),
                                             'items':
                                                 controller.fullRecentlyPlayed,
                                             'onItemTap': (item, index) =>
@@ -492,8 +533,9 @@ class HomePage extends GetView<HomeController> {
                                             onStartMultiSelect: () => Get.toNamed(
                                               AppRoutes.homeSectionList,
                                               arguments: {
-                                                'title':
-                                                    'Reproducciones recientes',
+                                                'title': _homeWidgetTitle(
+                                                  HomeWidgetId.recentlyPlayed,
+                                                ),
                                                 'items': controller
                                                     .fullRecentlyPlayed,
                                                 'onItemTap': (item, index) =>
@@ -545,11 +587,15 @@ class HomePage extends GetView<HomeController> {
                                         ) &&
                                         controller.featured.isNotEmpty) ...[
                                       _SectionHeader(
-                                        title: 'Destacado',
+                                        title: _homeWidgetTitle(
+                                          HomeWidgetId.featured,
+                                        ),
                                         onTap: () => Get.toNamed(
                                           AppRoutes.homeSectionList,
                                           arguments: {
-                                            'title': 'Destacado',
+                                            'title': _homeWidgetTitle(
+                                              HomeWidgetId.featured,
+                                            ),
                                             'items': controller.fullFeatured,
                                             'onItemTap': (item, index) =>
                                                 controller.openMedia(
@@ -597,7 +643,9 @@ class HomePage extends GetView<HomeController> {
                                               onStartMultiSelect: () => Get.toNamed(
                                                 AppRoutes.homeSectionList,
                                                 arguments: {
-                                                  'title': 'Destacado',
+                                                  'title': _homeWidgetTitle(
+                                                    HomeWidgetId.featured,
+                                                  ),
                                                   'items':
                                                       controller.fullFeatured,
                                                   'onItemTap': (item, index) =>
@@ -646,12 +694,16 @@ class HomePage extends GetView<HomeController> {
                                             .latestDownloads
                                             .isNotEmpty) ...[
                                       MediaHorizontalList(
-                                        title: 'Últimos imports',
+                                        title: _homeWidgetTitle(
+                                          HomeWidgetId.latestDownloads,
+                                        ),
                                         items: controller.latestDownloads,
                                         onHeaderTap: () => Get.toNamed(
                                           AppRoutes.homeSectionList,
                                           arguments: {
-                                            'title': 'Últimos imports',
+                                            'title': _homeWidgetTitle(
+                                              HomeWidgetId.latestDownloads,
+                                            ),
                                             'items':
                                                 controller.fullLatestDownloads,
                                             'onItemTap': (item, index) =>
@@ -696,7 +748,9 @@ class HomePage extends GetView<HomeController> {
                                             onStartMultiSelect: () => Get.toNamed(
                                               AppRoutes.homeSectionList,
                                               arguments: {
-                                                'title': 'Últimos imports',
+                                                'title': _homeWidgetTitle(
+                                                  HomeWidgetId.latestDownloads,
+                                                ),
                                                 'items': controller
                                                     .fullLatestDownloads,
                                                 'onItemTap': (item, index) =>
@@ -814,7 +868,7 @@ class _HomeOrderedSections extends StatelessWidget {
   Widget? _buildSection(BuildContext context, HomeWidgetId id) {
     switch (id) {
       case HomeWidgetId.favorites:
-        return _mediaSection(context, id: id, title: 'Mis favoritos');
+        return _mediaSection(context, id: id, title: _homeWidgetTitle(id));
       case HomeWidgetId.recommendations:
         if (mode != HomeMode.audio) return null;
         if (controller.recommendationCollections.isEmpty &&
@@ -824,10 +878,10 @@ class _HomeOrderedSections extends StatelessWidget {
         return Column(
           children: [
             _SectionHeader(
-              title: 'Para ti hoy',
+              title: _homeWidgetTitle(HomeWidgetId.recommendations),
               onTap: () => _openRecommendationList(
                 context,
-                title: 'Para ti hoy',
+                title: _homeWidgetTitle(HomeWidgetId.recommendations),
                 items: controller.fullItemsForHomeWidget(
                   HomeWidgetId.recommendations,
                 ),
@@ -865,10 +919,10 @@ class _HomeOrderedSections extends StatelessWidget {
         return Column(
           children: [
             _SectionHeader(
-              title: 'Más reproducido',
+              title: _homeWidgetTitle(id),
               onTap: () => _openList(
                 context,
-                title: 'Más reproducido',
+                title: _homeWidgetTitle(id),
                 items: mostPlayedItems,
                 sourceId: HomeWidgetId.mostPlayed,
               ),
@@ -888,7 +942,7 @@ class _HomeOrderedSections extends StatelessWidget {
                   onChanged: controller.loadHome,
                   onStartMultiSelect: () => _openList(
                     context,
-                    title: 'Más reproducido',
+                    title: _homeWidgetTitle(id),
                     items: mostPlayedItems,
                     sourceId: HomeWidgetId.mostPlayed,
                     initialSelectionItem: item,
@@ -899,21 +953,17 @@ class _HomeOrderedSections extends StatelessWidget {
           ],
         );
       case HomeWidgetId.recentlyPlayed:
-        return _mediaSection(
-          context,
-          id: id,
-          title: 'Reproducciones recientes',
-        );
+        return _mediaSection(context, id: id, title: _homeWidgetTitle(id));
       case HomeWidgetId.continueWatching:
-        return _mediaSection(context, id: id, title: 'Seguir viendo');
+        return _mediaSection(context, id: id, title: _homeWidgetTitle(id));
       case HomeWidgetId.featured:
-        return _mediaSection(context, id: id, title: 'Destacado');
+        return _mediaSection(context, id: id, title: _homeWidgetTitle(id));
       case HomeWidgetId.latestDownloads:
-        return _mediaSection(context, id: id, title: 'Últimos imports');
+        return _mediaSection(context, id: id, title: _homeWidgetTitle(id));
       case HomeWidgetId.notPlayed:
-        return _mediaSection(context, id: id, title: 'Por escuchar');
+        return _mediaSection(context, id: id, title: _homeWidgetTitle(id));
       case HomeWidgetId.randomMix:
-        return _mediaSection(context, id: id, title: 'Mix aleatorio');
+        return _mediaSection(context, id: id, title: _homeWidgetTitle(id));
     }
   }
 
@@ -1271,16 +1321,16 @@ class _CustomHomeSections extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Quitar item'),
-        content: Text('¿Desea eliminar "$label" de la lista?'),
+        title: Text(tr('home.custom.remove_item_title')),
+        content: Text(tr('home.custom.remove_item_body', args: [label])),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Eliminar'),
+            child: Text(tr('common.delete')),
           ),
         ],
       ),
@@ -1631,7 +1681,7 @@ class _HomeArtistCard extends StatelessWidget {
               ),
             ),
             Text(
-              '${artist.count} canciones',
+              _songsCountLabel(artist.count),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -1698,7 +1748,7 @@ class _HomePlaylistCard extends StatelessWidget {
               ),
             ),
             Text(
-              '${playlist.count} canciones',
+              _songsCountLabel(playlist.count),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -1832,7 +1882,7 @@ class _HomeArtistTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${artist.count} canciones',
+                    _songsCountLabel(artist.count),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -1908,7 +1958,7 @@ class _HomePlaylistTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${playlist.count} canciones',
+                    _songsCountLabel(playlist.count),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -2026,25 +2076,29 @@ class _HomePillTabs extends StatefulWidget {
 
 class _HomePillTabsState extends State<_HomePillTabs> {
   int _selected = 0;
-  final _labels = const ['Para ti', 'Canciones', 'Lista de reproducción'];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final labels = [
+      tr('home.tabs.for_you'),
+      tr('home.tabs.songs'),
+      tr('home.tabs.playlists'),
+    ];
 
     return SizedBox(
       height: 44,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         scrollDirection: Axis.horizontal,
-        itemCount: _labels.length,
+        itemCount: labels.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, i) {
           final selected = _selected == i;
 
           return ChoiceChip(
-            label: Text(_labels[i]),
+            label: Text(labels[i]),
             selected: selected,
             onSelected: (_) => setState(() => _selected = i),
 
@@ -2212,7 +2266,7 @@ class _RecommendationCollectionCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '${collection.items.length} canciones',
+              _songsCountLabel(collection.items.length),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelSmall?.copyWith(
@@ -2519,8 +2573,8 @@ class _PlayCountPill extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final label = item.playCount == 1
-        ? '1 reproducción'
-        : '${item.playCount} reproducciones';
+        ? tr('home.play_count.one')
+        : tr('home.play_count.other', args: ['${item.playCount}']);
 
     return Container(
       constraints: const BoxConstraints(minWidth: 58),

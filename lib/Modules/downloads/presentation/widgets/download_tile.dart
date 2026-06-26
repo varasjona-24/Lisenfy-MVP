@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 import '../../../../app/models/media_item.dart';
@@ -39,7 +41,7 @@ class DownloadTile extends StatelessWidget {
         ),
         trailing: IconButton(
           icon: const Icon(Icons.more_vert_rounded),
-          tooltip: 'Más opciones',
+          tooltip: tr('nav.more_options'),
           onPressed: () => onHold(item),
         ),
       ),

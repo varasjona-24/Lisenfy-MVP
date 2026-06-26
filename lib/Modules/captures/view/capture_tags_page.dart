@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -258,7 +260,7 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Ordenar etiquetas',
+                    tr('captures.tags.sort_title'),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
@@ -266,7 +268,7 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
                   const SizedBox(height: 14),
                   _TagSortOption(
                     icon: Icons.sort_by_alpha_rounded,
-                    label: 'Nombre',
+                    label: tr('captures.tags.name'),
                     selected: _sort == _CaptureTagSort.name,
                     ascending: _ascending,
                     onTap: () => pick(_CaptureTagSort.name),
@@ -274,7 +276,7 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
                   const SizedBox(height: 8),
                   _TagSortOption(
                     icon: Icons.numbers_rounded,
-                    label: 'Número de capturas',
+                    label: tr('captures.tags.capture_count'),
                     selected: _sort == _CaptureTagSort.count,
                     ascending: _ascending,
                     onTap: () => pick(_CaptureTagSort.count),
@@ -282,7 +284,7 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
                   const SizedBox(height: 8),
                   _TagSortOption(
                     icon: Icons.access_time_rounded,
-                    label: 'Antigüedad',
+                    label: tr('captures.tags.age'),
                     selected: _sort == _CaptureTagSort.date,
                     ascending: _ascending,
                     onTap: () => pick(_CaptureTagSort.date),
@@ -290,7 +292,7 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
                   const SizedBox(height: 8),
                   _TagSortOption(
                     icon: Icons.data_usage_rounded,
-                    label: 'Peso por carpeta',
+                    label: tr('captures.tags.folder_weight'),
                     selected: _sort == _CaptureTagSort.size,
                     ascending: _ascending,
                     onTap: () => pick(_CaptureTagSort.size),
@@ -363,16 +365,21 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Eliminar etiqueta'),
-        content: Text('¿Eliminar "${folder.tag}" de ${folder.count} capturas?'),
+        title: Text(tr('captures.tags.delete_title')),
+        content: Text(
+          tr(
+            'captures.tags.delete_confirm',
+            args: [folder.tag, '${folder.count}'],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Eliminar'),
+            child: Text(tr('common.delete')),
           ),
         ],
       ),

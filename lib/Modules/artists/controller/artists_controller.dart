@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -313,7 +315,7 @@ class ArtistsController extends GetxController {
     if (country.isNotEmpty) return country;
     final code = (artist.countryCode ?? '').trim();
     if (code.isNotEmpty) return code;
-    return 'Sin país';
+    return tr('artists.no_country');
   }
 
   void _refreshRecentArtists(List<ArtistGroup> source) {

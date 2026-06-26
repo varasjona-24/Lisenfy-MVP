@@ -4,6 +4,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_custom_tabs/flutter_custom_tabs.dart';
@@ -299,7 +301,10 @@ class DownloadsController extends GetxStateController<DownloadsState> {
     final url = normalizeImportUrl(rawUrl);
     final uri = Uri.tryParse(url);
     if (uri == null) {
-      Get.snackbar('URL inválida', 'No pude interpretar: $url');
+      Get.snackbar(
+        'downloads.invalid_url_title'.tr,
+        'downloads.invalid_url_body'.tr.replaceFirst('{}', url),
+      );
       return;
     }
 
@@ -348,8 +353,8 @@ class DownloadsController extends GetxStateController<DownloadsState> {
     } catch (e) {
       debugPrint('CustomTab launch error: $e');
       Get.snackbar(
-        'No se pudo abrir',
-        'No hay navegador compatible (Custom Tabs) disponible o está deshabilitado.',
+        'downloads.open_failed_title'.tr,
+        'downloads.open_failed_body'.tr,
       );
     } finally {
       customTabOpening.value = false;
@@ -407,24 +412,24 @@ class DownloadsController extends GetxStateController<DownloadsState> {
   String getQualityDescription(String quality) {
     switch (quality) {
       case 'low':
-        return 'Baja: 128 kbps (audio) / 360p (video) - Menor consumo de datos';
+        return tr('downloads.quality_low');
       case 'medium':
-        return 'Media: 192 kbps (audio) / 720p (video) - Balance calidad/datos';
+        return tr('downloads.quality_medium');
       case 'high':
-        return 'Alta: 320 kbps (audio) / 1080p (video) - Máxima calidad';
+        return tr('downloads.quality_high');
       default:
-        return 'Alta: 320 kbps (audio) / 1080p (video) - Máxima calidad';
+        return tr('downloads.quality_high');
     }
   }
 
   String getDataUsageDescription(String usage) {
     switch (usage) {
       case 'wifi_only':
-        return 'Solo descargas en redes Wi-Fi';
+        return tr('downloads.usage_wifi_only');
       case 'all':
-        return 'Descargas en Wi-Fi y conexiones móviles';
+        return tr('downloads.usage_all');
       default:
-        return 'Descargas en Wi-Fi y conexiones móviles';
+        return tr('downloads.usage_all');
     }
   }
 

@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -126,7 +128,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
 
   Widget _header(ThemeData theme) {
     return Text(
-      'Listas de reproducción',
+      tr('playlists.title'),
       style: theme.textTheme.headlineSmall?.copyWith(
         fontWeight: FontWeight.w800,
       ),
@@ -141,7 +143,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     return Row(
       children: [
         Text(
-          '$total listas de reproducción',
+          tr('playlists.summary', args: ['$total']),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w600,
@@ -150,7 +152,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
         const Spacer(),
         IconButton(
           icon: const Icon(Icons.add),
-          tooltip: 'Nueva lista',
+          tooltip: tr('playlists.new'),
           onPressed: onAdd,
         ),
       ],
@@ -159,7 +161,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
 
   Widget _myPlaylistsHeader(ThemeData theme, int count) {
     return Text(
-      'Mis listas de reproducción ($count)',
+      tr('playlists.mine', args: ['$count']),
       style: theme.textTheme.titleMedium?.copyWith(
         fontWeight: FontWeight.w700,
         color: theme.colorScheme.onSurfaceVariant,
@@ -173,7 +175,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         sliver: SliverToBoxAdapter(
           child: Text(
-            'Crea tu primera lista para organizar tu música.',
+            tr('playlists.empty'),
             style: Get.textTheme.bodyMedium?.copyWith(
               color: Get.theme.colorScheme.onSurfaceVariant,
             ),
@@ -231,7 +233,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
             children: [
               ListTile(
                 leading: const Icon(Icons.play_arrow_rounded),
-                title: const Text('Reproducir'),
+                title: Text(tr('playlists.play')),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _playPlaylist(items);
@@ -239,7 +241,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
               ),
               ListTile(
                 leading: const Icon(Icons.skip_next_rounded),
-                title: const Text('Reproducir siguiente'),
+                title: Text(tr('playlists.play_next')),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _playNext(items);
@@ -247,7 +249,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
               ),
               ListTile(
                 leading: const Icon(Icons.queue_music_rounded),
-                title: const Text('Añadir a la cola'),
+                title: Text(tr('playlists.add_queue')),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _addToQueue(items);
@@ -255,7 +257,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
               ),
               ListTile(
                 leading: const Icon(Icons.edit_rounded),
-                title: const Text('Editar'),
+                title: Text(tr('common.edit')),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   Get.toNamed(
@@ -266,7 +268,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
               ),
               ListTile(
                 leading: const Icon(Icons.delete_outline_rounded),
-                title: const Text('Eliminar lista de reproducción'),
+                title: Text(tr('playlists.delete_playlist')),
                 textColor: Theme.of(ctx).colorScheme.error,
                 iconColor: Theme.of(ctx).colorScheme.error,
                 onTap: () {
@@ -291,10 +293,10 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     if (Get.isRegistered<AudioPlayerController>()) {
       final audio = Get.find<AudioPlayerController>();
       audio.insertNext(items);
-      Get.snackbar('Cola', 'Se agregó como siguiente');
+      Get.snackbar(tr('playlists.queue'), tr('playlists.queued_next'));
       return;
     }
-    Get.snackbar('Cola', 'Abre el reproductor para usar esta opción');
+    Get.snackbar(tr('playlists.queue'), tr('playlists.open_player_required'));
   }
 
   void _addToQueue(List<MediaItem> items) {
@@ -302,10 +304,10 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     if (Get.isRegistered<AudioPlayerController>()) {
       final audio = Get.find<AudioPlayerController>();
       audio.addToQueue(items);
-      Get.snackbar('Cola', 'Se agregaron a la cola');
+      Get.snackbar(tr('playlists.queue'), tr('playlists.queued'));
       return;
     }
-    Get.snackbar('Cola', 'Abre el reproductor para usar esta opción');
+    Get.snackbar(tr('playlists.queue'), tr('playlists.open_player_required'));
   }
 
   // ignore: unused_element
@@ -314,20 +316,20 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Renombrar'),
+        title: Text(tr('playlists.rename')),
         content: TextFormField(
           initialValue: playlist.name,
           onChanged: (value) => name = value,
-          decoration: const InputDecoration(hintText: 'Nuevo nombre'),
+          decoration: InputDecoration(hintText: tr('playlists.new_name')),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Guardar'),
+            child: Text(tr('common.save')),
           ),
         ],
       ),
@@ -426,15 +428,15 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cambiar portada'),
+        title: Text(tr('playlists.change_cover')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: urlCtrl,
               readOnly: true,
-              decoration: const InputDecoration(
-                labelText: 'Imagen web seleccionada',
+              decoration: InputDecoration(
+                labelText: tr('playlists.selected_web_image'),
               ),
               onTap: () async {
                 await pickWeb();
@@ -449,7 +451,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
                       await pickLocal();
                     },
                     icon: const Icon(Icons.folder_open_rounded),
-                    label: const Text('Elegir archivo'),
+                    label: Text(tr('playlists.choose_file')),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -458,7 +460,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
                     await pickWeb();
                   },
                   icon: const Icon(Icons.public_rounded),
-                  label: const Text('Buscar'),
+                  label: Text(tr('common.search')),
                 ),
               ],
             ),
@@ -468,7 +470,7 @@ class PlaylistsPage extends GetView<PlaylistsController> {
               child: OutlinedButton.icon(
                 onPressed: deleteCurrentCover,
                 icon: const Icon(Icons.delete_outline_rounded),
-                label: const Text('Borrar portada actual'),
+                label: Text(tr('playlists.clear_cover')),
               ),
             ),
           ],
@@ -476,14 +478,14 @@ class PlaylistsPage extends GetView<PlaylistsController> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancelar'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton(
             onPressed: () {
               confirmed = true;
               Navigator.of(ctx).pop();
             },
-            child: const Text('Guardar'),
+            child: Text(tr('common.save')),
           ),
         ],
       ),
@@ -510,16 +512,16 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar lista'),
-        content: const Text('¿Seguro que quieres eliminar esta lista?'),
+        title: Text(tr('playlists.delete_title')),
+        content: Text(tr('playlists.delete_body')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancelar'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Eliminar'),
+            child: Text(tr('common.delete')),
           ),
         ],
       ),
@@ -546,11 +548,14 @@ class PlaylistsPage extends GetView<PlaylistsController> {
         compressQuality: 92,
         uiSettings: [
           AndroidUiSettings(
-            toolbarTitle: 'Recortar',
+            toolbarTitle: tr('playlists.crop'),
             lockAspectRatio: true,
             hideBottomControls: true,
           ),
-          IOSUiSettings(title: 'Recortar', aspectRatioLockEnabled: true),
+          IOSUiSettings(
+            title: tr('playlists.crop'),
+            aspectRatioLockEnabled: true,
+          ),
         ],
       );
       return cropped?.path;
@@ -665,10 +670,15 @@ class _PlaylistTile extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Text('${items.length} canciones'),
+        subtitle: Text(
+          tr(
+            items.length == 1 ? 'common.songs.one' : 'common.songs.other',
+            args: ['${items.length}'],
+          ),
+        ),
         trailing: IconButton(
           icon: const Icon(Icons.more_vert_rounded),
-          tooltip: 'Opciones',
+          tooltip: tr('playlists.options'),
           onPressed: onMenu,
         ),
       ),

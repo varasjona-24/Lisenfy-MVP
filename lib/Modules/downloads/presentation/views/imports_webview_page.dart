@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -54,13 +56,13 @@ class _ImportsWebViewPageState extends State<ImportsWebViewPage> {
                 ),
                 TextButton(
                   onPressed: () => Get.back(),
-                  child: const Text('Cerrar'),
+                  child: Text(tr('common.close')),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              'Abre un navegador externo para copiar enlaces rápidamente.',
+              tr('downloads.webview_hint'),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -225,7 +227,7 @@ class MediaSearchDelegate extends SearchDelegate<MediaItem?> {
               ),
               IconButton(
                 icon: const Icon(Icons.more_vert_rounded),
-                tooltip: 'Más opciones',
+                tooltip: tr('home.search.more_options'),
                 color: scheme.onSurfaceVariant,
                 onPressed: () {
                   _actions.showItemActions(
@@ -237,7 +239,7 @@ class MediaSearchDelegate extends SearchDelegate<MediaItem?> {
                       Get.toNamed(
                         AppRoutes.homeSectionList,
                         arguments: {
-                          'title': 'Resultados de búsqueda',
+                          'title': tr('home.search.results_title'),
                           'items': list,
                           'onItemTap': (MediaItem tapped, int tapIndex) =>
                               controller.openMedia(

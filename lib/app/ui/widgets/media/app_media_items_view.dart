@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 import '../../../models/media_item.dart';
@@ -418,11 +420,7 @@ class _ActionThumb extends StatelessWidget {
                 : _fallbackActionThumb(scheme, width, height),
           ),
           if (videoStyle)
-            Positioned(
-              top: 8,
-              left: 8,
-              child: VideoBadgesOverlay(item: item),
-            ),
+            Positioned(top: 8, left: 8, child: VideoBadgesOverlay(item: item)),
           if (videoStyle)
             Positioned(
               left: 8,
@@ -501,7 +499,7 @@ class _FeedbackMenu extends StatelessWidget {
           child: _FeedbackItem(
             icon: Icons.thumb_up_alt_outlined,
             color: scheme.primary,
-            label: 'Me interesa',
+            label: tr('media_actions.interested'),
           ),
         ),
         PopupMenuItem(
@@ -509,7 +507,7 @@ class _FeedbackMenu extends StatelessWidget {
           child: _FeedbackItem(
             icon: Icons.visibility_off_outlined,
             color: scheme.error,
-            label: 'Ocultar canción',
+            label: tr('media_actions.hide_song'),
           ),
         ),
         PopupMenuItem(
@@ -517,7 +515,7 @@ class _FeedbackMenu extends StatelessWidget {
           child: _FeedbackItem(
             icon: Icons.person_off_outlined,
             color: scheme.tertiary,
-            label: 'Ocultar artista',
+            label: tr('media_actions.hide_artist'),
           ),
         ),
       ],
@@ -705,11 +703,7 @@ class _VideoThumb extends StatelessWidget {
                   )
                 : _fallbackThumb(scheme, Icons.videocam_rounded),
           ),
-          Positioned(
-            top: 8,
-            left: 8,
-            child: VideoBadgesOverlay(item: item),
-          ),
+          Positioned(top: 8, left: 8, child: VideoBadgesOverlay(item: item)),
           Positioned(
             left: 8,
             bottom: 7,

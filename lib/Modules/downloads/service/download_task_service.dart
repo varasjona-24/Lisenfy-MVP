@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart' as dio;
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -38,14 +40,14 @@ class DownloadTaskService extends GetxService {
       if (hasWifi) return true;
 
       Get.snackbar(
-        'Descargas bloqueadas',
-        'Tienes activado "Solo Wi-Fi". Conéctate a una red Wi-Fi para descargar.',
+        'imports.wifi_only_title'.tr,
+        'imports.wifi_only_body'.tr,
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.orange,
       );
       if (Get.isRegistered<NotificationService>()) {
         await Get.find<NotificationService>().showImportFailure(
-          'La importación está esperando una conexión Wi-Fi.',
+          tr('downloads.wifi_waiting'),
         );
       }
       return false;
@@ -64,7 +66,7 @@ class DownloadTaskService extends GetxService {
     if (normalizedUrl.isEmpty) {
       Get.snackbar(
         'Imports',
-        'Por favor ingresa una URL válida',
+        'imports.empty_url'.tr,
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
       );
@@ -74,7 +76,7 @@ class DownloadTaskService extends GetxService {
     if (isDownloading.value) {
       Get.snackbar(
         'Imports',
-        'Ya hay una importación en progreso',
+        'imports.downloading_in_progress'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -108,16 +110,16 @@ class DownloadTaskService extends GetxService {
               } else {
                 downloadProgress.value = -1;
               }
-              downloadStatus.value = 'Descargando...';
+              downloadStatus.value = tr('downloads.status_downloading');
             },
           )
           .timeout(const Duration(minutes: 5), onTimeout: () => false);
 
       if (ok) {
-        downloadStatus.value = 'Guardando en la librería...';
+        downloadStatus.value = tr('downloads.status_saving');
         Get.snackbar(
           'Imports',
-          'Importación completada ✅',
+          'imports.completed'.tr,
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.green,
         );
@@ -127,13 +129,13 @@ class DownloadTaskService extends GetxService {
       } else {
         Get.snackbar(
           'Imports',
-          'Falló la importación. La web puede ser lenta o no compatible.',
+          'imports.failed'.tr,
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.orange,
         );
         if (Get.isRegistered<NotificationService>()) {
           await Get.find<NotificationService>().showImportFailure(
-            'La web tardó demasiado o no es compatible.',
+            tr('downloads.web_slow'),
           );
         }
       }
@@ -144,15 +146,14 @@ class DownloadTaskService extends GetxService {
       if (e is dio.DioException) {
         switch (e.type) {
           case dio.DioExceptionType.receiveTimeout:
-            msg =
-                'El servidor tardó demasiado en responder. Intenta nuevamente.';
+            msg = 'imports.receive_timeout'.tr;
             break;
           case dio.DioExceptionType.connectionTimeout:
           case dio.DioExceptionType.sendTimeout:
-            msg = 'No se pudo conectar con el servidor.';
+            msg = 'imports.send_timeout'.tr;
             break;
           default:
-            msg = e.message ?? 'Error de red';
+            msg = e.message ?? 'imports.network_error'.tr;
         }
       } else {
         msg = e.toString();

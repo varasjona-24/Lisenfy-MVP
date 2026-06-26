@@ -278,11 +278,11 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
   }
 
   void _showBackgroundImageError({
-    String message = 'No se pudo usar la imagen seleccionada.',
+    String message = 'settings_messages.wallpaper.error_default',
   }) {
     Get.snackbar(
-      'Fondo de pantalla',
-      message,
+      'settings_messages.wallpaper.title'.tr,
+      message.tr,
       snackPosition: SnackPosition.BOTTOM,
     );
   }
@@ -491,17 +491,17 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
       storageTick.value++;
       await refreshCacheSummary();
       Get.snackbar(
-        'Caché',
+        'settings_messages.cache.title'.tr,
         bytesBefore > 0
-            ? 'Se liberaron ${_formatBytes(bytesBefore)} de caché regenerable.'
-            : 'No había caché temporal para limpiar.',
+            ? 'settings_messages.cache.cleared'.tr.replaceFirst('{}', _formatBytes(bytesBefore))
+            : 'settings_messages.cache.empty'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
       debugPrint('clearCache error: $e');
       Get.snackbar(
-        'Caché',
-        'No se pudo limpiar el caché',
+        'settings_messages.cache.title'.tr,
+        'settings_messages.cache.error'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -599,8 +599,8 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
       final cookieFile = File(path);
       if (!await cookieFile.exists()) {
         Get.snackbar(
-          'Cookies',
-          'Archivo no encontrado',
+          'settings_messages.cookies.title'.tr,
+          'settings_messages.cookies.file_not_found'.tr,
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -614,8 +614,8 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
       final token = ytdlpAdminToken.value.trim();
       if (token.isEmpty) {
         Get.snackbar(
-          'Cookies',
-          'Introduce un token admin antes de subir.',
+          'settings_messages.cookies.title'.tr,
+          'settings_messages.cookies.token_required'.tr,
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -628,15 +628,15 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
       );
 
       Get.snackbar(
-        'Cookies',
-        'Cookies actualizadas correctamente.',
+        'settings_messages.cookies.title'.tr,
+        'settings_messages.cookies.success'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
       debugPrint('uploadYtDlpCookies error: $e');
       Get.snackbar(
-        'Cookies',
-        'No se pudieron subir las cookies.',
+        'settings_messages.cookies.title'.tr,
+        'settings_messages.cookies.error'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
     }

@@ -228,18 +228,18 @@ class AudioPlayerController extends GetxController {
 
     final shouldResume = await Get.dialog<bool>(
       AlertDialog(
-        title: const Text('Continuar canción'),
+        title: Text('player.audio.continue_title'.tr),
         content: Text(
-          'Esta canción quedó en ${_fmtDuration(resume)}. ¿Quieres retomarla desde ahí o reproducirla desde el principio?',
+          'player.audio.continue_body'.tr.replaceFirst('{}', _fmtDuration(resume)),
         ),
         actions: [
           TextButton(
             onPressed: () => Get.back(result: false),
-            child: const Text('Desde el principio'),
+            child: Text('player.audio.start_btn'.tr),
           ),
           FilledButton(
             onPressed: () => Get.back(result: true),
-            child: Text('Retomar ${_fmtDuration(resume)}'),
+            child: Text('player.audio.continue_btn'.tr.replaceFirst('{}', _fmtDuration(resume))),
           ),
         ],
       ),

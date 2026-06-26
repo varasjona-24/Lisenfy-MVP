@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -685,7 +687,9 @@ class _SongSectionState extends State<_SongSection> {
               ),
             ),
             IconButton(
-              tooltip: _gridMode ? 'Vista de cuadrícula' : 'Vista de lista',
+              tooltip: _gridMode
+                  ? tr('home.section.grid_view')
+                  : tr('home.section.list_view'),
               onPressed: () {
                 setState(() {
                   _gridMode = !_gridMode;
@@ -697,7 +701,7 @@ class _SongSectionState extends State<_SongSection> {
               ),
             ),
             IconButton(
-              tooltip: 'Ordenar',
+              tooltip: tr('common.options'),
               onPressed: () => _openSortSheet(context),
               icon: const Icon(Icons.sort_rounded),
             ),
@@ -756,7 +760,7 @@ class _SongSectionState extends State<_SongSection> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ordenar canciones',
+                      tr('artists.detail.sort_songs'),
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -792,7 +796,7 @@ class _SongSectionState extends State<_SongSection> {
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        child: const Text('Aceptar'),
+                        child: Text(tr('common.accept')),
                       ),
                     ),
                   ],
@@ -809,10 +813,13 @@ class _SongSectionState extends State<_SongSection> {
     return switch (_sort) {
       HomeMediaSort.title || HomeMediaSort.artist => ascending ? 'A-Z' : 'Z-A',
       HomeMediaSort.importedAt || HomeMediaSort.recent =>
-        ascending ? 'Más antiguo primero' : 'Más reciente primero',
-      HomeMediaSort.plays ||
-      HomeMediaSort.size ||
-      HomeMediaSort.duration => ascending ? 'Menor a mayor' : 'Mayor a menor',
+        ascending
+            ? tr('home.section.oldest_first')
+            : tr('home.section.newest_first'),
+      HomeMediaSort.plays || HomeMediaSort.size || HomeMediaSort.duration =>
+        ascending
+            ? tr('home.section.low_to_high')
+            : tr('home.section.high_to_low'),
     };
   }
 }

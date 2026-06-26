@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class SourceFilterToolbar extends StatelessWidget {
   const SourceFilterToolbar({
@@ -46,7 +47,7 @@ class SourceFilterToolbar extends StatelessWidget {
                 suffixIcon: query.trim().isEmpty
                     ? null
                     : IconButton(
-                        tooltip: 'Limpiar',
+                        tooltip: tr('sources.clear'),
                         onPressed: onClearQuery,
                         icon: const Icon(Icons.close_rounded),
                       ),
@@ -66,7 +67,7 @@ class SourceFilterToolbar extends StatelessWidget {
         if (onSort != null) ...[
           const SizedBox(width: 8),
           IconButton(
-            tooltip: 'Ordenar',
+            tooltip: tr('sources.sort'),
             onPressed: onSort,
             icon: const Icon(Icons.sort_rounded),
           ),
@@ -75,8 +76,8 @@ class SourceFilterToolbar extends StatelessWidget {
           const SizedBox(width: 4),
           IconButton(
             tooltip: gridView!
-                ? (listTooltip ?? 'Ver como lista')
-                : (gridTooltip ?? 'Ver como grid'),
+                ? (listTooltip ?? tr('sources.view_list'))
+                : (gridTooltip ?? tr('sources.view_grid')),
             onPressed: onToggleGridView,
             icon: Icon(
               gridView! ? Icons.view_list_rounded : Icons.grid_view_rounded,

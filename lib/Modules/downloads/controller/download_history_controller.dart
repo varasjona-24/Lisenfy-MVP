@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart' show DateTimeRange;
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -407,21 +409,24 @@ class DownloadHistoryController
     final other = DateTime(date.year, date.month, date.day);
     final diff = today.difference(other).inDays;
 
-    if (diff == 0) return 'Hoy';
-    if (diff == 1) return 'Ayer';
+    if (diff == 0) return tr('downloads.today');
+    if (diff == 1) return tr('downloads.yesterday');
 
     final weekdays = [
       '',
-      'Lunes',
-      'Martes',
-      'Miércoles',
-      'Jueves',
-      'Viernes',
-      'Sábado',
-      'Domingo',
+      tr('wrapped.labels.weekdays.monday'),
+      tr('wrapped.labels.weekdays.tuesday'),
+      tr('wrapped.labels.weekdays.wednesday'),
+      tr('wrapped.labels.weekdays.thursday'),
+      tr('wrapped.labels.weekdays.friday'),
+      tr('wrapped.labels.weekdays.saturday'),
+      tr('wrapped.labels.weekdays.sunday'),
     ];
     final dayName = weekdays[date.weekday];
-    return '$dayName ${date.day}/${date.month}';
+    return tr(
+      'downloads.date_label',
+      args: [dayName, '${date.day}', '${date.month}'],
+    );
   }
 
   String _monthLabel(DateTime date, DateTime now) {

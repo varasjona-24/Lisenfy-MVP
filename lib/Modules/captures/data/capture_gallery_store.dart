@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get_storage/get_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -68,7 +70,7 @@ class CaptureGalleryStore {
   Future<String> renameCapture(String path, String nextName) async {
     final clean = sanitizeFileName(nextName);
     if (clean.isEmpty) {
-      throw ArgumentError('El nombre no puede estar vacío.');
+      throw ArgumentError(tr('captures.errors.empty_name'));
     }
     final file = File(path);
     if (!await file.exists()) {

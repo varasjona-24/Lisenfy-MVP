@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -317,7 +319,7 @@ class _StationsSheet extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Selecciona una región en el mapa',
+                              tr('world_mode.select_region'),
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: scheme.onSurfaceVariant,
                                 fontWeight: FontWeight.w500,
@@ -328,7 +330,7 @@ class _StationsSheet extends StatelessWidget {
                           IconButton(
                             icon: const Icon(Icons.search_rounded),
                             onPressed: onSearchTap,
-                            tooltip: 'Buscar región',
+                            tooltip: tr('world_mode.search_region'),
                             style: IconButton.styleFrom(
                               foregroundColor: scheme.primary,
                             ),
@@ -389,7 +391,7 @@ class _StationsSheet extends StatelessWidget {
                                     color: scheme.primary,
                                   ),
                           ),
-                          tooltip: 'Aleatorizar estaciones',
+                          tooltip: tr('world_mode.shuffle_stations'),
                         ),
                         IconButton(
                           onPressed: onSearchTap,
@@ -397,7 +399,7 @@ class _StationsSheet extends StatelessWidget {
                             Icons.search_rounded,
                             color: scheme.onSurfaceVariant,
                           ),
-                          tooltip: 'Buscar región',
+                          tooltip: tr('world_mode.search_region'),
                         ),
                       ],
                     ),
@@ -450,7 +452,7 @@ class _StationsSheet extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Sin estaciones para esta región todavía.',
+                            tr('world_mode.no_stations'),
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: scheme.onSurfaceVariant,
@@ -550,7 +552,7 @@ class _SearchRegionSheetState extends State<_SearchRegionSheet> {
                 onChanged: widget.ctrl.setSearchQuery,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: 'Buscar región…',
+                  hintText: tr('world_mode.search_region_hint'),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),

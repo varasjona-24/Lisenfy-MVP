@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 import '../../../../app/models/media_item.dart';
@@ -402,25 +404,25 @@ class ListeningStats {
       }
     }
     final mostCommonFormat = formatCounts.isEmpty
-        ? 'Ninguno'
+        ? tr('wrapped.labels.none')
         : (formatCounts.entries.toList()
                 ..sort((a, b) => b.value.compareTo(a.value)))
               .first
               .key
               .toUpperCase();
 
-    const weekdays = [
+    final weekdays = [
       '',
-      'Lunes',
-      'Martes',
-      'Miércoles',
-      'Jueves',
-      'Viernes',
-      'Sábado',
-      'Domingo',
+      tr('wrapped.labels.weekdays.monday'),
+      tr('wrapped.labels.weekdays.tuesday'),
+      tr('wrapped.labels.weekdays.wednesday'),
+      tr('wrapped.labels.weekdays.thursday'),
+      tr('wrapped.labels.weekdays.friday'),
+      tr('wrapped.labels.weekdays.saturday'),
+      tr('wrapped.labels.weekdays.sunday'),
     ];
     final mostActiveImportWeekday = weekdayCounts.isEmpty
-        ? 'Sin datos'
+        ? tr('wrapped.labels.no_data')
         : weekdays[(weekdayCounts.entries.toList()
                 ..sort((a, b) => b.value.compareTo(a.value)))
               .first
@@ -459,13 +461,13 @@ class ListeningStats {
     final maxPeriodEntry = hourCounts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final favoriteTimeOfDay = maxPeriodEntry.first.value == 0
-        ? 'Sin datos'
+        ? tr('wrapped.labels.no_data')
         : switch (maxPeriodEntry.first.key) {
-            0 => 'Madrugada (0am - 6am)',
-            1 => 'Mañana (6am - 12pm)',
-            2 => 'Tarde (12pm - 6pm)',
-            3 => 'Noche (6pm - 12am)',
-            _ => 'Sin datos',
+            0 => tr('wrapped.labels.time_of_day.dawn'),
+            1 => tr('wrapped.labels.time_of_day.morning'),
+            2 => tr('wrapped.labels.time_of_day.afternoon'),
+            3 => tr('wrapped.labels.time_of_day.night'),
+            _ => tr('wrapped.labels.no_data'),
           };
 
     final uniqueArtists = <String>{};
@@ -504,15 +506,18 @@ class ListeningStats {
       importedVideoItems: importStats.videoItems,
       totalImportSizeLabel: _formatBytes(importStats.totalBytes),
       latestImportLabel: importStats.latestImportAt <= 0
-          ? 'Aún no hay imports con fecha registrada.'
-          : 'Último import: ${_relativeDateLabel(importStats.latestImportAt)}',
+          ? tr('wrapped.labels.no_import_date')
+          : tr(
+              'wrapped.labels.latest_import',
+              args: [_relativeDateLabel(importStats.latestImportAt)],
+            ),
       topImportedArtistsLastMonth: importStats.topArtistsLastMonth,
       topImportedArtists: importStats.topArtistsAllTime,
       topImportMonthLabel: importStats.topMonth.count <= 0
-          ? 'Sin datos'
+          ? tr('wrapped.labels.no_data')
           : importStats.topMonth.label,
       topImportWeekLabel: importStats.topWeek.count <= 0
-          ? 'Sin datos'
+          ? tr('wrapped.labels.no_data')
           : importStats.topWeek.label,
       topImportPeriodDetail: _topImportPeriodDetail(importStats),
       videoPlays: videoPlays,
@@ -602,15 +607,24 @@ class ListeningStats {
 
   static String _topImportPeriodDetail(ImportStats stats) {
     if (stats.topMonth.count <= 0 && stats.topWeek.count <= 0) {
-      return 'Aún no hay suficientes imports con fecha registrada.';
+      return tr('wrapped.labels.not_enough_imports');
     }
     if (stats.topMonth.count <= 0) {
-      return 'Semana destacada: ${stats.topWeek.count} imports.';
+      return tr(
+        'wrapped.labels.featured_week',
+        args: ['${stats.topWeek.count}'],
+      );
     }
     if (stats.topWeek.count <= 0) {
-      return 'Mes destacado: ${stats.topMonth.count} imports.';
+      return tr(
+        'wrapped.labels.featured_month',
+        args: ['${stats.topMonth.count}'],
+      );
     }
-    return 'Mes destacado: ${stats.topMonth.count} imports. Semana destacada: ${stats.topWeek.count} imports.';
+    return tr(
+      'wrapped.labels.featured_month_week',
+      args: ['${stats.topMonth.count}', '${stats.topWeek.count}'],
+    );
   }
 
   static List<ArtistStats> _buildTopArtists(List<MediaItem> items) {
@@ -736,9 +750,9 @@ class ListeningStats {
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(date.year, date.month, date.day);
     final diff = today.difference(day).inDays;
-    if (diff == 0) return 'hoy';
-    if (diff == 1) return 'ayer';
-    if (diff < 30) return 'hace $diff días';
+    if (diff == 0) return tr('wrapped.labels.today');
+    if (diff == 1) return tr('wrapped.labels.yesterday');
+    if (diff < 30) return tr('wrapped.labels.days_ago', args: ['$diff']);
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 }

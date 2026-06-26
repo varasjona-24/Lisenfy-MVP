@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 // ============================
@@ -64,7 +66,7 @@ class _DownloadHistorySearchFieldState
       style: theme.textTheme.bodyLarge,
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
-        hintText: 'Buscar por título o artista…',
+        hintText: tr('downloads.search_hint'),
         hintStyle: theme.textTheme.bodyLarge?.copyWith(
           color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
         ),
@@ -77,13 +79,15 @@ class _DownloadHistorySearchFieldState
                   size: 20,
                 ),
                 onPressed: _clear,
-                tooltip: 'Limpiar búsqueda',
+                tooltip: tr('downloads.clear_search'),
               )
             : null,
         filled: true,
         fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(28),
           borderSide: BorderSide.none,

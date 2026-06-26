@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -35,7 +37,7 @@ class ArtistsPage extends GetView<ArtistsController> {
           title: ListenfyLogo(size: 28, color: scheme.primary),
           extraActions: [
             IconButton(
-              tooltip: 'Listenfly Atlas',
+              tooltip: tr('artists.atlas'),
               icon: const Icon(Icons.public_rounded),
               onPressed: () => Get.toNamed(AppRoutes.worldMode),
             ),
@@ -124,7 +126,7 @@ class ArtistsPage extends GetView<ArtistsController> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Artistas',
+          tr('artists.title'),
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w800,
           ),
@@ -137,8 +139,8 @@ class ArtistsPage extends GetView<ArtistsController> {
     return TextField(
       onChanged: controller.setQuery,
       decoration: InputDecoration(
-        labelText: 'Buscar artista',
-        hintText: 'Nombre, pais o region',
+        labelText: tr('artists.search_label'),
+        hintText: tr('artists.search_hint'),
         prefixIcon: const Icon(Icons.search_rounded),
         filled: true,
         fillColor: theme.colorScheme.surfaceContainer,
@@ -155,7 +157,7 @@ class ArtistsPage extends GetView<ArtistsController> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Reproducciones recientes',
+            tr('artists.recent'),
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w700,
             ),
@@ -184,7 +186,7 @@ class ArtistsPage extends GetView<ArtistsController> {
       return Row(
         children: [
           Text(
-            '$count artistas',
+            tr('artists.summary', args: ['$count']),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w600,
@@ -194,7 +196,7 @@ class ArtistsPage extends GetView<ArtistsController> {
           IconButton(
             icon: const Icon(Icons.sort_rounded),
             onPressed: () => _openSortSheet(context),
-            tooltip: 'Ordenar',
+            tooltip: tr('artists.sort'),
           ),
         ],
       );
@@ -210,7 +212,7 @@ class ArtistsPage extends GetView<ArtistsController> {
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: Text(
-                'No hay artistas disponibles.',
+                tr('artists.empty'),
                 style: Get.textTheme.bodyMedium?.copyWith(
                   color: Get.theme.colorScheme.onSurfaceVariant,
                 ),
@@ -327,7 +329,7 @@ class ArtistsPage extends GetView<ArtistsController> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Ordenar por',
+                        tr('artists.sort_by'),
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.5,
@@ -335,37 +337,37 @@ class ArtistsPage extends GetView<ArtistsController> {
                       ),
                       const SizedBox(height: 16),
                       _SortOption(
-                        label: 'Nombre del artista',
+                        label: tr('artists.sort_name'),
                         selected: sort == ArtistSort.name,
                         onTap: () => controller.setSort(ArtistSort.name),
                       ),
                       _SortOption(
-                        label: 'Número de canciones',
+                        label: tr('artists.sort_song_count'),
                         selected: sort == ArtistSort.count,
                         onTap: () => controller.setSort(ArtistSort.count),
                       ),
                       _SortOption(
-                        label: 'Reproducciones',
+                        label: tr('artists.sort_plays'),
                         selected: sort == ArtistSort.plays,
                         onTap: () => controller.setSort(ArtistSort.plays),
                       ),
                       _SortOption(
-                        label: 'Actividad reciente',
+                        label: tr('artists.sort_recent'),
                         selected: sort == ArtistSort.recent,
                         onTap: () => controller.setSort(ArtistSort.recent),
                       ),
                       _SortOption(
-                        label: 'País',
+                        label: tr('artists.sort_country'),
                         selected: sort == ArtistSort.country,
                         onTap: () => controller.setSort(ArtistSort.country),
                       ),
                       _SortOption(
-                        label: 'Región',
+                        label: tr('artists.sort_region'),
                         selected: sort == ArtistSort.region,
                         onTap: () => controller.setSort(ArtistSort.region),
                       ),
                       _SortOption(
-                        label: 'Aleatorio',
+                        label: tr('artists.sort_random'),
                         selected: sort == ArtistSort.random,
                         onTap: () => controller.setSort(ArtistSort.random),
                       ),
@@ -402,7 +404,7 @@ class ArtistsPage extends GetView<ArtistsController> {
                                 side: BorderSide(color: scheme.outlineVariant),
                               ),
                               child: Text(
-                                'Cancelar',
+                                tr('common.cancel'),
                                 style: theme.textTheme.labelLarge?.copyWith(
                                   fontWeight: FontWeight.w700,
                                   color: scheme.onSurfaceVariant,
@@ -423,7 +425,7 @@ class ArtistsPage extends GetView<ArtistsController> {
                                 ),
                               ),
                               child: Text(
-                                'Aceptar',
+                                tr('common.accept'),
                                 style: theme.textTheme.labelLarge?.copyWith(
                                   fontWeight: FontWeight.w700,
                                   color: scheme.onPrimary,
@@ -450,10 +452,12 @@ class ArtistsPage extends GetView<ArtistsController> {
       ArtistSort.country ||
       ArtistSort.region => ascending ? 'A-Z' : 'Z-A',
       ArtistSort.recent =>
-        ascending ? 'Menos reciente primero' : 'Más reciente primero',
-      ArtistSort.count ||
-      ArtistSort.plays => ascending ? 'Menor a mayor' : 'Mayor a menor',
-      ArtistSort.random => ascending ? 'Aleatorio' : 'Aleatorio',
+        ascending
+            ? tr('artists.least_recent_first')
+            : tr('artists.most_recent_first'),
+      ArtistSort.count || ArtistSort.plays =>
+        ascending ? tr('artists.low_to_high') : tr('artists.high_to_low'),
+      ArtistSort.random => tr('artists.sort_random'),
     };
   }
 }
@@ -492,7 +496,7 @@ class _ArtistSectionHeader extends StatelessWidget {
             minimized ? Icons.expand_more_rounded : Icons.expand_less_rounded,
             size: 18,
           ),
-          label: Text(minimized ? 'Mostrar' : 'Minimizar'),
+          label: Text(minimized ? tr('artists.show') : tr('artists.minimize')),
           style: TextButton.styleFrom(
             foregroundColor: scheme.primary,
             visualDensity: VisualDensity.compact,
@@ -540,7 +544,10 @@ class _ArtistCard extends StatelessWidget {
           children: [
             Text(typeCountryLine, maxLines: 1, overflow: TextOverflow.ellipsis),
             Text(
-              '${artist.count} canciones',
+              tr(
+                artist.count == 1 ? 'common.songs.one' : 'common.songs.other',
+                args: ['${artist.count}'],
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -619,7 +626,10 @@ class _ArtistCoverCard extends StatelessWidget {
               ),
             ),
             Text(
-              '${artist.count} canciones',
+              tr(
+                artist.count == 1 ? 'common.songs.one' : 'common.songs.other',
+                args: ['${artist.count}'],
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(

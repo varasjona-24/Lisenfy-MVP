@@ -4,6 +4,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:nearby_connections/nearby_connections.dart';
@@ -39,7 +41,7 @@ class NearbyTransferController extends GetxController {
 
   final RxBool isAdvertising = false.obs;
   final RxBool isDiscovering = false.obs;
-  final RxString statusText = 'Listo para transferir'.obs;
+  final RxString statusText = ''.obs;
   final RxList<NearbyTransferPeer> discoveredPeers = <NearbyTransferPeer>[].obs;
   final RxList<NearbyTransferPeer> connectedPeers = <NearbyTransferPeer>[].obs;
   final RxMap<int, double> transferProgress = <int, double>{}.obs;
@@ -73,6 +75,7 @@ class NearbyTransferController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    statusText.value = tr('nearby.ready');
     _nickName = 'Listenfy-${DateTime.now().millisecondsSinceEpoch % 10000}';
 
     final args = Get.arguments;
@@ -110,7 +113,7 @@ class NearbyTransferController extends GetxController {
 
   Future<void> startAdvertisingMode() async {
     if (!Platform.isAndroid) {
-      statusText.value = 'Solo disponible en Android.';
+      statusText.value = tr('nearby.android_only');
       return;
     }
 
@@ -131,11 +134,11 @@ class NearbyTransferController extends GetxController {
       );
       isAdvertising.value = ok;
       statusText.value = ok
-          ? 'Emisor activo. Esperando receptor...'
-          : 'No se pudo activar modo emisor.';
+          ? tr('nearby.sender_waiting')
+          : tr('nearby.sender_failed');
     } catch (e) {
       isAdvertising.value = false;
-      statusText.value = 'Error al iniciar emisor: $e';
+      statusText.value = tr('nearby.sender_start_error', args: ['$e']);
     }
   }
 
@@ -146,7 +149,7 @@ class NearbyTransferController extends GetxController {
 
   Future<void> startDiscoveryMode() async {
     if (!Platform.isAndroid) {
-      statusText.value = 'Solo disponible en Android.';
+      statusText.value = tr('nearby.android_only');
       return;
     }
 
@@ -183,11 +186,11 @@ class NearbyTransferController extends GetxController {
 
       isDiscovering.value = ok;
       statusText.value = ok
-          ? 'Buscando dispositivos Listenfy...'
-          : 'No se pudo iniciar búsqueda.';
+          ? tr('nearby.searching_devices')
+          : tr('nearby.search_failed');
     } catch (e) {
       isDiscovering.value = false;
-      statusText.value = 'Error al buscar: $e';
+      statusText.value = tr('nearby.search_error', args: ['$e']);
     }
   }
 
@@ -214,7 +217,7 @@ class NearbyTransferController extends GetxController {
     _autoSentBySessionEndpoint.clear();
     _autoSendingBySessionEndpoint.clear();
     _importedAckCountBySession.clear();
-    statusText.value = 'Transferencia detenida.';
+    statusText.value = tr('nearby.stopped');
   }
 
   String get nickName => _nickName;
@@ -222,20 +225,20 @@ class NearbyTransferController extends GetxController {
   Future<Uri?> prepareInviteUriForSelectedItem() async {
     final items = outgoingItems;
     if (items.isEmpty) {
-      statusText.value = 'Abre esta pantalla desde una canción para enviar.';
+      statusText.value = tr('nearby.open_from_song');
       return null;
     }
 
     final item = items.first;
     final variant = _pickShareVariant(item);
     if (variant == null) {
-      statusText.value = 'No hay archivo local para enviar.';
+      statusText.value = tr('nearby.no_file');
       return null;
     }
 
     final sourcePath = variant.localPath?.trim() ?? '';
     if (sourcePath.isEmpty || !await File(sourcePath).exists()) {
-      statusText.value = 'El archivo local no existe.';
+      statusText.value = tr('nearby.file_local_missing');
       return null;
     }
 
@@ -248,16 +251,18 @@ class NearbyTransferController extends GetxController {
 
     await startAdvertisingMode();
     statusText.value = items.length == 1
-        ? 'Escanea el QR desde el otro Listenfy para recibir.'
-        : 'Escanea el QR desde el otro Listenfy para recibir ${items.length} archivos.';
+        ? tr('nearby.scan_to_receive_single')
+        : tr('nearby.scan_to_receive_multiple', args: ['${items.length}']);
 
     return ListenfyDeepLink.buildNearbyInviteUri(
       sessionId: sessionId,
       senderName: _nickName,
       title: items.length == 1
           ? item.title
-          : '${items.length} archivos Listenfy',
-      subtitle: items.length == 1 ? item.subtitle : 'Transferencia interna',
+          : tr('nearby.files_listenfy', args: ['${items.length}']),
+      subtitle: items.length == 1
+          ? item.subtitle
+          : tr('nearby.internal_transfer'),
     );
   }
 
@@ -265,7 +270,7 @@ class NearbyTransferController extends GetxController {
     _expectedInviteSessionId = invite.sessionId;
 
     _autoConnectInProgress = false;
-    statusText.value = 'Buscando a ${invite.senderName}...';
+    statusText.value = tr('nearby.searching_sender', args: [invite.senderName]);
     await startDiscoveryMode();
   }
 
@@ -279,17 +284,17 @@ class NearbyTransferController extends GetxController {
         onDisconnected: _onDisconnected,
       );
       statusText.value = ok
-          ? 'Solicitud enviada a ${peer.name}.'
-          : 'No se pudo solicitar conexión a ${peer.name}.';
+          ? tr('nearby.request_sent', args: [peer.name])
+          : tr('nearby.request_failed', args: [peer.name]);
     } catch (e) {
-      statusText.value = 'Error al conectar con ${peer.name}: $e';
+      statusText.value = tr('nearby.connect_error', args: [peer.name, '$e']);
     }
   }
 
   Future<bool> sendSelectedItemToPeer(String endpointId) async {
     final items = outgoingItems;
     if (items.isEmpty) {
-      Get.snackbar('Transferir', 'No hay canción seleccionada.');
+      Get.snackbar(tr('nearby.transfer_action'), tr('nearby.no_song'));
       return false;
     }
 
@@ -300,8 +305,8 @@ class NearbyTransferController extends GetxController {
         if (sent) sentCount++;
       }
       statusText.value = sentCount == items.length
-          ? 'Enviando ${items.length} archivos...'
-          : 'Se enviaron $sentCount de ${items.length} archivos.';
+          ? tr('nearby.sending_files', args: ['${items.length}'])
+          : tr('nearby.sent_partial', args: ['$sentCount', '${items.length}']);
       return sentCount > 0;
     }
 
@@ -311,19 +316,19 @@ class NearbyTransferController extends GetxController {
   Future<bool> _sendItemToPeer(String endpointId, MediaItem item) async {
     final variant = _pickShareVariant(item);
     if (variant == null) {
-      Get.snackbar('Transferir', 'No hay archivo local para enviar.');
+      Get.snackbar(tr('nearby.transfer_action'), tr('nearby.no_file'));
       return false;
     }
 
     final sourcePath = variant.localPath?.trim() ?? '';
     if (sourcePath.isEmpty) {
-      Get.snackbar('Transferir', 'No hay ruta local del archivo.');
+      Get.snackbar(tr('nearby.transfer_action'), tr('nearby.no_path'));
       return false;
     }
 
     final sourceFile = File(sourcePath);
     if (!await sourceFile.exists()) {
-      Get.snackbar('Transferir', 'El archivo ya no existe.');
+      Get.snackbar(tr('nearby.transfer_action'), tr('nearby.file_missing'));
       return false;
     }
 
@@ -349,11 +354,11 @@ class NearbyTransferController extends GetxController {
       );
       await _nearby.sendBytesPayload(endpointId, descriptorBytes);
 
-      statusText.value = 'Enviando "${item.title}"...';
+      statusText.value = tr('nearby.sending_song', args: [item.title]);
       return true;
     } catch (e) {
-      statusText.value = 'Error al enviar: $e';
-      Get.snackbar('Transferir', 'No se pudo enviar la canción.');
+      statusText.value = tr('nearby.send_error_detail', args: ['$e']);
+      Get.snackbar(tr('nearby.transfer_action'), tr('nearby.send_error'));
       return false;
     }
   }
@@ -371,7 +376,7 @@ class NearbyTransferController extends GetxController {
     );
     if (!accepted) {
       await _nearby.rejectConnection(endpointId);
-      statusText.value = 'Conexión rechazada.';
+      statusText.value = tr('nearby.connection_rejected');
       return;
     }
 
@@ -382,8 +387,8 @@ class NearbyTransferController extends GetxController {
     );
 
     statusText.value = ok
-        ? 'Conectando con ${info.endpointName}...'
-        : 'No se pudo aceptar conexión.';
+        ? tr('nearby.connecting_peer', args: [info.endpointName])
+        : tr('nearby.accept_failed');
   }
 
   void _onConnectionResult(String endpointId, Status status) {
@@ -397,8 +402,10 @@ class NearbyTransferController extends GetxController {
           ),
         );
         discoveredPeers.removeWhere((e) => e.endpointId == endpointId);
-        statusText.value =
-            'Conectado con ${_endpointNames[endpointId] ?? endpointId}.';
+        statusText.value = tr(
+          'nearby.connected_peer',
+          args: [_endpointNames[endpointId] ?? endpointId],
+        );
         final expectedSession = _expectedInviteSessionId;
         if (expectedSession != null && expectedSession.isNotEmpty) {
           unawaited(stopDiscoveryMode());
@@ -412,12 +419,12 @@ class NearbyTransferController extends GetxController {
       case Status.REJECTED:
         _autoConnectInProgress = false;
         connectedPeers.removeWhere((e) => e.endpointId == endpointId);
-        statusText.value = 'Conexión rechazada.';
+        statusText.value = tr('nearby.connection_rejected');
         break;
       case Status.ERROR:
         _autoConnectInProgress = false;
         connectedPeers.removeWhere((e) => e.endpointId == endpointId);
-        statusText.value = 'Error en la conexión.';
+        statusText.value = tr('nearby.connection_error');
         break;
     }
   }
@@ -430,8 +437,10 @@ class NearbyTransferController extends GetxController {
     _autoSentBySessionEndpoint.removeWhere(
       (key) => key.endsWith('|$endpointId'),
     );
-    statusText.value =
-        'Desconectado: ${_endpointNames[endpointId] ?? endpointId}.';
+    statusText.value = tr(
+      'nearby.disconnected_peer',
+      args: [_endpointNames[endpointId] ?? endpointId],
+    );
   }
 
   Future<void> _onPayloadReceived(String endpointId, Payload payload) async {
@@ -444,7 +453,7 @@ class NearbyTransferController extends GetxController {
         debugPrint(
           '[NearbyTransfer] descriptor received endpoint=$endpointId payloadId=${descriptor.payloadId} file=${descriptor.fileName}',
         );
-        statusText.value = 'Metadata recibida. Esperando archivo...';
+        statusText.value = tr('nearby.metadata_received');
         if (_completedPayloadIds.contains(descriptor.payloadId)) {
           await _scheduleImportRetry(descriptor.payloadId, endpointId);
         } else {
@@ -521,7 +530,7 @@ class NearbyTransferController extends GetxController {
         if (_isIncomingPayload(update.id)) {
           await _scheduleImportRetry(update.id, endpointId);
         } else {
-          statusText.value = 'Archivo enviado. Esperando confirmación...';
+          statusText.value = tr('nearby.file_sent_waiting');
         }
         if (isFilePayload) {
           Future<void>.delayed(const Duration(seconds: 3), () {
@@ -536,8 +545,10 @@ class NearbyTransferController extends GetxController {
         }
         _filePayloadById.remove(update.id);
         _descriptorByPayloadId.remove(update.id);
-        statusText.value =
-            'Transferencia fallida/cancelada (payload ${update.id}).';
+        statusText.value = tr(
+          'nearby.transfer_failed_payload',
+          args: ['${update.id}'],
+        );
         return;
       case PayloadStatus.NONE:
         return;
@@ -570,8 +581,10 @@ class NearbyTransferController extends GetxController {
           '[NearbyTransfer] import timeout payloadId=$payloadId hasDescriptor=$hasDescriptor hasFilePayload=$hasFilePayload',
         );
         if (hasDescriptor && !hasFilePayload) {
-          statusText.value =
-              'Metadata llegó, pero no llegó el archivo (payload $payloadId).';
+          statusText.value = tr(
+            'nearby.metadata_without_file',
+            args: ['$payloadId'],
+          );
           final expected = _expectedInviteSessionId;
           if (expected != null && expected.isNotEmpty) {
             await _sendInviteHandshake(
@@ -582,11 +595,15 @@ class NearbyTransferController extends GetxController {
             );
           }
         } else if (!hasDescriptor && hasFilePayload) {
-          statusText.value =
-              'Archivo llegó, pero falta metadata para importar (payload $payloadId).';
+          statusText.value = tr(
+            'nearby.file_without_metadata',
+            args: ['$payloadId'],
+          );
         } else {
-          statusText.value =
-              'No se pudo finalizar importación del payload $payloadId.';
+          statusText.value = tr(
+            'nearby.import_finish_failed',
+            args: ['$payloadId'],
+          );
         }
       }
     } finally {
@@ -615,10 +632,10 @@ class NearbyTransferController extends GetxController {
       final expected = _expectedInviteSessionId;
       if (expected != null && expected == sessionId) {
         if (event == _inviteEventImported) {
-          statusText.value = 'Receptor confirmó importación completa.';
+          statusText.value = tr('nearby.receiver_confirmed');
           return true;
         }
-        statusText.value = 'Sesión validada. Recibiendo archivo...';
+        statusText.value = tr('nearby.session_validated_receiving');
         return true;
       }
 
@@ -630,35 +647,42 @@ class NearbyTransferController extends GetxController {
           _importedAckCountBySession[sessionId] = currentCount;
           if (expectedCount <= 1 || currentCount >= expectedCount) {
             statusText.value = expectedCount <= 1
-                ? 'Transferencia completada en receptor.'
-                : 'Transferencia completada: $expectedCount archivos importados.';
+                ? tr('nearby.receiver_completed_single')
+                : tr(
+                    'nearby.receiver_completed_multiple',
+                    args: ['$expectedCount'],
+                  );
             _outgoingInviteSessionId = null;
             unawaited(stopAdvertisingMode());
           } else {
-            statusText.value =
-                'Receptor importó $currentCount de $expectedCount archivos.';
+            statusText.value = tr(
+              'nearby.receiver_imported_progress',
+              args: ['$currentCount', '$expectedCount'],
+            );
           }
           return true;
         }
 
         final dedupeKey = '$sessionId|$endpointId';
         if (_autoSentBySessionEndpoint.contains(dedupeKey)) {
-          statusText.value = 'Receptor ya validado. Esperando confirmación...';
+          statusText.value = tr('nearby.receiver_validated_waiting');
           return true;
         }
         if (_autoSendingBySessionEndpoint.contains(dedupeKey)) return true;
 
         _autoSendingBySessionEndpoint.add(dedupeKey);
         statusText.value = outgoingItems.length == 1
-            ? 'Receptor validado. Enviando canción...'
-            : 'Receptor validado. Enviando ${outgoingItems.length} archivos...';
+            ? tr('nearby.receiver_validated_sending_single')
+            : tr(
+                'nearby.receiver_validated_sending_multiple',
+                args: ['${outgoingItems.length}'],
+              );
         final sent = await sendSelectedItemToPeer(endpointId);
         _autoSendingBySessionEndpoint.remove(dedupeKey);
         if (sent) {
           _autoSentBySessionEndpoint.add(dedupeKey);
         } else {
-          statusText.value =
-              'Falló envío automático. Reintentando al reconectar.';
+          statusText.value = tr('nearby.auto_send_retry');
         }
         return true;
       }
@@ -724,7 +748,7 @@ class NearbyTransferController extends GetxController {
 
     final copied = await _copyNearbyPayloadTo(destination, payload);
     if (!copied) {
-      statusText.value = 'No se pudo guardar el archivo recibido.';
+      statusText.value = tr('nearby.save_received_failed');
       return false;
     }
 
@@ -733,7 +757,7 @@ class NearbyTransferController extends GetxController {
       destinationPath: destination,
     );
     if (importedItem == null) {
-      statusText.value = 'No se pudo importar archivo recibido.';
+      statusText.value = tr('nearby.import_received_failed');
       return false;
     }
 
@@ -744,8 +768,10 @@ class NearbyTransferController extends GetxController {
 
     _importedPayloadIds.add(payloadId);
     transferProgress[payloadId] = 1;
-    statusText.value =
-        'Canción recibida de ${_endpointNames[endpointId] ?? endpointId}.';
+    statusText.value = tr(
+      'nearby.song_received_from',
+      args: [_endpointNames[endpointId] ?? endpointId],
+    );
 
     final expectedSession = _expectedInviteSessionId;
     if (expectedSession != null && expectedSession.isNotEmpty) {
@@ -757,8 +783,8 @@ class NearbyTransferController extends GetxController {
     }
 
     Get.snackbar(
-      'Transferencia completa',
-      'Se importó "${importedItem.title}".',
+      tr('nearby.complete'),
+      tr('nearby.imported', args: [importedItem.title]),
       snackPosition: SnackPosition.BOTTOM,
     );
     return true;
@@ -937,20 +963,20 @@ class NearbyTransferController extends GetxController {
   }) async {
     final result = await Get.dialog<bool>(
       AlertDialog(
-        title: Text(incoming ? 'Conexión entrante' : 'Confirmar conexión'),
-        content: Text(
-          'Dispositivo: $endpointName\n\n'
-          'Código de validación:\n$token\n\n'
-          'Acepta solo si el mismo código aparece en ambos dispositivos.',
+        title: Text(
+          incoming
+              ? tr('nearby.incoming_connection')
+              : tr('nearby.confirm_connection'),
         ),
+        content: Text(tr('nearby.security_body', args: [endpointName, token])),
         actions: [
           TextButton(
             onPressed: () => Get.back(result: false),
-            child: const Text('Rechazar'),
+            child: Text(tr('nearby.reject')),
           ),
           FilledButton(
             onPressed: () => Get.back(result: true),
-            child: const Text('Aceptar'),
+            child: Text(tr('nearby.accept')),
           ),
         ],
       ),
@@ -1034,10 +1060,10 @@ class NearbyTransferController extends GetxController {
         (s) => s.isGranted || s.isLimited,
       );
       if (!allGranted) {
-        statusText.value = 'Permisos incompletos para transferencia offline.';
+        statusText.value = tr('nearby.permissions_incomplete');
         Get.snackbar(
-          'Permisos requeridos',
-          'Activa Bluetooth, ubicación y Nearby Wi-Fi para usar transferencia offline.',
+          tr('nearby.permissions_title'),
+          tr('nearby.permissions_body'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return false;
@@ -1045,10 +1071,10 @@ class NearbyTransferController extends GetxController {
 
       final locationEnabled = await Permission.location.serviceStatus.isEnabled;
       if (!locationEnabled) {
-        statusText.value = 'Activa ubicación (GPS) para conexiones Nearby.';
+        statusText.value = tr('nearby.enable_location_status');
         Get.snackbar(
-          'Ubicación desactivada',
-          'Para Nearby debes activar ubicación del sistema.',
+          tr('nearby.location_title'),
+          tr('nearby.location_body'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return false;
@@ -1056,7 +1082,7 @@ class NearbyTransferController extends GetxController {
 
       return true;
     } catch (e) {
-      statusText.value = 'Error validando permisos: $e';
+      statusText.value = tr('nearby.permissions_error', args: ['$e']);
       return false;
     }
   }
