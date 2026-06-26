@@ -1235,13 +1235,13 @@ String buildLocalConnectWebPage() {
         }
       }
 
-      return "solista, DJ o Músico";
+      return "soloist, DJ, or musician";
     }
 
     function formatArtistKind(kind) {
       const value = String(kind || "").trim().toLowerCase();
       if (value === "band") return "Dueto, banda o grupo musical";
-      if (value === "singer") return "Solista, DJ o Músico";
+      if (value === "singer") return "Soloist, DJ, or musician";
       return "";
     }
 

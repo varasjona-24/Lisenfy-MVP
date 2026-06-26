@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -161,14 +163,16 @@ class _DesktopImageCropperDialogState extends State<DesktopImageCropperDialog> {
               Row(
                 children: [
                   Text(
-                    widget.title,
+                    widget.title == 'Recortar imagen'
+                        ? tr('edit.crop_image')
+                        : widget.title,
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const Spacer(),
                   IconButton(
-                    tooltip: 'Cerrar',
+                    tooltip: tr('common.close'),
                     onPressed: _saving
                         ? null
                         : () => Navigator.of(context).pop<String>(),
@@ -181,9 +185,7 @@ class _DesktopImageCropperDialogState extends State<DesktopImageCropperDialog> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     if (_error != null) {
-                      return const Center(
-                        child: Text('No se pudo cargar la imagen.'),
-                      );
+                      return Center(child: Text(tr('edit.image_load_error')));
                     }
                     if (image == null) {
                       return const Center(child: CircularProgressIndicator());
@@ -236,7 +238,7 @@ class _DesktopImageCropperDialogState extends State<DesktopImageCropperDialog> {
               Row(
                 children: [
                   IconButton.filledTonal(
-                    tooltip: 'Alejar',
+                    tooltip: tr('edit.zoom_out'),
                     onPressed: _saving
                         ? null
                         : () {
@@ -263,7 +265,7 @@ class _DesktopImageCropperDialogState extends State<DesktopImageCropperDialog> {
                     ),
                   ),
                   IconButton.filledTonal(
-                    tooltip: 'Acercar',
+                    tooltip: tr('edit.zoom_in'),
                     onPressed: _saving
                         ? null
                         : () {
@@ -279,7 +281,7 @@ class _DesktopImageCropperDialogState extends State<DesktopImageCropperDialog> {
                     onPressed: _saving
                         ? null
                         : () => Navigator.of(context).pop<String>(),
-                    child: const Text('Cancelar'),
+                    child: Text(tr('common.cancel')),
                   ),
                   const SizedBox(width: 8),
                   FilledButton.icon(
@@ -291,7 +293,7 @@ class _DesktopImageCropperDialogState extends State<DesktopImageCropperDialog> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.check_rounded),
-                    label: const Text('Guardar'),
+                    label: Text(tr('common.save')),
                   ),
                 ],
               ),

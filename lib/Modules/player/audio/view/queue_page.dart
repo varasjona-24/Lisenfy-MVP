@@ -77,7 +77,7 @@ class QueuePage extends GetView<AudioPlayerController> {
                           children: [
                             if (durText.isNotEmpty)
                               Text(durText, style: theme.textTheme.bodySmall),
-                            if (selected) const Text('Reproduciendo'),
+                            if (selected) Text(tr('player.now_playing')),
                           ],
                         ),
                         const SizedBox(width: 4),
@@ -115,12 +115,15 @@ class QueuePage extends GetView<AudioPlayerController> {
         children: [
           Expanded(
             child: Text(
-              '$count pistas • Total: ${_fmtDurationTotal(totalSeconds)}',
+              tr(
+                'player.queue_audio_summary',
+                args: ['$count', _fmtDurationTotal(totalSeconds)],
+              ),
               style: theme.textTheme.bodyMedium,
             ),
           ),
           Text(
-            'Arrastra para mover',
+            tr('player.queue_drag_hint'),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

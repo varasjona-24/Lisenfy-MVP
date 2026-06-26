@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 import '../domain/capture_item.dart';
@@ -37,12 +39,12 @@ class CapturePreviewPage extends StatelessWidget {
           IconButton(
             onPressed: () => onRename(),
             icon: const Icon(Icons.drive_file_rename_outline_rounded),
-            tooltip: 'Renombrar',
+            tooltip: tr('playlists.rename'),
           ),
           IconButton(
             onPressed: () => onDelete(),
             icon: const Icon(Icons.delete_outline_rounded),
-            tooltip: 'Eliminar',
+            tooltip: tr('common.delete'),
           ),
         ],
       ),

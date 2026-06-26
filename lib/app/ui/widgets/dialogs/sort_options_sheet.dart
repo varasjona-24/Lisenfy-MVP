@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 class SortSheetOption {
@@ -60,7 +62,7 @@ Future<void> showSortOptionsSheet({
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () => Navigator.of(ctx).pop(),
-                      child: const Text('Cerrar'),
+                      child: Text(tr('common.close')),
                     ),
                   ),
                 ],

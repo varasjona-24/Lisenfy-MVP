@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 import '../domain/capture_item.dart';
@@ -68,8 +70,11 @@ class CaptureActionSheet extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             capture.sourceTitle?.isNotEmpty == true
-                                ? 'Fuente: ${capture.sourceTitle}'
-                                : 'Captura de video',
+                                ? tr(
+                                    'captures.cover.source_value',
+                                    args: [capture.sourceTitle!],
+                                  )
+                                : tr('captures.cover.video_capture'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodyMedium?.copyWith(
@@ -87,22 +92,22 @@ class CaptureActionSheet extends StatelessWidget {
               const SizedBox(height: 12),
               _BottomSheetOption(
                 icon: Icons.edit_rounded,
-                label: 'Editar',
+                label: tr('captures.actions.edit'),
                 onTap: onEdit,
               ),
               _BottomSheetOption(
                 icon: Icons.ios_share_rounded,
-                label: 'Compartir externo',
+                label: tr('captures.actions.share_external'),
                 onTap: onShare,
               ),
               _BottomSheetOption(
                 icon: Icons.image_rounded,
-                label: 'Usar como portada',
+                label: tr('captures.actions.use_as_cover'),
                 onTap: onUseAsCover,
               ),
               _BottomSheetOption(
                 icon: Icons.delete_outline_rounded,
-                label: 'Eliminar',
+                label: tr('captures.actions.delete'),
                 destructive: true,
                 onTap: onDelete,
               ),

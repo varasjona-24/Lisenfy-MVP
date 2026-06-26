@@ -27,7 +27,7 @@ class HistoryPage extends GetView<HistoryController> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Historial'),
+        title: Text(tr('history.title')),
         backgroundColor: scheme.surface,
         surfaceTintColor: scheme.surface,
         foregroundColor: scheme.onSurface,
@@ -116,7 +116,7 @@ class HistoryPage extends GetView<HistoryController> {
                       Get.toNamed(
                         AppRoutes.homeSectionList,
                         arguments: {
-                          'title': 'Historial',
+                          'title': tr('history.title'),
                           'items': list,
                           'onItemTap': (MediaItem tapped, int index) =>
                               home.openMedia(

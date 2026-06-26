@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
@@ -382,7 +384,7 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
           sourcePath: sourcePath,
           ratioX: 9,
           ratioY: 16,
-          title: 'Ajustar fondo de pantalla',
+          title: tr('settings.appearance.adjust_wallpaper'),
         ),
         barrierDismissible: false,
       );
@@ -396,10 +398,13 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
         compressQuality: 92,
         uiSettings: [
           AndroidUiSettings(
-            toolbarTitle: 'Ajustar fondo',
+            toolbarTitle: tr('settings.appearance.adjust_background'),
             lockAspectRatio: true,
           ),
-          IOSUiSettings(title: 'Ajustar fondo', aspectRatioLockEnabled: true),
+          IOSUiSettings(
+            title: tr('settings.appearance.adjust_background'),
+            aspectRatioLockEnabled: true,
+          ),
         ],
       );
       return cropped?.path;
@@ -493,7 +498,10 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
       Get.snackbar(
         'settings_messages.cache.title'.tr,
         bytesBefore > 0
-            ? 'settings_messages.cache.cleared'.tr.replaceFirst('{}', _formatBytes(bytesBefore))
+            ? 'settings_messages.cache.cleared'.tr.replaceFirst(
+                '{}',
+                _formatBytes(bytesBefore),
+              )
             : 'settings_messages.cache.empty'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );

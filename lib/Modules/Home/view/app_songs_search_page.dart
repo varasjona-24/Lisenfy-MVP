@@ -288,32 +288,32 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
                       ),
                       const SizedBox(height: 16),
                       _SongSortOption(
-                        label: 'Tiempo importado',
+                        label: tr('home.search.imported_time'),
                         selected: _sort == _SongLibrarySort.importedAt,
                         onTap: () => selectSort(_SongLibrarySort.importedAt),
                       ),
                       _SongSortOption(
-                        label: 'Nombre de cancion',
+                        label: tr('home.search.sort_title'),
                         selected: _sort == _SongLibrarySort.title,
                         onTap: () => selectSort(_SongLibrarySort.title),
                       ),
                       _SongSortOption(
-                        label: 'Nombre del artista',
+                        label: tr('home.search.sort_artist'),
                         selected: _sort == _SongLibrarySort.artist,
                         onTap: () => selectSort(_SongLibrarySort.artist),
                       ),
                       _SongSortOption(
-                        label: 'Tamano',
+                        label: tr('home.search.sort_size'),
                         selected: _sort == _SongLibrarySort.size,
                         onTap: () => selectSort(_SongLibrarySort.size),
                       ),
                       _SongSortOption(
-                        label: 'Reproducciones',
+                        label: tr('home.search.sort_plays'),
                         selected: _sort == _SongLibrarySort.plays,
                         onTap: () => selectSort(_SongLibrarySort.plays),
                       ),
                       _SongSortOption(
-                        label: 'Duracion',
+                        label: tr('home.search.sort_duration'),
                         selected: _sort == _SongLibrarySort.duration,
                         onTap: () => selectSort(_SongLibrarySort.duration),
                       ),
@@ -325,12 +325,12 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
                         ),
                       ),
                       _SongSortOption(
-                        label: 'Mayor a menor / recientes primero',
+                        label: tr('home.search.desc_recent'),
                         selected: !_sortAscending,
                         onTap: () => selectDirection(false),
                       ),
                       _SongSortOption(
-                        label: 'Menor a mayor / antiguos primero',
+                        label: tr('home.search.asc_oldest'),
                         selected: _sortAscending,
                         onTap: () => selectDirection(true),
                       ),
@@ -339,7 +339,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
                         width: double.infinity,
                         child: OutlinedButton(
                           onPressed: () => Navigator.of(ctx).pop(),
-                          child: const Text('Cerrar'),
+                          child: Text(tr('common.close')),
                         ),
                       ),
                     ],

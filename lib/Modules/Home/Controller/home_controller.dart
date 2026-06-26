@@ -276,7 +276,7 @@ class HomeController extends GetxController {
               id: artistSectionId,
               kind: HomeCustomSectionKind.artist,
               targetId: '',
-              title: 'Artistas',
+              title: tr('home.custom.artists'),
               layout: artistLayout,
             ),
           );
@@ -325,7 +325,7 @@ class HomeController extends GetxController {
               id: artistSectionId,
               kind: HomeCustomSectionKind.artist,
               targetId: artistKeys.join('|'),
-              title: 'Artistas',
+              title: tr('home.custom.artists'),
               layout: section.layout,
             );
           }
@@ -376,7 +376,7 @@ class HomeController extends GetxController {
         id: collectionSectionId,
         kind: HomeCustomSectionKind.collection,
         targetId: collectionIds.join('|'),
-        title: 'Collections',
+        title: tr('home.custom.collections'),
         layout: collectionLayout,
       ),
     ];
@@ -711,7 +711,7 @@ class HomeController extends GetxController {
         id: current.id,
         kind: HomeCustomSectionKind.artist,
         targetId: keys.join('|'),
-        title: 'Artistas',
+        title: tr('home.custom.artists'),
         layout: current.layout,
       );
       _persistHomeLayout();
@@ -723,7 +723,7 @@ class HomeController extends GetxController {
         id: sectionId,
         kind: HomeCustomSectionKind.artist,
         targetId: cleanKey,
-        title: 'Artistas',
+        title: tr('home.custom.artists'),
       ),
     );
     _persistHomeLayout();

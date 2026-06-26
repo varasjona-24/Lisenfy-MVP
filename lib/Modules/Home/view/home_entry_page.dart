@@ -155,9 +155,9 @@ class HomeEntryPage extends GetView<HomeController> {
                               borderRadius: BorderRadius.circular(18),
                             ),
                           ),
-                          child: const Text(
-                            'Entrar',
-                            style: TextStyle(
+                          child: Text(
+                            tr('home.entry.enter'),
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                             ),
@@ -169,7 +169,7 @@ class HomeEntryPage extends GetView<HomeController> {
                     const SizedBox(height: 14),
 
                     Text(
-                      'Tu biblioteca, a tu ritmo.',
+                      tr('home.entry.footer'),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurface.withOpacity(
                           isDark ? 0.55 : 0.55,

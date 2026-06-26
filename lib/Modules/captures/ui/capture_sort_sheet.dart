@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 import '../domain/capture_gallery_sort.dart';
@@ -27,7 +29,7 @@ class CaptureSortSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Ordenar capturas',
+              tr('captures.cover.sort_title'),
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w900,
               ),
@@ -35,7 +37,7 @@ class CaptureSortSheet extends StatelessWidget {
             const SizedBox(height: 14),
             _SortOption(
               icon: Icons.access_time_rounded,
-              label: 'Antigüedad',
+              label: tr('captures.tags.age'),
               sublabel: directionLabel(CaptureSort.date),
               selected: currentSort == CaptureSort.date,
               ascending: currentSort == CaptureSort.date ? ascending : null,
@@ -44,7 +46,7 @@ class CaptureSortSheet extends StatelessWidget {
             const SizedBox(height: 6),
             _SortOption(
               icon: Icons.data_usage_rounded,
-              label: 'Peso',
+              label: tr('edit.weight'),
               sublabel: directionLabel(CaptureSort.size),
               selected: currentSort == CaptureSort.size,
               ascending: currentSort == CaptureSort.size ? ascending : null,
@@ -53,7 +55,7 @@ class CaptureSortSheet extends StatelessWidget {
             const SizedBox(height: 6),
             _SortOption(
               icon: Icons.sort_by_alpha_rounded,
-              label: 'Nombre',
+              label: tr('captures.tags.name'),
               sublabel: directionLabel(CaptureSort.name),
               selected: currentSort == CaptureSort.name,
               ascending: currentSort == CaptureSort.name ? ascending : null,
@@ -64,7 +66,7 @@ class CaptureSortSheet extends StatelessWidget {
               width: double.infinity,
               child: FilledButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Aceptar'),
+                child: Text(tr('common.accept')),
               ),
             ),
           ],

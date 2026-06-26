@@ -349,7 +349,7 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
             ),
             const SizedBox(width: 6),
             Text(
-              '$completed/$total completados',
+              tr('sources.completed_count', args: ['$completed', '$total']),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: onTint.withValues(alpha: 0.7),
                 fontSize: 8.5,

@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -25,7 +27,7 @@ class PlaybackControls extends StatelessWidget {
               color: c.isShuffling.value ? theme.colorScheme.primary : null,
             ),
             onPressed: isLoading ? null : c.toggleShuffle,
-            tooltip: 'Shuffle',
+            tooltip: tr('player.shuffle'),
           ),
 
           IconButton(
@@ -85,7 +87,7 @@ class PlaybackControls extends StatelessWidget {
               ),
             ),
             onPressed: isLoading ? null : c.cyclePlaybackSpeed,
-            tooltip: 'Speed',
+            tooltip: tr('player.speed'),
           ),
         ],
       );

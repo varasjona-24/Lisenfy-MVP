@@ -171,7 +171,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                                   ),
                                 ),
                                 IconButton(
-                                  tooltip: 'Ver cola',
+                                  tooltip: tr('player.view_queue'),
                                   icon: const Icon(Icons.playlist_play),
                                   onPressed: () =>
                                       Get.toNamed(AppRoutes.audioQueue),
@@ -471,7 +471,7 @@ class _LandscapePlayerView extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Ver cola',
+                      tooltip: tr('player.view_queue'),
                       icon: const Icon(Icons.playlist_play),
                       color: Colors.white,
                       onPressed: () => Get.toNamed(AppRoutes.audioQueue),
@@ -557,7 +557,7 @@ class _LandscapePlayerView extends StatelessWidget {
                     Expanded(
                       child: _LandscapeActionButton(
                         icon: Icons.lyrics_rounded,
-                        label: 'letras',
+                        label: tr('player.quick.lyrics').toLowerCase(),
                         onTap: () =>
                             openPlayerLyricsSheet(item, heightFactor: 0.72),
                       ),

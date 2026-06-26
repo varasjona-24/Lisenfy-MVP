@@ -1,3 +1,6 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
+
 import '../../../app/utils/artist_credit_parser.dart';
 
 enum ArtistProfileKind { singer, band }
@@ -9,13 +12,13 @@ extension ArtistProfileKindX on ArtistProfileKind {
   };
 
   String get label => switch (this) {
-    ArtistProfileKind.singer => 'Musico',
-    ArtistProfileKind.band => 'Grupo musical',
+    ArtistProfileKind.singer => tr('artists.profile.kind.singer'),
+    ArtistProfileKind.band => tr('artists.profile.kind.band'),
   };
 
   String get sectionLabel => switch (this) {
-    ArtistProfileKind.singer => 'Solistas, DJ o Músicos',
-    ArtistProfileKind.band => 'Duetos, bandas o grupos musicales',
+    ArtistProfileKind.singer => tr('artists.profile.sections.singer'),
+    ArtistProfileKind.band => tr('artists.profile.sections.band'),
   };
 
   static ArtistProfileKind fromRaw(dynamic raw) {
@@ -51,27 +54,31 @@ extension ArtistMainRegionX on ArtistMainRegion {
   };
 
   String get label => switch (this) {
-    ArtistMainRegion.none => 'Sin region',
-    ArtistMainRegion.latino => 'Mix latino',
-    ArtistMainRegion.asiatico => 'Mix asiatico',
-    ArtistMainRegion.anglo => 'Mix anglo',
-    ArtistMainRegion.europeo => 'Mix euro',
-    ArtistMainRegion.africano => 'Mix africano',
-    ArtistMainRegion.medioOriente => 'Mix medio oriente',
-    ArtistMainRegion.oceania => 'Mix oceania',
-    ArtistMainRegion.global => 'Mix global',
+    ArtistMainRegion.none => tr('artists.profile.region.label.none'),
+    ArtistMainRegion.latino => tr('artists.profile.region.label.latino'),
+    ArtistMainRegion.asiatico => tr('artists.profile.region.label.asiatico'),
+    ArtistMainRegion.anglo => tr('artists.profile.region.label.anglo'),
+    ArtistMainRegion.europeo => tr('artists.profile.region.label.europeo'),
+    ArtistMainRegion.africano => tr('artists.profile.region.label.africano'),
+    ArtistMainRegion.medioOriente => tr(
+      'artists.profile.region.label.medio_oriente',
+    ),
+    ArtistMainRegion.oceania => tr('artists.profile.region.label.oceania'),
+    ArtistMainRegion.global => tr('artists.profile.region.label.global'),
   };
 
   String get simpleLabel => switch (this) {
-    ArtistMainRegion.none => 'Sin region',
-    ArtistMainRegion.latino => 'Latino',
-    ArtistMainRegion.asiatico => 'Asiatico',
-    ArtistMainRegion.anglo => 'Anglo',
-    ArtistMainRegion.europeo => 'Europeo',
-    ArtistMainRegion.africano => 'Africano',
-    ArtistMainRegion.medioOriente => 'Medio oriente',
-    ArtistMainRegion.oceania => 'Oceania',
-    ArtistMainRegion.global => 'Global',
+    ArtistMainRegion.none => tr('artists.profile.region.simple.none'),
+    ArtistMainRegion.latino => tr('artists.profile.region.simple.latino'),
+    ArtistMainRegion.asiatico => tr('artists.profile.region.simple.asiatico'),
+    ArtistMainRegion.anglo => tr('artists.profile.region.simple.anglo'),
+    ArtistMainRegion.europeo => tr('artists.profile.region.simple.europeo'),
+    ArtistMainRegion.africano => tr('artists.profile.region.simple.africano'),
+    ArtistMainRegion.medioOriente => tr(
+      'artists.profile.region.simple.medio_oriente',
+    ),
+    ArtistMainRegion.oceania => tr('artists.profile.region.simple.oceania'),
+    ArtistMainRegion.global => tr('artists.profile.region.simple.global'),
   };
 
   static ArtistMainRegion fromRaw(dynamic raw) {

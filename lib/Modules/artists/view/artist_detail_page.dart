@@ -216,8 +216,13 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                   const SizedBox(height: 20),
                 ],
                 _SongSection(
-                  title: isBand ? 'Canciones del grupo musical' : 'Canciones',
-                  subtitle: '${primarySongs.length} como artista principal',
+                  title: isBand
+                      ? tr('artists.group_songs')
+                      : tr('artists.songs'),
+                  subtitle: tr(
+                    'artists.primary_count',
+                    args: ['${primarySongs.length}'],
+                  ),
                   items: primarySongs,
                   onPlay: (item) => home.openMedia(
                     item,
@@ -233,8 +238,8 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                         AppRoutes.homeSectionList,
                         arguments: {
                           'title': isBand
-                              ? 'Canciones del grupo musical'
-                              : 'Canciones',
+                              ? tr('artists.group_songs')
+                              : tr('artists.songs'),
                           'items': primarySongs,
                           'onItemTap': (MediaItem tapped, int index) =>
                               home.openMedia(
@@ -273,9 +278,12 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                   const SizedBox(height: 20),
                   _SongSection(
                     title: isBand
-                        ? 'Colaboraciones del grupo musical'
-                        : 'Colaboraciones',
-                    subtitle: '${collaborationSongs.length} como invitado',
+                        ? tr('artists.group_collaborations')
+                        : tr('artists.collaborations'),
+                    subtitle: tr(
+                      'artists.guest_count',
+                      args: ['${collaborationSongs.length}'],
+                    ),
                     items: collaborationSongs,
                     onPlay: (item) => home.openMedia(
                       item,
@@ -291,8 +299,8 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                           AppRoutes.homeSectionList,
                           arguments: {
                             'title': isBand
-                                ? 'Colaboraciones del grupo musical'
-                                : 'Colaboraciones',
+                                ? tr('artists.group_collaborations')
+                                : tr('artists.collaborations'),
                             'items': collaborationSongs,
                             'onItemTap': (MediaItem tapped, int index) =>
                                 home.openMedia(
@@ -332,7 +340,7 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                 if (isBand && memberSingles.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   _SongSection(
-                    title: 'Singles de integrantes',
+                    title: tr('artists.member_singles'),
                     subtitle:
                         '${memberSingles.length} canciones como principal',
                     items: memberSingles,
@@ -349,7 +357,7 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                         Get.toNamed(
                           AppRoutes.homeSectionList,
                           arguments: {
-                            'title': 'Singles de integrantes',
+                            'title': tr('artists.member_singles'),
                             'items': memberSingles,
                             'onItemTap': (MediaItem tapped, int index) =>
                                 home.openMedia(
@@ -389,9 +397,11 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                 if (isBand && memberCollaborations.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   _SongSection(
-                    title: 'Colaboraciones de integrantes',
-                    subtitle:
-                        '${memberCollaborations.length} canciones como invitados',
+                    title: tr('artists.member_collaborations'),
+                    subtitle: tr(
+                      'artists.guest_songs_count',
+                      args: ['${memberCollaborations.length}'],
+                    ),
                     items: memberCollaborations,
                     onPlay: (item) => home.openMedia(
                       item,
@@ -406,7 +416,7 @@ class ArtistDetailPage extends GetView<ArtistsController> {
                         Get.toNamed(
                           AppRoutes.homeSectionList,
                           arguments: {
-                            'title': 'Colaboraciones de integrantes',
+                            'title': tr('artists.member_collaborations'),
                             'items': memberCollaborations,
                             'onItemTap': (MediaItem tapped, int index) =>
                                 home.openMedia(

@@ -57,7 +57,7 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Usar como portada',
+                          tr('captures.actions.use_as_cover'),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -65,22 +65,22 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
                       ),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cerrar'),
+                        child: Text(tr('common.close')),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
                   SegmentedButton<bool>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: true,
-                        label: Text('Videos'),
-                        icon: Icon(Icons.videocam_rounded),
+                        label: Text(tr('captures.cover.videos')),
+                        icon: const Icon(Icons.videocam_rounded),
                       ),
                       ButtonSegment(
                         value: false,
-                        label: Text('Collections'),
-                        icon: Icon(Icons.folder_rounded),
+                        label: Text(tr('captures.cover.collections')),
+                        icon: const Icon(Icons.folder_rounded),
                       ),
                     ],
                     selected: {_showVideos},
@@ -171,7 +171,7 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
                       ? null
                       : () => Navigator.of(context).pop(_selected),
                   icon: const Icon(Icons.check_rounded),
-                  label: const Text('Aplicar portada'),
+                  label: Text(tr('captures.cover.apply')),
                 ),
               ),
             ),

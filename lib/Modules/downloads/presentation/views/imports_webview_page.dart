@@ -75,7 +75,7 @@ class _ImportsWebViewPageState extends State<ImportsWebViewPage> {
               onSubmitted: (_) =>
                   _downloadsController.openCustomTab(context, _urlCtrl.text),
               decoration: InputDecoration(
-                labelText: 'URL',
+                labelText: tr('downloads.url'),
                 hintText: 'https://...',
                 prefixIcon: const Icon(Icons.link_rounded),
                 suffixIcon: IconButton(
@@ -120,7 +120,7 @@ class _ImportsWebViewPageState extends State<ImportsWebViewPage> {
                               ),
                             )
                           : const Icon(Icons.open_in_new_rounded),
-                      label: const Text('Abrir navegador'),
+                      label: Text(tr('downloads.open_browser')),
                     );
                   }),
                 ),
@@ -131,7 +131,7 @@ class _ImportsWebViewPageState extends State<ImportsWebViewPage> {
                     return OutlinedButton.icon(
                       onPressed: opening ? null : () => _urlCtrl.clear(),
                       icon: const Icon(Icons.clear_rounded),
-                      label: const Text('Limpiar'),
+                      label: Text(tr('common.clear')),
                     );
                   }),
                 ),

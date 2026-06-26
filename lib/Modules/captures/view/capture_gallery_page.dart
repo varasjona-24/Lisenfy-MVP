@@ -49,7 +49,7 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('captures.gallery.delete_title'.tr),
+        title: Text(tr('captures.gallery.delete_title')),
         content: Text(
           'captures.gallery.delete_confirm'.tr.replaceFirst(
             '{name}',
@@ -246,12 +246,12 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
                 children: [
                   if (query.isEmpty)
                     IconButton(
-                      tooltip: 'Etiquetas',
+                      tooltip: tr('captures.tags.title'),
                       icon: const Icon(Icons.folder_special_rounded),
                       onPressed: _openTagFolders,
                     ),
                   IconButton(
-                    tooltip: 'Ordenar',
+                    tooltip: tr('captures.sort.title'),
                     icon: const Icon(Icons.sort_rounded),
                     onPressed: _showSortSheet,
                   ),
@@ -276,7 +276,7 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
                     child: SourceFilterToolbar(
                       controller: _searchCtrl,
                       query: query,
-                      hintText: 'Buscar por nombre o etiqueta…',
+                      hintText: tr('captures.gallery.search_name_tag'),
                       onQueryChanged: _controller.setQuery,
                       onClearQuery: () {
                         _searchCtrl.clear();

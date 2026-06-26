@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -155,8 +157,8 @@ class _WorldMapCanvasState extends State<WorldMapCanvas> {
                           ),
                           child: Text(
                             _panEnabled
-                                ? 'Zoom activo · puedes arrastrar el mapa'
-                                : 'Pinch para zoom · luego arrastra',
+                                ? tr('world_mode.zoom_active_hint')
+                                : tr('world_mode.zoom_hint'),
                             style: theme.textTheme.labelSmall?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),

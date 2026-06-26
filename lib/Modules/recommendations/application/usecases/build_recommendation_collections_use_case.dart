@@ -358,7 +358,7 @@ class BuildRecommendationCollectionsUseCase {
       if (picks.length < context.targetSize) return null;
       return context.plan(
         type: RecommendationMixType.rediscovery,
-        title: 'Redescubiertas',
+        title: tr('recommendations.mixes.rediscovery.title'),
         subtitle: 'Canciones que llevan al menos tres semanas esperando',
         picks: picks,
       );

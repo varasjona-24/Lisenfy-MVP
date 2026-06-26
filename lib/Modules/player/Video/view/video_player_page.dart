@@ -355,7 +355,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Ver cola',
+                    tooltip: tr('player.view_queue'),
                     icon: const Icon(Icons.playlist_play),
                     onPressed: () => Get.toNamed(AppRoutes.videoQueue),
                   ),
@@ -423,7 +423,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          tooltip: 'Captura',
+                          tooltip: tr('player.capture'),
                           onPressed: _captureSaving
                               ? null
                               : () => _captureFrame(item),
@@ -1095,12 +1095,12 @@ class _ErrorPanel extends StatelessWidget {
               children: [
                 ElevatedButton(
                   onPressed: onPickOther,
-                  child: const Text('Seleccionar otro'),
+                  child: Text(tr('player.select_other')),
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton(
                   onPressed: onRetry,
-                  child: const Text('Reintentar'),
+                  child: Text(tr('common.retry')),
                 ),
               ],
             ),

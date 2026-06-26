@@ -7,7 +7,10 @@
     "add": "Agregar",
     "apply": "Aplicar",
     "cancel": "Cancelar",
+    "clear": "Limpiar",
     "close": "Cerrar",
+    "continue": "Continuar",
+    "create": "Crear",
     "current": "Actual",
     "delete": "Eliminar",
     "edit": "Editar",
@@ -29,6 +32,7 @@
     "select": "Seleccionar",
     "share": "Compartir",
     "title": "Título",
+    "undo": "Deshacer",
     "songs": {
       "one": "{} canción",
       "other": "{} canciones"
@@ -72,6 +76,14 @@
       "no_results": "No hay resultados.",
       "by_title": "Buscar por título",
       "by_title_artist": "Buscar por título o artista",
+      "imported_time": "Tiempo importado",
+      "sort_title": "Nombre de canción",
+      "sort_artist": "Nombre del artista",
+      "sort_size": "Tamaño",
+      "sort_plays": "Reproducciones",
+      "sort_duration": "Duración",
+      "desc_recent": "Mayor a menor / recientes primero",
+      "asc_oldest": "Menor a mayor / antiguos primero",
       "more_options": "Más opciones"
     },
     "section": {
@@ -91,7 +103,9 @@
       "high_to_low": "Mayor a menor"
     },
     "entry": {
-      "tagline": "Escucha, descarga y organiza tu música"
+      "tagline": "Escucha, descarga y organiza tu música",
+      "enter": "Entrar",
+      "footer": "Tu biblioteca, a tu ritmo."
     },
     "widgets": {
       "favorites": "Mis favoritos",
@@ -204,6 +218,12 @@
       "desc_recent": "Mayor a menor / recientes primero",
       "asc_oldest": "Menor a mayor / antiguos primero",
       "remove_from_playlist": "Quitar de esta playlist",
+      "add_songs": "Agregar canciones",
+      "available_count": "{} disponibles",
+      "selected_count": "{} seleccionadas",
+      "no_new_songs": "No hay canciones nuevas para agregar.",
+      "select_songs": "Selecciona canciones",
+      "add_selected": "Agregar {} seleccionadas",
       "more_actions": "Más acciones",
       "removed": "Canción eliminada de la lista"
     }
@@ -235,7 +255,50 @@
     "least_recent_first": "Menos reciente primero",
     "most_recent_first": "Más reciente primero",
     "low_to_high": "Menor a mayor",
-    "high_to_low": "Mayor a menor"
+    "high_to_low": "Mayor a menor",
+    "member_singles": "Singles de integrantes",
+    "member_collaborations": "Colaboraciones de integrantes",
+    "profile": {
+      "kind": {
+        "singer": "Músico",
+        "band": "Grupo musical"
+      },
+      "region": {
+        "label": {
+          "none": "Sin región",
+          "latino": "Mix latino",
+          "asiatico": "Mix asiático",
+          "anglo": "Mix anglo",
+          "europeo": "Mix euro",
+          "africano": "Mix africano",
+          "medio_oriente": "Mix medio oriente",
+          "oceania": "Mix Oceanía",
+          "global": "Mix global"
+        },
+        "simple": {
+          "none": "Sin región",
+          "latino": "Latino",
+          "asiatico": "Asiático",
+          "anglo": "Anglo",
+          "europeo": "Europeo",
+          "africano": "Africano",
+          "medio_oriente": "Medio oriente",
+          "oceania": "Oceanía",
+          "global": "Global"
+        }
+      },
+      "sections": {
+        "singer": "Solistas, DJ o Músicos",
+        "band": "Duetos, bandas o grupos musicales"
+      }
+    },
+    "songs": "Canciones",
+    "group_songs": "Canciones del grupo musical",
+    "collaborations": "Colaboraciones",
+    "group_collaborations": "Colaboraciones del grupo musical",
+    "primary_count": "{} como artista principal",
+    "guest_count": "{} como invitado",
+    "guest_songs_count": "{} canciones como invitados"
   },
   "downloads": {
     "title": "Imports",
@@ -279,13 +342,19 @@
     "web_search_title": "Buscador web",
     "web_search_subtitle": "Pega un enlace para abrir el navegador",
     "select_files_hint": "Selecciona qué archivos quieres importar a la biblioteca.",
+    "select_files": "Seleccionar archivos",
+    "selected_count": "{} seleccionados",
+    "importing": "Importando...",
+    "import_all": "Importar todos",
+    "url": "URL",
+    "url_required": "Por favor ingresa una URL",
+    "open_browser": "Abrir navegador",
     "import_type": "Tipo de importación",
     "webview_hint": "Abre un navegador externo para copiar enlaces rápidamente.",
     "status_downloading": "Descargando...",
     "status_saving": "Guardando en la librería...",
     "wifi_waiting": "La importación está esperando una conexión Wi-Fi.",
-    "web_slow": "La web tardó demasiado o no es compatible."
-    ,
+    "web_slow": "La web tardó demasiado o no es compatible.",
     "today": "Hoy",
     "yesterday": "Ayer",
     "date_label": "{} {}/{}"
@@ -440,7 +509,9 @@
         "yellow": "Amarillo",
         "gray": "Gris",
         "purple": "Morado"
-      }
+      },
+      "adjust_wallpaper": "Ajustar fondo de pantalla",
+      "adjust_background": "Ajustar fondo"
     },
     "language": {
       "title": "Idioma",
@@ -520,7 +591,10 @@
       "no_devices": "Sin dispositivos conectados",
       "no_devices_subtitle": "Conecta un dispositivo para mostrarlo aquí.",
       "refresh": "Actualizar",
-      "detected_devices": "Dispositivos detectados"
+      "detected_devices": "Dispositivos detectados",
+      "eq_play_track": "Reproduce una pista para activar el ecualizador.",
+      "eq_audio_not_initialized": "Audio no inicializado.",
+      "eq_init_error": "No se pudo iniciar el ecualizador."
     },
     "video": {
       "title": "Video",
@@ -810,7 +884,8 @@
       "education_subtitle": "Clases y material formativo",
       "files_title": "Archivos personales",
       "files_subtitle": "Imports desde tu dispositivo"
-    }
+    },
+    "completed_count": "{}/{} completados"
   },
   "nearby": {
     "transfer": "Transferencia",
@@ -947,15 +1022,22 @@
       "max_selection": "Puedes seleccionar hasta 20 imágenes.",
       "cover_updated": "Portada actualizada para {label}.",
       "delete_button": "Eliminar",
-      "cancel_button": "Cancelar"
+      "cancel_button": "Cancelar",
+      "search_name_tag": "Buscar por nombre o etiqueta…"
     },
     "tags": {
       "title": "Etiquetas",
+      "create": "Crear etiqueta",
+      "edit": "Editar etiqueta",
+      "search": "Buscar etiqueta",
       "sort_title": "Ordenar etiquetas",
       "name": "Nombre",
       "delete_title": "Eliminar etiqueta",
       "delete_confirm": "¿Eliminar \"{}\" de {} capturas?",
       "empty": "Sin etiquetas aún",
+      "empty_body": "Agrega etiquetas a tus capturas para verlas como carpetas.",
+      "no_results": "Sin resultados para \"{}\"",
+      "count_label": "{} capturas",
       "capture_count": "Número de capturas",
       "age": "Antigüedad",
       "folder_weight": "Peso por carpeta"
@@ -973,6 +1055,7 @@
     "actions": {
       "edit": "Editar",
       "share": "Compartir",
+      "share_external": "Compartir externo",
       "use_as_cover": "Usar como portada",
       "delete": "Eliminar"
     },
@@ -981,12 +1064,21 @@
     },
     "cover": {
       "search_video": "Buscar video",
-      "search_collection": "Buscar Collection"
+      "search_collection": "Buscar Collection",
+      "videos": "Videos",
+      "collections": "Collections",
+      "apply": "Aplicar portada",
+      "sort_title": "Ordenar capturas",
+      "source_value": "Fuente: {}",
+      "video_capture": "Captura de video"
     }
   },
   "player": {
     "queue_title": "Cola de reproducción",
     "queue_empty": "La cola está vacía",
+    "queue_audio_summary": "{} pistas • Total: {}",
+    "queue_video_summary": "{} videos • Total: {}",
+    "queue_drag_hint": "Arrastra para mover",
     "stereo": "Estéreo",
     "nothing_playing": "No hay nada reproduciéndose",
     "video_empty": "No hay vídeo",
@@ -994,6 +1086,18 @@
     "playback_speed": "Velocidad de reproducción",
     "video_corrupt": "Este archivo está corrupto o no existe, selecciona otro.",
     "invalid_video_variant": "Variante de video no válida.",
+    "view_queue": "Ver cola",
+    "capture": "Captura",
+    "select_other": "Seleccionar otro",
+    "shuffle": "Aleatorio",
+    "speed": "Velocidad",
+    "play": "Reproducir",
+    "pause": "Pausar",
+    "now_playing": "Reproduciendo",
+    "download_instrumental": "Descargar instrumental",
+    "regenerate_instrumental": "Regenerar instrumental",
+    "download_spatial8d": "Descargar audio 8D",
+    "regenerate_spatial8d": "Regenerar audio 8D",
     "quick": {
       "visual": "Visual",
       "lyrics": "Letras",
@@ -1079,6 +1183,7 @@
     "full_subtitle": "Incluye toda tu media offline (audio, video e imágenes), la configuración de pantalla de inicio y la librería. Los archivos se empaquetan sin comprimir (modo STORE) para mayor velocidad.",
     "include_instrumentals": "Se incluirán también variantes instrumentales.",
     "exclude_instrumentals": "No se incluirán variantes instrumentales en este backup.",
+    "exclude_instrumentals_body": "Si se desactiva, se respaldan solo variantes normales.",
     "estimated_size": "Tamaño estimado: ~{} (contenido detectado: {}).",
     "included_files": "Archivos incluidos en la estimación: {}.",
     "missing_files": "Archivos no encontrados (no se incluirán): {}.",
@@ -1086,6 +1191,8 @@
     "dont_close": "No cierres la app durante el proceso.",
     "dont_close_processing": "No cierres la app mientras se procesa la operación.",
     "continue": "Continuar",
+    "select_zip": "Seleccionar ZIP",
+    "locate": "Localizar",
     "locating_title": "Localizando backup",
     "locating_message": "Buscando el ZIP usando la ruta o código indicado...",
     "not_found_title": "No se encontró el backup",
@@ -1105,7 +1212,11 @@
     "restore_progress_title": "Restaurando Librería",
     "decompressing": "Descomprimiendo backup...",
     "restore_done_title": "Importación completada",
-    "restore_done_body": "La librería y los archivos offline se restauraron correctamente. Ya puedes usar tu contenido sin conexión."
+    "restore_done_body": "La librería y los archivos offline se restauraron correctamente. Ya puedes usar tu contenido sin conexión.",
+    "options_title": "Opciones de respaldo",
+    "include_instrumental_variants": "Incluir variantes instrumentales",
+    "progress_percent": "{}% completado",
+    "preparing_process": "Preparando proceso..."
   },
   "settings_messages": {
     "wallpaper": {
@@ -1137,6 +1248,89 @@
     "search_member": "Buscar integrante",
     "type_name": "Escribe un nombre",
     "selected": "Seleccionados",
+    "region_defined_by_country": "Se define al elegir país",
+    "audio_cleanup_sheet_subtitle": "Elige qué silencios recortar.",
+    "audio_cleanup_detected_count": "{} detectados",
+    "audio_cleanup_selected_count": "{} seleccionados",
+    "audio_cleanup_trim_amount": "{} a recortar",
+    "audio_cleanup_segment_details": "Duración: {} - Nivel medio: {} dB",
+    "audio_cleanup_local_required": "Solo funciona con audio local disponible.",
+    "audio_cleanup_no_long_silences": "No se detectaron silencios mayores a 4 segundos.",
+    "audio_cleanup_none_selected": "No seleccionaste silencios para recortar.",
+    "audio_cleanup_failed": "No se pudo generar el audio limpio.",
+    "audio_cleanup_saved": "Se guardó una variante limpia del audio.",
+    "audio_cleanup_generic_error": "Ocurrió un error al limpiar el audio.",
+    "select_all": "Todo",
+    "select_none": "Nada",
+    "create_clean_version": "Crear versión limpia",
+    "data_transfer_no_candidates": "No hay otra canción disponible para recibir los datos.",
+    "data_transfer_completed_title": "Transferencia completada",
+    "data_transfer_completed_body": "Datos movidos a \"{}\". Playlists actualizadas: {}.",
+    "library_title": "Biblioteca",
+    "previous_version_deleted": "Versión anterior eliminada de la biblioteca.",
+    "data_transfer_confirm_body": "Se copiará título, artista, portada, letras, favoritos, estadísticas y playlists a \"{}\". El archivo de destino se mantiene.",
+    "data_transfer_confirm": "Transferir",
+    "lyrics_none_saved": "Sin letras guardadas",
+    "lyrics_main": "Letra principal {}",
+    "lyrics_no_main": "Sin letra principal",
+    "lyrics_summary_with_translations": "{} - {} traducciones",
+    "unknown": "Desconocido",
+    "origin_device": "Dispositivo",
+    "artist_songs_title": "Canciones del artista",
+    "artist_songs_empty": "No hay canciones vinculadas a este artista.",
+    "artist_type": "Tipo de artista",
+    "classification": "Clasificación",
+    "no_capture_thumbnails": "No hay capturas disponibles para usar como thumbnail.",
+    "tags": "Etiquetas",
+    "search_tags": "Buscar etiquetas",
+    "no_tags_assigned": "Sin etiquetas asignadas.",
+    "captures_count": "{} capturas",
+    "untitled": "Sin título",
+    "unnamed": "Sin nombre",
+    "source_value": "Fuente: {}",
+    "source_not_registered": "Fuente no registrada",
+    "capture_tag_kind": "Etiqueta de capturas",
+    "country_value": "País: {}",
+    "region_value": "Región: {}",
+    "basic_info": "Información básica",
+    "main_region": "Región principal",
+    "country_optional": "País (opcional)",
+    "select_country": "Seleccionar país",
+    "select_country_subtitle": "Busca y elige un país. La región se define automáticamente.",
+    "search_country": "Buscar país",
+    "country_search_hint": "Nombre o código ISO",
+    "clear_country": "Limpiar país",
+    "weight": "Peso",
+    "capture_date": "Fecha de captura",
+    "source": "Fuente",
+    "content": "Contenido",
+    "thumbnail": "Thumbnail",
+    "extras": "Extras",
+    "detected_duration_seconds": "Duración detectada automáticamente (s)",
+    "clean_sound_subtitle": "Detecta silencios largos y crea una variante limpia sin tocar el archivo original.",
+    "processing": "Procesando...",
+    "analyze_silences": "Analizar silencios",
+    "data_transfer_subtitle": "Pasa metadata, portada, playlists y estadísticas de esta versión a otra canción.",
+    "transferring": "Transfiriendo...",
+    "transfer_to_song": "Transferir a otra canción",
+    "edit_lyrics": "Editar letras",
+    "assign_tags": "Asignar etiquetas",
+    "no_tags_available": "No hay etiquetas disponibles.",
+    "apply_tags": "Aplicar {} etiquetas",
+    "choose_target_song": "Elegir canción destino",
+    "available_count": "{} disponibles",
+    "no_songs_found": "No se encontraron canciones.",
+    "unknown_artist": "Artista desconocido",
+    "no_countries_found": "No hay países para esa búsqueda.",
+    "name": "Nombre",
+    "crop_image": "Recortar imagen",
+    "image_load_error": "No se pudo cargar la imagen.",
+    "zoom_out": "Alejar",
+    "zoom_in": "Acercar",
+    "image_search_macos_hint": "En macOS se abre la búsqueda en tu navegador. Pega aquí la URL de la imagen que quieras usar.",
+    "image_url": "URL de imagen",
+    "open_search": "Abrir búsqueda",
+    "use_url": "Usar URL",
     "create_tag": "Nueva etiqueta",
     "create_collection": "Nueva Collection",
     "create_playlist": "Nueva playlist",
@@ -1174,7 +1368,18 @@
       "collection": "Editar Collection",
       "capture": "Editar captura",
       "tag": "Editar etiqueta"
-    }
+    },
+    "collaboration_warning_title": "Posible colaboración",
+    "data_transfer_title": "Transferir datos",
+    "clean_sound_title": "Sonido limpio",
+    "remove_cover": "Quitar portada",
+    "crop": "Recortar",
+    "collaboration_warning_body": "Se detectó un posible feat/ft en el título. Si quieres que esta canción aparezca como colaboración entre artistas, mueve los invitados al campo Artista.",
+    "save_anyway": "Guardar igual",
+    "members_empty": "No hay artistas disponibles para agregar.",
+    "members_search_prompt": "Escribe en el buscador para ver resultados.",
+    "members_no_results": "No se encontraron artistas con ese nombre.",
+    "search_cover": "Buscar portada"
   },
   "transfer": {
     "title": "Transferencia",
@@ -1188,6 +1393,8 @@
     "select_region": "Selecciona una región en el mapa",
     "search_region": "Buscar región",
     "search_region_hint": "Buscar región…",
+    "zoom_active_hint": "Zoom activo · puedes arrastrar el mapa",
+    "zoom_hint": "Pinch para zoom · luego arrastra",
     "shuffle_stations": "Aleatorizar estaciones",
     "no_stations": "Sin estaciones para esta región todavía.",
     "generation_error": "No se pudieron generar estaciones para la región",
@@ -1208,7 +1415,27 @@
     "add_main_lyrics": "Primero agrega la letra principal.",
     "all_lines_marked": "Todas las lineas ya fueron marcadas.",
     "different_target_lang": "El idioma objetivo debe ser diferente al idioma principal.",
-    "translation_failed": "No se pudo traducir en este momento."
+    "translation_failed": "No se pudo traducir en este momento.",
+    "karaoke_sync": "Sincronización karaoke",
+    "editor_title": "Editor de letras",
+    "main_lyrics": "Letra principal",
+    "translations": "Traducciones",
+    "karaoke_sync_ready": "Marca cada línea mientras suena la canción.",
+    "karaoke_sync_player_required": "Abre y reproduce la canción en el player para sincronizar.",
+    "seek_back_short": "-2s",
+    "start": "Inicio",
+    "mark_line": "Marcar línea",
+    "time_label": "Tiempo: {}",
+    "synced_lines": "Idioma {}: {}/{} líneas/pausas sincronizadas",
+    "sync_progress": "{} de {} sincronizadas",
+    "next_line": "Siguiente línea",
+    "more_lines": "+{} líneas más",
+    "main_lines_detected": "{} líneas detectadas en el idioma principal.",
+    "language": "Idioma",
+    "translations_subtitle": "Genera, edita y guarda variantes de letra por idioma.",
+    "translate": "Traducir",
+    "translation_preview": "Vista previa de traducción",
+    "use_translation_as_primary": "Usar traducción como principal"
   },
   "qr": {
     "listenfy_title": "QR Listenfy",
@@ -1342,6 +1569,21 @@
       "recent_favorites": "Por tus favoritos recientes",
       "recent_activity": "Por tu actividad reciente",
       "fresh": "Para variar tu biblioteca"
+    },
+    "mixes": {
+      "rediscovery": {
+        "title": "Redescubiertas"
+      }
+    }
+  },
+  "karaoke_remote": {
+    "status": {
+      "separating": "Procesando {} en backend...",
+      "ready": "{} listo.",
+      "completed": "Procesamiento {} completado.",
+      "failed": "Proceso fallido en backend.",
+      "canceled": "Proceso cancelado.",
+      "unknown": "Procesando..."
     }
   }
 }

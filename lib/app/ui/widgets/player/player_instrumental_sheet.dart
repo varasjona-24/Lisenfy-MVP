@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -513,7 +515,7 @@ class _PlayerInstrumentalSheetState extends State<PlayerInstrumentalSheet> {
                 forceRegenerate: false,
               ),
         icon: const Icon(Icons.download_rounded),
-        label: const Text('Descargar instrumental'),
+        label: Text(tr('player.download_instrumental')),
       );
     }
 
@@ -537,7 +539,7 @@ class _PlayerInstrumentalSheetState extends State<PlayerInstrumentalSheet> {
                 child: _AudioModePill(
                   active: !isInstrumental,
                   icon: Icons.record_voice_over_rounded,
-                  label: 'Normal',
+                  label: tr('player.quick.normal'),
                 ),
               ),
               const SizedBox(width: 10),
@@ -552,7 +554,7 @@ class _PlayerInstrumentalSheetState extends State<PlayerInstrumentalSheet> {
                 child: _AudioModePill(
                   active: isInstrumental,
                   icon: Icons.music_note_rounded,
-                  label: 'Instrumental',
+                  label: tr('player.quick.instrumental'),
                 ),
               ),
             ],
@@ -569,7 +571,7 @@ class _PlayerInstrumentalSheetState extends State<PlayerInstrumentalSheet> {
                     forceRegenerate: true,
                   ),
             icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Regenerar instrumental'),
+            label: Text(tr('player.regenerate_instrumental')),
           ),
         ),
       ],
@@ -589,7 +591,7 @@ class _PlayerInstrumentalSheetState extends State<PlayerInstrumentalSheet> {
             : () =>
                   _generateSpatial8d(autoSwitch: false, forceRegenerate: false),
         icon: const Icon(Icons.download_rounded),
-        label: const Text('Descargar audio 8D'),
+        label: Text(tr('player.download_spatial8d')),
       );
     }
 
@@ -613,7 +615,7 @@ class _PlayerInstrumentalSheetState extends State<PlayerInstrumentalSheet> {
                 child: _AudioModePill(
                   active: !isSpatial8d,
                   icon: Icons.music_note_rounded,
-                  label: 'Normal',
+                  label: tr('player.quick.normal'),
                 ),
               ),
               const SizedBox(width: 10),
@@ -645,7 +647,7 @@ class _PlayerInstrumentalSheetState extends State<PlayerInstrumentalSheet> {
                     forceRegenerate: true,
                   ),
             icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Regenerar audio 8D'),
+            label: Text(tr('player.regenerate_spatial8d')),
           ),
         ),
       ],
@@ -678,7 +680,7 @@ class _ModeSelector extends StatelessWidget {
             child: _ModeSelectorChip(
               selected: kind == _AudioModeSheetKind.instrumental,
               icon: Icons.music_note_rounded,
-              label: 'Instrumental',
+              label: tr('player.quick.instrumental'),
               onTap: () => onChanged(_AudioModeSheetKind.instrumental),
             ),
           ),

@@ -69,7 +69,7 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                 Get.toNamed(
                   AppRoutes.homeSectionList,
                   arguments: {
-                    'title': 'Historial de imports',
+                    'title': tr('downloads.history'),
                     'items': list,
                     'onItemTap': (MediaItem tapped, int index) =>
                         home.openMedia(

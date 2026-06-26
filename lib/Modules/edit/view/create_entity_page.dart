@@ -238,7 +238,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
           child: FilledButton.icon(
             onPressed: _save,
             icon: const Icon(Icons.check_rounded),
-            label: const Text('Crear'),
+            label: Text(tr('common.create')),
           ),
         ),
       ),
@@ -287,7 +287,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Informacion basica',
+              tr('edit.basic_info'),
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -304,7 +304,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
                 child: TextField(
                   controller: _nameCtrl,
                   decoration: InputDecoration(
-                    labelText: 'Nombre',
+                    labelText: tr('edit.name'),
                     prefixIcon: Icon(
                       _isCaptureTag
                           ? Icons.folder_rounded
@@ -339,14 +339,14 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
                     if (!_isCaptureTag) ...[
                       _CoverActionTile(
                         icon: Icons.photo_library_rounded,
-                        title: 'Elegir imagen',
+                        title: tr('edit.choose_image'),
                         subtitle: 'Usar una portada guardada en el dispositivo',
                         onTap: _pickLocalThumbnail,
                       ),
                       const SizedBox(height: 8),
                       _CoverActionTile(
                         icon: Icons.public_rounded,
-                        title: 'Buscar en web',
+                        title: tr('edit.search_web'),
                         subtitle: 'Encontrar y recortar una portada online',
                         onTap: _searchWebThumbnail,
                       ),
@@ -354,7 +354,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
                         const SizedBox(height: 8),
                         _CoverActionTile(
                           icon: Icons.hide_image_rounded,
-                          title: 'Quitar portada',
+                          title: tr('edit.remove_cover'),
                           subtitle: 'Volver al icono predeterminado',
                           onTap: _clearThumbnail,
                           destructive: true,

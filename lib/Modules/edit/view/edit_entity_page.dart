@@ -391,18 +391,16 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
     final result = await Get.dialog<bool>(
       AlertDialog(
-        title: const Text('Posible colaboracion'),
-        content: const Text(
-          'Se detecto un posible feat/ft en el titulo. Si quieres que esta cancion aparezca como colaboracion entre artistas, mueve los invitados al campo Artista.',
-        ),
+        title: Text(tr('edit.collaboration_warning_title')),
+        content: Text(tr('edit.collaboration_warning_body')),
         actions: [
           TextButton(
             onPressed: () => Get.back(result: false),
-            child: const Text('Cancelar'),
+            child: Text(tr('common.cancel')),
           ),
           FilledButton.tonal(
             onPressed: () => Get.back(result: true),
-            child: const Text('Guardar igual'),
+            child: Text(tr('edit.save_anyway')),
           ),
         ],
       ),
@@ -422,7 +420,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
   String _artistRegionLabel() {
     if (_artistMainRegion == ArtistMainRegion.none) {
-      return 'Se define al elegir pais';
+      return tr('edit.region_defined_by_country');
     }
     return _artistMainRegion.simpleLabel;
   }
@@ -555,13 +553,13 @@ class _EditEntityPageState extends State<EditEntityPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Sonido limpio',
+                                tr('edit.clean_sound_title'),
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
                               Text(
-                                'Elige que silencios recortar.',
+                                tr('edit.audio_cleanup_sheet_subtitle'),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: scheme.onSurfaceVariant,
                                 ),
@@ -589,19 +587,32 @@ class _EditEntityPageState extends State<EditEntityPage> {
                             Icons.graphic_eq_rounded,
                             size: 18,
                           ),
-                          label: Text('${segments.length} detectados'),
+                          label: Text(
+                            tr(
+                              'edit.audio_cleanup_detected_count',
+                              args: ['${segments.length}'],
+                            ),
+                          ),
                         ),
                         Chip(
                           avatar: const Icon(
                             Icons.check_circle_rounded,
                             size: 18,
                           ),
-                          label: Text('$selectedCount seleccionados'),
+                          label: Text(
+                            tr(
+                              'edit.audio_cleanup_selected_count',
+                              args: ['$selectedCount'],
+                            ),
+                          ),
                         ),
                         Chip(
                           avatar: const Icon(Icons.cut_rounded, size: 18),
                           label: Text(
-                            '${_formatSecondsFromMs(selectedDurationMs)} a recortar',
+                            tr(
+                              'edit.audio_cleanup_trim_amount',
+                              args: [_formatSecondsFromMs(selectedDurationMs)],
+                            ),
                           ),
                         ),
                       ],
@@ -618,7 +629,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                             });
                           },
                           icon: const Icon(Icons.select_all_rounded),
-                          label: const Text('Todo'),
+                          label: Text(tr('edit.select_all')),
                         ),
                         const SizedBox(width: 8),
                         TextButton.icon(
@@ -630,7 +641,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                             });
                           },
                           icon: const Icon(Icons.deselect_rounded),
-                          label: const Text('Nada'),
+                          label: Text(tr('edit.select_none')),
                         ),
                       ],
                     ),
@@ -679,7 +690,13 @@ class _EditEntityPageState extends State<EditEntityPage> {
                                 ),
                               ),
                               subtitle: Text(
-                                'Duracion: ${_formatSecondsFromMs(segment.durationMs)} - Nivel medio: ${segment.meanDb.toStringAsFixed(1)} dB',
+                                tr(
+                                  'edit.audio_cleanup_segment_details',
+                                  args: [
+                                    _formatSecondsFromMs(segment.durationMs),
+                                    segment.meanDb.toStringAsFixed(1),
+                                  ],
+                                ),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: scheme.onSurfaceVariant,
                                 ),
@@ -695,7 +712,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('Cancelar'),
+                            child: Text(tr('common.cancel')),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -711,7 +728,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                                     Navigator.of(context).pop(picked);
                                   },
                             icon: const Icon(Icons.content_cut_rounded),
-                            label: const Text('Crear version limpia'),
+                            label: Text(tr('edit.create_clean_version')),
                           ),
                         ),
                       ],
@@ -741,8 +758,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
       if (analysisBundle == null) {
         Get.snackbar(
-          'Sonido limpio',
-          'Solo funciona con audio local disponible.',
+          tr('edit.clean_sound_title'),
+          tr('edit.audio_cleanup_local_required'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -750,8 +767,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
       if (analysisBundle.analysis.segments.isEmpty) {
         Get.snackbar(
-          'Sonido limpio',
-          'No se detectaron silencios mayores a 4 segundos.',
+          tr('edit.clean_sound_title'),
+          tr('edit.audio_cleanup_no_long_silences'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -762,8 +779,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
       if (picked.isEmpty) {
         Get.snackbar(
-          'Sonido limpio',
-          'No seleccionaste silencios para recortar.',
+          tr('edit.clean_sound_title'),
+          tr('edit.audio_cleanup_none_selected'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -778,8 +795,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
       if (updated == null) {
         Get.snackbar(
-          'Sonido limpio',
-          'No se pudo generar el audio limpio.',
+          tr('edit.clean_sound_title'),
+          tr('edit.audio_cleanup_failed'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -791,16 +808,16 @@ class _EditEntityPageState extends State<EditEntityPage> {
       });
 
       Get.snackbar(
-        'Sonido limpio',
-        'Se guardo una variante limpia del audio.',
+        tr('edit.clean_sound_title'),
+        tr('edit.audio_cleanup_saved'),
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
       if (!mounted) return;
       final message = e.toString().replaceFirst('Exception: ', '').trim();
       Get.snackbar(
-        'Sonido limpio',
-        message.isEmpty ? 'Ocurrio un error al limpiar el audio.' : message,
+        tr('edit.clean_sound_title'),
+        message.isEmpty ? tr('edit.audio_cleanup_generic_error') : message,
         snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
@@ -820,8 +837,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
       if (!mounted) return;
       if (candidates.isEmpty) {
         Get.snackbar(
-          'Transferencia de datos',
-          'No hay otra cancion disponible para recibir los datos.',
+          tr('edit.data_transfer_title'),
+          tr('edit.data_transfer_no_candidates'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -841,8 +858,11 @@ class _EditEntityPageState extends State<EditEntityPage> {
       if (!mounted || result == null) return;
 
       Get.snackbar(
-        'Transferencia completada',
-        'Datos movidos a "${result.updatedTarget.title}". Playlists actualizadas: ${result.playlistsUpdated}.',
+        tr('edit.data_transfer_completed_title'),
+        tr(
+          'edit.data_transfer_completed_body',
+          args: [result.updatedTarget.title, '${result.playlistsUpdated}'],
+        ),
         snackPosition: SnackPosition.BOTTOM,
       );
 
@@ -853,8 +873,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
         if (mounted) {
           Get.back(result: true);
           Get.snackbar(
-            'Biblioteca',
-            'Version anterior eliminada de la biblioteca.',
+            tr('edit.library_title'),
+            tr('edit.previous_version_deleted'),
             snackPosition: SnackPosition.BOTTOM,
           );
         }
@@ -884,18 +904,18 @@ class _EditEntityPageState extends State<EditEntityPage> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('Transferir datos'),
+          title: Text(tr('edit.data_transfer_title')),
           content: Text(
-            'Se copiara titulo, artista, portada, letras, favoritos, estadisticas y playlists a "${target.title}". El archivo de destino se mantiene.',
+            tr('edit.data_transfer_confirm_body', args: [target.title]),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancelar'),
+              child: Text(tr('common.cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Transferir'),
+              child: Text(tr('edit.data_transfer_confirm')),
             ),
           ],
         );
@@ -1001,15 +1021,19 @@ class _EditEntityPageState extends State<EditEntityPage> {
     final lang = (_media?.lyricsLanguage ?? '').trim().toUpperCase();
 
     if (!hasLyrics && translationsCount == 0) {
-      return 'Sin letras guardadas';
+      return tr('edit.lyrics_none_saved');
     }
 
     final base = hasLyrics
-        ? 'Letra principal ${lang.isEmpty ? '' : '($lang)'}'
-        : 'Sin letra principal';
+        ? tr('edit.lyrics_main', args: [lang.isEmpty ? '' : '($lang)'])
+        : tr('edit.lyrics_no_main');
 
-    if (translationsCount <= 0) return base.trim();
-    return '$base - $translationsCount traducciones';
+    final cleanBase = base.trim();
+    if (translationsCount <= 0) return cleanBase;
+    return tr(
+      'edit.lyrics_summary_with_translations',
+      args: [cleanBase, '$translationsCount'],
+    );
   }
 
   Future<void> _openLyricsEditor() async {
@@ -1105,8 +1129,10 @@ class _EditEntityPageState extends State<EditEntityPage> {
   }
 
   String _kindLabel(MediaVariant? variant) {
-    if (variant == null) return 'Desconocido';
-    return variant.kind == MediaVariantKind.video ? 'Video' : 'Audio';
+    if (variant == null) return tr('edit.unknown');
+    return variant.kind == MediaVariantKind.video
+        ? tr('downloads.media_videos')
+        : tr('downloads.media_music');
   }
 
   String _formatLabel(MediaVariant? variant) {
@@ -1124,8 +1150,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
   String _originLabel(MediaItem item) {
     final key = item.origin.key.trim();
-    if (key.isEmpty) return 'Desconocido';
-    if (key.toLowerCase() == 'local') return 'Device';
+    if (key.isEmpty) return tr('edit.unknown');
+    if (key.toLowerCase() == 'local') return tr('edit.origin_device');
     return key;
   }
 
@@ -1143,7 +1169,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Canciones del artista',
+          tr('edit.artist_songs_title'),
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -1159,7 +1185,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
               ? Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    'No hay canciones vinculadas a este artista.',
+                    tr('edit.artist_songs_empty'),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -1215,7 +1241,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
       children: [
         const SizedBox(height: 12),
         Text(
-          'Tipo de artista',
+          tr('edit.artist_type'),
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -1234,9 +1260,9 @@ class _EditEntityPageState extends State<EditEntityPage> {
               children: [
                 DropdownButtonFormField<ArtistProfileKind>(
                   initialValue: _artistKind,
-                  decoration: const InputDecoration(
-                    labelText: 'Clasificacion',
-                    prefixIcon: Icon(Icons.category_rounded),
+                  decoration: InputDecoration(
+                    labelText: tr('edit.classification'),
+                    prefixIcon: const Icon(Icons.category_rounded),
                   ),
                   items: [
                     DropdownMenuItem(
@@ -1306,21 +1332,21 @@ class _EditEntityPageState extends State<EditEntityPage> {
                   const SizedBox(height: 10),
                   if (candidates.isEmpty)
                     Text(
-                      'No hay artistas disponibles para agregar.',
+                      tr('edit.members_empty'),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     )
                   else if (query.isEmpty)
                     Text(
-                      'Escribe en el buscador para ver resultados.',
+                      tr('edit.members_search_prompt'),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     )
                   else if (filteredCandidates.isEmpty)
                     Text(
-                      'No se encontraron artistas con ese nombre.',
+                      tr('edit.members_no_results'),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -1535,7 +1561,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
     final captures = _captureTag?.captures ?? const <CaptureItem>[];
     if (captures.isEmpty) {
       return Text(
-        'No hay capturas disponibles para usar como thumbnail.',
+        tr('edit.no_capture_thumbnails'),
         style: theme.textTheme.bodyMedium?.copyWith(
           color: scheme.onSurfaceVariant,
         ),
@@ -1663,14 +1689,14 @@ class _EditEntityPageState extends State<EditEntityPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Etiquetas',
+                    tr('edit.tags'),
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Buscar etiquetas',
+                  tooltip: tr('edit.search_tags'),
                   onPressed: _showCaptureTagSearch,
                   icon: const Icon(Icons.search_rounded),
                 ),
@@ -1679,7 +1705,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
             const SizedBox(height: 8),
             if (selected.isEmpty)
               Text(
-                'Sin etiquetas asignadas.',
+                tr('edit.no_tags_assigned'),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -1700,7 +1726,10 @@ class _EditEntityPageState extends State<EditEntityPage> {
                 _CaptureEditTagRow(
                   label: folder.tag,
                   color: Color(folder.colorValue),
-                  subtitle: '${folder.count} capturas',
+                  subtitle: tr(
+                    'edit.captures_count',
+                    args: ['${folder.count}'],
+                  ),
                   selected: false,
                   onTap: () => _toggleCaptureTag(folder.tag),
                 ),
@@ -1754,7 +1783,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: FilledButton(
             onPressed: _audioCleanupBusy ? null : _save,
-            child: const Text('Guardar cambios'),
+            child: Text(tr('common.save_changes')),
           ),
         ),
       ),
@@ -1788,8 +1817,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
                           Text(
                             _titleCtrl.text.isEmpty
                                 ? (_args.type == EditEntityType.playlist
-                                      ? 'Sin titulo'
-                                      : 'Sin nombre')
+                                      ? tr('edit.untitled')
+                                      : tr('edit.unnamed'))
                                 : _titleCtrl.text,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -1841,8 +1870,11 @@ class _EditEntityPageState extends State<EditEntityPage> {
                             const SizedBox(height: 2),
                             Text(
                               _capture!.sourceTitle?.isNotEmpty == true
-                                  ? 'Fuente: ${_capture!.sourceTitle}'
-                                  : 'Fuente no registrada',
+                                  ? tr(
+                                      'edit.source_value',
+                                      args: [_capture!.sourceTitle!],
+                                    )
+                                  : tr('edit.source_not_registered'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -1853,7 +1885,10 @@ class _EditEntityPageState extends State<EditEntityPage> {
                           if (_isCaptureTag) ...[
                             const SizedBox(height: 6),
                             Text(
-                              '${_captureTag!.count} capturas',
+                              tr(
+                                'edit.captures_count',
+                                args: ['${_captureTag!.count}'],
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -1862,7 +1897,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Etiqueta de capturas',
+                              tr('edit.capture_tag_kind'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -1874,7 +1909,10 @@ class _EditEntityPageState extends State<EditEntityPage> {
                               _countryCtrl.text.trim().isNotEmpty) ...[
                             const SizedBox(height: 6),
                             Text(
-                              'Pais: ${_countryLabelWithFlag()}',
+                              tr(
+                                'edit.country_value',
+                                args: [_countryLabelWithFlag()],
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -1886,7 +1924,10 @@ class _EditEntityPageState extends State<EditEntityPage> {
                               _artistMainRegion != ArtistMainRegion.none) ...[
                             const SizedBox(height: 2),
                             Text(
-                              'Region: ${_artistMainRegion.simpleLabel}',
+                              tr(
+                                'edit.region_value',
+                                args: [_artistMainRegion.simpleLabel],
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -1903,7 +1944,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Informacion basica',
+              tr('edit.basic_info'),
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -1955,10 +1996,10 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         initialValue: _artistRegionLabel(),
                         readOnly: true,
                         enabled: false,
-                        decoration: const InputDecoration(
-                          labelText: 'Region principal',
-                          prefixIcon: Icon(Icons.language_rounded),
-                          suffixIcon: Icon(Icons.lock_rounded),
+                        decoration: InputDecoration(
+                          labelText: tr('edit.main_region'),
+                          prefixIcon: const Icon(Icons.language_rounded),
+                          suffixIcon: const Icon(Icons.lock_rounded),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -1967,13 +2008,13 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         readOnly: true,
                         onTap: _pickArtistCountry,
                         decoration: InputDecoration(
-                          labelText: 'Pais (opcional)',
+                          labelText: tr('edit.country_optional'),
                           prefixIcon: const Icon(Icons.public_rounded),
-                          hintText: 'Selecciona pais',
+                          hintText: tr('edit.select_country'),
                           suffixIcon: IconButton(
                             tooltip: _countryCtrl.text.trim().isNotEmpty
-                                ? 'Limpiar pais'
-                                : 'Seleccionar pais',
+                                ? tr('edit.clear_country')
+                                : tr('edit.select_country'),
                             onPressed: _countryCtrl.text.trim().isNotEmpty
                                 ? _clearArtistCountry
                                 : _pickArtistCountry,
@@ -1992,9 +2033,9 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         initialValue: _formatCaptureBytes(_capture!.size),
                         readOnly: true,
                         enabled: false,
-                        decoration: const InputDecoration(
-                          labelText: 'Peso',
-                          prefixIcon: Icon(Icons.storage_rounded),
+                        decoration: InputDecoration(
+                          labelText: tr('edit.weight'),
+                          prefixIcon: const Icon(Icons.storage_rounded),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -2002,33 +2043,36 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         initialValue: _formatCaptureDate(_capture!.modifiedAt),
                         readOnly: true,
                         enabled: false,
-                        decoration: const InputDecoration(
-                          labelText: 'Fecha de captura',
-                          prefixIcon: Icon(Icons.calendar_month_rounded),
+                        decoration: InputDecoration(
+                          labelText: tr('edit.capture_date'),
+                          prefixIcon: const Icon(Icons.calendar_month_rounded),
                         ),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         initialValue: _capture!.sourceTitle?.isNotEmpty == true
                             ? _capture!.sourceTitle!
-                            : 'Fuente no registrada',
+                            : tr('edit.source_not_registered'),
                         readOnly: true,
                         enabled: false,
-                        decoration: const InputDecoration(
-                          labelText: 'Fuente',
-                          prefixIcon: Icon(Icons.movie_filter_rounded),
+                        decoration: InputDecoration(
+                          labelText: tr('edit.source'),
+                          prefixIcon: const Icon(Icons.movie_filter_rounded),
                         ),
                       ),
                     ],
                     if (_isCaptureTag) ...[
                       const SizedBox(height: 12),
                       TextFormField(
-                        initialValue: '${_captureTag!.count} capturas',
+                        initialValue: tr(
+                          'edit.captures_count',
+                          args: ['${_captureTag!.count}'],
+                        ),
                         readOnly: true,
                         enabled: false,
-                        decoration: const InputDecoration(
-                          labelText: 'Contenido',
-                          prefixIcon: Icon(Icons.photo_library_rounded),
+                        decoration: InputDecoration(
+                          labelText: tr('edit.content'),
+                          prefixIcon: const Icon(Icons.photo_library_rounded),
                         ),
                       ),
                     ],
@@ -2157,7 +2201,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'Thumbnail',
+                        tr('edit.thumbnail'),
                         style: theme.textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
@@ -2172,7 +2216,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
             if (_isMedia) ...[
               const SizedBox(height: 12),
               Text(
-                'Extras',
+                tr('edit.extras'),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -2192,21 +2236,20 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         controller: _durationCtrl,
                         readOnly: true,
                         enableInteractiveSelection: false,
-                        decoration: const InputDecoration(
-                          labelText: 'Duracion detectada automaticamente (s)',
-                          prefixIcon: Icon(Icons.timer_rounded),
+                        decoration: InputDecoration(
+                          labelText: tr('edit.detected_duration_seconds'),
+                          prefixIcon: const Icon(Icons.timer_rounded),
                         ),
                       ),
                       if (_isAudioMedia) ...[
                         const SizedBox(height: 12),
                         _ExtraActionCard(
                           icon: Icons.auto_fix_high_rounded,
-                          title: 'Sonido limpio',
-                          subtitle:
-                              'Detecta silencios largos y crea una variante limpia sin tocar el archivo original.',
+                          title: tr('edit.clean_sound_title'),
+                          subtitle: tr('edit.clean_sound_subtitle'),
                           busy: _audioCleanupBusy,
-                          busyLabel: 'Procesando...',
-                          actionLabel: 'Analizar silencios',
+                          busyLabel: tr('edit.processing'),
+                          actionLabel: tr('edit.analyze_silences'),
                           onPressed: _runAudioCleanupFlow,
                         ),
                         const SizedBox(height: 14),
@@ -2215,12 +2258,11 @@ class _EditEntityPageState extends State<EditEntityPage> {
                       ],
                       _ExtraActionCard(
                         icon: Icons.compare_arrows_rounded,
-                        title: 'Transferencia de datos',
-                        subtitle:
-                            'Pasa metadata, portada, playlists y estadisticas de esta version a otra cancion.',
+                        title: tr('edit.data_transfer_title'),
+                        subtitle: tr('edit.data_transfer_subtitle'),
                         busy: _dataTransferBusy,
-                        busyLabel: 'Transfiriendo...',
-                        actionLabel: 'Transferir a otra cancion',
+                        busyLabel: tr('edit.transferring'),
+                        actionLabel: tr('edit.transfer_to_song'),
                         onPressed: _runDataTransferFlow,
                       ),
                       if (_isAudioMedia) ...[
@@ -2232,7 +2274,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                           child: FilledButton.tonalIcon(
                             onPressed: _openLyricsEditor,
                             icon: const Icon(Icons.lyrics_rounded),
-                            label: const Text('Editar letras'),
+                            label: Text(tr('edit.edit_lyrics')),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -2389,7 +2431,7 @@ class _CaptureTagSearchSheetState extends State<_CaptureTagSearchSheet> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Asignar etiquetas',
+                          tr('edit.assign_tags'),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -2397,7 +2439,7 @@ class _CaptureTagSearchSheetState extends State<_CaptureTagSearchSheet> {
                       ),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cerrar'),
+                        child: Text(tr('common.close')),
                       ),
                     ],
                   ),
@@ -2416,7 +2458,7 @@ class _CaptureTagSearchSheetState extends State<_CaptureTagSearchSheet> {
                                 setState(() => _query = '');
                               },
                             ),
-                      hintText: 'Buscar etiquetas',
+                      hintText: tr('edit.search_tags'),
                       border: const OutlineInputBorder(),
                     ),
                   ),
@@ -2427,7 +2469,7 @@ class _CaptureTagSearchSheetState extends State<_CaptureTagSearchSheet> {
               child: filtered.isEmpty
                   ? Center(
                       child: Text(
-                        'No hay etiquetas disponibles.',
+                        tr('edit.no_tags_available'),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -2443,7 +2485,10 @@ class _CaptureTagSearchSheetState extends State<_CaptureTagSearchSheet> {
                         return _CaptureEditTagRow(
                           label: folder.tag,
                           color: Color(folder.colorValue),
-                          subtitle: '${folder.count} capturas',
+                          subtitle: tr(
+                            'edit.captures_count',
+                            args: ['${folder.count}'],
+                          ),
                           selected: selected,
                           onTap: () => _toggle(folder),
                         );
@@ -2457,7 +2502,9 @@ class _CaptureTagSearchSheetState extends State<_CaptureTagSearchSheet> {
                 child: FilledButton.icon(
                   onPressed: () => Navigator.of(context).pop(_selectedLabels),
                   icon: const Icon(Icons.check_rounded),
-                  label: Text('Aplicar ${_selectedLabels.length} etiquetas'),
+                  label: Text(
+                    tr('edit.apply_tags', args: ['${_selectedLabels.length}']),
+                  ),
                 ),
               ),
             ),
@@ -2692,7 +2739,7 @@ class _TransferTargetSheetState extends State<_TransferTargetSheet> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Elegir cancion destino',
+                          tr('edit.choose_target_song'),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -2700,7 +2747,7 @@ class _TransferTargetSheetState extends State<_TransferTargetSheet> {
                       ),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cerrar'),
+                        child: Text(tr('common.close')),
                       ),
                     ],
                   ),
@@ -2710,7 +2757,7 @@ class _TransferTargetSheetState extends State<_TransferTargetSheet> {
                     onChanged: (value) => setState(() => _query = value),
                     textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
-                      hintText: 'Buscar por cancion o artista',
+                      hintText: tr('home.search.by_title_artist'),
                       prefixIcon: const Icon(Icons.search_rounded),
                       suffixIcon: _query.trim().isEmpty
                           ? null
@@ -2727,7 +2774,12 @@ class _TransferTargetSheetState extends State<_TransferTargetSheet> {
                   const SizedBox(height: 10),
                   Chip(
                     avatar: const Icon(Icons.library_music_rounded, size: 18),
-                    label: Text('${widget.candidates.length} disponibles'),
+                    label: Text(
+                      tr(
+                        'edit.available_count',
+                        args: ['${widget.candidates.length}'],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -2736,7 +2788,7 @@ class _TransferTargetSheetState extends State<_TransferTargetSheet> {
               child: items.isEmpty
                   ? Center(
                       child: Text(
-                        'No se encontraron canciones.',
+                        tr('edit.no_songs_found'),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -2786,7 +2838,7 @@ class _TransferTargetSheetState extends State<_TransferTargetSheet> {
                             ),
                             subtitle: Text(
                               item.displaySubtitle.isEmpty
-                                  ? 'Artista desconocido'
+                                  ? tr('edit.unknown_artist')
                                   : item.displaySubtitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -2894,14 +2946,14 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Seleccionar pais',
+                tr('edit.select_country'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Busca y elige un pais. La region se define automaticamente.',
+                tr('edit.select_country_subtitle'),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -2911,13 +2963,13 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                 controller: _searchCtrl,
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
-                  labelText: 'Buscar pais',
-                  hintText: 'Nombre o codigo ISO',
+                  labelText: tr('edit.search_country'),
+                  hintText: tr('edit.country_search_hint'),
                   prefixIcon: const Icon(Icons.search_rounded),
                   suffixIcon: _searchCtrl.text.trim().isEmpty
                       ? null
                       : IconButton(
-                          tooltip: 'Limpiar',
+                          tooltip: tr('sources.clear'),
                           onPressed: () {
                             _searchCtrl.clear();
                             setState(() {});
@@ -2931,7 +2983,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                 child: countries.isEmpty
                     ? Center(
                         child: Text(
-                          'No hay paises para esa busqueda.',
+                          tr('edit.no_countries_found'),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),

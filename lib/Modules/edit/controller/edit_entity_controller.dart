@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -240,11 +242,11 @@ class EditEntityController extends GetxController {
         compressQuality: 92,
         uiSettings: [
           AndroidUiSettings(
-            toolbarTitle: 'Recortar',
+            toolbarTitle: tr('edit.crop'),
             lockAspectRatio: true,
             hideBottomControls: true,
           ),
-          IOSUiSettings(title: 'Recortar', aspectRatioLockEnabled: true),
+          IOSUiSettings(title: tr('edit.crop'), aspectRatioLockEnabled: true),
         ],
       );
       return cropped?.path;

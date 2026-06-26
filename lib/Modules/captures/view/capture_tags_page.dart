@@ -71,7 +71,7 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Etiquetas',
+                tr('captures.tags.title'),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -97,7 +97,7 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
           forceMaterialTransparency: true,
           actions: [
             IconButton(
-              tooltip: 'Crear etiqueta',
+              tooltip: tr('captures.tags.create'),
               icon: const Icon(Icons.add_rounded),
               onPressed: () => _createTag(context),
             ),
@@ -115,7 +115,7 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
                     SourceFilterToolbar(
                       controller: _searchCtrl,
                       query: query,
-                      hintText: 'Buscar etiqueta',
+                      hintText: tr('captures.tags.search'),
                       onQueryChanged: (_) => setState(() {}),
                       onClearQuery: () {
                         _searchCtrl.clear();
@@ -143,14 +143,14 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                'Sin etiquetas',
+                                tr('captures.tags.empty'),
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Agrega etiquetas a tus capturas para verlas como carpetas.',
+                                tr('captures.tags.empty_body'),
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: scheme.onSurfaceVariant,
@@ -163,7 +163,7 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
                     : visibleFolders.isEmpty
                     ? Center(
                         child: Text(
-                          'Sin resultados para "$query"',
+                          tr('captures.tags.no_results', args: [query]),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
@@ -337,7 +337,7 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
           children: [
             ListTile(
               leading: const Icon(Icons.edit_rounded),
-              title: const Text('Editar'),
+              title: Text(tr('common.edit')),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _editFolder(context, folder);
@@ -345,7 +345,10 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
             ),
             ListTile(
               leading: Icon(Icons.delete_outline_rounded, color: scheme.error),
-              title: Text('Eliminar', style: TextStyle(color: scheme.error)),
+              title: Text(
+                tr('common.delete'),
+                style: TextStyle(color: scheme.error),
+              ),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 _confirmDeleteTag(context, folder);
@@ -510,7 +513,7 @@ class _TagFolderTile extends StatelessWidget {
                         onPressed: onOptions,
                         iconSize: 16,
                         icon: const Icon(Icons.more_horiz_rounded),
-                        tooltip: 'Editar etiqueta',
+                        tooltip: tr('captures.tags.edit'),
                       ),
                     ),
                   ],
@@ -542,7 +545,7 @@ class _TagFolderTile extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '${folder.count} capturas',
+                tr('captures.tags.count_label', args: ['${folder.count}']),
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,

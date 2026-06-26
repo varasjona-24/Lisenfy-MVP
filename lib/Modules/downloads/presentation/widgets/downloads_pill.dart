@@ -335,7 +335,7 @@ class DownloadsPill extends GetView<DownloadsController> {
                           await controller.pickLocalFilesForImport();
                         },
                         icon: const Icon(Icons.folder_open_rounded),
-                        label: const Text('Seleccionar archivos'),
+                        label: Text(tr('downloads.select_files')),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -349,7 +349,10 @@ class DownloadsPill extends GetView<DownloadsController> {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        '${controller.localFilesForImport.length} seleccionados',
+                        tr(
+                          'downloads.selected_count',
+                          args: ['${controller.localFilesForImport.length}'],
+                        ),
                         style: theme.textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: scheme.onSurfaceVariant,
@@ -363,7 +366,7 @@ class DownloadsPill extends GetView<DownloadsController> {
                         if (list.isEmpty) {
                           return Center(
                             child: Text(
-                              'No hay archivos seleccionados.',
+                              tr('imports.no_files_selected'),
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: scheme.onSurfaceVariant,
                               ),
@@ -429,7 +432,7 @@ class DownloadsPill extends GetView<DownloadsController> {
                                         icon: const Icon(
                                           Icons.download_done_rounded,
                                         ),
-                                        tooltip: 'Importar',
+                                        tooltip: tr('common.import'),
                                         onPressed: () => _importItem(
                                           context: context,
                                           controller: controller,
@@ -464,8 +467,8 @@ class DownloadsPill extends GetView<DownloadsController> {
                               : const Icon(Icons.playlist_add_check_rounded),
                           label: Text(
                             controller.importing.value
-                                ? 'Importando...'
-                                : 'Importar todos',
+                                ? tr('downloads.importing')
+                                : tr('downloads.import_all'),
                           ),
                         ),
                       ),
@@ -481,7 +484,7 @@ class DownloadsPill extends GetView<DownloadsController> {
                                 controller.clearLocalFilesForImport();
                                 Navigator.of(ctx).pop();
                               },
-                              child: const Text('Cancelar'),
+                              child: Text(tr('common.cancel')),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -491,7 +494,7 @@ class DownloadsPill extends GetView<DownloadsController> {
                                 controller.clearLocalFilesForImport();
                               },
                               icon: const Icon(Icons.cleaning_services_rounded),
-                              label: const Text('Limpiar'),
+                              label: Text(tr('common.clear')),
                             ),
                           ),
                         ],
@@ -655,7 +658,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _submit(context),
                 decoration: InputDecoration(
-                  labelText: 'URL',
+                  labelText: tr('downloads.url'),
                   hintText: 'https://www.youtube.com/watch?v=...',
                   prefixIcon: const Icon(Icons.link_rounded),
                   suffixIcon: IconButton(
@@ -731,9 +734,9 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
   void _submit(BuildContext context) {
     final url = _urlCtrl.text.trim();
     if (url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor ingresa una URL')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(tr('downloads.url_required'))));
       return;
     }
     Navigator.of(context).pop(_ImportUrlResult(url: url, kind: _kind));

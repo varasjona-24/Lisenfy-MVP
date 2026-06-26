@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart' as dio;
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -479,12 +481,23 @@ class KaraokeRemotePipelineService {
         ? 'instrumental'
         : 'audio 8D';
     return switch (status) {
-      KaraokeRemoteSessionStatus.separating => 'Procesando $noun en backend...',
-      KaraokeRemoteSessionStatus.readyToRecord => '$noun listo.',
-      KaraokeRemoteSessionStatus.completed => 'Procesamiento $noun completado.',
-      KaraokeRemoteSessionStatus.failed => 'Proceso fallido en backend.',
-      KaraokeRemoteSessionStatus.canceled => 'Proceso cancelado.',
-      KaraokeRemoteSessionStatus.unknown => 'Procesando...',
+      KaraokeRemoteSessionStatus.separating => tr(
+        'karaoke_remote.status.separating',
+        args: [noun],
+      ),
+      KaraokeRemoteSessionStatus.readyToRecord => tr(
+        'karaoke_remote.status.ready',
+        args: [noun],
+      ),
+      KaraokeRemoteSessionStatus.completed => tr(
+        'karaoke_remote.status.completed',
+        args: [noun],
+      ),
+      KaraokeRemoteSessionStatus.failed => tr('karaoke_remote.status.failed'),
+      KaraokeRemoteSessionStatus.canceled => tr(
+        'karaoke_remote.status.canceled',
+      ),
+      KaraokeRemoteSessionStatus.unknown => tr('karaoke_remote.status.unknown'),
     };
   }
 

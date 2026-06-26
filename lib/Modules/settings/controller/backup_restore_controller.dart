@@ -476,17 +476,15 @@ class BackupRestoreController extends GetxController {
       StatefulBuilder(
         builder: (context, setStateDialog) {
           return AlertDialog(
-            title: const Text('Opciones de respaldo'),
+            title: Text(tr('backup.options_title')),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 CheckboxListTile(
                   value: includeInstrumentals,
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Incluir variantes instrumentales'),
-                  subtitle: const Text(
-                    'Si se desactiva, se respaldan solo variantes normales.',
-                  ),
+                  title: Text(tr('backup.include_instrumental_variants')),
+                  subtitle: Text(tr('backup.exclude_instrumentals_body')),
                   onChanged: (value) {
                     setStateDialog(() {
                       includeInstrumentals = value ?? true;
@@ -498,11 +496,11 @@ class BackupRestoreController extends GetxController {
             actions: [
               TextButton(
                 onPressed: () => Get.back<bool?>(),
-                child: const Text('Cancelar'),
+                child: Text(tr('common.cancel')),
               ),
               FilledButton(
                 onPressed: () => Get.back(result: includeInstrumentals),
-                child: const Text('Continuar'),
+                child: Text(tr('backup.continue')),
               ),
             ],
           );
@@ -567,8 +565,11 @@ class BackupRestoreController extends GetxController {
                                 const SizedBox(height: 2),
                                 Text(
                                   hasProgress
-                                      ? '$percent% completado'
-                                      : 'Preparando proceso...',
+                                      ? tr(
+                                          'backup.progress_percent',
+                                          args: ['$percent'],
+                                        )
+                                      : tr('backup.preparing_process'),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: scheme.onSurfaceVariant,
                                   ),
@@ -832,7 +833,7 @@ class BackupRestoreController extends GetxController {
                               Expanded(
                                 child: OutlinedButton(
                                   onPressed: () => closeWith(null),
-                                  child: const Text('Cancelar'),
+                                  child: Text(tr('common.cancel')),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -841,7 +842,7 @@ class BackupRestoreController extends GetxController {
                                   onPressed: () =>
                                       closeWith(const {'action': 'pick'}),
                                   icon: const Icon(Icons.folder_open_rounded),
-                                  label: const Text('Seleccionar ZIP'),
+                                  label: Text(tr('backup.select_zip')),
                                 ),
                               ),
                             ],
@@ -857,7 +858,7 @@ class BackupRestoreController extends GetxController {
                                     })
                                   : null,
                               icon: const Icon(Icons.search_rounded),
-                              label: const Text('Localizar'),
+                              label: Text(tr('backup.locate')),
                             ),
                           ),
                         ],
@@ -975,7 +976,7 @@ class BackupRestoreController extends GetxController {
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => Get.back(result: false),
-                            child: const Text('Cancelar'),
+                            child: Text(tr('common.cancel')),
                           ),
                         ),
                         const SizedBox(width: 10),

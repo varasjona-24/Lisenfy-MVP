@@ -211,7 +211,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
           Expanded(
             child: _PlaylistCommandButton(
               icon: Icons.add_rounded,
-              label: 'Agregar',
+              label: tr('common.add'),
               onPressed: () => _openAddSongs(context, playlist),
             ),
           ),
@@ -219,7 +219,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
         Expanded(
           child: _PlaylistCommandButton(
             icon: Icons.play_arrow_rounded,
-            label: 'Reproducir',
+            label: tr('player.play'),
             onPressed: items.isEmpty ? null : () => _play(items, 0),
           ),
         ),
@@ -227,7 +227,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
         Expanded(
           child: _PlaylistCommandButton(
             icon: Icons.shuffle_rounded,
-            label: 'Aleatorio',
+            label: tr('player.shuffle'),
             onPressed: items.isEmpty ? null : () => _playShuffled(items),
           ),
         ),
@@ -753,14 +753,14 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Agregar canciones',
+                          tr('playlists.detail.add_songs'),
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                       ),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cerrar'),
+                        child: Text(tr('common.close')),
                       ),
                     ],
                   ),
@@ -782,7 +782,7 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
                                 setState(() => _query = '');
                               },
                             ),
-                      hintText: 'Buscar por cancion o artista',
+                      hintText: tr('home.search.by_title_artist'),
                       border: const OutlineInputBorder(),
                     ),
                   ),
@@ -796,14 +796,24 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
                           Icons.library_music_rounded,
                           size: 18,
                         ),
-                        label: Text('${widget.allItems.length} disponibles'),
+                        label: Text(
+                          tr(
+                            'playlists.detail.available_count',
+                            args: ['${widget.allItems.length}'],
+                          ),
+                        ),
                       ),
                       Chip(
                         avatar: const Icon(
                           Icons.check_circle_rounded,
                           size: 18,
                         ),
-                        label: Text('${_selected.length} seleccionadas'),
+                        label: Text(
+                          tr(
+                            'playlists.detail.selected_count',
+                            args: ['${_selected.length}'],
+                          ),
+                        ),
                       ),
                       if (normalizedQuery.isNotEmpty)
                         Chip(
@@ -811,7 +821,12 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
                             Icons.filter_alt_rounded,
                             size: 18,
                           ),
-                          label: Text('${items.length} resultados'),
+                          label: Text(
+                            tr(
+                              'home.search.results',
+                              args: ['${items.length}'],
+                            ),
+                          ),
                         ),
                     ],
                   ),
@@ -825,8 +840,8 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
                         padding: const EdgeInsets.all(24),
                         child: Text(
                           normalizedQuery.isEmpty
-                              ? 'No hay canciones nuevas para agregar.'
-                              : 'No se encontraron canciones.',
+                              ? tr('playlists.detail.no_new_songs')
+                              : tr('edit.no_songs_found'),
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
@@ -849,8 +864,11 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
                   icon: const Icon(Icons.add_rounded),
                   label: Text(
                     _selected.isEmpty
-                        ? 'Selecciona canciones'
-                        : 'Agregar ${_selected.length} seleccionadas',
+                        ? tr('playlists.detail.select_songs')
+                        : tr(
+                            'playlists.detail.add_selected',
+                            args: ['${_selected.length}'],
+                          ),
                   ),
                 ),
               ),

@@ -614,7 +614,7 @@ class _SectionListPageState extends State<SectionListPage> {
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: () => Navigator.of(ctx).pop(),
-                      child: const Text('Aceptar'),
+                      child: Text(tr('common.accept')),
                     ),
                   ),
                 ],

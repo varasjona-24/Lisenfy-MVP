@@ -704,10 +704,10 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     return _buildSectionPanel(
       theme: theme,
       icon: Icons.mic_rounded,
-      title: 'Sincronizacion karaoke',
+      title: tr('lyrics.karaoke_sync'),
       subtitle: canSync
-          ? 'Marca cada linea mientras suena la cancion.'
-          : 'Abre y reproduce la cancion en el player para sincronizar.',
+          ? tr('lyrics.karaoke_sync_ready')
+          : tr('lyrics.karaoke_sync_player_required'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -720,44 +720,56 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
                 icon: Icon(
                   isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                 ),
-                label: Text(isPlaying ? 'Pausar' : 'Reproducir'),
+                label: Text(isPlaying ? tr('player.pause') : tr('player.play')),
               ),
               OutlinedButton.icon(
                 onPressed: canSync ? _seekBackTwoSeconds : null,
                 icon: const Icon(Icons.replay_10_rounded),
-                label: const Text('-2s'),
+                label: Text(tr('lyrics.seek_back_short')),
               ),
               OutlinedButton.icon(
                 onPressed: canSync ? _seekToStart : null,
                 icon: const Icon(Icons.first_page_rounded),
-                label: const Text('Inicio'),
+                label: Text(tr('lyrics.start')),
               ),
               FilledButton.icon(
                 onPressed: canSync ? _markNextCue : null,
                 icon: const Icon(Icons.add_rounded),
-                label: const Text('Marcar linea'),
+                label: Text(tr('lyrics.mark_line')),
               ),
               OutlinedButton.icon(
                 onPressed: cues.isEmpty ? null : _undoLastCue,
                 icon: const Icon(Icons.undo_rounded),
-                label: const Text('Deshacer'),
+                label: Text(tr('common.undo')),
               ),
               OutlinedButton.icon(
                 onPressed: cues.isEmpty ? null : _clearCurrentLanguageTiming,
                 icon: const Icon(Icons.delete_outline_rounded),
-                label: const Text('Limpiar'),
+                label: Text(tr('common.clear')),
               ),
             ],
           ),
           const SizedBox(height: 10),
           Text(
-            'Tiempo: ${_formatMs(currentMs)}'
-            '${durationMs > 0 ? ' / ${_formatMs(durationMs)}' : ''}',
+            tr(
+              'lyrics.time_label',
+              args: [
+                '${_formatMs(currentMs)}'
+                    '${durationMs > 0 ? ' / ${_formatMs(durationMs)}' : ''}',
+              ],
+            ),
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 2),
           Text(
-            'Idioma ${_lyricsLang.toUpperCase()}: ${cues.length}/${lines.length} lineas/pausas sincronizadas',
+            tr(
+              'lyrics.synced_lines',
+              args: [
+                _lyricsLang.toUpperCase(),
+                '${cues.length}',
+                '${lines.length}',
+              ],
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -779,7 +791,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
                 ),
             if (cues.length > 10)
               Text(
-                '+${cues.length - 10} lineas mas',
+                tr('lyrics.more_lines', args: ['${cues.length - 10}']),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -797,7 +809,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     final primaryLines = _primaryLyricsLines();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Editor de letras'), centerTitle: true),
+      appBar: AppBar(title: Text(tr('lyrics.editor_title')), centerTitle: true),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
@@ -837,13 +849,18 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
             _buildSectionPanel(
               theme: theme,
               icon: Icons.article_outlined,
-              title: 'Letra principal',
-              subtitle:
-                  '${primaryLines.length} lineas detectadas en el idioma principal.',
+              title: tr('lyrics.main_lyrics'),
+              subtitle: tr(
+                'lyrics.main_lines_detected',
+                args: ['${primaryLines.length}'],
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Idioma', style: theme.textTheme.labelLarge),
+                  Text(
+                    tr('lyrics.language'),
+                    style: theme.textTheme.labelLarge,
+                  ),
                   const SizedBox(height: 6),
                   _languageDropdown(
                     value: _lyricsLang,
@@ -862,10 +879,10 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
                     controller: _lyricsController,
                     minLines: 8,
                     maxLines: 14,
-                    decoration: const InputDecoration(
-                      labelText: 'Letra principal',
+                    decoration: InputDecoration(
+                      labelText: tr('lyrics.main_lyrics'),
                       alignLabelWithHint: true,
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ],
@@ -877,8 +894,8 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
             _buildSectionPanel(
               theme: theme,
               icon: Icons.translate_rounded,
-              title: 'Traducciones',
-              subtitle: 'Genera, edita y guarda variantes de letra por idioma.',
+              title: tr('lyrics.translations'),
+              subtitle: tr('lyrics.translations_subtitle'),
               child: Column(
                 children: [
                   Row(
@@ -900,7 +917,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
                       const SizedBox(width: 8),
                       FilledButton(
                         onPressed: _loading ? null : _translateLyrics,
-                        child: const Text('Traducir'),
+                        child: Text(tr('lyrics.translate')),
                       ),
                     ],
                   ),
@@ -909,9 +926,9 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
                     controller: _translationPreviewController,
                     maxLines: 5,
                     minLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Vista previa de traduccion',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: tr('lyrics.translation_preview'),
+                      border: const OutlineInputBorder(),
                     ),
                     onChanged: (val) {
                       final text = val.trim();
@@ -966,7 +983,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
                     child: OutlinedButton.icon(
                       onPressed: _applyPreviewAsPrimaryLyrics,
                       icon: const Icon(Icons.swap_horiz_rounded),
-                      label: const Text('Usar traduccion como principal'),
+                      label: Text(tr('lyrics.use_translation_as_primary')),
                     ),
                   ),
                 ],

@@ -421,7 +421,7 @@ class VideoPlayerController extends GetxController {
 
       final shouldResume = await Get.dialog<bool>(
         AlertDialog(
-          title: Text('player.video.continue_title'.tr),
+          title: Text(tr('player.video.continue_title')),
           content: Text(
             'player.video.continue_body'.tr.replaceFirst(
               '{}',

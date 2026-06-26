@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -228,9 +230,12 @@ class AudioPlayerController extends GetxController {
 
     final shouldResume = await Get.dialog<bool>(
       AlertDialog(
-        title: Text('player.audio.continue_title'.tr),
+        title: Text(tr('player.audio.continue_title')),
         content: Text(
-          'player.audio.continue_body'.tr.replaceFirst('{}', _fmtDuration(resume)),
+          'player.audio.continue_body'.tr.replaceFirst(
+            '{}',
+            _fmtDuration(resume),
+          ),
         ),
         actions: [
           TextButton(
@@ -239,7 +244,12 @@ class AudioPlayerController extends GetxController {
           ),
           FilledButton(
             onPressed: () => Get.back(result: true),
-            child: Text('player.audio.continue_btn'.tr.replaceFirst('{}', _fmtDuration(resume))),
+            child: Text(
+              'player.audio.continue_btn'.tr.replaceFirst(
+                '{}',
+                _fmtDuration(resume),
+              ),
+            ),
           ),
         ],
       ),

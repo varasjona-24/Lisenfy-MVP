@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -230,7 +232,7 @@ class _ImageSearchDialogState extends State<ImageSearchDialog> {
                     const ListenfyLogo(size: 22, showText: false),
                     const SizedBox(width: 10),
                     Text(
-                      'Buscar portada',
+                      tr('edit.search_cover'),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -245,7 +247,7 @@ class _ImageSearchDialogState extends State<ImageSearchDialog> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'En macOS se abre la búsqueda en tu navegador. Pega aquí la URL de la imagen que quieras usar.',
+                  tr('edit.image_search_macos_hint'),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -253,9 +255,9 @@ class _ImageSearchDialogState extends State<ImageSearchDialog> {
                 const SizedBox(height: 14),
                 TextField(
                   controller: _manualUrlController,
-                  decoration: const InputDecoration(
-                    labelText: 'URL de imagen',
-                    prefixIcon: Icon(Icons.link_rounded),
+                  decoration: InputDecoration(
+                    labelText: tr('edit.image_url'),
+                    prefixIcon: const Icon(Icons.link_rounded),
                   ),
                   onSubmitted: (_) => _selectManualUrl(),
                 ),
@@ -266,7 +268,7 @@ class _ImageSearchDialogState extends State<ImageSearchDialog> {
                       child: FilledButton.tonalIcon(
                         onPressed: _openInSystemBrowser,
                         icon: const Icon(Icons.open_in_browser_rounded),
-                        label: const Text('Abrir búsqueda'),
+                        label: Text(tr('edit.open_search')),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -274,7 +276,7 @@ class _ImageSearchDialogState extends State<ImageSearchDialog> {
                       child: FilledButton.icon(
                         onPressed: _selectManualUrl,
                         icon: const Icon(Icons.check_rounded),
-                        label: const Text('Usar URL'),
+                        label: Text(tr('edit.use_url')),
                       ),
                     ),
                   ],

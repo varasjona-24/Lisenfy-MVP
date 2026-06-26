@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 import '../../../../app/models/media_item.dart';
@@ -85,7 +87,7 @@ class CountryStationCard extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: onPlay,
                     icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text('Reproducir'),
+                    label: Text(tr('player.play')),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -93,7 +95,7 @@ class CountryStationCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onContinue,
                     icon: const Icon(Icons.skip_next_rounded),
-                    label: const Text('Continuar'),
+                    label: Text(tr('common.continue')),
                   ),
                 ),
               ],
