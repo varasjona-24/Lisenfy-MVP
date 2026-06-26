@@ -468,8 +468,8 @@ class SourcesController extends GetxController {
     ),
     SourceTheme(
       id: 'podcasts',
-      title: 'Podcasts y vlogs',
-      subtitle: 'Charlas y contenido hablado',
+      title: tr('sources.themes.podcasts_title'),
+      subtitle: tr('sources.themes.podcasts_subtitle'),
       icon: Icons.mic_rounded,
       colors: const [Color(0xFF5B2C2C), Color(0xFFD36A6A)],
       defaultOrigins: [
@@ -482,8 +482,8 @@ class SourcesController extends GetxController {
     ),
     SourceTheme(
       id: 'social',
-      title: 'Redes sociales',
-      subtitle: 'Contenido social y trending',
+      title: tr('sources.themes.social_title'),
+      subtitle: tr('sources.themes.social_subtitle'),
       icon: Icons.people_alt_rounded,
       colors: const [Color(0xFF3A2F57), Color(0xFF8C6FD9)],
       defaultOrigins: [
@@ -502,8 +502,8 @@ class SourcesController extends GetxController {
     ),
     SourceTheme(
       id: 'education',
-      title: 'Contenido educativo',
-      subtitle: 'Clases y material formativo',
+      title: tr('sources.themes.education_title'),
+      subtitle: tr('sources.themes.education_subtitle'),
       icon: Icons.school_rounded,
       colors: const [Color(0xFF1F4A3D), Color(0xFF4FB286)],
       defaultOrigins: [
@@ -515,8 +515,8 @@ class SourcesController extends GetxController {
     ),
     SourceTheme(
       id: 'files',
-      title: 'Archivos personales',
-      subtitle: 'Imports desde tu dispositivo',
+      title: tr('sources.themes.files_title'),
+      subtitle: tr('sources.themes.files_subtitle'),
       icon: Icons.folder_rounded,
       colors: const [Color(0xFF3F2A1A), Color(0xFFB07A4E)],
       defaultOrigins: [SourceOrigin.device],

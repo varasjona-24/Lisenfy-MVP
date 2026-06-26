@@ -449,12 +449,12 @@ class _SectionListPageState extends State<SectionListPage> {
                   ),
                 if (_canSortSource)
                   IconButton(
-                    tooltip: 'Ordenar',
+                    tooltip: tr('sources.sort'),
                     onPressed: () => _openSortSheet(context),
                     icon: const Icon(Icons.sort_rounded),
                   ),
                 IconButton(
-                  tooltip: 'Seleccionar varios',
+                  tooltip: tr('media_actions.multi_select'),
                   onPressed: _items.any(_canSelect)
                       ? () => _toggleSelectionMode(true)
                       : null,

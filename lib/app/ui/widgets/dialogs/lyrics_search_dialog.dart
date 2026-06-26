@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:get/get.dart';
@@ -124,8 +126,8 @@ class _LyricsSearchDialogState extends State<LyricsSearchDialog> {
 
     if (selected.trim().isEmpty) {
       Get.snackbar(
-        'Letras',
-        'Selecciona texto manualmente en la pagina y luego pulsa Seleccionar.',
+        tr('player.quick.lyrics'),
+        tr('player.lyrics.select_text_hint'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -143,11 +145,11 @@ class _LyricsSearchDialogState extends State<LyricsSearchDialog> {
         child: Column(
           children: [
             AppBar(
-              title: const Text('Buscar letras'),
+              title: Text(tr('player.lyrics.search_title')),
               actions: [
                 TextButton(
                   onPressed: () => _selectCurrent(),
-                  child: const Text('Seleccionar'),
+                  child: Text(tr('common.select')),
                 ),
               ],
             ),

@@ -240,7 +240,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                                       Expanded(
                                         child: _PlayerQuickActionTile(
                                           icon: _coverStyleIcon(coverStyle),
-                                          label: 'Visual',
+                                          label: tr('player.quick.visual'),
                                           value: _coverStyleLabel(coverStyle),
                                           onTap: () =>
                                               openPlayerVisualStyleSheet(
@@ -258,7 +258,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                                       Expanded(
                                         child: _PlayerQuickActionTile(
                                           icon: Icons.lyrics_rounded,
-                                          label: 'Letras',
+                                          label: tr('player.quick.lyrics'),
                                           value: null,
                                           onTap: () => openPlayerLyricsSheet(
                                             item,
@@ -272,12 +272,12 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                                       Expanded(
                                         child: _PlayerQuickActionTile(
                                           icon: Icons.graphic_eq_rounded,
-                                          label: 'Modo',
+                                          label: tr('player.quick.mode'),
                                           value: isInstrumentalMode
-                                              ? 'Instrumental'
+                                              ? tr('player.quick.instrumental')
                                               : isSpatial8dMode
                                               ? '8D'
-                                              : 'Normal',
+                                              : tr('player.quick.normal'),
                                           onTap: () =>
                                               openPlayerInstrumentalSheet(item),
                                         ),
@@ -304,7 +304,9 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                                           return _PlayerQuickActionTile(
                                             icon: Icons.surround_sound_rounded,
                                             label: tr('player.stereo'),
-                                            value: effectiveOn ? 'On' : 'Off',
+                                            value: effectiveOn
+                                                ? tr('common.on')
+                                                : tr('common.off'),
                                             active: effectiveOn,
                                             onTap: lockedByBinaural
                                                 ? null
@@ -334,12 +336,12 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
                                             icon: repeatOne
                                                 ? Icons.repeat_one_rounded
                                                 : Icons.repeat_rounded,
-                                            label: 'Repetir',
+                                            label: tr('player.quick.repeat'),
                                             value: repeatOne
-                                                ? 'Solo esta'
+                                                ? tr('player.quick.repeat_one')
                                                 : repeatActive
-                                                ? 'Una vez'
-                                                : 'Off',
+                                                ? tr('player.quick.repeat_once')
+                                                : tr('common.off'),
                                             active: repeatActive,
                                             onTap: controller.cycleRepeatMode,
                                           );

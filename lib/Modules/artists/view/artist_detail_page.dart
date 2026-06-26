@@ -54,13 +54,13 @@ class ArtistDetailPage extends GetView<ArtistsController> {
       if (artist == null) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Artista'),
+            title: Text(tr('edit.entity_type.artist')),
             backgroundColor: theme.colorScheme.surface,
             surfaceTintColor: theme.colorScheme.surface,
             foregroundColor: theme.colorScheme.onSurface,
             elevation: 0,
           ),
-          body: const Center(child: Text('Artista no encontrado')),
+          body: Center(child: Text(tr('artists.not_found'))),
         );
       }
 

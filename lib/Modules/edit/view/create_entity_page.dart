@@ -59,8 +59,10 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
   }
 
   String _title() {
-    if (_isCaptureTag) return 'Nueva etiqueta';
-    return _isCollection ? 'Nueva Collection' : 'Nueva playlist';
+    if (_isCaptureTag) return tr('edit.create_tag');
+    return _isCollection
+        ? tr('edit.create_collection')
+        : tr('edit.create_playlist');
   }
 
   Future<void> _pickLocalThumbnail() async {
@@ -146,11 +148,11 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
     if (name.isEmpty) {
       Get.snackbar(
         _isCaptureTag
-            ? 'Etiqueta'
+            ? tr('edit.entity_type.tag')
             : _isTopicPlaylist
-            ? 'Collection'
-            : 'Playlist',
-        'El nombre no puede estar vacio',
+            ? tr('edit.entity_type.collection')
+            : tr('edit.entity_type.playlist'),
+        tr('edit.validation.name_empty'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -267,10 +269,10 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
                       child: Text(
                         _nameCtrl.text.isEmpty
                             ? (_isCaptureTag
-                                  ? 'Nueva etiqueta'
+                                  ? tr('edit.create_tag')
                                   : _isCollection
-                                  ? 'Nueva Collection'
-                                  : 'Nueva playlist')
+                                  ? tr('edit.create_collection')
+                                  : tr('edit.create_playlist'))
                             : _nameCtrl.text,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -317,7 +319,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
               _isCaptureTag
                   ? 'Color de etiqueta'
                   : _isCollection
-                  ? 'Portada y color de Collection'
+                  ? tr('edit.collection_cover_color')
                   : 'Portada',
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,

@@ -742,7 +742,7 @@ class HomeController extends GetxController {
         id: 'smart_$cleanId',
         kind: HomeCustomSectionKind.smart,
         targetId: cleanId,
-        title: title.trim().isEmpty ? 'Sugerida' : title.trim(),
+        title: title.trim().isEmpty ? tr('home.custom.smart') : title.trim(),
       ),
     );
     _persistHomeLayout();

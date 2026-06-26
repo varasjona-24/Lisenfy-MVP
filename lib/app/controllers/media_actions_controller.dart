@@ -549,7 +549,7 @@ class MediaActionsController extends GetxController {
                   // Actions section
                   _ActionItem(
                     icon: Icons.edit_rounded,
-                    label: 'Editar',
+                    label: tr('common.edit'),
                     onTap: () {
                       pendingAction = () async {
                         final latest = await _resolveLatest(selected);
@@ -564,7 +564,7 @@ class MediaActionsController extends GetxController {
                   if (onStartMultiSelect != null)
                     _ActionItem(
                       icon: Icons.checklist_rtl_rounded,
-                      label: 'Seleccionar varios',
+                      label: tr('media_actions.multi_select'),
                       onTap: () {
                         pendingAction = () async {
                           onStartMultiSelect();
@@ -577,8 +577,8 @@ class MediaActionsController extends GetxController {
                         ? Icons.favorite_rounded
                         : Icons.favorite_border_rounded,
                     label: selected.isFavorite
-                        ? 'Quitar de favoritos'
-                        : 'Agregar a favoritos',
+                        ? tr('media_actions.remove_favorite')
+                        : tr('media_actions.add_favorite'),
                     color: selected.isFavorite ? scheme.primary : null,
                     onTap: () {
                       pendingAction = () async {
@@ -590,7 +590,7 @@ class MediaActionsController extends GetxController {
                   ),
                   _ActionItem(
                     icon: Icons.delete_outline_rounded,
-                    label: 'Borrar del dispositivo',
+                    label: tr('media_actions.delete_device'),
                     color: Colors.redAccent,
                     onTap: () {
                       pendingAction = () async {
@@ -607,7 +607,7 @@ class MediaActionsController extends GetxController {
                   ),
                   _ActionItem(
                     icon: Icons.bluetooth_searching_rounded,
-                    label: 'Transferir a Listenfy (offline)',
+                    label: tr('media_actions.transfer_offline'),
                     onTap: () {
                       pendingAction = () async {
                         final latest = await _resolveLatest(selected);
@@ -621,7 +621,7 @@ class MediaActionsController extends GetxController {
                   ),
                   _ActionItem(
                     icon: Icons.ios_share_rounded,
-                    label: 'Compartir archivo (externo)',
+                    label: tr('media_actions.share_external'),
                     onTap: () {
                       pendingAction = () async {
                         final latest = await _resolveLatest(selected);

@@ -88,7 +88,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     final query = "${_titleController.text} ${_artistController.text}".trim();
     if (query.isEmpty) {
       Get.snackbar(
-        'Letras',
+        tr('player.quick.lyrics'),
         'lyrics.search_query_empty'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
@@ -806,18 +806,20 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
             _buildSectionPanel(
               theme: theme,
               icon: Icons.music_note_rounded,
-              title: 'Datos de la cancion',
-              subtitle: 'Busca letras en web o editalas manualmente.',
+              title: tr('lyrics.song_data'),
+              subtitle: tr('lyrics.song_data_subtitle'),
               child: Column(
                 children: [
                   TextField(
                     controller: _titleController,
-                    decoration: const InputDecoration(labelText: 'Titulo'),
+                    decoration: InputDecoration(labelText: tr('common.title')),
                   ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _artistController,
-                    decoration: const InputDecoration(labelText: 'Artista'),
+                    decoration: InputDecoration(
+                      labelText: tr('edit.entity_type.artist'),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
@@ -825,7 +827,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
                     child: FilledButton.tonalIcon(
                       onPressed: _loading ? null : _searchLyrics,
                       icon: const Icon(Icons.search),
-                      label: const Text('Buscar letras en web'),
+                      label: Text(tr('lyrics.search_web')),
                     ),
                   ),
                 ],
@@ -987,7 +989,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
               child: FilledButton.icon(
                 onPressed: _save,
                 icon: const Icon(Icons.save_rounded),
-                label: const Text('Guardar cambios'),
+                label: Text(tr('common.save_changes')),
               ),
             ),
           ],

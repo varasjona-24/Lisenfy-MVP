@@ -25,7 +25,14 @@
     "songs": {
       "one": "{} song",
       "other": "{} songs"
-    }
+    },
+    "import": "Import",
+    "on": "On",
+    "off": "Off",
+    "paste": "Paste",
+    "select": "Select",
+    "save_changes": "Save changes",
+    "title": "Title"
   },
   "nav": {
     "home": "Home",
@@ -198,7 +205,8 @@
       "remove_from_playlist": "Remove from this playlist",
       "more_actions": "More actions",
       "removed": "Song removed from playlist"
-    }
+    },
+    "smart_playlist": "Smart playlist"
   },
   "artists": {
     "title": "Artists",
@@ -226,7 +234,8 @@
     "least_recent_first": "Least recent first",
     "most_recent_first": "Most recent first",
     "low_to_high": "Low to high",
-    "high_to_low": "High to low"
+    "high_to_low": "High to low",
+    "not_found": "Artist not found"
   },
   "downloads": {
     "title": "Imports",
@@ -274,7 +283,11 @@
     "web_slow": "The website took too long or is not compatible.",
     "today": "Today",
     "yesterday": "Yesterday",
-    "date_label": "{} {}/{}"
+    "date_label": "{} {}/{}",
+    "pill_subtitle": "Import from links, local files, or the web browser.",
+    "url_import_title": "Import from URL",
+    "url_import_subtitle": "Share or paste a link to import it",
+    "url_import_dialog_subtitle": "Paste the link and choose the file type to import."
   },
   "wrapped": {
     "title": "Listenfy Wrapped",
@@ -552,7 +565,150 @@
       "title": "Quick guide",
       "manual_title": "User manual",
       "manual_subtitle": "Key points to protect your library, organize content, and use advanced features.",
-      "artist_sort_tip": "On each artist page you can sort songs by name, artist, time added, size, plays, duration, or last played."
+      "artist_sort_tip": "On each artist page you can sort songs by name, artist, time added, size, plays, duration, or last played.",
+      "topics": {
+        "library": {
+          "title": "Library and backup",
+          "subtitle": "Where your content lives and how to prevent data loss.",
+          "tips": {
+            "1": "Listenfy stores files, covers, playlists, and metadata inside the app's private storage.",
+            "2": "Before uninstalling or clearing data, create a ZIP backup from Data and downloads.",
+            "3": "A full backup can take a while on large libraries because it includes files and metadata.",
+            "4": "If you include variants, versions such as 8D, instrumental, or processed files are also saved."
+          }
+        },
+        "music": {
+          "title": "Music",
+          "subtitle": "Playback, queue, and audio extras.",
+          "tips": {
+            "1": "The audio player keeps the queue, miniplayer, favorites, repeat, and shuffle playback.",
+            "2": "If you close the miniplayer while a song is playing, Listenfy keeps the queue so you can continue later; if you pause first and then close it, that session is not restored when the app opens again.",
+            "3": "In the full player you can tap back or swipe down to minimize and return to the miniplayer.",
+            "4": "If you notice latency or a brief cut when changing songs, pause first and then choose the next track; this helps especially with large queues, heavy files, or Connect active.",
+            "5": "Crossfade, equalizer, sleep timer, and default volume live in Settings > Audio.",
+            "6": "Clean sound detects long silences and lets you trim only the segments you choose; it keeps the main metadata from the original song.",
+            "7": "8D and instrumental modes require the external backend; when finished, they are saved as reusable offline variants."
+          }
+        },
+        "editable_home": {
+          "title": "Editable home",
+          "subtitle": "Customize which widgets appear on Home.",
+          "tips": {
+            "1": "On Home, tap the edit home icon in the top bar to open the editor in a separate window.",
+            "2": "You can enable, disable, and reorder My favorites, For you today, Most played, Recently played, Featured, Latest imports, To listen, and Random mix.",
+            "3": "Compatible widgets can switch between card and list views; the editor shows the chosen mode before saving.",
+            "4": "You can also add combined sections for Artists, Playlists, and Collections; each one keeps its view mode.",
+            "5": "In combined sections, long-press an item to remove it without rebuilding the whole widget.",
+            "6": "Expanded widget views show the sort button next to the grid/list switch; Home stays clean and only opens the section.",
+            "7": "Long-pressing an audio or video inside an editable widget makes Select multiple open the expanded module view with the first item already selected.",
+            "8": "In the expanded view you can delete, share through external apps, or send through Listenfy transfer without leaving the widget flow.",
+            "9": "Sorting is saved per widget: Latest imports, Most played, and Recently played use their own criteria; Favorites, Featured, and For you today allow more parameters.",
+            "10": "Tap Save to apply changes. Reset returns to the default layout inside the editor.",
+            "11": "In video mode, widgets that only apply to audio, such as For you today, are hidden automatically."
+          }
+        },
+        "wrapped": {
+          "title": "Wrapped and stats",
+          "subtitle": "Listening summary, imports, and local trends.",
+          "tips": {
+            "1": "From Data and downloads you can open Check your stats to see your Wrapped-style summary.",
+            "2": "Music metrics separate songs, favorites, artists, Atlas regions, completed tracks, and early skips.",
+            "3": "Import metrics separate songs and videos, show most downloaded artists, top imports, strongest month, and strongest week.",
+            "4": "Regions depend on country and region metadata used by Atlas; the more consistent it is, the better the summary gets.",
+            "5": "Exporting and restoring the ZIP also keeps the metadata that powers these stats."
+          }
+        },
+        "artists": {
+          "title": "Artists and collaborations",
+          "subtitle": "Metadata needed for Atlas and relationships.",
+          "tips": {
+            "1": "From Artists you can open Listenfly Atlas.",
+            "2": "Atlas works best when you edit artists and define main region, country, and artist type.",
+            "3": "Song, artist, playlist, and themed-list covers can come from a local file or web search.",
+            "4": "If a collaboration should count for multiple artists, write it in Artist with patterns such as ft., feat., featuring, or with.",
+            "5": "After the collaboration marker, separate guests with commas, x, or &: Artist ft. Guest1, Guest2 & Guest3.",
+            "6": "If the title suggests feat or ft but the Artist field does not reflect it, saving shows a warning so you can fix it.",
+            "7": "On each artist page you can sort songs by name, artist, time added, size, plays, duration, or last played."
+          }
+        },
+        "atlas": {
+          "title": "Atlas",
+          "subtitle": "Regional map integrated into Artists.",
+          "tips": {
+            "1": "Open Atlas from the Listenfly Atlas card inside Artists.",
+            "2": "Atlas does not guess everything by itself: it depends on the region and country you have on artists and songs.",
+            "3": "If you close the miniplayer, Continue should try to resume the locally saved station, song, and position.",
+            "4": "If app data, cookies, or internal storage are cleared, saved sessions can be lost.",
+            "5": "Local recommendations improve as your library gets more consistent metadata."
+          }
+        },
+        "collections": {
+          "title": "Collections",
+          "subtitle": "Collections, videos, and captures.",
+          "tips": {
+            "1": "Collections organize videos with their own cover and color.",
+            "2": "From Collections you can open Captures; you no longer need to find that feature as a separate module.",
+            "3": "Use search and sorting when a Collection grows too large.",
+            "4": "A good structure is Collection > child Collection > videos, for example Movies and series > Anime > Season 1.",
+            "5": "Collections are manual: if a video does not appear, add it to the corresponding Collection."
+          }
+        },
+        "captures": {
+          "title": "Captures",
+          "subtitle": "Frames, tags, and visual folders.",
+          "tips": {
+            "1": "Captures taken from the video player appear in Captures, inside Collections.",
+            "2": "Each capture keeps name, weight, capture date, optional tag, and source, meaning the video it came from.",
+            "3": "Each capture menu uses the same flow as audio and video: Edit opens the shared data page to change name and multiple tags.",
+            "4": "When using a capture as a cover, the picker shows videos and Collections with search, chips, and visual selection like the add-items flow.",
+            "5": "When you create a tag, Listenfy treats it like a collection: it can have its own name, color, and thumbnail.",
+            "6": "Tag folders also use the shared edit page, with name, content, color, and thumbnail chosen from their captures.",
+            "7": "Color and thumbnail are saved per tag: if you use the same tag on multiple captures, they all share the same visual collection.",
+            "8": "The folders button opens the tag view, where each tag appears as a Finder-style folder with a counter, cover, and color dot.",
+            "9": "Tapping a tag folder opens Captures filtered by that tag."
+          }
+        },
+        "video": {
+          "title": "Video",
+          "subtitle": "Gestures and tools in the video player.",
+          "tips": {
+            "1": "Double tap the left or right half of the video to rewind or fast-forward seconds.",
+            "2": "A vertical one-finger drag changes volume; a two-finger drag changes speed.",
+            "3": "Double tap with two fingers toggles play and pause.",
+            "4": "When moving the progress bar, a preview can appear; you can also save a capture from the camera icon.",
+            "5": "On Android, if the video keeps playing when you leave, it can enter PiP automatically.",
+            "6": "Video cards can show status labels such as Pending, Continue watching, Watched, or Completed depending on saved progress.",
+            "7": "From Settings > Video you can hide those labels on all videos or only on short videos of 13 minutes or less.",
+            "8": "Hiding labels only changes the view: it does not delete progress, saved positions, or stats."
+          }
+        },
+        "connect": {
+          "title": "Connect and transfers",
+          "subtitle": "Remote control, imports, and offline sharing.",
+          "tips": {
+            "1": "Listenfy Connect opens a URL or QR so you can control playback from another device on the same network.",
+            "2": "With very large queues, Connect can feel slower because it has to sync more state.",
+            "3": "If a remote track change feels delayed, pause from the phone or from Connect before choosing another song.",
+            "4": "You can import URLs or files from Android's Share menu.",
+            "5": "Audio or video multi-selection can share several files through external apps up to 300 MB total.",
+            "6": "Multi-selection can also be sent through internal Listenfy transfer with metadata and a 1 GB total limit.",
+            "7": "If a selection exceeds the allowed limit, Listenfy keeps the selection and shows the warning before starting the send.",
+            "8": "P2P transfer uses QR to send files and metadata without depending on the internet when the device allows it.",
+            "9": "Data transfer between songs moves title, artist, cover, lyrics, favorites, stats, and playlists to another version without changing the destination file.",
+            "10": "After transferring data, you can delete the previous version from the library or keep it."
+          }
+        },
+        "limits": {
+          "title": "Known limits",
+          "subtitle": "Behaviors that are still being polished.",
+          "tips": {
+            "1": "Libraries with more than 400 or 500 items can make a screen slower if every element loads at once.",
+            "2": "Exporting a ZIP can take a long time; restoring is usually faster.",
+            "3": "Some videos may not report the correct duration if their metadata is incomplete.",
+            "4": "If certain downloads fail, update cookies.txt from Data and downloads."
+          }
+        }
+      }
     }
   },
   "connect": {
@@ -642,8 +798,18 @@
       "movies_title": "Movies and series",
       "movies_subtitle": "Downloads and video catalogs",
       "tutorials_title": "Tutorials",
-      "tutorials_subtitle": "Guides, courses, and practice"
-    }
+      "tutorials_subtitle": "Guides, courses, and practice",
+      "podcasts_title": "Podcasts and vlogs",
+      "podcasts_subtitle": "Talks and spoken content",
+      "social_title": "Social media",
+      "social_subtitle": "Social and trending content",
+      "education_title": "Educational content",
+      "education_subtitle": "Classes and learning material",
+      "files_title": "Personal files",
+      "files_subtitle": "Imports from your device"
+    },
+    "items_count": "{} items",
+    "sub_collection": "Sub-collection"
   },
   "nearby": {
     "transfer": "Transfer",
@@ -811,6 +977,10 @@
     },
     "errors": {
       "empty_name": "Name cannot be empty."
+    },
+    "cover": {
+      "search_video": "Search video",
+      "search_collection": "Search Collection"
     }
   },
   "player": {
@@ -855,7 +1025,9 @@
     },
     "lyrics": {
       "no_translations": "No saved translations yet.",
-      "empty": "This song has no saved lyrics."
+      "empty": "This song has no saved lyrics.",
+      "search_title": "Search lyrics",
+      "select_text_hint": "Select text manually on the page and then tap Select."
     },
     "audio": {
       "continue_title": "Continue song",
@@ -868,6 +1040,16 @@
       "continue_body": "This video was left at {}. Do you want to resume from there or play from the beginning?",
       "continue_btn": "Resume {}",
       "start_btn": "From the beginning"
+    },
+    "quick": {
+      "visual": "Visual",
+      "lyrics": "Lyrics",
+      "mode": "Mode",
+      "normal": "Normal",
+      "instrumental": "Instrumental",
+      "repeat": "Repeat",
+      "repeat_one": "This one only",
+      "repeat_once": "Once"
     }
   },
   "tooltips": {
@@ -961,7 +1143,8 @@
       "theme_empty": "Theme name cannot be empty",
       "list_empty": "List name cannot be empty",
       "capture_empty": "Capture name cannot be empty",
-      "tag_empty": "Tag name cannot be empty"
+      "tag_empty": "Tag name cannot be empty",
+      "name_empty": "Name cannot be empty"
     },
     "entity_type": {
       "metadata": "Metadata",
@@ -970,7 +1153,26 @@
       "theme": "Theme",
       "list": "List",
       "capture": "Capture",
-      "tag": "Tag"
+      "tag": "Tag",
+      "collection": "Collection"
+    },
+    "create_tag": "New tag",
+    "create_collection": "New Collection",
+    "create_playlist": "New playlist",
+    "collection_cover_color": "Collection cover and color",
+    "cover": "Cover",
+    "cover_color": "Cover and color",
+    "choose_image": "Choose image",
+    "search_web": "Search web",
+    "selected_web_image": "Selected web image",
+    "clear_cover": "Clear current cover",
+    "title": {
+      "metadata": "Edit metadata",
+      "artist": "Edit artist",
+      "playlist": "Edit playlist",
+      "collection": "Edit Collection",
+      "capture": "Edit capture",
+      "tag": "Edit tag"
     }
   },
   "transfer": {
@@ -1002,7 +1204,10 @@
     "add_main_lyrics": "Add the main lyrics first.",
     "all_lines_marked": "All lines have already been marked.",
     "different_target_lang": "The target language must be different from the main language.",
-    "translation_failed": "Could not translate right now."
+    "translation_failed": "Could not translate right now.",
+    "song_data": "Song data",
+    "song_data_subtitle": "Search lyrics on the web or edit them manually.",
+    "search_web": "Search lyrics on web"
   },
   "qr": {
     "listenfy_title": "QR Listenfy",
@@ -1092,7 +1297,13 @@
     "skipped_items": "Skipped {} item(s) without a local file.",
     "interested": "I'm interested",
     "hide_song": "Hide song",
-    "hide_artist": "Hide artist"
+    "hide_artist": "Hide artist",
+    "feedback": "Feedback",
+    "multi_select": "Select multiple",
+    "add_favorite": "Add to favorites",
+    "remove_favorite": "Remove from favorites",
+    "delete_device": "Delete from device",
+    "transfer_offline": "Transfer to Listenfy (offline)"
   },
   "history": {
     "title": "History",

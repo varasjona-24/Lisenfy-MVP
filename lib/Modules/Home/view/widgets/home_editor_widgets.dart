@@ -821,8 +821,10 @@ class _HomeCollectionPickerSheetState
                         return _HomeChoiceTile(
                           selected: _selected.contains(collection.id),
                           title: collection.name,
-                          subtitle:
-                              '${collection.count} item${collection.count != 1 ? 's' : ''}',
+                          subtitle: tr(
+                            'sources.items_count',
+                            args: ['${collection.count}'],
+                          ),
                           image: collection.cover,
                           fallbackIcon: Icons.video_library_rounded,
                           onTap: () => _toggle(collection.id),

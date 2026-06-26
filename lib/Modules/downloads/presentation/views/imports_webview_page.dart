@@ -79,7 +79,7 @@ class _ImportsWebViewPageState extends State<ImportsWebViewPage> {
                 hintText: 'https://...',
                 prefixIcon: const Icon(Icons.link_rounded),
                 suffixIcon: IconButton(
-                  tooltip: 'Pegar',
+                  tooltip: tr('common.paste'),
                   icon: const Icon(Icons.content_paste_rounded),
                   onPressed: () async {
                     final data = await Clipboard.getData('text/plain');

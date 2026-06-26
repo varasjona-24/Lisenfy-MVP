@@ -119,8 +119,8 @@ extension HomeCustomSectionLayoutX on HomeCustomSectionLayout {
   };
 
   String get label => switch (this) {
-    HomeCustomSectionLayout.cards => 'Cards',
-    HomeCustomSectionLayout.list => 'Lista',
+    HomeCustomSectionLayout.cards => tr('home.layout.cards'),
+    HomeCustomSectionLayout.list => tr('home.layout.list'),
   };
 
   IconData get icon => switch (this) {
@@ -151,10 +151,10 @@ extension HomeCustomSectionKindX on HomeCustomSectionKind {
   };
 
   String get moduleLabel => switch (this) {
-    HomeCustomSectionKind.playlist => 'Playlist',
-    HomeCustomSectionKind.artist => 'Artista',
-    HomeCustomSectionKind.smart => 'Sugerida',
-    HomeCustomSectionKind.collection => 'Collection',
+    HomeCustomSectionKind.playlist => tr('home.custom.playlist'),
+    HomeCustomSectionKind.artist => tr('home.custom.artist'),
+    HomeCustomSectionKind.smart => tr('home.custom.smart'),
+    HomeCustomSectionKind.collection => tr('home.custom.collection'),
   };
 
   static HomeCustomSectionKind fromRaw(dynamic raw) {

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 
 import '../domain/capture_cover_target.dart';
@@ -101,8 +103,8 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
                               },
                             ),
                       hintText: _showVideos
-                          ? 'Buscar video'
-                          : 'Buscar Collection',
+                          ? tr('captures.cover.search_video')
+                          : tr('captures.cover.search_collection'),
                       border: const OutlineInputBorder(),
                     ),
                   ),

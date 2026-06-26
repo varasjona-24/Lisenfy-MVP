@@ -39,7 +39,7 @@ class DownloadsPill extends GetView<DownloadsController> {
                 Icon(Icons.cloud_download_rounded, color: scheme.primary),
                 const SizedBox(width: 8),
                 Text(
-                  'Imports',
+                  tr('downloads.title'),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -48,7 +48,7 @@ class DownloadsPill extends GetView<DownloadsController> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Importa desde enlace, archivos locales o navegador web.',
+              tr('downloads.pill_subtitle'),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -65,8 +65,8 @@ class DownloadsPill extends GetView<DownloadsController> {
                   _importActionTile(
                     context: context,
                     icon: Icons.link_rounded,
-                    title: 'Importar desde URL',
-                    subtitle: 'Comparte o pega un link e importarlo',
+                    title: tr('downloads.url_import_title'),
+                    subtitle: tr('downloads.url_import_subtitle'),
                     onTap: () =>
                         DownloadsPill.showImportUrlDialog(context, controller),
                   ),
@@ -628,7 +628,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Importar desde URL',
+                      tr('downloads.url_import_title'),
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -643,7 +643,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Pega el enlace y elige el tipo de archivo a importar.',
+                tr('downloads.url_import_dialog_subtitle'),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -659,7 +659,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
                   hintText: 'https://www.youtube.com/watch?v=...',
                   prefixIcon: const Icon(Icons.link_rounded),
                   suffixIcon: IconButton(
-                    tooltip: 'Pegar',
+                    tooltip: tr('common.paste'),
                     icon: const Icon(Icons.content_paste_rounded),
                     onPressed: () async {
                       final data = await Clipboard.getData('text/plain');
@@ -685,7 +685,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
                 children: [
                   Expanded(
                     child: ChoiceChip(
-                      label: const Text('Audio'),
+                      label: Text(tr('settings.audio.title')),
                       selected: _kind == 'audio',
                       onSelected: (_) => setState(() => _kind = 'audio'),
                       avatar: const Icon(Icons.music_note_rounded, size: 18),
@@ -694,7 +694,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: ChoiceChip(
-                      label: const Text('Video'),
+                      label: Text(tr('settings.video.title')),
                       selected: _kind == 'video',
                       onSelected: (_) => setState(() => _kind = 'video'),
                       avatar: const Icon(Icons.videocam_rounded, size: 18),
@@ -708,7 +708,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Cancelar'),
+                      child: Text(tr('common.cancel')),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -716,7 +716,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
                     child: FilledButton.icon(
                       onPressed: () => _submit(context),
                       icon: const Icon(Icons.download_rounded),
-                      label: const Text('Importar'),
+                      label: Text(tr('common.import')),
                     ),
                   ),
                 ],

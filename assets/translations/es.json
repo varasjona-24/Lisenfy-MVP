@@ -12,16 +12,23 @@
     "delete": "Eliminar",
     "edit": "Editar",
     "error": "Error",
+    "import": "Importar",
     "local": "Local",
     "open": "Abrir",
+    "on": "On",
+    "off": "Off",
     "options": "Opciones",
+    "paste": "Pegar",
     "remove": "Quitar",
     "reset": "Restablecer",
     "retry": "Reintentar",
     "save": "Guardar",
+    "save_changes": "Guardar cambios",
     "search": "Buscar",
     "see": "Ver",
+    "select": "Seleccionar",
     "share": "Compartir",
+    "title": "Título",
     "songs": {
       "one": "{} canción",
       "other": "{} canciones"
@@ -178,6 +185,7 @@
     "delete_body": "¿Seguro que quieres eliminar esta lista?",
     "crop": "Recortar",
     "options": "Opciones",
+    "smart_playlist": "Playlist inteligente",
     "smart": {
       "favorites": "Mis favoritos",
       "latest": "Últimos agregados",
@@ -209,6 +217,7 @@
     "summary": "{} artistas",
     "sort": "Ordenar",
     "empty": "No hay artistas disponibles.",
+    "not_found": "Artista no encontrado",
     "no_country": "Sin país",
     "detail": {
       "sort_songs": "Ordenar canciones"
@@ -259,6 +268,10 @@
     "quality_high": "Alta: 320 kbps (audio) / 1080p (video) - Máxima calidad",
     "usage_wifi_only": "Solo descargas en redes Wi-Fi",
     "usage_all": "Descargas en Wi-Fi y conexiones móviles",
+    "pill_subtitle": "Importa desde enlace, archivos locales o navegador web.",
+    "url_import_title": "Importar desde URL",
+    "url_import_subtitle": "Comparte o pega un link para importarlo",
+    "url_import_dialog_subtitle": "Pega el enlace y elige el tipo de archivo a importar.",
     "local_import_title": "Importar desde archivo local",
     "local_import_subtitle": "Selecciona archivos de tu almacenamiento",
     "scan_qr_title": "Escanear QR Listenfy",
@@ -553,7 +566,150 @@
       "title": "Guía rápida",
       "manual_title": "Manual de uso",
       "manual_subtitle": "Puntos clave para cuidar tu biblioteca, organizar contenido y usar funciones avanzadas.",
-      "artist_sort_tip": "En cada página de artista puedes ordenar sus canciones por nombre, artista, tiempo añadido, tamaño, reproducciones, duración o última reproducción."
+      "artist_sort_tip": "En cada página de artista puedes ordenar sus canciones por nombre, artista, tiempo añadido, tamaño, reproducciones, duración o última reproducción.",
+      "topics": {
+        "library": {
+          "title": "Biblioteca y respaldo",
+          "subtitle": "Donde vive tu contenido y cómo evitar pérdidas.",
+          "tips": {
+            "1": "Listenfy guarda archivos, portadas, listas y metadata dentro del almacenamiento privado de la app.",
+            "2": "Antes de desinstalar o limpiar datos, crea un respaldo ZIP desde Datos y descargas.",
+            "3": "El respaldo completo puede tardar bastante en bibliotecas grandes porque incluye archivos y metadata.",
+            "4": "Si marcas incluir variantes, también se guardan versiones como 8D, instrumental o archivos procesados."
+          }
+        },
+        "music": {
+          "title": "Música",
+          "subtitle": "Reproducción, cola y extras de audio.",
+          "tips": {
+            "1": "El player de audio mantiene cola, miniplayer, favoritos, repetición y reproducción aleatoria.",
+            "2": "Si cierras el miniplayer mientras suena una canción, Listenfy conserva la cola para continuar después; si pausas primero y luego lo cierras, esa sesión no se restaura al volver a abrir la app.",
+            "3": "En el reproductor completo puedes tocar atrás o deslizar hacia abajo para minimizar y volver al miniplayer.",
+            "4": "Si notas latencia o un corte breve al cambiar de canción, pausa primero y luego elige la siguiente pista; ayuda especialmente con colas grandes, archivos pesados o Connect activo.",
+            "5": "El crossfade, ecualizador, temporizador de apagado y volumen por defecto viven en Configuración > Audio.",
+            "6": "Sonido limpio detecta silencios largos y permite recortar solo los segmentos que elijas; conserva la metadata principal de la canción original.",
+            "7": "Modo 8D e instrumental requieren el backend externo; cuando terminan, se guardan como variantes reutilizables offline."
+          }
+        },
+        "editable_home": {
+          "title": "Inicio editable",
+          "subtitle": "Personaliza qué widgets aparecen en la home.",
+          "tips": {
+            "1": "En Home toca el icono de editar inicio en la barra superior para abrir el editor en una ventana aparte.",
+            "2": "Puedes activar, desactivar y reordenar Mis favoritos, Para ti hoy, Más reproducido, Reproducciones recientes, Destacado, Últimos imports, Por escuchar y Mix aleatorio.",
+            "3": "Los widgets compatibles permiten alternar entre vista de cards y lista; el editor muestra el modo elegido antes de guardar.",
+            "4": "También puedes agregar secciones conjuntas de Artistas, Listas de reproducción y Collections; cada una conserva su modo de vista.",
+            "5": "En las secciones conjuntas, mantén presionado un item para quitarlo sin rehacer todo el widget.",
+            "6": "Las vistas ampliadas de los widgets muestran el botón de ordenar junto al cambio grid/lista; Inicio se mantiene limpio y solo abre la sección.",
+            "7": "Al mantener presionado un audio o video dentro de un widget editable, Seleccionar varios abre la vista ampliada del módulo con el primer item ya marcado.",
+            "8": "En la vista ampliada puedes borrar, compartir por apps externas o enviar por transferencia Listenfy sin salir del flujo del widget.",
+            "9": "El orden se guarda por widget: Últimos imports, Más reproducido y Reproducciones recientes usan su criterio propio; Favoritos, Destacado y Para ti hoy permiten más parámetros.",
+            "10": "Toca Guardar para aplicar los cambios. Restablecer vuelve al layout por defecto dentro del editor.",
+            "11": "En modo video se ocultan automáticamente los widgets que solo aplican a audio, como Para ti hoy."
+          }
+        },
+        "wrapped": {
+          "title": "Wrapped y estadísticas",
+          "subtitle": "Resumen de escucha, imports y tendencias locales.",
+          "tips": {
+            "1": "Desde Datos y descargas puedes abrir Revisa tus estadísticas para ver tu resumen tipo Wrapped.",
+            "2": "Las métricas de música separan canciones, favoritos, artistas, regiones de Atlas, completadas y saltadas temprano.",
+            "3": "Las métricas de imports separan canciones y videos, muestran artistas más descargados, top de imports, mes fuerte y semana fuerte.",
+            "4": "Las regiones dependen de la metadata de país y región usada por Atlas; mientras más consistente sea, mejor será el resumen.",
+            "5": "Al exportar y restaurar el ZIP también se conserva la metadata que alimenta estas estadísticas."
+          }
+        },
+        "artists": {
+          "title": "Artistas y colaboraciones",
+          "subtitle": "Metadata necesaria para Atlas y relaciones.",
+          "tips": {
+            "1": "Desde Artistas puedes abrir Listenfly Atlas.",
+            "2": "Atlas funciona mejor cuando editas artistas y defines región principal, país y tipo de artista.",
+            "3": "Las portadas de canciones, artistas, playlists y listas temáticas pueden venir de archivo local o búsqueda web.",
+            "4": "Si una colaboración debe contarse para varios artistas, escríbela en Artista con patrones como ft., feat., featuring o with.",
+            "5": "Después del marcador de colaboración, separa invitados con coma, x o &: Artista ft. Invitado1, Invitado2 & Invitado3.",
+            "6": "Si el título sugiere feat o ft pero el campo Artista no lo refleja, al guardar se muestra una advertencia para corregirlo.",
+            "7": "En cada página de artista puedes ordenar sus canciones por nombre, artista, tiempo añadido, tamaño, reproducciones, duración o última reproducción."
+          }
+        },
+        "atlas": {
+          "title": "Atlas",
+          "subtitle": "Mapa regional integrado en Artistas.",
+          "tips": {
+            "1": "Abre Atlas desde la tarjeta Listenfly Atlas dentro de Artistas.",
+            "2": "Atlas no adivina todo por sí solo: depende de la región y país que tengas en artistas y canciones.",
+            "3": "Si cierras el miniplayer, Continuar debe intentar retomar la estación, canción y posición guardadas localmente.",
+            "4": "Si se borran datos de la app, cookies o almacenamiento interno, las sesiones guardadas pueden perderse.",
+            "5": "Las recomendaciones locales mejoran mientras más metadata consistente tenga tu biblioteca."
+          }
+        },
+        "collections": {
+          "title": "Collections",
+          "subtitle": "Collections, videos y capturas.",
+          "tips": {
+            "1": "Collections organiza videos con portada y color propio.",
+            "2": "Desde Collections puedes abrir Capturas; ya no necesitas buscar esa función como módulo separado.",
+            "3": "Usa buscador y orden cuando una Collection crece demasiado.",
+            "4": "Una buena estructura es Collection > Collection hija > videos, por ejemplo Películas y series > Anime > Temporada 1.",
+            "5": "Las Collections son manuales: si un video no aparece, agrégalo a la Collection correspondiente."
+          }
+        },
+        "captures": {
+          "title": "Capturas",
+          "subtitle": "Fotogramas, etiquetas y carpetas visuales.",
+          "tips": {
+            "1": "Las capturas tomadas desde el reproductor de video aparecen en Capturas, dentro de Collections.",
+            "2": "Cada captura conserva nombre, peso, fecha de captura, etiqueta opcional y fuente, es decir, el video desde donde se generó.",
+            "3": "El menú de cada captura usa el mismo flujo que audio y video: Editar abre la página común de datos para cambiar nombre y varias etiquetas.",
+            "4": "Al usar una captura como portada, el selector muestra videos y Collections con búsqueda, chips y selección visual como el flujo de agregar items.",
+            "5": "Al crear una etiqueta, Listenfy la trata como una colección: puede tener nombre, color y thumbnail propio.",
+            "6": "Las carpetas de etiquetas también usan la página común de edición, con nombre, contenido, color y thumbnail elegido desde sus capturas.",
+            "7": "El color y thumbnail se guardan por etiqueta: si usas la misma etiqueta en varias capturas, todas comparten la misma colección visual.",
+            "8": "El botón de carpetas abre la vista de etiquetas, donde cada etiqueta se muestra como carpeta estilo Finder con contador, portada y punto de color.",
+            "9": "Al tocar una carpeta de etiqueta, Capturas se abre filtrada por esa etiqueta."
+          }
+        },
+        "video": {
+          "title": "Video",
+          "subtitle": "Gestos y utilidades del reproductor de video.",
+          "tips": {
+            "1": "Doble toque en la mitad izquierda o derecha del video retrocede o adelanta segundos.",
+            "2": "Arrastre vertical con un dedo cambia el volumen; con dos dedos cambia la velocidad.",
+            "3": "Doble toque con dos dedos alterna entre play y pausa.",
+            "4": "Al mover la barra de progreso puede aparecer previsualización; también puedes guardar una captura desde el icono de cámara.",
+            "5": "En Android, si el video sigue reproduciéndose al salir, puede entrar en PiP automáticamente.",
+            "6": "Las tarjetas de video pueden mostrar etiquetas de estado como Pendiente, Seguir viendo, Visto o Completado según el progreso guardado.",
+            "7": "Desde Configuración > Video puedes ocultar esas etiquetas en todos los videos o solo en videos cortos de 13 minutos o menos.",
+            "8": "Ocultar etiquetas solo cambia la vista: no borra progreso, posiciones guardadas ni estadísticas."
+          }
+        },
+        "connect": {
+          "title": "Connect y transferencias",
+          "subtitle": "Control remoto, imports y compartir offline.",
+          "tips": {
+            "1": "Listenfy Connect abre una URL o QR para controlar la reproducción desde otro dispositivo en la misma red.",
+            "2": "Con colas muy grandes, Connect puede sentirse más lento porque debe sincronizar más estado.",
+            "3": "Si un cambio de pista remoto se siente retrasado, pausa desde el teléfono o desde Connect antes de elegir otra canción.",
+            "4": "Puedes importar URLs o archivos desde el menú Compartir de Android.",
+            "5": "La selección múltiple de audio o video permite compartir varios archivos por apps externas hasta 300 MB en total.",
+            "6": "La selección múltiple también puede enviarse por transferencia interna Listenfy con metadata y límite de 1 GB en total.",
+            "7": "Si una selección supera el límite permitido, Listenfy conserva la selección y muestra el aviso antes de iniciar el envío.",
+            "8": "La transferencia P2P usa QR para enviar archivos y metadata sin depender de internet cuando el dispositivo lo permite.",
+            "9": "La transferencia de datos entre canciones mueve título, artista, portada, letras, favoritos, estadísticas y playlists hacia otra versión sin cambiar el archivo destino.",
+            "10": "Después de transferir datos puedes eliminar la versión anterior de la biblioteca o conservarla."
+          }
+        },
+        "limits": {
+          "title": "Límites conocidos",
+          "subtitle": "Comportamientos que todavía se están puliendo.",
+          "tips": {
+            "1": "Bibliotecas de más de 400 o 500 items pueden hacer más lenta una pantalla si se cargan todos los elementos a la vez.",
+            "2": "Exportar ZIP puede tardar mucho; restaurar normalmente es más rápido.",
+            "3": "Algunos videos pueden no reportar duración correcta si su metadata viene incompleta.",
+            "4": "Si ciertas descargas fallan, actualiza cookies.txt desde Datos y descargas."
+          }
+        }
+      }
     }
   },
   "connect": {
@@ -614,7 +770,9 @@
     "collection_not_found": "Collection no encontrada",
     "empty_content": "No hay contenido aquí todavía.",
     "items": "Items",
+    "items_count": "{} items",
     "collection": "Collection",
+    "sub_collection": "Sub-collection",
     "no_items_yet": "No hay items todavía.",
     "no_items_title": "No hay items con ese título.",
     "edit": "Editar",
@@ -643,7 +801,15 @@
       "movies_title": "Películas y series",
       "movies_subtitle": "Descargas y catálogos de video",
       "tutorials_title": "Tutoriales",
-      "tutorials_subtitle": "Guías, cursos y prácticas"
+      "tutorials_subtitle": "Guías, cursos y prácticas",
+      "podcasts_title": "Podcasts y vlogs",
+      "podcasts_subtitle": "Charlas y contenido hablado",
+      "social_title": "Redes sociales",
+      "social_subtitle": "Contenido social y trending",
+      "education_title": "Contenido educativo",
+      "education_subtitle": "Clases y material formativo",
+      "files_title": "Archivos personales",
+      "files_subtitle": "Imports desde tu dispositivo"
     }
   },
   "nearby": {
@@ -812,6 +978,10 @@
     },
     "errors": {
       "empty_name": "El nombre no puede estar vacío."
+    },
+    "cover": {
+      "search_video": "Buscar video",
+      "search_collection": "Buscar Collection"
     }
   },
   "player": {
@@ -824,6 +994,16 @@
     "playback_speed": "Velocidad de reproducción",
     "video_corrupt": "Este archivo está corrupto o no existe, selecciona otro.",
     "invalid_video_variant": "Variante de video no válida.",
+    "quick": {
+      "visual": "Visual",
+      "lyrics": "Letras",
+      "mode": "Modo",
+      "normal": "Normal",
+      "instrumental": "Instrumental",
+      "repeat": "Repetir",
+      "repeat_one": "Solo esta",
+      "repeat_once": "Una vez"
+    },
     "visualizer": {
       "title": "Visualizador",
       "subtitle": "Elige cómo quieres ver la portada y la animación del reproductor.",
@@ -856,7 +1036,9 @@
     },
     "lyrics": {
       "no_translations": "Aún no hay traducciones guardadas.",
-      "empty": "Esta canción no tiene letras guardadas."
+      "empty": "Esta canción no tiene letras guardadas.",
+      "search_title": "Buscar letras",
+      "select_text_hint": "Selecciona texto manualmente en la página y luego pulsa Seleccionar."
     },
     "audio": {
       "continue_title": "Continuar canción",
@@ -955,7 +1137,12 @@
     "search_member": "Buscar integrante",
     "type_name": "Escribe un nombre",
     "selected": "Seleccionados",
+    "create_tag": "Nueva etiqueta",
+    "create_collection": "Nueva Collection",
+    "create_playlist": "Nueva playlist",
+    "collection_cover_color": "Portada y color de Collection",
     "validation": {
+      "name_empty": "El nombre no puede estar vacío",
       "title_empty": "El título no puede estar vacío",
       "artist_empty": "El nombre del artista no puede estar vacío",
       "playlist_empty": "El nombre de la playlist no puede estar vacío",
@@ -968,10 +1155,25 @@
       "metadata": "Metadata",
       "artist": "Artista",
       "playlist": "Playlist",
+      "collection": "Collection",
       "theme": "Temática",
       "list": "Lista",
       "capture": "Captura",
       "tag": "Etiqueta"
+    },
+    "cover": "Portada",
+    "cover_color": "Portada y color",
+    "choose_image": "Elegir imagen",
+    "search_web": "Buscar en web",
+    "selected_web_image": "Imagen web seleccionada",
+    "clear_cover": "Borrar portada actual",
+    "title": {
+      "metadata": "Editar metadatos",
+      "artist": "Editar artista",
+      "playlist": "Editar playlist",
+      "collection": "Editar Collection",
+      "capture": "Editar captura",
+      "tag": "Editar etiqueta"
     }
   },
   "transfer": {
@@ -999,6 +1201,9 @@
   },
   "lyrics": {
     "search_query_empty": "Ingresa titulo o artista para buscar.",
+    "song_data": "Datos de la canción",
+    "song_data_subtitle": "Busca letras en web o edítalas manualmente.",
+    "search_web": "Buscar letras en web",
     "play_from_player": "Reproduce la canción en el player para sincronizar.",
     "add_main_lyrics": "Primero agrega la letra principal.",
     "all_lines_marked": "Todas las lineas ya fueron marcadas.",
@@ -1091,6 +1296,12 @@
     "share_many_text": "Comparte estos archivos con otra app o dispositivo.",
     "share_song_text": "Comparte esta canción/video con otra app o dispositivo.",
     "skipped_items": "Se omitieron {} item(s) sin archivo local.",
+    "feedback": "Feedback",
+    "multi_select": "Seleccionar varios",
+    "add_favorite": "Agregar a favoritos",
+    "remove_favorite": "Quitar de favoritos",
+    "delete_device": "Borrar del dispositivo",
+    "transfer_offline": "Transferir a Listenfy (offline)",
     "interested": "Me interesa",
     "hide_song": "Ocultar canción",
     "hide_artist": "Ocultar artista"

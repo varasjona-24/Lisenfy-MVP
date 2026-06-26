@@ -221,13 +221,13 @@ class _EditEntityPageState extends State<EditEntityPage> {
   }
 
   String _entityTitle() {
-    if (_args.type == EditEntityType.media) return 'Editar metadatos';
-    if (_args.type == EditEntityType.artist) return 'Editar artista';
-    if (_args.type == EditEntityType.playlist) return 'Editar playlist';
-    if (_args.type == EditEntityType.topic) return 'Editar Collection';
-    if (_args.type == EditEntityType.capture) return 'Editar captura';
-    if (_args.type == EditEntityType.captureTag) return 'Editar etiqueta';
-    return 'Editar Collection';
+    if (_args.type == EditEntityType.media) return tr('edit.title.metadata');
+    if (_args.type == EditEntityType.artist) return tr('edit.title.artist');
+    if (_args.type == EditEntityType.playlist) return tr('edit.title.playlist');
+    if (_args.type == EditEntityType.topic) return tr('edit.title.collection');
+    if (_args.type == EditEntityType.capture) return tr('edit.title.capture');
+    if (_args.type == EditEntityType.captureTag) return tr('edit.title.tag');
+    return tr('edit.title.collection');
   }
 
   bool get _isMedia => _args.type == EditEntityType.media;
@@ -1923,8 +1923,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
                       controller: _titleCtrl,
                       decoration: InputDecoration(
                         labelText: _args.type == EditEntityType.media
-                            ? 'Titulo'
-                            : 'Nombre',
+                            ? tr('common.title')
+                            : tr('sources.name'),
                         prefixIcon: Icon(
                           _args.type == EditEntityType.media
                               ? Icons.music_note_rounded
@@ -1942,9 +1942,9 @@ class _EditEntityPageState extends State<EditEntityPage> {
                       const SizedBox(height: 12),
                       TextField(
                         controller: _subtitleCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Artista',
-                          prefixIcon: Icon(Icons.person_rounded),
+                        decoration: InputDecoration(
+                          labelText: tr('edit.entity_type.artist'),
+                          prefixIcon: const Icon(Icons.person_rounded),
                         ),
                       ),
                     ],
@@ -2044,7 +2044,9 @@ class _EditEntityPageState extends State<EditEntityPage> {
               _artistClassificationSection(theme),
               const SizedBox(height: 12),
               Text(
-                (_isTopic || _isTopicPlaylist) ? 'Portada y color' : 'Portada',
+                (_isTopic || _isTopicPlaylist)
+                    ? tr('edit.cover_color')
+                    : tr('edit.cover'),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -2066,7 +2068,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                             child: FilledButton.tonalIcon(
                               onPressed: _pickLocalThumbnail,
                               icon: const Icon(Icons.photo_library_rounded),
-                              label: const Text('Elegir imagen'),
+                              label: Text(tr('edit.choose_image')),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -2074,7 +2076,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                             child: FilledButton.tonalIcon(
                               onPressed: _searchWebThumbnail,
                               icon: const Icon(Icons.public_rounded),
-                              label: const Text('Buscar en web'),
+                              label: Text(tr('edit.search_web')),
                             ),
                           ),
                         ],
@@ -2087,16 +2089,16 @@ class _EditEntityPageState extends State<EditEntityPage> {
                               controller: _thumbCtrl,
                               readOnly: true,
                               onTap: _searchWebThumbnail,
-                              decoration: const InputDecoration(
-                                labelText: 'Imagen web seleccionada',
-                                prefixIcon: Icon(Icons.image_rounded),
+                              decoration: InputDecoration(
+                                labelText: tr('edit.selected_web_image'),
+                                prefixIcon: const Icon(Icons.image_rounded),
                               ),
                             ),
                           ),
                           const SizedBox(width: 12),
                           OutlinedButton(
                             onPressed: _clearThumbnail,
-                            child: const Text('Limpiar'),
+                            child: Text(tr('sources.clear')),
                           ),
                         ],
                       ),
@@ -2106,7 +2108,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         child: OutlinedButton.icon(
                           onPressed: _deleteCurrentThumbnail,
                           icon: const Icon(Icons.delete_outline_rounded),
-                          label: const Text('Borrar portada actual'),
+                          label: Text(tr('edit.clear_cover')),
                         ),
                       ),
                       if (_isTopic || _isTopicPlaylist) ...[
@@ -2128,7 +2130,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
             if (_isCaptureTag) ...[
               const SizedBox(height: 12),
               Text(
-                'Portada y color',
+                tr('edit.cover_color'),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),

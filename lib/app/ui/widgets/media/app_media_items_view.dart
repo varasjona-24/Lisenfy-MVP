@@ -465,7 +465,7 @@ class _FeedbackMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return PopupMenuButton<_FeedbackAction>(
-      tooltip: 'Feedback',
+      tooltip: tr('media_actions.feedback'),
       icon: Icon(Icons.more_vert_rounded, color: scheme.onSurfaceVariant),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       onSelected: (value) {
@@ -491,7 +491,7 @@ class _FeedbackMenu extends StatelessWidget {
             child: _FeedbackItem(
               icon: Icons.checklist_rounded,
               color: scheme.primary,
-              label: 'Seleccionar varios',
+              label: tr('media_actions.multi_select'),
             ),
           ),
         PopupMenuItem(

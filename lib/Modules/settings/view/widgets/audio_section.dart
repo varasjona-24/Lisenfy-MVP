@@ -160,7 +160,7 @@ class AudioSection extends StatelessWidget {
                         trailing: ValuePill(
                           text: crossfadeEnabled
                               ? '${playback.crossfadeSeconds.value}s'
-                              : 'Off',
+                              : tr('common.off'),
                         ),
                         child: SliderTheme(
                           data: SliderTheme.of(context).copyWith(
@@ -455,7 +455,7 @@ class AudioSection extends StatelessWidget {
                         trailing: ValuePill(
                           text: sleepTimer.sleepTimerEnabled.value
                               ? '${sleepTimer.sleepTimerMinutes.value}m'
-                              : 'Off',
+                              : tr('common.off'),
                         ),
                         child: SliderTheme(
                           data: SliderTheme.of(context).copyWith(
@@ -548,7 +548,7 @@ class AudioSection extends StatelessWidget {
                         trailing: ValuePill(
                           text: sleepTimer.inactivityPauseEnabled.value
                               ? '${sleepTimer.inactivityPauseMinutes.value}m'
-                              : 'Off',
+                              : tr('common.off'),
                         ),
                         child: SliderTheme(
                           data: SliderTheme.of(context).copyWith(

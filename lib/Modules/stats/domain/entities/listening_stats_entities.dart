@@ -370,14 +370,14 @@ class ListeningStats {
       ...topics.map(
         (t) => CollectionStats(
           name: t.title,
-          subtitle: 'Collection',
+          subtitle: tr('sources.collection'),
           items: t.itemIds.length,
         ),
       ),
       ...playlists.map(
         (p) => CollectionStats(
           name: p.name,
-          subtitle: 'Sub-collection',
+          subtitle: tr('sources.sub_collection'),
           items: p.itemIds.length,
         ),
       ),

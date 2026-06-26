@@ -162,7 +162,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                title ?? 'Lista',
+                title ?? tr('edit.entity_type.list'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleLarge?.copyWith(
@@ -449,7 +449,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
         await controller.removeItemFromPlaylist(playlist.id, item);
         if (context.mounted) {
           Get.snackbar(
-            'Playlist',
+            tr('edit.entity_type.playlist'),
             tr('playlists.detail.removed'),
             snackPosition: SnackPosition.BOTTOM,
           );
@@ -465,8 +465,8 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
               AppRoutes.homeSectionList,
               arguments: {
                 'title': isSmartPlaylist
-                    ? 'Playlist inteligente'
-                    : (playlist?.name ?? 'Playlist'),
+                    ? tr('playlists.smart_playlist')
+                    : (playlist?.name ?? tr('edit.entity_type.playlist')),
                 'items': queue,
                 'onItemTap': (MediaItem tapped, int tapIndex) =>
                     _play(queue, tapIndex < 0 ? 0 : tapIndex),
