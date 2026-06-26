@@ -700,6 +700,11 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     final isPlaying = _audioService?.isPlaying.value ?? false;
     final currentMs = _playbackPosition.inMilliseconds;
     final durationMs = _playbackDuration.inMilliseconds;
+    final totalLines = lines.length;
+    final syncedCount = cues.length.clamp(0, totalLines);
+    final progress = totalLines == 0 ? 0.0 : syncedCount / totalLines;
+    final nextLine = syncedCount < totalLines ? lines[syncedCount] : null;
+    final canMark = canSync && totalLines > 0 && syncedCount < totalLines;
 
     return _buildSectionPanel(
       theme: theme,
@@ -711,10 +716,96 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface.withValues(alpha: 0.58),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.graphic_eq_rounded,
+                      size: 18,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        tr(
+                          'lyrics.sync_progress',
+                          args: ['$syncedCount', '$totalLines'],
+                        ),
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      tr(
+                        'lyrics.time_label',
+                        args: [
+                          '${_formatMs(currentMs)}'
+                              '${durationMs > 0 ? ' / ${_formatMs(durationMs)}' : ''}',
+                        ],
+                      ),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 7,
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  ),
+                ),
+                if (nextLine != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    tr('lyrics.next_line'),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    nextLine,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
             children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: canMark ? _markNextCue : null,
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(
+                    syncedCount >= totalLines && totalLines > 0
+                        ? tr('lyrics.all_lines_marked')
+                        : tr('lyrics.mark_line'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
               FilledButton.tonalIcon(
                 onPressed: canSync ? _togglePlayback : null,
                 icon: Icon(
@@ -722,57 +813,34 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
                 ),
                 label: Text(isPlaying ? tr('player.pause') : tr('player.play')),
               ),
-              OutlinedButton.icon(
-                onPressed: canSync ? _seekBackTwoSeconds : null,
-                icon: const Icon(Icons.replay_10_rounded),
-                label: Text(tr('lyrics.seek_back_short')),
-              ),
-              OutlinedButton.icon(
-                onPressed: canSync ? _seekToStart : null,
-                icon: const Icon(Icons.first_page_rounded),
-                label: Text(tr('lyrics.start')),
-              ),
-              FilledButton.icon(
-                onPressed: canSync ? _markNextCue : null,
-                icon: const Icon(Icons.add_rounded),
-                label: Text(tr('lyrics.mark_line')),
-              ),
-              OutlinedButton.icon(
-                onPressed: cues.isEmpty ? null : _undoLastCue,
-                icon: const Icon(Icons.undo_rounded),
-                label: Text(tr('common.undo')),
-              ),
-              OutlinedButton.icon(
-                onPressed: cues.isEmpty ? null : _clearCurrentLanguageTiming,
-                icon: const Icon(Icons.delete_outline_rounded),
-                label: Text(tr('common.clear')),
-              ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            tr(
-              'lyrics.time_label',
-              args: [
-                '${_formatMs(currentMs)}'
-                    '${durationMs > 0 ? ' / ${_formatMs(durationMs)}' : ''}',
-              ],
-            ),
-            style: theme.textTheme.bodySmall,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            tr(
-              'lyrics.synced_lines',
-              args: [
-                _lyricsLang.toUpperCase(),
-                '${cues.length}',
-                '${lines.length}',
-              ],
-            ),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              IconButton.filledTonal(
+                tooltip: tr('lyrics.seek_back_short'),
+                onPressed: canSync ? _seekBackTwoSeconds : null,
+                icon: const Icon(Icons.replay_10_rounded),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                tooltip: tr('lyrics.start'),
+                onPressed: canSync ? _seekToStart : null,
+                icon: const Icon(Icons.first_page_rounded),
+              ),
+              const Spacer(),
+              IconButton(
+                tooltip: tr('common.undo'),
+                onPressed: cues.isEmpty ? null : _undoLastCue,
+                icon: const Icon(Icons.undo_rounded),
+              ),
+              IconButton(
+                tooltip: tr('common.clear'),
+                onPressed: cues.isEmpty ? null : _clearCurrentLanguageTiming,
+                icon: const Icon(Icons.delete_outline_rounded),
+              ),
+            ],
           ),
           if (cues.isNotEmpty) ...[
             const SizedBox(height: 10),
