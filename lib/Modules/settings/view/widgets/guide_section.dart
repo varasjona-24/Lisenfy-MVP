@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 class GuideSection extends StatelessWidget {
@@ -18,7 +19,7 @@ class GuideSection extends StatelessWidget {
               const Icon(Icons.menu_book_rounded, size: 18),
               const SizedBox(width: 8),
               Text(
-                'Guía rápida',
+                tr('settings.guide.title'),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -40,14 +41,14 @@ class GuideSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Manual de uso',
+                  tr('settings.guide.manual_title'),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Puntos clave para cuidar tu biblioteca, organizar contenido y usar funciones avanzadas.',
+                  tr('settings.guide.manual_subtitle'),
                   style: theme.textTheme.bodySmall,
                 ),
                 const SizedBox(height: 14),
@@ -139,7 +140,7 @@ class _GuideTopic {
   final List<String> tips;
 }
 
-const List<_GuideTopic> _guideTopics = [
+List<_GuideTopic> get _guideTopics => [
   _GuideTopic(
     icon: Icons.security_rounded,
     title: 'Biblioteca y respaldo',
@@ -206,7 +207,7 @@ const List<_GuideTopic> _guideTopics = [
       'Si una colaboracion debe contarse para varios artistas, escribela en Artista con patrones como ft., feat., featuring o with.',
       'Despues del marcador de colaboracion, separa invitados con coma, x o &: Artista ft. Invitado1, Invitado2 & Invitado3.',
       'Si el titulo sugiere feat o ft pero el campo Artista no lo refleja, al guardar se muestra una advertencia para corregirlo.',
-      'En cada pagina de artista puedes ordenar sus canciones por nombre, artista, tiempo añadido, tamaño, reproducciones, duracion o ultima reproduccion.',
+      tr('settings.guide.artist_sort_tip'),
     ],
   ),
   _GuideTopic(

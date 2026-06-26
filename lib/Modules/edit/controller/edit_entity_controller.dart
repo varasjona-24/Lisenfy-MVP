@@ -579,8 +579,8 @@ class EditEntityController extends GetxController {
     final trimmedTitle = title.trim();
     if (trimmedTitle.isEmpty) {
       Get.snackbar(
-        'Metadata',
-        'El titulo no puede estar vacio',
+        'edit.entity_type.metadata'.tr,
+        'edit.validation.title_empty'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -632,8 +632,8 @@ class EditEntityController extends GetxController {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       Get.snackbar(
-        'Artista',
-        'El nombre no puede estar vacio',
+        'edit.entity_type.artist'.tr,
+        'edit.validation.artist_empty'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -677,8 +677,8 @@ class EditEntityController extends GetxController {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       Get.snackbar(
-        'Playlist',
-        'El nombre no puede estar vacio',
+        'edit.entity_type.playlist'.tr,
+        'edit.validation.playlist_empty'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -712,8 +712,8 @@ class EditEntityController extends GetxController {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       Get.snackbar(
-        'Tematica',
-        'El nombre no puede estar vacio',
+        'edit.entity_type.theme'.tr,
+        'edit.validation.theme_empty'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -749,8 +749,8 @@ class EditEntityController extends GetxController {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       Get.snackbar(
-        'Lista',
-        'El nombre no puede estar vacio',
+        'edit.entity_type.list'.tr,
+        'edit.validation.list_empty'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -784,8 +784,8 @@ class EditEntityController extends GetxController {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       Get.snackbar(
-        'Captura',
-        'El nombre no puede estar vacio',
+        'edit.entity_type.capture'.tr,
+        'edit.validation.capture_empty'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -808,8 +808,8 @@ class EditEntityController extends GetxController {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       Get.snackbar(
-        'Etiqueta',
-        'El nombre no puede estar vacio',
+        'edit.entity_type.tag'.tr,
+        'edit.validation.tag_empty'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;

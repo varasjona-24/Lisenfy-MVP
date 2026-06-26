@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -906,18 +908,16 @@ class _EditEntityPageState extends State<EditEntityPage> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('Eliminar version anterior'),
-          content: Text(
-            '¿Deseas eliminar "${source.title}" de tu biblioteca? Esta accion no elimina la version nueva.',
-          ),
+          title: Text(tr('edit.delete_previous_title')),
+          content: Text(tr('edit.delete_previous_body', args: [source.title])),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('No'),
+              child: Text(tr('common.cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Si, eliminar'),
+              child: Text(tr('edit.delete_previous_confirm')),
             ),
           ],
         );
@@ -1262,14 +1262,14 @@ class _EditEntityPageState extends State<EditEntityPage> {
                 if (_artistKind == ArtistProfileKind.band) ...[
                   const SizedBox(height: 12),
                   Text(
-                    'Integrantes',
+                    tr('edit.members'),
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Busca integrantes por nombre y selecciónalos para este dueto, banda o grupo musical.',
+                    tr('edit.members_hint'),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -1278,16 +1278,16 @@ class _EditEntityPageState extends State<EditEntityPage> {
                   TextField(
                     controller: _memberSearchCtrl,
                     onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      labelText: 'Buscar integrante',
-                      hintText: 'Escribe un nombre',
-                      prefixIcon: Icon(Icons.search_rounded),
+                    decoration: InputDecoration(
+                      labelText: tr('edit.search_member'),
+                      hintText: tr('edit.type_name'),
+                      prefixIcon: const Icon(Icons.search_rounded),
                     ),
                   ),
                   if (selectedMembers.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     Text(
-                      'Seleccionados',
+                      tr('edit.selected'),
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),

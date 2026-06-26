@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -183,7 +185,7 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
     if (!ok && mounted) {
       Get.snackbar(
         _isCaptureTag ? 'Etiquetas' : 'Collections',
-        'Límite de 10 niveles alcanzado',
+        tr('edit.limit_reached'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;

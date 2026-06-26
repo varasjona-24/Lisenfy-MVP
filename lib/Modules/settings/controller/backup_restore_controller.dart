@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
@@ -375,8 +377,8 @@ class BackupRestoreController extends GetxController {
     if (includeInstrumentals == null) return;
 
     _showBusyDialog(
-      title: 'Preparando respaldo',
-      message: 'Calculando tamaño estimado del backup completo...',
+      title: tr('backup.preparing_title'),
+      message: tr('backup.estimate_message'),
       icon: Icons.calculate_rounded,
       accent: Colors.orange,
     );
@@ -389,8 +391,8 @@ class BackupRestoreController extends GetxController {
     } catch (e) {
       await _closeProgressDialog();
       Get.snackbar(
-        'Copia de seguridad',
-        'No se pudo calcular el tamaño estimado',
+        'backup.title'.tr,
+        'backup.estimate_error'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -402,25 +404,22 @@ class BackupRestoreController extends GetxController {
     final estimateLabel = _formatBytes(estimate.estimatedZipBytes);
     final contentLabel = _formatBytes(estimate.contentBytes);
     final confirmed = await _showActionDialog(
-      title: 'Respaldo completo',
-      subtitle:
-          'Incluye toda tu media offline (audio, video e imágenes), '
-          'la configuración de pantalla de inicio y la librería. '
-          'Los archivos se empaquetan sin comprimir (modo STORE) para mayor velocidad.',
+      title: tr('backup.full_title'),
+      subtitle: tr('backup.full_subtitle'),
       icon: Icons.archive_rounded,
       accent: Colors.orange,
       notes: [
         includeInstrumentals
-            ? 'Se incluirán también variantes instrumentales.'
-            : 'No se incluirán variantes instrumentales en este backup.',
-        'Tamaño estimado: ~$estimateLabel (contenido detectado: $contentLabel).',
-        'Archivos incluidos en la estimación: ${estimate.includedFiles}.',
+            ? tr('backup.include_instrumentals')
+            : tr('backup.exclude_instrumentals'),
+        tr('backup.estimated_size', args: [estimateLabel, contentLabel]),
+        tr('backup.included_files', args: ['${estimate.includedFiles}']),
         if (estimate.missingFiles > 0)
-          'Archivos no encontrados (no se incluirán): ${estimate.missingFiles}.',
-        'El empaquetado sin compresión es rápido pero genera ZIPs del mismo tamaño que los archivos originales.',
-        'No cierres la app durante el proceso.',
+          tr('backup.missing_files', args: ['${estimate.missingFiles}']),
+        tr('backup.store_note'),
+        tr('backup.dont_close'),
       ],
-      confirmText: 'Continuar',
+      confirmText: tr('backup.continue'),
     );
 
     if (confirmed == true) {
@@ -446,8 +445,8 @@ class BackupRestoreController extends GetxController {
       if (reference.isEmpty) return;
 
       _showBusyDialog(
-        title: 'Localizando backup',
-        message: 'Buscando el ZIP usando la ruta o código indicado...',
+        title: tr('backup.locating_title'),
+        message: tr('backup.locating_message'),
         icon: Icons.search_rounded,
         accent: Colors.teal,
       );
@@ -458,12 +457,11 @@ class BackupRestoreController extends GetxController {
 
       if (foundPath == null) {
         await _showResultDialog(
-          title: 'No se encontró el backup',
-          message:
-              'No pude localizar el ZIP con ese código/ruta. Puedes usar "Seleccionar ZIP" para elegirlo manualmente.',
+          title: tr('backup.not_found_title'),
+          message: tr('backup.not_found_body'),
           icon: Icons.search_off_rounded,
           accent: Colors.orange,
-          confirmText: 'Entendido',
+          confirmText: tr('backup.understood'),
         );
         return;
       }
@@ -613,7 +611,7 @@ class BackupRestoreController extends GetxController {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'No cierres la app mientras se procesa la operación.',
+                        tr('backup.dont_close_processing'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                           height: 1.25,
@@ -776,7 +774,7 @@ class BackupRestoreController extends GetxController {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Puedes seleccionar el ZIP manualmente o pegar la ruta/código de ubicación generado al exportar.',
+                            tr('backup.manual_or_code'),
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: scheme.onSurfaceVariant,
                               height: 1.25,
@@ -811,16 +809,15 @@ class BackupRestoreController extends GetxController {
                                       'value': inputValue.trim(),
                                     });
                                   },
-                                  decoration: const InputDecoration(
+                                  decoration: InputDecoration(
                                     isDense: true,
-                                    labelText: 'Codigo o ruta del backup',
-                                    hintText:
-                                        'Ej: LFB:listenfy_backup_20260226_1030.zip',
+                                    labelText: tr('backup.code_or_path'),
+                                    hintText: tr('backup.code_or_path_hint'),
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Si el archivo se movió, usa el codigo (LFB:...) para intentar localizarlo.',
+                                  tr('backup.moved_hint'),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: scheme.onSurfaceVariant,
                                     height: 1.2,
@@ -1146,10 +1143,10 @@ class BackupRestoreController extends GetxController {
       await Future.delayed(const Duration(milliseconds: 300));
 
       isExporting.value = true;
-      _showProgressDialog('Respaldo de Librería');
+      _showProgressDialog(tr('backup.export_progress_title'));
       // Dar tiempo a Flutter/Android para pintar el diálogo antes de trabajo pesado.
       await _yieldUi(50);
-      currentOperation.value = 'Recolectando datos...';
+      currentOperation.value = tr('backup.collecting');
       progress.value = 0.1;
 
       final libraryStore = Get.find<LocalLibraryStore>();
@@ -1409,20 +1406,22 @@ class BackupRestoreController extends GetxController {
       final locationCode = _backupLocationCode(zipPath);
 
       await _showResultDialog(
-        title: 'Respaldo completo creado',
-        message:
-            'Se guardó la copia con tu librería y toda la media offline. Guarda la ruta o el codigo LFB para localizar el ZIP después.',
+        title: tr('backup.export_done_title'),
+        message: tr('backup.export_done_body'),
         icon: Icons.task_alt_rounded,
         accent: Colors.green,
-        detailLabel: 'Ruta / codigo de ubicacion',
-        detailValue: 'Ruta:\n$zipPath\n\nCodigo:\n$locationCode',
-        confirmText: 'Copiar ruta',
-        cancelText: 'Cerrar',
+        detailLabel: tr('backup.location_detail'),
+        detailValue: tr(
+          'backup.location_detail_value',
+          args: [zipPath, locationCode],
+        ),
+        confirmText: tr('backup.copy_path'),
+        cancelText: tr('common.close'),
         onConfirm: () async {
           await Clipboard.setData(ClipboardData(text: zipPath));
           Get.snackbar(
-            'Copia de seguridad',
-            'Ruta copiada al portapapeles',
+            'backup.title'.tr,
+            'backup.export_success'.tr,
             snackPosition: SnackPosition.BOTTOM,
           );
         },
@@ -1430,8 +1429,8 @@ class BackupRestoreController extends GetxController {
     } catch (e) {
       await _closeProgressDialog();
       Get.snackbar(
-        'Copia de seguridad',
-        'No se pudo exportar',
+        'backup.title'.tr,
+        'backup.export_error'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       print('exportLibrary error: $e');
@@ -1470,8 +1469,8 @@ class BackupRestoreController extends GetxController {
       final zipFile = File(path);
       if (!await zipFile.exists()) {
         Get.snackbar(
-          'Copia de seguridad',
-          'No se encontró el archivo ZIP indicado',
+          'backup.title'.tr,
+          'backup.file_not_found'.tr,
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -1482,10 +1481,10 @@ class BackupRestoreController extends GetxController {
       await Future.delayed(const Duration(milliseconds: 300));
 
       isImporting.value = true;
-      _showProgressDialog('Restaurando Librería');
+      _showProgressDialog(tr('backup.restore_progress_title'));
       // Permite que el diálogo llegue a pantalla antes de empezar la restauración.
       await _yieldUi(50);
-      currentOperation.value = 'Descomprimiendo backup...';
+      currentOperation.value = tr('backup.decompressing');
       progress.value = 0.1;
 
       final appDir = await getApplicationDocumentsDirectory();
@@ -1996,18 +1995,17 @@ class BackupRestoreController extends GetxController {
       await _yieldUi(80);
 
       await _showResultDialog(
-        title: 'Importación completada',
-        message:
-            'La librería y los archivos offline se restauraron correctamente. Ya puedes usar tu contenido sin conexión.',
+        title: tr('backup.restore_done_title'),
+        message: tr('backup.restore_done_body'),
         icon: Icons.task_alt_rounded,
         accent: Colors.green,
-        confirmText: 'Entendido',
+        confirmText: tr('backup.understood'),
       );
     } catch (e) {
       await _closeProgressDialog();
       Get.snackbar(
-        'Copia de seguridad',
-        'No se pudo importar',
+        'backup.title'.tr,
+        'backup.import_error'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
       print('importLibrary error: $e');

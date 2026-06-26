@@ -1,5 +1,8 @@
 import 'dart:math';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
+
 import '../../artists/domain/artist_profile.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/utils/artist_credit_parser.dart';
@@ -698,9 +701,9 @@ class LocalRecommendationService implements RecommendationEngine {
     );
 
     if (explicitTrackBias >= 0.45) {
-      reason = const _ReasonResult(
+      reason = _ReasonResult(
         code: RecommendationReasonCode.favoriteAffinity,
-        text: 'Porque te gustó esta línea',
+        text: tr('recommendations.reasons.favorite_line'),
       );
     }
 
@@ -722,23 +725,23 @@ class LocalRecommendationService implements RecommendationEngine {
     required double recentSignal,
   }) {
     if (coldStart) {
-      return const _ReasonResult(
+      return _ReasonResult(
         code: RecommendationReasonCode.coldStart,
-        text: 'Selección inicial para ti',
+        text: tr('recommendations.reasons.cold_start'),
       );
     }
 
     if (genreMatch >= 0.5 && candidate.genres.isNotEmpty) {
       final genre = candidate.genres.first;
       if (genre == 'trap' && _isLatinRegion(candidate.regions)) {
-        return const _ReasonResult(
+        return _ReasonResult(
           code: RecommendationReasonCode.genreMatch,
-          text: 'Por trap latino',
+          text: tr('recommendations.reasons.latin_trap'),
         );
       }
       return _ReasonResult(
         code: RecommendationReasonCode.genreMatch,
-        text: 'Por ${_genreLabel(genre)}',
+        text: tr('recommendations.reasons.genre', args: [_genreLabel(genre)]),
       );
     }
 
@@ -748,41 +751,47 @@ class LocalRecommendationService implements RecommendationEngine {
           candidate.regionDisplayByKey[region] ?? _regionLabel(region);
       return _ReasonResult(
         code: RecommendationReasonCode.regionMatch,
-        text: 'Por $regionLabel',
+        text: tr('recommendations.reasons.region', args: [regionLabel]),
       );
     }
 
     if (artistMatch >= 0.45 && candidate.primaryArtistName.isNotEmpty) {
       return _ReasonResult(
         code: RecommendationReasonCode.artistAffinity,
-        text: 'Porque escuchas a ${candidate.primaryArtistName}',
+        text: tr(
+          'recommendations.reasons.artist',
+          args: [candidate.primaryArtistName],
+        ),
       );
     }
 
     if (originMatch >= 0.55) {
       return _ReasonResult(
         code: RecommendationReasonCode.originAffinity,
-        text: 'Por tu origen ${_originLabel(candidate.originKey)}',
+        text: tr(
+          'recommendations.reasons.origin',
+          args: [_originLabel(candidate.originKey)],
+        ),
       );
     }
 
     if (favoriteSignal >= 0.9) {
-      return const _ReasonResult(
+      return _ReasonResult(
         code: RecommendationReasonCode.favoriteAffinity,
-        text: 'Por tus favoritos recientes',
+        text: tr('recommendations.reasons.recent_favorites'),
       );
     }
 
     if (recentSignal >= 0.45) {
-      return const _ReasonResult(
+      return _ReasonResult(
         code: RecommendationReasonCode.recentAffinity,
-        text: 'Por tu actividad reciente',
+        text: tr('recommendations.reasons.recent_activity'),
       );
     }
 
-    return const _ReasonResult(
+    return _ReasonResult(
       code: RecommendationReasonCode.freshPick,
-      text: 'Para variar tu biblioteca',
+      text: tr('recommendations.reasons.fresh'),
     );
   }
 

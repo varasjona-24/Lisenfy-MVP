@@ -1,5 +1,8 @@
 import 'dart:math';
 
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
+
 import '../../../../app/models/media_item.dart';
 import '../../../../app/utils/artist_credit_parser.dart';
 import '../../data/recommendation_mix_store.dart';
@@ -222,8 +225,8 @@ class BuildRecommendationCollectionsUseCase {
       final label = _regionLabel(region.key);
       return context.plan(
         type: RecommendationMixType.region,
-        title: 'Mix $label',
-        subtitle: 'Una ruta completa por la región $label',
+        title: tr('recommendations.mix.region_title', args: [label]),
+        subtitle: tr('recommendations.mix.region_subtitle', args: [label]),
         picks: picks,
         regionKey: region.key,
         carryCyclesRemaining: 1,
@@ -263,7 +266,7 @@ class BuildRecommendationCollectionsUseCase {
           .where((item) => _latestImportAt(item) >= cutoff)
           .toList();
       if (candidates.length >= context.targetSize) {
-        label = 'Importadas en los últimos $days días';
+        label = tr('recommendations.mix.imports_recent', args: ['$days']);
         break;
       }
     }
@@ -274,7 +277,7 @@ class BuildRecommendationCollectionsUseCase {
         return _latestImportAt(item) >= cutoff &&
             (item.lastPlayedAt == null || item.lastPlayedAt == 0);
       }).toList();
-      label = 'Joyas nuevas que todavía no escuchaste';
+      label = tr('recommendations.mix.imports_unplayed');
     }
     if (candidates.length < context.targetSize) return null;
 
@@ -284,7 +287,7 @@ class BuildRecommendationCollectionsUseCase {
       if (picks.length < context.targetSize) return null;
       return context.plan(
         type: RecommendationMixType.imports,
-        title: 'Tus importaciones',
+        title: tr('recommendations.mix.imports_title'),
         subtitle: label,
         picks: picks,
       );
@@ -421,8 +424,11 @@ class BuildRecommendationCollectionsUseCase {
       if (picks.length < context.targetSize) return null;
       return context.plan(
         type: RecommendationMixType.musicalGeography,
-        title: 'Tu geografía musical',
-        subtitle: 'Tus ${selectedRegions.length} regiones más escuchadas',
+        title: tr('recommendations.mix.geography_title'),
+        subtitle: tr(
+          'recommendations.mix.geography_subtitle',
+          args: ['${selectedRegions.length}'],
+        ),
         picks: picks,
       );
     }
@@ -496,8 +502,8 @@ class BuildRecommendationCollectionsUseCase {
       if (picks.length < context.targetSize) return null;
       return context.plan(
         type: RecommendationMixType.stan,
-        title: 'Tu lista de Stan',
-        subtitle: '70% obsesiones recientes · 30% favoritos históricos',
+        title: tr('recommendations.mix.stan_title'),
+        subtitle: tr('recommendations.mix.stan_subtitle'),
         picks: picks,
       );
     }
@@ -604,21 +610,21 @@ class BuildRecommendationCollectionsUseCase {
     if (minutes >= 241 && minutes <= 720) {
       return (
         'morning',
-        'Mix para arrancar',
-        'Energía gradual para empezar el día',
+        tr('recommendations.mix.morning_title'),
+        tr('recommendations.mix.morning_subtitle'),
       );
     }
     if (minutes >= 721 && minutes <= 1200) {
       return (
         'movement',
-        'Mix en movimiento',
-        'Canciones activas para mantener el ritmo',
+        tr('recommendations.mix.movement_title'),
+        tr('recommendations.mix.movement_subtitle'),
       );
     }
     return (
       'relax',
-      'Mix para relajarse',
-      'Selección suave según tu forma de escuchar',
+      tr('recommendations.mix.relax_title'),
+      tr('recommendations.mix.relax_subtitle'),
     );
   }
 
