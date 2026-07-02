@@ -279,8 +279,8 @@ class _SectionListPageState extends State<SectionListPage> {
   void _toggleItemSelection(MediaItem item) {
     if (!_canSelect(item)) {
       Get.snackbar(
-        'dialogs.selection.title'.tr,
-        'dialogs.selection.no_local_file'.tr,
+        tr('dialogs.selection.title'),
+        tr('dialogs.selection.no_local_file'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -298,8 +298,8 @@ class _SectionListPageState extends State<SectionListPage> {
   void _startMultiSelectFromItem(MediaItem item) {
     if (!_canSelect(item)) {
       Get.snackbar(
-        'dialogs.selection.title'.tr,
-        'dialogs.selection.no_local_file'.tr,
+        tr('dialogs.selection.title'),
+        tr('dialogs.selection.no_local_file'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -315,8 +315,8 @@ class _SectionListPageState extends State<SectionListPage> {
     final selectedIds = selectedItems.map((e) => e.id).toSet();
     if (selectedItems.isEmpty) {
       Get.snackbar(
-        'dialogs.selection.title'.tr,
-        'dialogs.selection.no_items_selected'.tr,
+        tr('dialogs.selection.title'),
+        tr('dialogs.selection.no_items_selected'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -356,8 +356,8 @@ class _SectionListPageState extends State<SectionListPage> {
     final selectedItems = _selectedItems;
     if (selectedItems.isEmpty) {
       Get.snackbar(
-        'dialogs.sharing.title'.tr,
-        'dialogs.sharing.no_items'.tr,
+        tr('dialogs.sharing.title'),
+        tr('dialogs.sharing.no_items'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -371,8 +371,8 @@ class _SectionListPageState extends State<SectionListPage> {
     final selectedItems = _selectedItems;
     if (selectedItems.isEmpty) {
       Get.snackbar(
-        'dialogs.connect.title'.tr,
-        'dialogs.connect.no_items'.tr,
+        tr('dialogs.connect.title'),
+        tr('dialogs.connect.no_items'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;

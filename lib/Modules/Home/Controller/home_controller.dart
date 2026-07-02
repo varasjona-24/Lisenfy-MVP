@@ -1517,8 +1517,8 @@ class HomeController extends GetxController {
     } catch (e) {
       print('Error deleting local item: $e');
       Get.snackbar(
-        'dialogs.downloads.title'.tr,
-        'dialogs.downloads.delete_error'.tr,
+        tr('dialogs.downloads.title'),
+        tr('dialogs.downloads.delete_error'),
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -1547,8 +1547,8 @@ class HomeController extends GetxController {
     } catch (e) {
       print('Error toggling favorite: $e');
       Get.snackbar(
-        'dialogs.favorites.title'.tr,
-        'dialogs.favorites.update_error'.tr,
+        tr('dialogs.favorites.title'),
+        tr('dialogs.favorites.update_error'),
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -1627,9 +1627,14 @@ class HomeController extends GetxController {
       final key = ArtistCreditParser.normalizeKey(profile.key);
       if (key.isEmpty || key == 'unknown') continue;
 
-      final countryName = (profile.country ?? '').trim().isNotEmpty
-          ? profile.country!.trim()
-          : CountryCatalog.countryNameFromCode(profile.countryCode);
+      final countryName =
+          CountryCatalog.countryNameFromCodeForLocale(
+            profile.countryCode,
+            Get.context?.locale.languageCode ?? 'es',
+          ) ??
+          ((profile.country ?? '').trim().isNotEmpty
+              ? profile.country!.trim()
+              : null);
       final regionKey = _resolveRegionKeyForProfile(profile, countryName);
       final hasLocale =
           (countryName ?? '').isNotEmpty && (regionKey ?? '').isNotEmpty;
@@ -1693,7 +1698,7 @@ class HomeController extends GetxController {
     if (signal == null) return null;
     final country = (signal.countryName ?? '').trim();
     if (country.isEmpty) return null;
-    return 'Porque escuchaste musica de $country';
+    return tr('recommendations.reasons.country_listened', args: [country]);
   }
 
   Future<void> _applyRecommendationSet(RecommendationDailySet set) async {

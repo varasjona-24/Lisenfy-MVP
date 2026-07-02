@@ -581,8 +581,8 @@ class EditEntityController extends GetxController {
     final trimmedTitle = title.trim();
     if (trimmedTitle.isEmpty) {
       Get.snackbar(
-        'edit.entity_type.metadata'.tr,
-        'edit.validation.title_empty'.tr,
+        tr('edit.entity_type.metadata'),
+        tr('edit.validation.title_empty'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -634,8 +634,8 @@ class EditEntityController extends GetxController {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       Get.snackbar(
-        'edit.entity_type.artist'.tr,
-        'edit.validation.artist_empty'.tr,
+        tr('edit.entity_type.artist'),
+        tr('edit.validation.artist_empty'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -679,8 +679,8 @@ class EditEntityController extends GetxController {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       Get.snackbar(
-        'edit.entity_type.playlist'.tr,
-        'edit.validation.playlist_empty'.tr,
+        tr('edit.entity_type.playlist'),
+        tr('edit.validation.playlist_empty'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -714,8 +714,8 @@ class EditEntityController extends GetxController {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       Get.snackbar(
-        'edit.entity_type.theme'.tr,
-        'edit.validation.theme_empty'.tr,
+        tr('edit.entity_type.theme'),
+        tr('edit.validation.theme_empty'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -751,8 +751,8 @@ class EditEntityController extends GetxController {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       Get.snackbar(
-        'edit.entity_type.list'.tr,
-        'edit.validation.list_empty'.tr,
+        tr('edit.entity_type.list'),
+        tr('edit.validation.list_empty'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -786,8 +786,8 @@ class EditEntityController extends GetxController {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       Get.snackbar(
-        'edit.entity_type.capture'.tr,
-        'edit.validation.capture_empty'.tr,
+        tr('edit.entity_type.capture'),
+        tr('edit.validation.capture_empty'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -810,8 +810,8 @@ class EditEntityController extends GetxController {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       Get.snackbar(
-        'edit.entity_type.tag'.tr,
-        'edit.validation.tag_empty'.tr,
+        tr('edit.entity_type.tag'),
+        tr('edit.validation.tag_empty'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;

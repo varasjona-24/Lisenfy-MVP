@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:easy_localization/easy_localization.dart'
-    hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -98,15 +96,13 @@ class EqualizerController extends GetxController {
   Future<void> _initEqualizer() async {
     if (!Get.isRegistered<AudioService>()) {
       eqAvailable.value = false;
-      eqUnavailableMessage.value = tr(
-        'settings.audio.eq_audio_not_initialized',
-      );
+      eqUnavailableMessage.value = 'settings.audio.eq_audio_not_initialized';
       return;
     }
     final audio = Get.find<AudioService>();
     if (!audio.eqSupported) {
       eqAvailable.value = false;
-      eqUnavailableMessage.value = tr('settings.audio.android_only');
+      eqUnavailableMessage.value = 'settings.audio.android_only';
       return;
     }
 
@@ -114,7 +110,7 @@ class EqualizerController extends GetxController {
       final params = await audio.getEqParameters();
       if (params == null) {
         eqAvailable.value = false;
-        eqUnavailableMessage.value = tr('settings.audio.eq_play_track');
+        eqUnavailableMessage.value = 'settings.audio.eq_play_track';
         return;
       }
 
@@ -137,7 +133,7 @@ class EqualizerController extends GetxController {
     } catch (e) {
       debugPrint('Equalizer init error: $e');
       eqAvailable.value = false;
-      eqUnavailableMessage.value = tr('settings.audio.eq_init_error');
+      eqUnavailableMessage.value = 'settings.audio.eq_init_error';
     }
   }
 

@@ -1,3 +1,6 @@
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
+
 import '../../../../app/utils/country_catalog.dart';
 
 class CountryEntity {
@@ -24,6 +27,12 @@ class CountryEntity {
   final int discoveryCount;
 
   String get flag => CountryCatalog.flagFromIso(code);
+
+  String get localizedName {
+    final key = 'world_mode.regions.$code';
+    final value = tr(key);
+    return value == key ? name : value;
+  }
 
   CountryEntity copyWith({
     String? code,

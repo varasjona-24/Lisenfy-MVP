@@ -175,8 +175,15 @@ class BuildRecommendationCollectionsUseCase {
       return RecommendationMixPlan(
         id: mix.id,
         type: mix.type,
-        title: mix.title,
-        subtitle: '${mix.subtitle} · segundo ciclo',
+        title: _localizedMixTitle(mix),
+        subtitle: tr(
+          'recommendations.mix.region_second_cycle_subtitle',
+          args: [_regionLabel(mix.regionKey)],
+        ),
+        titleKey: 'recommendations.mix.region_title',
+        subtitleKey: 'recommendations.mix.region_second_cycle_subtitle',
+        titleArgs: [_regionLabel(mix.regionKey)],
+        subtitleArgs: [_regionLabel(mix.regionKey)],
         itemKeys: available,
         generatedAt: mix.generatedAt,
         regionKey: mix.regionKey,
@@ -225,7 +232,11 @@ class BuildRecommendationCollectionsUseCase {
       final label = _regionLabel(region.key);
       return context.plan(
         type: RecommendationMixType.region,
+        titleKey: 'recommendations.mix.region_title',
+        titleArgs: [label],
         title: tr('recommendations.mix.region_title', args: [label]),
+        subtitleKey: 'recommendations.mix.region_subtitle',
+        subtitleArgs: [label],
         subtitle: tr('recommendations.mix.region_subtitle', args: [label]),
         picks: picks,
         regionKey: region.key,
@@ -285,9 +296,18 @@ class BuildRecommendationCollectionsUseCase {
     RecommendationMixPlan? build(Set<String> currentUsed) {
       final picks = context.pick(candidates, currentUsed, salt: 'imports');
       if (picks.length < context.targetSize) return null;
+      final subtitleKey = label == tr('recommendations.mix.imports_unplayed')
+          ? 'recommendations.mix.imports_unplayed'
+          : 'recommendations.mix.imports_recent';
+      final subtitleArgs = subtitleKey.endsWith('imports_recent')
+          ? [RegExp(r'\d+').firstMatch(label)?.group(0) ?? '30']
+          : <String>[];
       return context.plan(
         type: RecommendationMixType.imports,
+        titleKey: 'recommendations.mix.imports_title',
         title: tr('recommendations.mix.imports_title'),
+        subtitleKey: subtitleKey,
+        subtitleArgs: subtitleArgs,
         subtitle: label,
         picks: picks,
       );
@@ -318,8 +338,10 @@ class BuildRecommendationCollectionsUseCase {
       if (picks.length < context.targetSize) return null;
       return context.plan(
         type: RecommendationMixType.timeOfDay,
-        title: moment.$2,
-        subtitle: moment.$3,
+        titleKey: moment.$2,
+        title: tr(moment.$2),
+        subtitleKey: moment.$3,
+        subtitle: tr(moment.$3),
         picks: picks,
       );
     }
@@ -358,8 +380,10 @@ class BuildRecommendationCollectionsUseCase {
       if (picks.length < context.targetSize) return null;
       return context.plan(
         type: RecommendationMixType.rediscovery,
+        titleKey: 'recommendations.mixes.rediscovery.title',
         title: tr('recommendations.mixes.rediscovery.title'),
-        subtitle: 'Canciones que llevan al menos tres semanas esperando',
+        subtitleKey: 'recommendations.mixes.rediscovery.subtitle',
+        subtitle: tr('recommendations.mixes.rediscovery.subtitle'),
         picks: picks,
       );
     }
@@ -424,7 +448,10 @@ class BuildRecommendationCollectionsUseCase {
       if (picks.length < context.targetSize) return null;
       return context.plan(
         type: RecommendationMixType.musicalGeography,
+        titleKey: 'recommendations.mix.geography_title',
         title: tr('recommendations.mix.geography_title'),
+        subtitleKey: 'recommendations.mix.geography_subtitle',
+        subtitleArgs: ['${selectedRegions.length}'],
         subtitle: tr(
           'recommendations.mix.geography_subtitle',
           args: ['${selectedRegions.length}'],
@@ -502,7 +529,9 @@ class BuildRecommendationCollectionsUseCase {
       if (picks.length < context.targetSize) return null;
       return context.plan(
         type: RecommendationMixType.stan,
+        titleKey: 'recommendations.mix.stan_title',
         title: tr('recommendations.mix.stan_title'),
+        subtitleKey: 'recommendations.mix.stan_subtitle',
         subtitle: tr('recommendations.mix.stan_subtitle'),
         picks: picks,
       );
@@ -556,8 +585,8 @@ class BuildRecommendationCollectionsUseCase {
       result.add(
         RecommendationCollection(
           id: mix.id,
-          title: mix.title,
-          subtitle: mix.subtitle,
+          title: _localizedMixTitle(mix),
+          subtitle: _localizedMixSubtitle(mix),
           items: items,
           expiresAt: cycle.expiresAt,
         ),
@@ -610,21 +639,21 @@ class BuildRecommendationCollectionsUseCase {
     if (minutes >= 241 && minutes <= 720) {
       return (
         'morning',
-        tr('recommendations.mix.morning_title'),
-        tr('recommendations.mix.morning_subtitle'),
+        'recommendations.mix.morning_title',
+        'recommendations.mix.morning_subtitle',
       );
     }
     if (minutes >= 721 && minutes <= 1200) {
       return (
         'movement',
-        tr('recommendations.mix.movement_title'),
-        tr('recommendations.mix.movement_subtitle'),
+        'recommendations.mix.movement_title',
+        'recommendations.mix.movement_subtitle',
       );
     }
     return (
       'relax',
-      tr('recommendations.mix.relax_title'),
-      tr('recommendations.mix.relax_subtitle'),
+      'recommendations.mix.relax_title',
+      'recommendations.mix.relax_subtitle',
     );
   }
 
@@ -652,16 +681,119 @@ class BuildRecommendationCollectionsUseCase {
     return ArtistCreditParser.normalizeKey(parsed.primaryArtist);
   }
 
-  String _regionLabel(String key) {
-    return switch (key) {
-      'latino' => 'latino',
-      'asiatico' => 'asiático',
-      'anglo' => 'anglo',
-      'europeo' => 'europeo',
-      'africano' => 'africano',
-      'medio_oriente' => 'de Medio Oriente',
-      'oceania' => 'de Oceanía',
-      _ => 'global',
+  String _localizedMixTitle(RecommendationMixPlan mix) {
+    final key = (mix.titleKey ?? '').trim();
+    if (key.isNotEmpty) return tr(key, args: mix.titleArgs);
+    final fallbackKey = _fallbackTitleKey(mix);
+    if (fallbackKey == null) return mix.title;
+    return tr(fallbackKey, args: _fallbackTitleArgs(mix));
+  }
+
+  String _localizedMixSubtitle(RecommendationMixPlan mix) {
+    final key = (mix.subtitleKey ?? '').trim();
+    if (key.isNotEmpty) return tr(key, args: mix.subtitleArgs);
+    final fallbackKey = _fallbackSubtitleKey(mix);
+    if (fallbackKey == null) return mix.subtitle;
+    return tr(fallbackKey, args: _fallbackSubtitleArgs(mix));
+  }
+
+  String? _fallbackTitleKey(RecommendationMixPlan mix) {
+    return switch (mix.type) {
+      RecommendationMixType.region => 'recommendations.mix.region_title',
+      RecommendationMixType.imports => 'recommendations.mix.imports_title',
+      RecommendationMixType.timeOfDay => _fallbackTimeTitleKey(mix.title),
+      RecommendationMixType.rediscovery =>
+        'recommendations.mixes.rediscovery.title',
+      RecommendationMixType.musicalGeography =>
+        'recommendations.mix.geography_title',
+      RecommendationMixType.stan => 'recommendations.mix.stan_title',
+    };
+  }
+
+  String? _fallbackSubtitleKey(RecommendationMixPlan mix) {
+    return switch (mix.type) {
+      RecommendationMixType.region => 'recommendations.mix.region_subtitle',
+      RecommendationMixType.imports => _fallbackImportsSubtitleKey(
+        mix.subtitle,
+      ),
+      RecommendationMixType.timeOfDay => _fallbackTimeSubtitleKey(mix.subtitle),
+      RecommendationMixType.rediscovery =>
+        'recommendations.mixes.rediscovery.subtitle',
+      RecommendationMixType.musicalGeography =>
+        'recommendations.mix.geography_subtitle',
+      RecommendationMixType.stan => 'recommendations.mix.stan_subtitle',
+    };
+  }
+
+  List<String> _fallbackTitleArgs(RecommendationMixPlan mix) {
+    if (mix.type == RecommendationMixType.region) {
+      return [_regionLabel(mix.regionKey)];
+    }
+    return const <String>[];
+  }
+
+  List<String> _fallbackSubtitleArgs(RecommendationMixPlan mix) {
+    if (mix.type == RecommendationMixType.region) {
+      return [_regionLabel(mix.regionKey)];
+    }
+    if (mix.type == RecommendationMixType.imports) {
+      final days = RegExp(r'\d+').firstMatch(mix.subtitle)?.group(0);
+      return days == null ? const <String>[] : [days];
+    }
+    if (mix.type == RecommendationMixType.musicalGeography) {
+      final count = RegExp(r'\d+').firstMatch(mix.subtitle)?.group(0) ?? '4';
+      return [count];
+    }
+    return const <String>[];
+  }
+
+  String? _fallbackImportsSubtitleKey(String subtitle) {
+    final normalized = subtitle.trim().toLowerCase();
+    if (normalized.contains('unplayed') ||
+        normalized.contains('joyas nuevas')) {
+      return 'recommendations.mix.imports_unplayed';
+    }
+    return 'recommendations.mix.imports_recent';
+  }
+
+  String? _fallbackTimeTitleKey(String title) {
+    final normalized = title.trim().toLowerCase();
+    if (normalized.contains('arrancar') || normalized.contains('kickoff')) {
+      return 'recommendations.mix.morning_title';
+    }
+    if (normalized.contains('movimiento') || normalized.contains('move')) {
+      return 'recommendations.mix.movement_title';
+    }
+    if (normalized.contains('relaj') || normalized.contains('relax')) {
+      return 'recommendations.mix.relax_title';
+    }
+    return null;
+  }
+
+  String? _fallbackTimeSubtitleKey(String subtitle) {
+    final normalized = subtitle.trim().toLowerCase();
+    if (normalized.contains('empezar') || normalized.contains('start')) {
+      return 'recommendations.mix.morning_subtitle';
+    }
+    if (normalized.contains('ritmo') || normalized.contains('rhythm')) {
+      return 'recommendations.mix.movement_subtitle';
+    }
+    if (normalized.contains('suave') || normalized.contains('soft')) {
+      return 'recommendations.mix.relax_subtitle';
+    }
+    return null;
+  }
+
+  String _regionLabel(String? key) {
+    return switch ((key ?? '').trim()) {
+      'latino' => tr('artists.profile.region.simple.latino'),
+      'asiatico' => tr('artists.profile.region.simple.asiatico'),
+      'anglo' => tr('artists.profile.region.simple.anglo'),
+      'europeo' => tr('artists.profile.region.simple.europeo'),
+      'africano' => tr('artists.profile.region.simple.africano'),
+      'medio_oriente' => tr('artists.profile.region.simple.medio_oriente'),
+      'oceania' => tr('artists.profile.region.simple.oceania'),
+      _ => tr('artists.profile.region.simple.global'),
     };
   }
 }
@@ -759,6 +891,10 @@ class _BuildContext {
     required String title,
     required String subtitle,
     required List<MediaItem> picks,
+    String? titleKey,
+    List<String> titleArgs = const <String>[],
+    String? subtitleKey,
+    List<String> subtitleArgs = const <String>[],
     String? regionKey,
     int carryCyclesRemaining = 0,
   }) {
@@ -767,6 +903,10 @@ class _BuildContext {
       type: type,
       title: title,
       subtitle: subtitle,
+      titleKey: titleKey,
+      subtitleKey: subtitleKey,
+      titleArgs: titleArgs,
+      subtitleArgs: subtitleArgs,
       itemKeys: picks.map(input.stableKeyOf).toList(growable: false),
       generatedAt: nowMs,
       regionKey: regionKey,

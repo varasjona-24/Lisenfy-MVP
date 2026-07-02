@@ -1216,7 +1216,25 @@
     "options_title": "Backup options",
     "include_instrumental_variants": "Include instrumental variants",
     "progress_percent": "{}% completed",
-    "preparing_process": "Preparing process..."
+    "preparing_process": "Preparing process...",
+    "operations": {
+      "starting": "Starting...",
+      "processing_songs": "Processing songs ({}/{})",
+      "processing_metadata": "Processing playlists and sources...",
+      "packing_zip": "Packaging ZIP file (uncompressed)...",
+      "cleaning_temp": "Cleaning temporary files...",
+      "reading_index": "Reading backup index...",
+      "extracting_manifest": "Extracting manifest...",
+      "reading_manifest": "Reading manifest...",
+      "reading_large_manifest": "Reading large manifest in chunks...",
+      "restoring_songs": "Restoring songs...",
+      "restoring_songs_progress": "Restoring songs ({})",
+      "saving_restored_songs": "Saving restored songs...",
+      "restoring_playlists_artists": "Restoring playlists and artists...",
+      "restoring_sources": "Restoring sources...",
+      "restoring_captures": "Restoring captures...",
+      "finalizing": "Cleaning temporary files and updating the interface..."
+    }
   },
   "settings_messages": {
     "wallpaper": {
@@ -1393,6 +1411,11 @@
     "select_region": "Select a region on the map",
     "search_region": "Search region",
     "search_region_hint": "Search region…",
+    "tap_point": "Tap a point to explore",
+    "no_results": "No results",
+    "tracks_count": "{} tracks",
+    "available_tracks_count": "{} tracks available",
+    "load_regions_error": "Could not load regions",
     "zoom_active_hint": "Zoom active · you can drag the map",
     "zoom_hint": "Pinch to zoom · then drag",
     "shuffle_stations": "Shuffle stations",
@@ -1404,6 +1427,37 @@
       "discovery": "Discovery",
       "energy": "High energy",
       "chill": "Chill / Night"
+    },
+    "regions": {
+      "rio_plata": "Rio de la Plata",
+      "gran_colombia": "Gran Colombia",
+      "andes_centrales": "Central Andes",
+      "brasil": "Brazil",
+      "mexico": "Mexico",
+      "centroamerica": "Central America",
+      "caribe_hispano": "Hispanic Caribbean",
+      "caribe_anglo_franco": "Anglo/French Caribbean",
+      "norteamerica_anglosajona": "Anglo-Saxon North America",
+      "peninsula_iberica": "Iberian Peninsula",
+      "francia_benelux": "Franco-Benelux Arc",
+      "mundo_germanico": "Germanic World",
+      "islas_britanicas": "British Isles",
+      "europa_nordica": "Nordic Europe",
+      "mediterraneo_occidental": "Western Mediterranean",
+      "balcanes": "Balkans",
+      "europa_central": "Central Europe",
+      "europa_oriental": "Eastern Europe",
+      "magreb": "Maghreb",
+      "africa_occidental": "West Africa",
+      "africa_central": "Central Africa",
+      "africa_oriental": "East Africa",
+      "africa_austral": "Southern Africa",
+      "medio_oriente": "Middle East",
+      "asia_central": "Central Asia",
+      "subcontinente_indio": "Indian Subcontinent",
+      "sudeste_asiatico": "Southeast Asia",
+      "asia_oriental": "East Asia",
+      "oceania_insular": "Oceania"
     }
   },
   "lyrics": {
@@ -1544,6 +1598,7 @@
     "mix": {
       "region_title": "{} Mix",
       "region_subtitle": "A full route through the {} region",
+      "region_second_cycle_subtitle": "A full route through the {} region · second cycle",
       "imports_title": "Your imports",
       "imports_recent": "Imported in the last {} days",
       "imports_unplayed": "New gems you have not heard yet",
@@ -1566,13 +1621,15 @@
       "region": "For {}",
       "artist": "Because you listen to {}",
       "origin": "From your {} origin",
+      "country_listened": "Because you listened to music from {}",
       "recent_favorites": "For your recent favorites",
       "recent_activity": "For your recent activity",
       "fresh": "To vary your library"
     },
     "mixes": {
       "rediscovery": {
-        "title": "Rediscovered"
+        "title": "Rediscovered",
+        "subtitle": "Songs that have been waiting at least three weeks"
       }
     }
   },

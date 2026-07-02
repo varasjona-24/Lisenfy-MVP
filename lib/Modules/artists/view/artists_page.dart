@@ -19,6 +19,15 @@ import '../domain/artist_profile.dart';
 import '../../edit/controller/edit_entity_controller.dart';
 import 'widgets/artist_avatar.dart';
 
+String _localizedArtistCountry(ArtistGroup artist, BuildContext context) {
+  final byCode = CountryCatalog.countryNameFromCodeForLocale(
+    artist.countryCode,
+    context.locale.languageCode,
+  );
+  if ((byCode ?? '').trim().isNotEmpty) return byCode!.trim();
+  return (artist.country ?? '').trim();
+}
+
 class ArtistsPage extends GetView<ArtistsController> {
   const ArtistsPage({super.key});
 
@@ -524,7 +533,7 @@ class _ArtistCard extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     final thumb = artist.thumbnailLocalPath ?? artist.thumbnail;
-    final country = (artist.country ?? '').trim();
+    final country = _localizedArtistCountry(artist, context);
     final flag = CountryCatalog.flagFromIso(artist.countryCode);
     final typeLabel = artist.kind.label;
     final typeCountryLine = country.isNotEmpty
@@ -573,7 +582,7 @@ class _ArtistCoverCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final thumb = artist.thumbnailLocalPath ?? artist.thumbnail;
-    final country = (artist.country ?? '').trim();
+    final country = _localizedArtistCountry(artist, context);
     final flag = CountryCatalog.flagFromIso(artist.countryCode);
     final typeLabel = artist.kind.label;
     final typeCountryLine = country.isNotEmpty

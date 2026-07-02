@@ -293,7 +293,7 @@ class _CountryPoint extends StatelessWidget {
       left: x - (dotSize / 2),
       top: y - (dotSize / 2),
       child: Tooltip(
-        message: country.name,
+        message: country.localizedName,
         waitDuration: const Duration(milliseconds: 140),
         child: Material(
           color: Colors.transparent,

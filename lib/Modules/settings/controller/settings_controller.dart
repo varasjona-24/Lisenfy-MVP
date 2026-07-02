@@ -283,8 +283,8 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
     String message = 'settings_messages.wallpaper.error_default',
   }) {
     Get.snackbar(
-      'settings_messages.wallpaper.title'.tr,
-      message.tr,
+      tr('settings_messages.wallpaper.title'),
+      tr(message),
       snackPosition: SnackPosition.BOTTOM,
     );
   }
@@ -496,20 +496,19 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
       storageTick.value++;
       await refreshCacheSummary();
       Get.snackbar(
-        'settings_messages.cache.title'.tr,
+        tr('settings_messages.cache.title'),
         bytesBefore > 0
-            ? 'settings_messages.cache.cleared'.tr.replaceFirst(
-                '{}',
-                _formatBytes(bytesBefore),
-              )
-            : 'settings_messages.cache.empty'.tr,
+            ? tr(
+                'settings_messages.cache.cleared',
+              ).replaceFirst('{}', _formatBytes(bytesBefore))
+            : tr('settings_messages.cache.empty'),
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
       debugPrint('clearCache error: $e');
       Get.snackbar(
-        'settings_messages.cache.title'.tr,
-        'settings_messages.cache.error'.tr,
+        tr('settings_messages.cache.title'),
+        tr('settings_messages.cache.error'),
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -607,8 +606,8 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
       final cookieFile = File(path);
       if (!await cookieFile.exists()) {
         Get.snackbar(
-          'settings_messages.cookies.title'.tr,
-          'settings_messages.cookies.file_not_found'.tr,
+          tr('settings_messages.cookies.title'),
+          tr('settings_messages.cookies.file_not_found'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -622,8 +621,8 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
       final token = ytdlpAdminToken.value.trim();
       if (token.isEmpty) {
         Get.snackbar(
-          'settings_messages.cookies.title'.tr,
-          'settings_messages.cookies.token_required'.tr,
+          tr('settings_messages.cookies.title'),
+          tr('settings_messages.cookies.token_required'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -636,15 +635,15 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
       );
 
       Get.snackbar(
-        'settings_messages.cookies.title'.tr,
-        'settings_messages.cookies.success'.tr,
+        tr('settings_messages.cookies.title'),
+        tr('settings_messages.cookies.success'),
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {
       debugPrint('uploadYtDlpCookies error: $e');
       Get.snackbar(
-        'settings_messages.cookies.title'.tr,
-        'settings_messages.cookies.error'.tr,
+        tr('settings_messages.cookies.title'),
+        tr('settings_messages.cookies.error'),
         snackPosition: SnackPosition.BOTTOM,
       );
     }

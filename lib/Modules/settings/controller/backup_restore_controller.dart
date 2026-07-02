@@ -391,8 +391,8 @@ class BackupRestoreController extends GetxController {
     } catch (e) {
       await _closeProgressDialog();
       Get.snackbar(
-        'backup.title'.tr,
-        'backup.estimate_error'.tr,
+        tr('backup.title'),
+        tr('backup.estimate_error'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -512,7 +512,7 @@ class BackupRestoreController extends GetxController {
 
   void _showProgressDialog(String title) {
     progress.value = 0.0;
-    currentOperation.value = 'Iniciando...';
+    currentOperation.value = tr('backup.operations.starting');
     final isExport = title.toLowerCase().contains('respaldo');
     final icon = isExport ? Icons.archive_rounded : Icons.restore_rounded;
     final accent = isExport ? Colors.orange : Colors.teal;
@@ -1193,8 +1193,10 @@ class BackupRestoreController extends GetxController {
         if (i % 10 == 0) {
           await _yieldUi();
         }
-        currentOperation.value =
-            'Procesando canciones (${i + 1}/${items.length})';
+        currentOperation.value = tr(
+          'backup.operations.processing_songs',
+          args: ['${i + 1}', '${items.length}'],
+        );
         progress.value = 0.1 + (0.4 * (i / items.length));
 
         final item = items[i];
@@ -1225,7 +1227,7 @@ class BackupRestoreController extends GetxController {
         itemsJson.add(data);
       }
 
-      currentOperation.value = 'Procesando Playlists & Fuentes...';
+      currentOperation.value = tr('backup.operations.processing_metadata');
       progress.value = 0.6;
 
       final playlistsJson = <Map<String, dynamic>>[];
@@ -1318,7 +1320,7 @@ class BackupRestoreController extends GetxController {
             settingsController.orderedBackgroundCarouselEnabled.value,
       };
 
-      currentOperation.value = 'Empaquetando archivo ZIP (sin comprimir)...';
+      currentOperation.value = tr('backup.operations.packing_zip');
       progress.value = 0.8;
 
       Map<String, dynamic> recommendationPayload = const {};
@@ -1397,7 +1399,7 @@ class BackupRestoreController extends GetxController {
         'zipPath': zipPath,
       });
 
-      currentOperation.value = 'Limpiando archivos temporales...';
+      currentOperation.value = tr('backup.operations.cleaning_temp');
       progress.value = 0.95;
 
       await tempDir.delete(recursive: true);
@@ -1421,8 +1423,8 @@ class BackupRestoreController extends GetxController {
         onConfirm: () async {
           await Clipboard.setData(ClipboardData(text: zipPath));
           Get.snackbar(
-            'backup.title'.tr,
-            'backup.export_success'.tr,
+            tr('backup.title'),
+            tr('backup.export_success'),
             snackPosition: SnackPosition.BOTTOM,
           );
         },
@@ -1430,8 +1432,8 @@ class BackupRestoreController extends GetxController {
     } catch (e) {
       await _closeProgressDialog();
       Get.snackbar(
-        'backup.title'.tr,
-        'backup.export_error'.tr,
+        tr('backup.title'),
+        tr('backup.export_error'),
         snackPosition: SnackPosition.BOTTOM,
       );
       print('exportLibrary error: $e');
@@ -1470,8 +1472,8 @@ class BackupRestoreController extends GetxController {
       final zipFile = File(path);
       if (!await zipFile.exists()) {
         Get.snackbar(
-          'backup.title'.tr,
-          'backup.file_not_found'.tr,
+          tr('backup.title'),
+          tr('backup.file_not_found'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -1497,7 +1499,7 @@ class BackupRestoreController extends GetxController {
       );
       await tempDir.create(recursive: true);
 
-      currentOperation.value = 'Leyendo indice del backup...';
+      currentOperation.value = tr('backup.operations.reading_index');
       progress.value = 0.15;
 
       final zipIndex = await _readZipBackupIndex(path);
@@ -1506,7 +1508,7 @@ class BackupRestoreController extends GetxController {
         throw Exception('Manifest not found');
       }
 
-      currentOperation.value = 'Extrayendo manifiesto...';
+      currentOperation.value = tr('backup.operations.extracting_manifest');
       await _extractZipBackupEntry(
         zipPath: path,
         entry: manifestEntry,
@@ -1520,14 +1522,14 @@ class BackupRestoreController extends GetxController {
         throw Exception('Manifest not found');
       }
 
-      currentOperation.value = 'Leyendo manifiesto...';
+      currentOperation.value = tr('backup.operations.reading_manifest');
       progress.value = 0.3;
 
       final manifestLength = await manifestFile.length();
       final useStreamingManifest = manifestLength > 8 * 1024 * 1024;
       Map<String, dynamic>? manifest;
       if (useStreamingManifest) {
-        currentOperation.value = 'Leyendo manifiesto grande por partes...';
+        currentOperation.value = tr('backup.operations.reading_large_manifest');
       } else {
         final manifestRaw = await manifestFile.readAsString();
         manifest = jsonDecode(manifestRaw) as Map<String, dynamic>;
@@ -1610,7 +1612,7 @@ class BackupRestoreController extends GetxController {
         );
       }
 
-      currentOperation.value = 'Restaurando canciones...';
+      currentOperation.value = tr('backup.operations.restoring_songs');
       progress.value = 0.4;
 
       final libraryStore = Get.find<LocalLibraryStore>();
@@ -1619,7 +1621,10 @@ class BackupRestoreController extends GetxController {
       Future<void> restoreItem(Map<String, dynamic> data, int i) async {
         if (i % 10 == 0) {
           await _yieldUi();
-          currentOperation.value = 'Restaurando canciones (${i + 1})';
+          currentOperation.value = tr(
+            'backup.operations.restoring_songs_progress',
+            args: ['${i + 1}'],
+          );
           progress.value = (0.4 + (0.3 * ((i % 500) / 500))).clamp(0.4, 0.7);
         }
 
@@ -1662,11 +1667,13 @@ class BackupRestoreController extends GetxController {
           await restoreItem(Map<String, dynamic>.from(raw), i);
         }
       }
-      currentOperation.value = 'Guardando canciones restauradas...';
+      currentOperation.value = tr('backup.operations.saving_restored_songs');
       await libraryStore.upsertAll(itemsToRestore);
       itemsToRestore.clear();
 
-      currentOperation.value = 'Restaurando Playlists & Artistas...';
+      currentOperation.value = tr(
+        'backup.operations.restoring_playlists_artists',
+      );
       progress.value = 0.75;
 
       final playlistStore = Get.find<PlaylistStore>();
@@ -1721,7 +1728,7 @@ class BackupRestoreController extends GetxController {
       await artistStore.upsertAll(artistsToRestore);
       artistsToRestore.clear();
 
-      currentOperation.value = 'Restaurando Fuentes...';
+      currentOperation.value = tr('backup.operations.restoring_sources');
       progress.value = 0.85;
 
       final pillStore = Get.find<SourceThemePillStore>();
@@ -1807,7 +1814,7 @@ class BackupRestoreController extends GetxController {
       await topicPlaylistStore.upsertAll(topicPlaylistsToRestore);
       topicPlaylistsToRestore.clear();
 
-      currentOperation.value = 'Restaurando capturas...';
+      currentOperation.value = tr('backup.operations.restoring_captures');
       final captureStore = CaptureGalleryStore(Get.find<GetStorage>());
       Future<void> restoreCapture(Map<String, dynamic> data, int index) async {
         final rel = (data['path'] as String?)?.trim();
@@ -1964,8 +1971,7 @@ class BackupRestoreController extends GetxController {
         );
       }
 
-      currentOperation.value =
-          'Limpiando temporales y actualizando interfaz...';
+      currentOperation.value = tr('backup.operations.finalizing');
       progress.value = 0.95;
 
       await tempDir.delete(recursive: true);
@@ -2005,8 +2011,8 @@ class BackupRestoreController extends GetxController {
     } catch (e) {
       await _closeProgressDialog();
       Get.snackbar(
-        'backup.title'.tr,
-        'backup.import_error'.tr,
+        tr('backup.title'),
+        tr('backup.import_error'),
         snackPosition: SnackPosition.BOTTOM,
       );
       print('importLibrary error: $e');

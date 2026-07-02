@@ -232,23 +232,21 @@ class AudioPlayerController extends GetxController {
       AlertDialog(
         title: Text(tr('player.audio.continue_title')),
         content: Text(
-          'player.audio.continue_body'.tr.replaceFirst(
-            '{}',
-            _fmtDuration(resume),
-          ),
+          tr(
+            'player.audio.continue_body',
+          ).replaceFirst('{}', _fmtDuration(resume)),
         ),
         actions: [
           TextButton(
             onPressed: () => Get.back(result: false),
-            child: Text('player.audio.start_btn'.tr),
+            child: Text(tr('player.audio.start_btn')),
           ),
           FilledButton(
             onPressed: () => Get.back(result: true),
             child: Text(
-              'player.audio.continue_btn'.tr.replaceFirst(
-                '{}',
-                _fmtDuration(resume),
-              ),
+              tr(
+                'player.audio.continue_btn',
+              ).replaceFirst('{}', _fmtDuration(resume)),
             ),
           ),
         ],

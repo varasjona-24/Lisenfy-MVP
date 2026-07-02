@@ -37,6 +37,10 @@ class RecommendationMixPlan {
     required this.subtitle,
     required this.itemKeys,
     required this.generatedAt,
+    this.titleKey,
+    this.subtitleKey,
+    this.titleArgs = const <String>[],
+    this.subtitleArgs = const <String>[],
     this.regionKey,
     this.carryCyclesRemaining = 0,
   });
@@ -45,6 +49,10 @@ class RecommendationMixPlan {
   final RecommendationMixType type;
   final String title;
   final String subtitle;
+  final String? titleKey;
+  final String? subtitleKey;
+  final List<String> titleArgs;
+  final List<String> subtitleArgs;
   final List<String> itemKeys;
   final int generatedAt;
   final String? regionKey;
@@ -56,6 +64,10 @@ class RecommendationMixPlan {
       type: type,
       title: title,
       subtitle: subtitle,
+      titleKey: titleKey,
+      subtitleKey: subtitleKey,
+      titleArgs: titleArgs,
+      subtitleArgs: subtitleArgs,
       itemKeys: itemKeys,
       generatedAt: generatedAt,
       regionKey: regionKey,
@@ -69,6 +81,14 @@ class RecommendationMixPlan {
       type: RecommendationMixTypeX.fromKey(json['type'] as String?),
       title: (json['title'] as String?)?.trim() ?? '',
       subtitle: (json['subtitle'] as String?)?.trim() ?? '',
+      titleKey: (json['titleKey'] as String?)?.trim(),
+      subtitleKey: (json['subtitleKey'] as String?)?.trim(),
+      titleArgs: ((json['titleArgs'] as List?) ?? const [])
+          .map((value) => value.toString())
+          .toList(growable: false),
+      subtitleArgs: ((json['subtitleArgs'] as List?) ?? const [])
+          .map((value) => value.toString())
+          .toList(growable: false),
       itemKeys: ((json['itemKeys'] as List?) ?? const [])
           .map((value) => value.toString().trim())
           .where((value) => value.isNotEmpty)
@@ -85,6 +105,10 @@ class RecommendationMixPlan {
     'type': type.key,
     'title': title,
     'subtitle': subtitle,
+    'titleKey': titleKey,
+    'subtitleKey': subtitleKey,
+    'titleArgs': titleArgs,
+    'subtitleArgs': subtitleArgs,
     'itemKeys': itemKeys,
     'generatedAt': generatedAt,
     'regionKey': regionKey,

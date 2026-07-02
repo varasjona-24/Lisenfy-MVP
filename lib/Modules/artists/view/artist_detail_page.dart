@@ -26,6 +26,15 @@ class ArtistDetailPage extends GetView<ArtistsController> {
 
   final String artistKey;
 
+  String _localizedCountry(ArtistGroup artist, BuildContext context) {
+    final byCode = CountryCatalog.countryNameFromCodeForLocale(
+      artist.countryCode,
+      context.locale.languageCode,
+    );
+    if ((byCode ?? '').trim().isNotEmpty) return byCode!.trim();
+    return (artist.country ?? '').trim();
+  }
+
   List<MediaItem> _dedupeById(Iterable<MediaItem> input) {
     final out = <MediaItem>[];
     final seen = <String>{};
@@ -120,7 +129,7 @@ class ArtistDetailPage extends GetView<ArtistsController> {
       ]);
 
       final thumb = resolved.thumbnailLocalPath ?? resolved.thumbnail;
-      final country = (resolved.country ?? '').trim();
+      final country = _localizedCountry(resolved, context);
       final countryFlag = CountryCatalog.flagFromIso(resolved.countryCode);
       final typeLabel = resolved.kind.label;
       final typeCountryLine = country.isNotEmpty

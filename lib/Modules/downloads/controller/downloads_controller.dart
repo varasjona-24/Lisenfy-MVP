@@ -302,8 +302,8 @@ class DownloadsController extends GetxStateController<DownloadsState> {
     final uri = Uri.tryParse(url);
     if (uri == null) {
       Get.snackbar(
-        'downloads.invalid_url_title'.tr,
-        'downloads.invalid_url_body'.tr.replaceFirst('{}', url),
+        tr('downloads.invalid_url_title'),
+        tr('downloads.invalid_url_body').replaceFirst('{}', url),
       );
       return;
     }
@@ -353,8 +353,8 @@ class DownloadsController extends GetxStateController<DownloadsState> {
     } catch (e) {
       debugPrint('CustomTab launch error: $e');
       Get.snackbar(
-        'downloads.open_failed_title'.tr,
-        'downloads.open_failed_body'.tr,
+        tr('downloads.open_failed_title'),
+        tr('downloads.open_failed_body'),
       );
     } finally {
       customTabOpening.value = false;

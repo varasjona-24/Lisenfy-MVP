@@ -423,23 +423,21 @@ class VideoPlayerController extends GetxController {
         AlertDialog(
           title: Text(tr('player.video.continue_title')),
           content: Text(
-            'player.video.continue_body'.tr.replaceFirst(
-              '{}',
-              _fmtDuration(resume),
-            ),
+            tr(
+              'player.video.continue_body',
+            ).replaceFirst('{}', _fmtDuration(resume)),
           ),
           actions: [
             TextButton(
               onPressed: () => Get.back(result: false),
-              child: Text('player.video.start_btn'.tr),
+              child: Text(tr('player.video.start_btn')),
             ),
             FilledButton(
               onPressed: () => Get.back(result: true),
               child: Text(
-                'player.video.continue_btn'.tr.replaceFirst(
-                  '{}',
-                  _fmtDuration(resume),
-                ),
+                tr(
+                  'player.video.continue_btn',
+                ).replaceFirst('{}', _fmtDuration(resume)),
               ),
             ),
           ],

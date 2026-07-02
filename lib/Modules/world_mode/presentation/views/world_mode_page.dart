@@ -158,7 +158,7 @@ class _TopBar extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Listenfly Atlas',
+                      tr('artists.atlas'),
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
@@ -169,8 +169,8 @@ class _TopBar extends StatelessWidget {
                       final country = ctrl.selectedCountry.value;
                       return Text(
                         country == null
-                            ? 'Toca un punto para explorar'
-                            : '${country.flag.isEmpty ? '' : '${country.flag} '}${country.name}',
+                            ? tr('world_mode.tap_point')
+                            : '${country.flag.isEmpty ? '' : '${country.flag} '}${country.localizedName}',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: Colors.white.withValues(alpha: 0.75),
                           fontWeight: FontWeight.w500,
@@ -352,8 +352,8 @@ class _StationsSheet extends StatelessWidget {
                             children: [
                               Text(
                                 country.flag.isEmpty
-                                    ? country.name
-                                    : '${country.flag}  ${country.name}',
+                                    ? country.localizedName
+                                    : '${country.flag}  ${country.localizedName}',
                                 style: theme.textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -361,7 +361,10 @@ class _StationsSheet extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
-                                '${country.regionKey.toUpperCase()} · ${country.discoveryCount} pistas',
+                                tr(
+                                  'world_mode.tracks_count',
+                                  args: ['${country.discoveryCount}'],
+                                ),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: scheme.onSurfaceVariant,
                                 ),
@@ -573,7 +576,7 @@ class _SearchRegionSheetState extends State<_SearchRegionSheet> {
                 if (countries.isEmpty) {
                   return Center(
                     child: Text(
-                      'Sin resultados',
+                      tr('world_mode.no_results'),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -601,14 +604,19 @@ class _SearchRegionSheetState extends State<_SearchRegionSheet> {
                         style: const TextStyle(fontSize: 24),
                       ),
                       title: Text(
-                        c.name,
+                        c.localizedName,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: isSelected
                               ? FontWeight.w700
                               : FontWeight.w500,
                         ),
                       ),
-                      subtitle: Text('${c.discoveryCount} pistas disponibles'),
+                      subtitle: Text(
+                        tr(
+                          'world_mode.available_tracks_count',
+                          args: ['${c.discoveryCount}'],
+                        ),
+                      ),
                       trailing: isSelected
                           ? Icon(
                               Icons.check_circle_rounded,

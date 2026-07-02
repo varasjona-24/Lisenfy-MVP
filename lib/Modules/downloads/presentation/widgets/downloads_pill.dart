@@ -241,15 +241,15 @@ class DownloadsPill extends GetView<DownloadsController> {
         return;
       case ListenfyDeepLinkTarget.openLocalImport:
         Get.snackbar(
-          'qr.listenfy_title'.tr,
-          'qr.import_ready'.tr,
+          tr('qr.listenfy_title'),
+          tr('qr.import_ready'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
       case ListenfyDeepLinkTarget.unknown:
         Get.snackbar(
-          'qr.invalid_title'.tr,
-          'qr.invalid_body'.tr,
+          tr('qr.invalid_title'),
+          tr('qr.invalid_body'),
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
@@ -519,8 +519,8 @@ class DownloadsPill extends GetView<DownloadsController> {
     final result = await controller.importLocalFileToApp(item);
     if (result != null && context.mounted) {
       Get.snackbar(
-        'imports.imported_title'.tr,
-        'imports.imported_body'.tr.replaceFirst('{}', item.title),
+        tr('imports.imported_title'),
+        tr('imports.imported_body').replaceFirst('{}', item.title),
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -534,7 +534,7 @@ class DownloadsPill extends GetView<DownloadsController> {
     if (items.isEmpty) {
       Get.snackbar(
         'Imports',
-        'imports.no_files_selected'.tr,
+        tr('imports.no_files_selected'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -557,13 +557,12 @@ class DownloadsPill extends GetView<DownloadsController> {
     Get.snackbar(
       'Imports',
       failed == 0
-          ? 'imports.import_success_single'.tr.replaceFirst(
-              '{}',
-              success.toString(),
-            )
-          : 'imports.import_success_multiple'.tr
-                .replaceFirst('{}', '$success')
-                .replaceFirst('{}', '$failed'),
+          ? tr(
+              'imports.import_success_single',
+            ).replaceFirst('{}', success.toString())
+          : tr(
+              'imports.import_success_multiple',
+            ).replaceFirst('{}', '$success').replaceFirst('{}', '$failed'),
       snackPosition: SnackPosition.BOTTOM,
     );
   }

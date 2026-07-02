@@ -51,19 +51,18 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
       builder: (context) => AlertDialog(
         title: Text(tr('captures.gallery.delete_title')),
         content: Text(
-          'captures.gallery.delete_confirm'.tr.replaceFirst(
-            '{name}',
-            capture.name,
-          ),
+          tr(
+            'captures.gallery.delete_confirm',
+          ).replaceFirst('{name}', capture.name),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('captures.gallery.cancel_button'.tr),
+            child: Text(tr('captures.gallery.cancel_button')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text('captures.gallery.delete_button'.tr),
+            child: Text(tr('captures.gallery.delete_button')),
           ),
         ],
       ),
@@ -87,10 +86,9 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'captures.gallery.cover_updated'.tr.replaceFirst(
-            '{label}',
-            target.label,
-          ),
+          tr(
+            'captures.gallery.cover_updated',
+          ).replaceFirst('{label}', target.label),
         ),
       ),
     );
@@ -110,7 +108,7 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
     final changed = _controller.toggleSelection(capture);
     if (!changed) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('captures.gallery.max_selection'.tr)),
+        SnackBar(content: Text(tr('captures.gallery.max_selection'))),
       );
     }
   }

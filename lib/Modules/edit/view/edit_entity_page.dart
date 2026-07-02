@@ -194,6 +194,26 @@ class _EditEntityPageState extends State<EditEntityPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncArtistCountryLabelWithLocale();
+  }
+
+  void _syncArtistCountryLabelWithLocale() {
+    if (!_isArtist) return;
+    final code = (_artistCountryCode ?? '').trim();
+    if (code.isEmpty) return;
+    final localized = CountryCatalog.countryNameFromCodeForLocale(
+      code,
+      context.locale.languageCode,
+    );
+    if ((localized ?? '').trim().isEmpty) return;
+    if (_countryCtrl.text != localized) {
+      _countryCtrl.text = localized!;
+    }
+  }
+
+  @override
   void dispose() {
     _titleCtrl.dispose();
     _subtitleCtrl.dispose();
@@ -436,10 +456,14 @@ class _EditEntityPageState extends State<EditEntityPage> {
     );
 
     if (!mounted || selected == null) return;
+    final selectedName = CountryCatalog.countryNameForLocale(
+      selected,
+      context.locale.languageCode,
+    );
 
     setState(() {
       _artistCountryCode = selected.code;
-      _countryCtrl.text = selected.name;
+      _countryCtrl.text = selectedName;
       final nextRegion = ArtistMainRegionX.fromRaw(selected.regionKey);
       if (nextRegion != ArtistMainRegion.none) {
         _artistMainRegion = nextRegion;
@@ -2902,11 +2926,14 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final languageCode = context.locale.languageCode;
     final query = _normalize(_searchCtrl.text);
     final countries = CountryCatalog.all
         .where((entry) {
           if (query.isEmpty) return true;
-          final name = _normalize(entry.name);
+          final name = _normalize(
+            CountryCatalog.countryNameForLocale(entry, languageCode),
+          );
           final code = entry.code.toLowerCase();
           return name.contains(query) || code.contains(query);
         })
@@ -2918,7 +2945,9 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
             ArtistMainRegionX.fromRaw(b.regionKey).simpleLabel.toLowerCase(),
           );
       if (regionCompare != 0) return regionCompare;
-      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      final aName = CountryCatalog.countryNameForLocale(a, languageCode);
+      final bName = CountryCatalog.countryNameForLocale(b, languageCode);
+      return aName.toLowerCase().compareTo(bName.toLowerCase());
     });
 
     return SafeArea(
@@ -2995,6 +3024,11 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                         separatorBuilder: (_, _) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final country = countries[index];
+                          final countryName =
+                              CountryCatalog.countryNameForLocale(
+                                country,
+                                languageCode,
+                              );
                           final flag = CountryCatalog.flagFromIso(country.code);
                           final selected =
                               country.code == (widget.selectedCode ?? '');
@@ -3028,7 +3062,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                                 ),
                               ),
                               title: Text(
-                                country.name,
+                                countryName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodyLarge?.copyWith(

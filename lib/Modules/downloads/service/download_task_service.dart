@@ -40,8 +40,8 @@ class DownloadTaskService extends GetxService {
       if (hasWifi) return true;
 
       Get.snackbar(
-        'imports.wifi_only_title'.tr,
-        'imports.wifi_only_body'.tr,
+        tr('imports.wifi_only_title'),
+        tr('imports.wifi_only_body'),
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.orange,
       );
@@ -66,7 +66,7 @@ class DownloadTaskService extends GetxService {
     if (normalizedUrl.isEmpty) {
       Get.snackbar(
         'Imports',
-        'imports.empty_url'.tr,
+        tr('imports.empty_url'),
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
       );
@@ -76,7 +76,7 @@ class DownloadTaskService extends GetxService {
     if (isDownloading.value) {
       Get.snackbar(
         'Imports',
-        'imports.downloading_in_progress'.tr,
+        tr('imports.downloading_in_progress'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
@@ -119,7 +119,7 @@ class DownloadTaskService extends GetxService {
         downloadStatus.value = tr('downloads.status_saving');
         Get.snackbar(
           'Imports',
-          'imports.completed'.tr,
+          tr('imports.completed'),
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.green,
         );
@@ -129,7 +129,7 @@ class DownloadTaskService extends GetxService {
       } else {
         Get.snackbar(
           'Imports',
-          'imports.failed'.tr,
+          tr('imports.failed'),
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.orange,
         );
@@ -146,14 +146,14 @@ class DownloadTaskService extends GetxService {
       if (e is dio.DioException) {
         switch (e.type) {
           case dio.DioExceptionType.receiveTimeout:
-            msg = 'imports.receive_timeout'.tr;
+            msg = tr('imports.receive_timeout');
             break;
           case dio.DioExceptionType.connectionTimeout:
           case dio.DioExceptionType.sendTimeout:
-            msg = 'imports.send_timeout'.tr;
+            msg = tr('imports.send_timeout');
             break;
           default:
-            msg = e.message ?? 'imports.network_error'.tr;
+            msg = e.message ?? tr('imports.network_error');
         }
       } else {
         msg = e.toString();

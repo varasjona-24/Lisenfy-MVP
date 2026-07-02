@@ -89,7 +89,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     if (query.isEmpty) {
       Get.snackbar(
         tr('player.quick.lyrics'),
-        'lyrics.search_query_empty'.tr,
+        tr('lyrics.search_query_empty'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -353,7 +353,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     if (_audioService == null) {
       Get.snackbar(
         'Karaoke',
-        'lyrics.play_from_player'.tr,
+        tr('lyrics.play_from_player'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -363,7 +363,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     if (lines.isEmpty) {
       Get.snackbar(
         'Karaoke',
-        'lyrics.add_main_lyrics'.tr,
+        tr('lyrics.add_main_lyrics'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -377,7 +377,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     if (current.length >= lines.length) {
       Get.snackbar(
         'Karaoke',
-        'lyrics.all_lines_marked'.tr,
+        tr('lyrics.all_lines_marked'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -414,7 +414,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     if (_targetLang == _lyricsLang) {
       Get.snackbar(
         'Traduccion',
-        'lyrics.different_target_lang'.tr,
+        tr('lyrics.different_target_lang'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -445,7 +445,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
       } else {
         Get.snackbar(
           'Traduccion',
-          'lyrics.translation_failed'.tr,
+          tr('lyrics.translation_failed'),
           snackPosition: SnackPosition.BOTTOM,
         );
       }

@@ -1216,7 +1216,25 @@
     "options_title": "Opciones de respaldo",
     "include_instrumental_variants": "Incluir variantes instrumentales",
     "progress_percent": "{}% completado",
-    "preparing_process": "Preparando proceso..."
+    "preparing_process": "Preparando proceso...",
+    "operations": {
+      "starting": "Iniciando...",
+      "processing_songs": "Procesando canciones ({}/{})",
+      "processing_metadata": "Procesando playlists y fuentes...",
+      "packing_zip": "Empaquetando archivo ZIP (sin comprimir)...",
+      "cleaning_temp": "Limpiando archivos temporales...",
+      "reading_index": "Leyendo índice del backup...",
+      "extracting_manifest": "Extrayendo manifiesto...",
+      "reading_manifest": "Leyendo manifiesto...",
+      "reading_large_manifest": "Leyendo manifiesto grande por partes...",
+      "restoring_songs": "Restaurando canciones...",
+      "restoring_songs_progress": "Restaurando canciones ({})",
+      "saving_restored_songs": "Guardando canciones restauradas...",
+      "restoring_playlists_artists": "Restaurando playlists y artistas...",
+      "restoring_sources": "Restaurando fuentes...",
+      "restoring_captures": "Restaurando capturas...",
+      "finalizing": "Limpiando temporales y actualizando interfaz..."
+    }
   },
   "settings_messages": {
     "wallpaper": {
@@ -1393,6 +1411,11 @@
     "select_region": "Selecciona una región en el mapa",
     "search_region": "Buscar región",
     "search_region_hint": "Buscar región…",
+    "tap_point": "Toca un punto para explorar",
+    "no_results": "Sin resultados",
+    "tracks_count": "{} pistas",
+    "available_tracks_count": "{} pistas disponibles",
+    "load_regions_error": "No se pudieron cargar las regiones",
     "zoom_active_hint": "Zoom activo · puedes arrastrar el mapa",
     "zoom_hint": "Pinch para zoom · luego arrastra",
     "shuffle_stations": "Aleatorizar estaciones",
@@ -1404,6 +1427,37 @@
       "discovery": "Descubrimiento",
       "energy": "Energía alta",
       "chill": "Chill / Noche"
+    },
+    "regions": {
+      "rio_plata": "Río de la Plata",
+      "gran_colombia": "Gran Colombia",
+      "andes_centrales": "Andes Centrales",
+      "brasil": "Brasil",
+      "mexico": "México",
+      "centroamerica": "Centroamérica",
+      "caribe_hispano": "Caribe Hispano",
+      "caribe_anglo_franco": "Caribe Anglo/Francófono",
+      "norteamerica_anglosajona": "Norteamérica Anglosajona",
+      "peninsula_iberica": "Península Ibérica",
+      "francia_benelux": "Arco Franco-Benelux",
+      "mundo_germanico": "Mundo Germánico",
+      "islas_britanicas": "Islas Británicas",
+      "europa_nordica": "Europa Nórdica",
+      "mediterraneo_occidental": "Mediterráneo Occidental",
+      "balcanes": "Balcanes",
+      "europa_central": "Europa Central",
+      "europa_oriental": "Europa Oriental",
+      "magreb": "Magreb",
+      "africa_occidental": "África Occidental",
+      "africa_central": "África Central",
+      "africa_oriental": "África Oriental",
+      "africa_austral": "África Austral",
+      "medio_oriente": "Medio Oriente",
+      "asia_central": "Asia Central",
+      "subcontinente_indio": "Subcontinente Indio",
+      "sudeste_asiatico": "Sudeste Asiático",
+      "asia_oriental": "Asia Oriental",
+      "oceania_insular": "Oceanía"
     }
   },
   "lyrics": {
@@ -1544,6 +1598,7 @@
     "mix": {
       "region_title": "Mix {}",
       "region_subtitle": "Una ruta completa por la región {}",
+      "region_second_cycle_subtitle": "Una ruta completa por la región {} · segundo ciclo",
       "imports_title": "Tus importaciones",
       "imports_recent": "Importadas en los últimos {} días",
       "imports_unplayed": "Joyas nuevas que todavía no escuchaste",
@@ -1566,13 +1621,15 @@
       "region": "Por {}",
       "artist": "Porque escuchas a {}",
       "origin": "Por tu origen {}",
+      "country_listened": "Porque escuchaste música de {}",
       "recent_favorites": "Por tus favoritos recientes",
       "recent_activity": "Por tu actividad reciente",
       "fresh": "Para variar tu biblioteca"
     },
     "mixes": {
       "rediscovery": {
-        "title": "Redescubiertas"
+        "title": "Redescubiertas",
+        "subtitle": "Canciones que llevan al menos tres semanas esperando"
       }
     }
   },

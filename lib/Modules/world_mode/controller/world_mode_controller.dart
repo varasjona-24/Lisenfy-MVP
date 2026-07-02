@@ -55,7 +55,7 @@ class WorldModeController extends GetxController {
         await selectCountry(result.first, forceRefresh: false);
       }
     } catch (e) {
-      errorMessage.value = 'No se pudieron cargar las regiones';
+      errorMessage.value = tr('world_mode.load_regions_error');
     } finally {
       isLoadingCountries.value = false;
     }
@@ -94,8 +94,8 @@ class WorldModeController extends GetxController {
   Future<void> playStation(CountryStationEntity station) async {
     if (!station.hasPlayableTracks) {
       Get.snackbar(
-        'world_mode.title'.tr,
-        'world_mode.no_playable_tracks'.tr,
+        tr('world_mode.title'),
+        tr('world_mode.no_playable_tracks'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -130,8 +130,8 @@ class WorldModeController extends GetxController {
     final next = await _repository.continueStation(station: station, limit: 20);
     if (next.isEmpty) {
       Get.snackbar(
-        'world_mode.title'.tr,
-        'world_mode.no_more_songs'.tr,
+        tr('world_mode.title'),
+        tr('world_mode.no_more_songs'),
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
@@ -171,7 +171,7 @@ class WorldModeController extends GetxController {
     filteredCountries.assignAll(
       countries.where((country) {
         final code = country.code.toLowerCase();
-        final name = country.name.toLowerCase();
+        final name = country.localizedName.toLowerCase();
         return code.contains(query) || name.contains(query);
       }),
     );

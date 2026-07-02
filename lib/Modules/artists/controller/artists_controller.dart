@@ -11,6 +11,7 @@ import '../../../app/data/local/local_library_store.dart';
 import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/utils/artist_credit_parser.dart';
+import '../../../app/utils/country_catalog.dart';
 import '../data/artist_store.dart';
 import '../domain/artist_profile.dart';
 
@@ -214,7 +215,7 @@ class ArtistsController extends GetxController {
     if (q.isEmpty) return artists.toList();
     return artists.where((a) {
       final name = a.name.toLowerCase();
-      final country = (a.country ?? '').trim().toLowerCase();
+      final country = _artistCountryLabel(a).toLowerCase();
       final countryCode = (a.countryCode ?? '').trim().toLowerCase();
       final region = a.mainRegion.label.toLowerCase();
       return name.contains(q) ||
@@ -311,6 +312,11 @@ class ArtistsController extends GetxController {
   }
 
   String _artistCountryLabel(ArtistGroup artist) {
+    final byCode = CountryCatalog.countryNameFromCodeForLocale(
+      artist.countryCode,
+      Get.context?.locale.languageCode ?? 'es',
+    );
+    if ((byCode ?? '').trim().isNotEmpty) return byCode!.trim();
     final country = (artist.country ?? '').trim();
     if (country.isNotEmpty) return country;
     final code = (artist.countryCode ?? '').trim();
