@@ -875,6 +875,9 @@ class HomeController extends GetxController {
             name: profile?.displayName ?? entry.value.name,
             count: entry.value.count,
             thumbnail: _artistProfileThumbnail(profile),
+            kindKey: profile?.kind.key,
+            country: profile?.country,
+            countryCode: profile?.countryCode,
           );
         })
         .toList(growable: false);

@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 import 'package:listenfy/Modules/Home/Controller/home_controller.dart';
 import 'package:listenfy/Modules/recommendations/domain/recommendation_collection.dart';
@@ -18,6 +19,7 @@ import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/utils/artist_credit_parser.dart';
+import '../../../app/utils/country_catalog.dart';
 
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import 'section_list_page.dart';
@@ -42,6 +44,63 @@ String _songsCountLabel(int count) => tr(
   count == 1 ? 'common.songs.one' : 'common.songs.other',
   args: ['$count'],
 );
+
+String _artistKindLabel(HomeArtistChoice artist) {
+  final key = (artist.kindKey ?? '').trim().toLowerCase();
+  return tr(
+    key == 'band' ? 'artists.profile.kind.band' : 'artists.profile.kind.singer',
+  );
+}
+
+String _artistCountryLabel(HomeArtistChoice artist, BuildContext context) {
+  final byCode = CountryCatalog.countryNameFromCodeForLocale(
+    artist.countryCode,
+    context.locale.languageCode,
+  );
+  if (byCode != null && byCode.trim().isNotEmpty) return byCode.trim();
+  return (artist.country ?? '').trim();
+}
+
+String _artistFullMeta(HomeArtistChoice artist, BuildContext context) {
+  final type = _artistKindLabel(artist);
+  final country = _artistCountryLabel(artist, context);
+  final flag = CountryCatalog.flagFromIso(artist.countryCode);
+  if (country.isEmpty) return type;
+  return '$type - ${flag.isEmpty ? country : '$flag $country'}';
+}
+
+String _artistCompactMeta(HomeArtistChoice artist) {
+  final type = _artistKindLabel(artist);
+  final flag = CountryCatalog.flagFromIso(artist.countryCode);
+  return flag.isEmpty ? type : '$flag $type';
+}
+
+enum _HomeChoiceSort { name, count }
+
+extension _HomeChoiceSortX on _HomeChoiceSort {
+  String get key => switch (this) {
+    _HomeChoiceSort.name => 'name',
+    _HomeChoiceSort.count => 'count',
+  };
+
+  String get label => switch (this) {
+    _HomeChoiceSort.name => tr('home.custom.sort_name'),
+    _HomeChoiceSort.count => tr('home.custom.sort_count'),
+  };
+
+  IconData get icon => switch (this) {
+    _HomeChoiceSort.name => Icons.sort_by_alpha_rounded,
+    _HomeChoiceSort.count => Icons.numbers_rounded,
+  };
+
+  static _HomeChoiceSort fromRaw(dynamic raw) {
+    final value = raw?.toString().trim();
+    for (final option in _HomeChoiceSort.values) {
+      if (option.key == value) return option;
+    }
+    return _HomeChoiceSort.name;
+  }
+}
 
 /// ===============================================================
 /// HOME PAGE (corregida)
@@ -1224,6 +1283,13 @@ class _CustomHomeSections extends StatelessWidget {
       return _CustomArtistListSection(
         section: section,
         artists: artists,
+        onHeaderTap: () => _openArtistChoicesList(
+          context,
+          section: section,
+          artists: artists,
+          onArtistTap: open,
+          onArtistLongPress: remove,
+        ),
         onArtistTap: open,
         onArtistLongPress: remove,
       );
@@ -1231,6 +1297,13 @@ class _CustomHomeSections extends StatelessWidget {
     return _CustomArtistCardsSection(
       section: section,
       artists: artists,
+      onHeaderTap: () => _openArtistChoicesList(
+        context,
+        section: section,
+        artists: artists,
+        onArtistTap: open,
+        onArtistLongPress: remove,
+      ),
       onArtistTap: open,
       onArtistLongPress: remove,
     );
@@ -1266,6 +1339,13 @@ class _CustomHomeSections extends StatelessWidget {
       return _CustomPlaylistListSection(
         section: section,
         playlists: playlists,
+        onHeaderTap: () => _openPlaylistChoicesList(
+          context,
+          section: section,
+          playlists: playlists,
+          onPlaylistTap: open,
+          onPlaylistLongPress: remove,
+        ),
         onPlaylistTap: open,
         onPlaylistLongPress: remove,
       );
@@ -1273,6 +1353,13 @@ class _CustomHomeSections extends StatelessWidget {
     return _CustomPlaylistCardsSection(
       section: section,
       playlists: playlists,
+      onHeaderTap: () => _openPlaylistChoicesList(
+        context,
+        section: section,
+        playlists: playlists,
+        onPlaylistTap: open,
+        onPlaylistLongPress: remove,
+      ),
       onPlaylistTap: open,
       onPlaylistLongPress: remove,
     );
@@ -1336,6 +1423,40 @@ class _CustomHomeSections extends StatelessWidget {
       ),
     );
     if (ok == true) onConfirm();
+  }
+
+  void _openArtistChoicesList(
+    BuildContext context, {
+    required HomeCustomSection section,
+    required List<HomeArtistChoice> artists,
+    required void Function(HomeArtistChoice artist) onArtistTap,
+    required void Function(HomeArtistChoice artist) onArtistLongPress,
+  }) {
+    Get.to(
+      () => _HomeArtistChoicesPage(
+        title: section.title,
+        artists: artists,
+        onArtistTap: onArtistTap,
+        onArtistLongPress: onArtistLongPress,
+      ),
+    );
+  }
+
+  void _openPlaylistChoicesList(
+    BuildContext context, {
+    required HomeCustomSection section,
+    required List<HomePlaylistChoice> playlists,
+    required void Function(HomePlaylistChoice playlist) onPlaylistTap,
+    required void Function(HomePlaylistChoice playlist) onPlaylistLongPress,
+  }) {
+    Get.to(
+      () => _HomePlaylistChoicesPage(
+        title: section.title,
+        playlists: playlists,
+        onPlaylistTap: onPlaylistTap,
+        onPlaylistLongPress: onPlaylistLongPress,
+      ),
+    );
   }
 
   void _openList(
@@ -1421,36 +1542,40 @@ class _CustomArtistCardsSection extends StatelessWidget {
   const _CustomArtistCardsSection({
     required this.section,
     required this.artists,
+    required this.onHeaderTap,
     required this.onArtistTap,
     required this.onArtistLongPress,
   });
 
   final HomeCustomSection section;
   final List<HomeArtistChoice> artists;
+  final VoidCallback onHeaderTap;
   final void Function(HomeArtistChoice artist) onArtistTap;
   final void Function(HomeArtistChoice artist) onArtistLongPress;
 
   @override
   Widget build(BuildContext context) {
+    final preview = artists.take(12).toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionHeader(
           title: section.title,
           trailing: _ModulePill(section: section),
+          onTap: onHeaderTap,
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 152,
+          height: 186,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
-            itemCount: artists.length,
+            itemCount: preview.length,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) => _HomeArtistCard(
-              artist: artists[index],
-              onTap: () => onArtistTap(artists[index]),
-              onLongPress: () => onArtistLongPress(artists[index]),
+              artist: preview[index],
+              onTap: () => onArtistTap(preview[index]),
+              onLongPress: () => onArtistLongPress(preview[index]),
             ),
           ),
         ),
@@ -1463,12 +1588,14 @@ class _CustomArtistListSection extends StatelessWidget {
   const _CustomArtistListSection({
     required this.section,
     required this.artists,
+    required this.onHeaderTap,
     required this.onArtistTap,
     required this.onArtistLongPress,
   });
 
   final HomeCustomSection section;
   final List<HomeArtistChoice> artists;
+  final VoidCallback onHeaderTap;
   final void Function(HomeArtistChoice artist) onArtistTap;
   final void Function(HomeArtistChoice artist) onArtistLongPress;
 
@@ -1481,6 +1608,7 @@ class _CustomArtistListSection extends StatelessWidget {
         _SectionHeader(
           title: section.title,
           trailing: _ModulePill(section: section),
+          onTap: onHeaderTap,
         ),
         const SizedBox(height: 10),
         Padding(
@@ -1507,36 +1635,40 @@ class _CustomPlaylistCardsSection extends StatelessWidget {
   const _CustomPlaylistCardsSection({
     required this.section,
     required this.playlists,
+    required this.onHeaderTap,
     required this.onPlaylistTap,
     required this.onPlaylistLongPress,
   });
 
   final HomeCustomSection section;
   final List<HomePlaylistChoice> playlists;
+  final VoidCallback onHeaderTap;
   final void Function(HomePlaylistChoice playlist) onPlaylistTap;
   final void Function(HomePlaylistChoice playlist) onPlaylistLongPress;
 
   @override
   Widget build(BuildContext context) {
+    final preview = playlists.take(12).toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionHeader(
           title: section.title,
           trailing: _ModulePill(section: section),
+          onTap: onHeaderTap,
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 152,
+          height: 166,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
-            itemCount: playlists.length,
+            itemCount: preview.length,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) => _HomePlaylistCard(
-              playlist: playlists[index],
-              onTap: () => onPlaylistTap(playlists[index]),
-              onLongPress: () => onPlaylistLongPress(playlists[index]),
+              playlist: preview[index],
+              onTap: () => onPlaylistTap(preview[index]),
+              onLongPress: () => onPlaylistLongPress(preview[index]),
             ),
           ),
         ),
@@ -1549,12 +1681,14 @@ class _CustomPlaylistListSection extends StatelessWidget {
   const _CustomPlaylistListSection({
     required this.section,
     required this.playlists,
+    required this.onHeaderTap,
     required this.onPlaylistTap,
     required this.onPlaylistLongPress,
   });
 
   final HomeCustomSection section;
   final List<HomePlaylistChoice> playlists;
+  final VoidCallback onHeaderTap;
   final void Function(HomePlaylistChoice playlist) onPlaylistTap;
   final void Function(HomePlaylistChoice playlist) onPlaylistLongPress;
 
@@ -1567,6 +1701,7 @@ class _CustomPlaylistListSection extends StatelessWidget {
         _SectionHeader(
           title: section.title,
           trailing: _ModulePill(section: section),
+          onTap: onHeaderTap,
         ),
         const SizedBox(height: 10),
         Padding(
@@ -1645,21 +1780,22 @@ class _HomeArtistCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final scheme = Theme.of(context).colorScheme;
     final provider = _artistImageProvider(artist.thumbnail);
+    final compactMeta = _artistCompactMeta(artist);
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       onLongPress: onLongPress,
       child: SizedBox(
-        width: 108,
+        width: 120,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 108,
-              height: 108,
+              width: 120,
+              height: 120,
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(16),
@@ -1681,11 +1817,19 @@ class _HomeArtistCard extends StatelessWidget {
               ),
             ),
             Text(
-              _songsCountLabel(artist.count),
+              compactMeta,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              _songsCountLabel(artist.count),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.84),
               ),
             ),
           ],
@@ -1717,13 +1861,13 @@ class _HomePlaylistCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: SizedBox(
-        width: 108,
+        width: 120,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 108,
-              height: 108,
+              width: 120,
+              height: 120,
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(16),
@@ -1846,6 +1990,7 @@ class _HomeArtistTile extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final provider = _artistImageProvider(artist.thumbnail);
+    final meta = _artistFullMeta(artist, context);
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
@@ -1882,9 +2027,20 @@ class _HomeArtistTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    _songsCountLabel(artist.count),
+                    meta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    _songsCountLabel(artist.count),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.84),
                     ),
                   ),
                 ],
@@ -1969,6 +2125,462 @@ class _HomePlaylistTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _HomeArtistChoicesPage extends StatefulWidget {
+  const _HomeArtistChoicesPage({
+    required this.title,
+    required this.artists,
+    required this.onArtistTap,
+    required this.onArtistLongPress,
+  });
+
+  final String title;
+  final List<HomeArtistChoice> artists;
+  final void Function(HomeArtistChoice artist) onArtistTap;
+  final void Function(HomeArtistChoice artist) onArtistLongPress;
+
+  @override
+  State<_HomeArtistChoicesPage> createState() => _HomeArtistChoicesPageState();
+}
+
+class _HomeArtistChoicesPageState extends State<_HomeArtistChoicesPage> {
+  late final List<HomeArtistChoice> _artists = List.of(widget.artists);
+  final GetStorage _storage = GetStorage();
+  late bool _gridMode;
+  late _HomeChoiceSort _sort;
+  late bool _sortAscending;
+
+  @override
+  void initState() {
+    super.initState();
+    _gridMode = _storage.read('home_artist_choices_grid_view') ?? true;
+    _sort = _HomeChoiceSortX.fromRaw(_storage.read('home_artist_choices_sort'));
+    _sortAscending =
+        _storage.read('home_artist_choices_sort_ascending') ?? true;
+  }
+
+  List<HomeArtistChoice> get _sortedArtists {
+    final list = List<HomeArtistChoice>.from(_artists);
+    list.sort((a, b) {
+      final result = switch (_sort) {
+        _HomeChoiceSort.name => a.name.toLowerCase().compareTo(
+          b.name.toLowerCase(),
+        ),
+        _HomeChoiceSort.count => a.count.compareTo(b.count),
+      };
+      if (result != 0) return _sortAscending ? result : -result;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    return list;
+  }
+
+  void _open(HomeArtistChoice artist) {
+    widget.onArtistTap(artist);
+  }
+
+  void _remove(HomeArtistChoice artist) {
+    widget.onArtistLongPress(artist);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final artists = _sortedArtists;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: Text(widget.title),
+        backgroundColor: scheme.surface,
+        surfaceTintColor: scheme.surface,
+        foregroundColor: scheme.onSurface,
+        elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: _gridMode
+                ? tr('home.section.list_view')
+                : tr('home.section.grid_view'),
+            onPressed: () {
+              setState(() => _gridMode = !_gridMode);
+              _storage.write('home_artist_choices_grid_view', _gridMode);
+            },
+            icon: Icon(
+              _gridMode ? Icons.view_list_rounded : Icons.grid_view_rounded,
+            ),
+          ),
+          IconButton(
+            tooltip: tr('tooltips.sort'),
+            onPressed: () => _openSortSheet(context),
+            icon: const Icon(Icons.sort_rounded),
+          ),
+        ],
+      ),
+      body: AppGradientBackground(
+        child: _gridMode
+            ? GridView.builder(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.xl,
+                ),
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 152,
+                  mainAxisExtent: 186,
+                  mainAxisSpacing: 18,
+                  crossAxisSpacing: 14,
+                ),
+                itemCount: artists.length,
+                itemBuilder: (context, index) {
+                  final artist = artists[index];
+                  return _HomeArtistCard(
+                    artist: artist,
+                    onTap: () => _open(artist),
+                    onLongPress: () => _remove(artist),
+                  );
+                },
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.xl,
+                ),
+                itemCount: artists.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final artist = artists[index];
+                  return _HomeArtistTile(
+                    artist: artist,
+                    onTap: () => _open(artist),
+                    onLongPress: () => _remove(artist),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
+  Future<void> _openSortSheet(BuildContext context) async {
+    await _showHomeChoiceSortSheet(
+      context: context,
+      selected: _sort,
+      ascending: _sortAscending,
+      onSortChanged: (value) {
+        setState(() => _sort = value);
+        _storage.write('home_artist_choices_sort', value.key);
+      },
+      onDirectionChanged: (value) {
+        setState(() => _sortAscending = value);
+        _storage.write('home_artist_choices_sort_ascending', value);
+      },
+    );
+  }
+}
+
+class _HomePlaylistChoicesPage extends StatefulWidget {
+  const _HomePlaylistChoicesPage({
+    required this.title,
+    required this.playlists,
+    required this.onPlaylistTap,
+    required this.onPlaylistLongPress,
+  });
+
+  final String title;
+  final List<HomePlaylistChoice> playlists;
+  final void Function(HomePlaylistChoice playlist) onPlaylistTap;
+  final void Function(HomePlaylistChoice playlist) onPlaylistLongPress;
+
+  @override
+  State<_HomePlaylistChoicesPage> createState() =>
+      _HomePlaylistChoicesPageState();
+}
+
+class _HomePlaylistChoicesPageState extends State<_HomePlaylistChoicesPage> {
+  late final List<HomePlaylistChoice> _playlists = List.of(widget.playlists);
+  final GetStorage _storage = GetStorage();
+  late bool _gridMode;
+  late _HomeChoiceSort _sort;
+  late bool _sortAscending;
+
+  @override
+  void initState() {
+    super.initState();
+    _gridMode = _storage.read('home_playlist_choices_grid_view') ?? true;
+    _sort = _HomeChoiceSortX.fromRaw(
+      _storage.read('home_playlist_choices_sort'),
+    );
+    _sortAscending =
+        _storage.read('home_playlist_choices_sort_ascending') ?? true;
+  }
+
+  List<HomePlaylistChoice> get _sortedPlaylists {
+    final list = List<HomePlaylistChoice>.from(_playlists);
+    list.sort((a, b) {
+      final result = switch (_sort) {
+        _HomeChoiceSort.name => a.name.toLowerCase().compareTo(
+          b.name.toLowerCase(),
+        ),
+        _HomeChoiceSort.count => a.count.compareTo(b.count),
+      };
+      if (result != 0) return _sortAscending ? result : -result;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    return list;
+  }
+
+  void _open(HomePlaylistChoice playlist) {
+    widget.onPlaylistTap(playlist);
+  }
+
+  void _remove(HomePlaylistChoice playlist) {
+    widget.onPlaylistLongPress(playlist);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final playlists = _sortedPlaylists;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: Text(widget.title),
+        backgroundColor: scheme.surface,
+        surfaceTintColor: scheme.surface,
+        foregroundColor: scheme.onSurface,
+        elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: _gridMode
+                ? tr('home.section.list_view')
+                : tr('home.section.grid_view'),
+            onPressed: () {
+              setState(() => _gridMode = !_gridMode);
+              _storage.write('home_playlist_choices_grid_view', _gridMode);
+            },
+            icon: Icon(
+              _gridMode ? Icons.view_list_rounded : Icons.grid_view_rounded,
+            ),
+          ),
+          IconButton(
+            tooltip: tr('tooltips.sort'),
+            onPressed: () => _openSortSheet(context),
+            icon: const Icon(Icons.sort_rounded),
+          ),
+        ],
+      ),
+      body: AppGradientBackground(
+        child: _gridMode
+            ? GridView.builder(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.xl,
+                ),
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 152,
+                  mainAxisExtent: 166,
+                  mainAxisSpacing: 18,
+                  crossAxisSpacing: 14,
+                ),
+                itemCount: playlists.length,
+                itemBuilder: (context, index) {
+                  final playlist = playlists[index];
+                  return _HomePlaylistCard(
+                    playlist: playlist,
+                    onTap: () => _open(playlist),
+                    onLongPress: () => _remove(playlist),
+                  );
+                },
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                  AppSpacing.xl,
+                ),
+                itemCount: playlists.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final playlist = playlists[index];
+                  return _HomePlaylistTile(
+                    playlist: playlist,
+                    onTap: () => _open(playlist),
+                    onLongPress: () => _remove(playlist),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
+  Future<void> _openSortSheet(BuildContext context) async {
+    await _showHomeChoiceSortSheet(
+      context: context,
+      selected: _sort,
+      ascending: _sortAscending,
+      onSortChanged: (value) {
+        setState(() => _sort = value);
+        _storage.write('home_playlist_choices_sort', value.key);
+      },
+      onDirectionChanged: (value) {
+        setState(() => _sortAscending = value);
+        _storage.write('home_playlist_choices_sort_ascending', value);
+      },
+    );
+  }
+}
+
+Future<void> _showHomeChoiceSortSheet({
+  required BuildContext context,
+  required _HomeChoiceSort selected,
+  required bool ascending,
+  required ValueChanged<_HomeChoiceSort> onSortChanged,
+  required ValueChanged<bool> onDirectionChanged,
+}) async {
+  final theme = Theme.of(context);
+  final scheme = theme.colorScheme;
+  final nav = Get.isRegistered<NavigationController>()
+      ? Get.find<NavigationController>()
+      : null;
+  nav?.setOverlayOpen(true);
+  await showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    backgroundColor: scheme.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (ctx) {
+      var sheetSort = selected;
+      var sheetAscending = ascending;
+      return StatefulBuilder(
+        builder: (context, setSheetState) {
+          void updateSort(_HomeChoiceSort value) {
+            sheetSort = value;
+            onSortChanged(value);
+            setSheetState(() {});
+          }
+
+          void updateDirection(bool value) {
+            sheetAscending = value;
+            onDirectionChanged(value);
+            setSheetState(() {});
+          }
+
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tr('home.custom.sort_by'),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  for (final option in _HomeChoiceSort.values)
+                    _HomeChoiceSortOption(
+                      icon: option.icon,
+                      label: option.label,
+                      selected: sheetSort == option,
+                      onTap: () => updateSort(option),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Divider(
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  _HomeChoiceSortOption(
+                    icon: Icons.south_rounded,
+                    label: _homeChoiceDirectionLabel(
+                      sort: sheetSort,
+                      ascending: false,
+                    ),
+                    selected: !sheetAscending,
+                    onTap: () => updateDirection(false),
+                  ),
+                  _HomeChoiceSortOption(
+                    icon: Icons.north_rounded,
+                    label: _homeChoiceDirectionLabel(
+                      sort: sheetSort,
+                      ascending: true,
+                    ),
+                    selected: sheetAscending,
+                    onTap: () => updateDirection(true),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: Text(tr('common.accept')),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  ).whenComplete(() => nav?.setOverlayOpen(false));
+}
+
+String _homeChoiceDirectionLabel({
+  required _HomeChoiceSort sort,
+  required bool ascending,
+}) {
+  return switch (sort) {
+    _HomeChoiceSort.name => ascending ? 'A-Z' : 'Z-A',
+    _HomeChoiceSort.count =>
+      ascending
+          ? tr('home.section.low_to_high')
+          : tr('home.section.high_to_low'),
+  };
+}
+
+class _HomeChoiceSortOption extends StatelessWidget {
+  const _HomeChoiceSortOption({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: selected ? scheme.primary : null),
+      title: Text(
+        label,
+        style: theme.textTheme.bodyLarge?.copyWith(
+          fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+        ),
+      ),
+      trailing: selected
+          ? Icon(Icons.check_circle_rounded, color: scheme.primary)
+          : null,
+      onTap: onTap,
     );
   }
 }

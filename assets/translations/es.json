@@ -171,6 +171,9 @@
       "artist": "Artista",
       "smart": "Sugerida",
       "collection": "Collection",
+      "sort_by": "Ordenar por",
+      "sort_name": "Nombre",
+      "sort_count": "Número de canciones",
       "remove_item_title": "Quitar item",
       "remove_item_body": "¿Desea eliminar \"{}\" de la lista?"
     }

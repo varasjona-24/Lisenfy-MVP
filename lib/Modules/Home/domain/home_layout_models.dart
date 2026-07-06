@@ -220,12 +220,18 @@ class HomeArtistChoice {
     required this.name,
     required this.count,
     this.thumbnail,
+    this.kindKey,
+    this.country,
+    this.countryCode,
   });
 
   final String key;
   final String name;
   final int count;
   final String? thumbnail;
+  final String? kindKey;
+  final String? country;
+  final String? countryCode;
 }
 
 class HomePlaylistChoice {
