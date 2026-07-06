@@ -147,10 +147,12 @@ class DownloadTaskService extends GetxService {
       Color color = Colors.red;
       IconData? icon;
       _BackendErrorPresentation? backendPresentation;
+      var shouldShowLegacyFailureNotification = true;
 
       if (e is BackendApiException) {
         final presentation = _backendErrorPresentation(e);
         backendPresentation = presentation;
+        shouldShowLegacyFailureNotification = e.normalizedCode.isEmpty;
         title = presentation.title;
         msg = presentation.message;
         color = presentation.color;
@@ -199,7 +201,8 @@ class DownloadTaskService extends GetxService {
         shouldIconPulse: false,
         colorText: backendPresentation != null ? null : Colors.white,
       );
-      if (Get.isRegistered<NotificationService>()) {
+      if (shouldShowLegacyFailureNotification &&
+          Get.isRegistered<NotificationService>()) {
         await Get.find<NotificationService>().showImportFailure(msg);
       }
 
@@ -332,7 +335,6 @@ class _BackendErrorSnackContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final code = presentation.code.trim();
     final retryText = presentation.retryAfterSeconds != null
         ? tr(
             'backend_errors.retry_in',
@@ -344,153 +346,99 @@ class _BackendErrorSnackContent extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF14151A),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: const Color(0xFF16171C).withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.32),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: IntrinsicHeight(
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(width: 6, color: presentation.color),
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: presentation.color.withValues(alpha: 0.22),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  presentation.icon,
+                  color: presentation.color,
+                  size: 25,
+                ),
+              ),
+              Container(
+                width: 2,
+                height: 54,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: presentation.color.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: presentation.color.withValues(alpha: 0.18),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: presentation.color.withValues(alpha: 0.45),
-                          ),
-                        ),
-                        child: Icon(
-                          presentation.icon,
-                          color: presentation.color,
-                          size: 22,
-                        ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      presentation.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        height: 1.12,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    presentation.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                      height: 1.15,
-                                    ),
-                                  ),
-                                ),
-                                if (code.isNotEmpty) ...[
-                                  const SizedBox(width: 8),
-                                  _ErrorCodeChip(code: code),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              presentation.message,
-                              maxLines: 4,
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      presentation.message,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        height: 1.22,
+                      ),
+                    ),
+                    if (retryText.isNotEmpty) ...[
+                      const SizedBox(height: 9),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.refresh_rounded,
+                            color: presentation.color,
+                            size: 15,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              retryText,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.78),
-                                height: 1.25,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: presentation.color,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            if (retryText.isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.refresh_rounded,
-                                    color: presentation.color,
-                                    size: 15,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      retryText,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.labelMedium
-                                          ?.copyWith(
-                                            color: presentation.color,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
+                  ],
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorCodeChip extends StatelessWidget {
-  const _ErrorCodeChip({required this.code});
-
-  final String code;
-
-  @override
-  Widget build(BuildContext context) {
-    final compactCode = code
-        .replaceFirst('MEDIA_', '')
-        .replaceFirst('KARAOKE_', '')
-        .replaceFirst('VALIDATION_', 'VALID_');
-
-    return Tooltip(
-      message: '${tr('backend_errors.code_label')}: $code',
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 112),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        ),
-        child: Text(
-          compactCode,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Colors.white.withValues(alpha: 0.72),
-            fontWeight: FontWeight.w800,
-            fontSize: 10,
           ),
         ),
       ),
