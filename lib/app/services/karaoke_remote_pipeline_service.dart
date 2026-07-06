@@ -249,15 +249,7 @@ class KaraokeRemotePipelineService {
       }
       if (current.isFailed ||
           current.status == KaraokeRemoteSessionStatus.canceled) {
-        final reason = current.error?.trim();
-        final retryHint = current.retryable && current.retryAfterSeconds != null
-            ? ' Reintenta en ${current.retryAfterSeconds}s.'
-            : '';
-        throw Exception(
-          reason != null && reason.isNotEmpty
-              ? '$reason$retryHint'
-              : 'El procesamiento de ${_modeLabel(mode)} falló en backend.',
-        );
+        throw Exception(_localizedSessionFailure(current, mode));
       }
 
       await Future<void>.delayed(pollEvery);
@@ -609,12 +601,33 @@ class KaraokeRemotePipelineService {
   }
 
   String _normalizeExceptionMessage(Object error) {
-    if (error is BackendApiException) return error.message;
+    if (error is BackendApiException) return error.localizedMessage();
     final raw = error.toString().trim();
     if (raw.startsWith('Exception:')) {
       return raw.substring('Exception:'.length).trim();
     }
     return raw;
+  }
+
+  String _localizedSessionFailure(
+    KaraokeRemoteSession session,
+    KaraokeRemoteVariantMode mode,
+  ) {
+    final code = session.errorCode?.trim();
+    if (code != null && code.isNotEmpty) {
+      return BackendApiException(
+        message: session.error?.trim().isNotEmpty == true
+            ? session.error!.trim()
+            : 'El procesamiento de ${_modeLabel(mode)} falló en backend.',
+        code: code,
+        retryable: session.retryable,
+        retryAfterSeconds: session.retryAfterSeconds,
+      ).localizedMessage();
+    }
+
+    final reason = session.error?.trim();
+    if (reason != null && reason.isNotEmpty) return reason;
+    return 'El procesamiento de ${_modeLabel(mode)} falló en backend.';
   }
 
   int? _intOf(dynamic raw) {

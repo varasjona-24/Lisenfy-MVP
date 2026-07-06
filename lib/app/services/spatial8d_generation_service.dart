@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../../Modules/player/audio/controller/audio_player_controller.dart';
 import '../data/local/local_library_store.dart';
+import '../data/network/backend_api_error.dart';
 import '../models/media_item.dart';
 import 'karaoke_remote_pipeline_service.dart';
 
@@ -380,7 +381,7 @@ class Spatial8dGenerationService extends GetxService {
 
       return updated;
     } catch (e) {
-      final message = e.toString().replaceFirst('Exception: ', '');
+      final message = _errorMessage(e);
       _updateSnapshot(
         itemKey,
         Spatial8dTaskSnapshot(
@@ -398,6 +399,13 @@ class Spatial8dGenerationService extends GetxService {
       );
       return null;
     }
+  }
+
+  String _errorMessage(Object error) {
+    if (error is BackendApiException) {
+      return error.localizedMessage();
+    }
+    return error.toString().replaceFirst('Exception: ', '');
   }
 
   Future<MediaItem?> _latestItem(MediaItem item) async {

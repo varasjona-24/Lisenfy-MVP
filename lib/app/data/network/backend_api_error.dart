@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart' as dio;
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 
 class BackendApiException implements Exception {
   const BackendApiException({
@@ -16,6 +18,8 @@ class BackendApiException implements Exception {
   final int? retryAfterSeconds;
   final int? statusCode;
   final Map<String, dynamic>? details;
+
+  String get normalizedCode => code?.trim().toUpperCase() ?? '';
 
   factory BackendApiException.fromDio(
     dio.DioException error, {
@@ -49,6 +53,33 @@ class BackendApiException implements Exception {
 
   @override
   String toString() => message;
+
+  String localizedTitle({String fallback = 'Listenfy'}) {
+    final value = _localizedValue('backend_errors.titles.$normalizedCode');
+    return value ?? fallback;
+  }
+
+  String localizedMessage({
+    bool includeRetryHint = true,
+    String? fallbackMessage,
+  }) {
+    final fallback = (fallbackMessage?.trim().isNotEmpty == true)
+        ? fallbackMessage!.trim()
+        : message.trim();
+    final translated =
+        _localizedValue('backend_errors.messages.$normalizedCode') ??
+        (fallback.isNotEmpty ? fallback : tr('imports.failed'));
+
+    if (!includeRetryHint || !retryable || retryAfterSeconds == null) {
+      return translated;
+    }
+
+    final retryText = tr(
+      'backend_errors.retry_in',
+      args: [retryAfterSeconds.toString()],
+    );
+    return '$translated $retryText';
+  }
 
   static _ParsedBackendError? _parseBody(dynamic data) {
     if (data is! Map) return null;
@@ -94,6 +125,13 @@ class BackendApiException implements Exception {
     if (raw is num) return raw.toInt();
     if (raw is String) return int.tryParse(raw.trim());
     return null;
+  }
+
+  static String? _localizedValue(String key) {
+    if (key.endsWith('.')) return null;
+    final value = tr(key).trim();
+    if (value.isEmpty || value == key) return null;
+    return value;
   }
 }
 
