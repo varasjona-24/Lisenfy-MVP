@@ -7,6 +7,7 @@ import 'package:easy_localization/easy_localization.dart'
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../data/network/backend_api_error.dart';
 import '../data/network/dio_client.dart';
 import '../models/media_item.dart';
 
@@ -32,6 +33,9 @@ class KaraokeRemoteSession {
     this.spatial8dUrl,
     this.separatorModel,
     this.error,
+    this.errorCode,
+    this.retryable = false,
+    this.retryAfterSeconds,
   });
 
   final String id;
@@ -43,6 +47,9 @@ class KaraokeRemoteSession {
   final String? spatial8dUrl;
   final String? separatorModel;
   final String? error;
+  final String? errorCode;
+  final bool retryable;
+  final int? retryAfterSeconds;
 
   bool get isReadyToRecord =>
       status == KaraokeRemoteSessionStatus.readyToRecord;
@@ -143,7 +150,10 @@ class KaraokeRemotePipelineService {
       }
       return session;
     } on dio.DioException catch (e) {
-      throw Exception(_friendlyDioError(e, action: 'crear sesión'));
+      throw BackendApiException.fromDio(
+        e,
+        fallbackMessage: _fallbackDioError(e, action: 'crear sesión'),
+      );
     }
   }
 
@@ -169,7 +179,10 @@ class KaraokeRemotePipelineService {
       }
       return session;
     } on dio.DioException catch (e) {
-      throw Exception(_friendlyDioError(e, action: 'consultar sesión'));
+      throw BackendApiException.fromDio(
+        e,
+        fallbackMessage: _fallbackDioError(e, action: 'consultar sesión'),
+      );
     }
   }
 
@@ -237,9 +250,12 @@ class KaraokeRemotePipelineService {
       if (current.isFailed ||
           current.status == KaraokeRemoteSessionStatus.canceled) {
         final reason = current.error?.trim();
+        final retryHint = current.retryable && current.retryAfterSeconds != null
+            ? ' Reintenta en ${current.retryAfterSeconds}s.'
+            : '';
         throw Exception(
           reason != null && reason.isNotEmpty
-              ? reason
+              ? '$reason$retryHint'
               : 'El procesamiento de ${_modeLabel(mode)} falló en backend.',
         );
       }
@@ -353,7 +369,10 @@ class KaraokeRemotePipelineService {
           await Future<void>.delayed(retryDelay);
           continue;
         }
-        throw Exception(_friendlyDioError(e, action: action));
+        throw BackendApiException.fromDio(
+          e,
+          fallbackMessage: _fallbackDioError(e, action: action),
+        );
       } catch (e) {
         lastOtherError = e;
         break;
@@ -361,7 +380,10 @@ class KaraokeRemotePipelineService {
     }
 
     if (lastDioError != null) {
-      throw Exception(_friendlyDioError(lastDioError, action: action));
+      throw BackendApiException.fromDio(
+        lastDioError,
+        fallbackMessage: _fallbackDioError(lastDioError, action: action),
+      );
     }
     if (lastOtherError != null) {
       throw Exception('No se pudo $action: ${lastOtherError.toString()}');
@@ -400,6 +422,9 @@ class KaraokeRemotePipelineService {
       message: message,
       separatorModel: _stringOf(map['separatorModel']),
       error: _stringOf(map['error']),
+      errorCode: _stringOf(map['errorCode']).ifEmptyNull(),
+      retryable: map['retryable'] == true,
+      retryAfterSeconds: _intOf(map['retryAfterSeconds']),
       instrumentalUrl: _stringOf(
         resultMap?['instrumentalUrl'] ?? map['instrumentalUrl'],
       ).ifEmptyNull(),
@@ -523,13 +548,8 @@ class KaraokeRemotePipelineService {
     return value;
   }
 
-  String _friendlyDioError(dio.DioException error, {required String action}) {
+  String _fallbackDioError(dio.DioException error, {required String action}) {
     final status = error.response?.statusCode;
-    final data = error.response?.data;
-    String? backendMsg;
-    if (data is Map) {
-      backendMsg = _stringOf(data['error']);
-    }
 
     if (error.type == dio.DioExceptionType.connectionTimeout) {
       return 'No se pudo conectar a tiempo con el backend al $action. Reintenta: la primera ejecución de Demucs puede tardar más.';
@@ -558,10 +578,7 @@ class KaraokeRemotePipelineService {
     }
 
     if (status != null) {
-      final reason = backendMsg?.isNotEmpty == true
-          ? backendMsg!
-          : 'HTTP $status';
-      return 'Error de backend al $action: $reason';
+      return 'Error de backend al $action: HTTP $status';
     }
 
     final message = error.message?.trim();
@@ -592,11 +609,18 @@ class KaraokeRemotePipelineService {
   }
 
   String _normalizeExceptionMessage(Object error) {
+    if (error is BackendApiException) return error.message;
     final raw = error.toString().trim();
     if (raw.startsWith('Exception:')) {
       return raw.substring('Exception:'.length).trim();
     }
     return raw;
+  }
+
+  int? _intOf(dynamic raw) {
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw.trim());
+    return null;
   }
 }
 

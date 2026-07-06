@@ -199,7 +199,7 @@ class AudioSection extends StatelessWidget {
                       icon: Icons.graphic_eq_rounded,
                       title: tr('settings.audio.equalizer'),
                       subtitle: equalizer.eqUnavailableMessage.value.isNotEmpty
-                          ? equalizer.eqUnavailableMessage.value
+                          ? tr(equalizer.eqUnavailableMessage.value)
                           : tr('settings.audio.android_only'),
                     );
                   }

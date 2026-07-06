@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -26,6 +27,18 @@ class NearbyTransferPeer {
   const NearbyTransferPeer({required this.endpointId, required this.name});
 }
 
+class _OutgoingShareFile {
+  const _OutgoingShareFile({
+    required this.item,
+    required this.variant,
+    required this.sizeBytes,
+  });
+
+  final MediaItem item;
+  final MediaVariant variant;
+  final int sizeBytes;
+}
+
 class NearbyTransferController extends GetxController {
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
   final Nearby _nearby = Nearby();
@@ -35,6 +48,22 @@ class NearbyTransferController extends GetxController {
   static const String _inviteHandshakeSchema = 'listenfy.nearby.invite.v1';
   static const String _inviteEventHello = 'hello';
   static const String _inviteEventImported = 'imported';
+  static const int _maxTransferBytes = 1024 * 1024 * 1024;
+  static const int _maxDescriptorBytes = 256 * 1024;
+  static const int _maxCoverBytes = 2 * 1024 * 1024;
+  static const Duration _inviteTtl = Duration(minutes: 5);
+  static const Set<String> _allowedFormats = <String>{
+    'mp3',
+    'm4a',
+    'aac',
+    'wav',
+    'ogg',
+    'opus',
+    'flac',
+    'mp4',
+    'mkv',
+    'webm',
+  };
 
   final Rxn<MediaItem> selectedItem = Rxn<MediaItem>();
   final RxList<MediaItem> selectedItems = <MediaItem>[].obs;
@@ -57,7 +86,9 @@ class NearbyTransferController extends GetxController {
 
   late final String _nickName;
   String? _outgoingInviteSessionId;
+  DateTime? _outgoingInviteExpiresAt;
   String? _expectedInviteSessionId;
+  DateTime? _expectedInviteExpiresAt;
 
   bool _autoConnectInProgress = false;
   final Set<String> _inviteHandshakeSent = <String>{};
@@ -210,7 +241,9 @@ class NearbyTransferController extends GetxController {
     isDiscovering.value = false;
     connectedPeers.clear();
     _outgoingInviteSessionId = null;
+    _outgoingInviteExpiresAt = null;
     _expectedInviteSessionId = null;
+    _expectedInviteExpiresAt = null;
 
     _autoConnectInProgress = false;
     _inviteHandshakeSent.clear();
@@ -229,21 +262,18 @@ class NearbyTransferController extends GetxController {
       return null;
     }
 
-    final item = items.first;
-    final variant = _pickShareVariant(item);
-    if (variant == null) {
-      statusText.value = tr('nearby.no_file');
+    final shareFiles = await _validatedOutgoingShareFiles(items);
+    if (shareFiles == null) {
       return null;
     }
 
-    final sourcePath = variant.localPath?.trim() ?? '';
-    if (sourcePath.isEmpty || !await File(sourcePath).exists()) {
-      statusText.value = tr('nearby.file_local_missing');
-      return null;
-    }
+    final item = items.first;
+    final variant = shareFiles.first.variant;
 
     final sessionId = _createInviteSessionId(items, variant);
+    final expiresAt = DateTime.now().add(_inviteTtl);
     _outgoingInviteSessionId = sessionId;
+    _outgoingInviteExpiresAt = expiresAt;
     _autoSentBySessionEndpoint.clear();
     _autoSendingBySessionEndpoint.clear();
     _inviteHandshakeSent.clear();
@@ -263,11 +293,25 @@ class NearbyTransferController extends GetxController {
       subtitle: items.length == 1
           ? item.subtitle
           : tr('nearby.internal_transfer'),
+      expiresAt: expiresAt.millisecondsSinceEpoch,
     );
   }
 
   Future<void> startReceiveFromInvite(ListenfyNearbyInvite invite) async {
+    if (invite.isExpired) {
+      statusText.value = tr('nearby.invite_expired');
+      Get.snackbar(
+        tr('nearby.invalid_qr'),
+        tr('nearby.invite_expired'),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
     _expectedInviteSessionId = invite.sessionId;
+    _expectedInviteExpiresAt = invite.expiresAt == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(invite.expiresAt!);
 
     _autoConnectInProgress = false;
     statusText.value = tr('nearby.searching_sender', args: [invite.senderName]);
@@ -331,8 +375,26 @@ class NearbyTransferController extends GetxController {
       Get.snackbar(tr('nearby.transfer_action'), tr('nearby.file_missing'));
       return false;
     }
+    final sourceSize = await sourceFile.length();
+    if (sourceSize <= 0 || sourceSize > _maxTransferBytes) {
+      statusText.value = tr('nearby.file_size_blocked');
+      Get.snackbar(
+        tr('nearby.transfer_action'),
+        tr('nearby.file_size_blocked'),
+      );
+      return false;
+    }
+    if (!_allowedFormats.contains(_formatForVariant(variant))) {
+      statusText.value = tr('nearby.file_type_blocked');
+      Get.snackbar(
+        tr('nearby.transfer_action'),
+        tr('nearby.file_type_blocked'),
+      );
+      return false;
+    }
 
     try {
+      final fileSha256 = await _sha256ForFile(sourceFile);
       final payloadId = await _nearby.sendFilePayload(
         endpointId,
         sourceFile.path,
@@ -346,6 +408,9 @@ class NearbyTransferController extends GetxController {
       final descriptor = await _OutgoingNearbyDescriptor.fromItem(
         schema: _schema,
         payloadId: payloadId,
+        sessionId: _outgoingInviteSessionId ?? '',
+        sizeBytes: sourceSize,
+        sha256Hex: fileSha256,
         item: item,
         variant: variant,
       );
@@ -479,6 +544,10 @@ class NearbyTransferController extends GetxController {
 
   _IncomingNearbyDescriptor? _handleDescriptorBytes(Uint8List? bytes) {
     if (bytes == null || bytes.isEmpty) return null;
+    if (bytes.length > _maxDescriptorBytes) {
+      statusText.value = tr('nearby.metadata_too_large');
+      return null;
+    }
     try {
       final decoded = jsonDecode(utf8.decode(bytes));
       if (decoded is! Map) return null;
@@ -486,6 +555,7 @@ class NearbyTransferController extends GetxController {
         Map<String, dynamic>.from(decoded),
       );
       if (descriptor == null) return null;
+      if (!_isDescriptorAllowed(descriptor)) return null;
       _descriptorByPayloadId[descriptor.payloadId] = descriptor;
       return descriptor;
     } catch (_) {
@@ -630,7 +700,9 @@ class NearbyTransferController extends GetxController {
       if (sessionId.isEmpty) return false;
 
       final expected = _expectedInviteSessionId;
-      if (expected != null && expected == sessionId) {
+      if (expected != null &&
+          expected == sessionId &&
+          !_isExpectedInviteExpired()) {
         if (event == _inviteEventImported) {
           statusText.value = tr('nearby.receiver_confirmed');
           return true;
@@ -640,7 +712,9 @@ class NearbyTransferController extends GetxController {
       }
 
       final outgoing = _outgoingInviteSessionId;
-      if (outgoing != null && outgoing == sessionId) {
+      if (outgoing != null &&
+          outgoing == sessionId &&
+          !_isOutgoingInviteExpired()) {
         if (event == _inviteEventImported) {
           final expectedCount = outgoingItems.length;
           final currentCount = (_importedAckCountBySession[sessionId] ?? 0) + 1;
@@ -653,6 +727,7 @@ class NearbyTransferController extends GetxController {
                     args: ['$expectedCount'],
                   );
             _outgoingInviteSessionId = null;
+            _outgoingInviteExpiresAt = null;
             unawaited(stopAdvertisingMode());
           } else {
             statusText.value = tr(
@@ -720,13 +795,9 @@ class NearbyTransferController extends GetxController {
   }
 
   String _createInviteSessionId(List<MediaItem> items, MediaVariant variant) {
-    final seed = [
-      items.map((item) => item.id).join(','),
-      variant.fileName,
-      DateTime.now().microsecondsSinceEpoch.toString(),
-      _nickName,
-    ].join('|');
-    return sha1.convert(utf8.encode(seed)).toString().substring(0, 16);
+    final random = Random.secure();
+    final bytes = List<int>.generate(24, (_) => random.nextInt(256));
+    return base64UrlEncode(bytes).replaceAll('=', '');
   }
 
   Future<bool> _tryImportReceivedPayload(
@@ -739,6 +810,7 @@ class NearbyTransferController extends GetxController {
     final descriptor = _descriptorByPayloadId[payloadId];
     final payload = _filePayloadById[payloadId];
     if (descriptor == null || payload == null) return false;
+    if (!_isDescriptorAllowed(descriptor)) return false;
 
     final destination = await _buildDestinationPath(
       payloadId,
@@ -749,6 +821,12 @@ class NearbyTransferController extends GetxController {
     final copied = await _copyNearbyPayloadTo(destination, payload);
     if (!copied) {
       statusText.value = tr('nearby.save_received_failed');
+      return false;
+    }
+    final verified = await _verifyReceivedFile(destination, descriptor);
+    if (!verified) {
+      await _deleteIfExists(destination);
+      statusText.value = tr('nearby.integrity_failed');
       return false;
     }
 
@@ -927,8 +1005,9 @@ class NearbyTransferController extends GetxController {
     final raw = (base64Cover ?? '').trim();
     if (raw.isEmpty) return null;
     try {
+      if (raw.length > (_maxCoverBytes * 2)) return null;
       final bytes = base64Decode(raw);
-      if (bytes.isEmpty) return null;
+      if (bytes.isEmpty || bytes.length > _maxCoverBytes) return null;
 
       final appDir = await getApplicationDocumentsDirectory();
       final coversDir = Directory(p.join(appDir.path, 'media', 'covers'));
@@ -954,6 +1033,140 @@ class NearbyTransferController extends GetxController {
       return 'png';
     }
     return 'jpg';
+  }
+
+  Future<List<_OutgoingShareFile>?> _validatedOutgoingShareFiles(
+    List<MediaItem> items,
+  ) async {
+    var totalBytes = 0;
+    final out = <_OutgoingShareFile>[];
+
+    for (final item in items) {
+      final variant = _pickShareVariant(item);
+      if (variant == null) {
+        statusText.value = tr('nearby.no_file');
+        return null;
+      }
+
+      final sourcePath = variant.localPath?.trim() ?? '';
+      if (sourcePath.isEmpty) {
+        statusText.value = tr('nearby.no_path');
+        return null;
+      }
+
+      final file = File(sourcePath);
+      if (!await file.exists()) {
+        statusText.value = tr('nearby.file_local_missing');
+        return null;
+      }
+
+      final size = await file.length();
+      if (size <= 0 || size > _maxTransferBytes) {
+        statusText.value = tr('nearby.file_size_blocked');
+        return null;
+      }
+
+      totalBytes += size;
+      if (totalBytes > _maxTransferBytes) {
+        statusText.value = tr('nearby.total_size_blocked');
+        return null;
+      }
+
+      final format = _formatForVariant(variant);
+      if (!_allowedFormats.contains(format)) {
+        statusText.value = tr('nearby.file_type_blocked');
+        return null;
+      }
+      out.add(
+        _OutgoingShareFile(item: item, variant: variant, sizeBytes: size),
+      );
+    }
+
+    return out;
+  }
+
+  bool _isExpectedInviteExpired() {
+    final expires = _expectedInviteExpiresAt;
+    return expires != null && DateTime.now().isAfter(expires);
+  }
+
+  bool _isOutgoingInviteExpired() {
+    final expires = _outgoingInviteExpiresAt;
+    if (expires == null) return false;
+    if (!DateTime.now().isAfter(expires)) return false;
+    _outgoingInviteSessionId = null;
+    _outgoingInviteExpiresAt = null;
+    unawaited(stopAdvertisingMode());
+    statusText.value = tr('nearby.invite_expired');
+    return true;
+  }
+
+  bool _isDescriptorAllowed(_IncomingNearbyDescriptor descriptor) {
+    if (descriptor.sizeBytes <= 0 || descriptor.sizeBytes > _maxTransferBytes) {
+      statusText.value = tr('nearby.file_size_blocked');
+      return false;
+    }
+    if (!_allowedFormats.contains(descriptor.format)) {
+      statusText.value = tr('nearby.file_type_blocked');
+      return false;
+    }
+    if (descriptor.sha256Hex.length != 64) {
+      statusText.value = tr('nearby.integrity_failed');
+      return false;
+    }
+
+    final expected = _expectedInviteSessionId;
+    if (expected != null && expected.isNotEmpty) {
+      if (_isExpectedInviteExpired()) {
+        statusText.value = tr('nearby.invite_expired');
+        return false;
+      }
+      if (descriptor.sessionId != expected) {
+        statusText.value = tr('nearby.session_mismatch');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  Future<bool> _verifyReceivedFile(
+    String destinationPath,
+    _IncomingNearbyDescriptor descriptor,
+  ) async {
+    try {
+      final file = File(destinationPath);
+      if (!await file.exists()) return false;
+      if (await file.length() != descriptor.sizeBytes) return false;
+      final digest = await _sha256ForFile(file);
+      return digest == descriptor.sha256Hex;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String> _sha256ForFile(File file) async {
+    final digest = await sha256.bind(file.openRead()).first;
+    return digest.toString();
+  }
+
+  String _normalizedFormat(String pathOrName) {
+    final ext = p.extension(pathOrName).replaceFirst('.', '').toLowerCase();
+    return ext.trim();
+  }
+
+  String _formatForVariant(MediaVariant variant) {
+    final ext = _normalizedFormat(variant.localPath ?? variant.fileName);
+    return ext.isNotEmpty ? ext : variant.format.toLowerCase().trim();
+  }
+
+  Future<void> _deleteIfExists(String path) async {
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {}
   }
 
   Future<bool> _showSecurityDialog({
@@ -1091,6 +1304,9 @@ class NearbyTransferController extends GetxController {
 class _OutgoingNearbyDescriptor {
   final String schema;
   final int payloadId;
+  final String sessionId;
+  final int sizeBytes;
+  final String sha256Hex;
   final String fileName;
   final String format;
   final String kind;
@@ -1107,6 +1323,9 @@ class _OutgoingNearbyDescriptor {
   _OutgoingNearbyDescriptor({
     required this.schema,
     required this.payloadId,
+    required this.sessionId,
+    required this.sizeBytes,
+    required this.sha256Hex,
     required this.fileName,
     required this.format,
     required this.kind,
@@ -1124,9 +1343,18 @@ class _OutgoingNearbyDescriptor {
   static Future<_OutgoingNearbyDescriptor> fromItem({
     required String schema,
     required int payloadId,
+    required String sessionId,
+    required int sizeBytes,
+    required String sha256Hex,
     required MediaItem item,
     required MediaVariant variant,
   }) async {
+    final fileName = p.basename(variant.localPath ?? variant.fileName);
+    final ext = p
+        .extension(variant.localPath ?? variant.fileName)
+        .replaceFirst('.', '')
+        .toLowerCase()
+        .trim();
     String? coverBase64;
     final coverPath = (item.thumbnailLocalPath ?? '').trim();
     if (coverPath.isNotEmpty) {
@@ -1144,8 +1372,11 @@ class _OutgoingNearbyDescriptor {
     return _OutgoingNearbyDescriptor(
       schema: schema,
       payloadId: payloadId,
-      fileName: p.basename(variant.localPath ?? variant.fileName),
-      format: variant.format.toLowerCase().trim(),
+      sessionId: sessionId,
+      sizeBytes: sizeBytes,
+      sha256Hex: sha256Hex,
+      fileName: fileName,
+      format: ext.isNotEmpty ? ext : variant.format.toLowerCase().trim(),
       kind: variant.kind == MediaVariantKind.video ? 'video' : 'audio',
       role: variant.roleKey,
       title: item.title,
@@ -1162,6 +1393,9 @@ class _OutgoingNearbyDescriptor {
   Map<String, dynamic> toJson() => {
     'schema': schema,
     'payloadId': payloadId,
+    'sessionId': sessionId,
+    'sizeBytes': sizeBytes,
+    'sha256': sha256Hex,
     'fileName': fileName,
     'format': format,
     'kind': kind,
@@ -1179,6 +1413,9 @@ class _OutgoingNearbyDescriptor {
 
 class _IncomingNearbyDescriptor {
   final int payloadId;
+  final String sessionId;
+  final int sizeBytes;
+  final String sha256Hex;
   final String fileName;
   final String format;
   final String kind;
@@ -1194,6 +1431,9 @@ class _IncomingNearbyDescriptor {
 
   _IncomingNearbyDescriptor({
     required this.payloadId,
+    required this.sessionId,
+    required this.sizeBytes,
+    required this.sha256Hex,
     required this.fileName,
     required this.format,
     required this.kind,
@@ -1221,11 +1461,22 @@ class _IncomingNearbyDescriptor {
     }
     if (payloadId == null) return null;
 
+    final sessionId = ((json['sessionId'] as String?) ?? '').trim();
+    final sizeRaw = json['sizeBytes'];
+    final sizeBytes = sizeRaw is num
+        ? sizeRaw.toInt()
+        : int.tryParse(sizeRaw?.toString() ?? '');
+    final sha256Hex = ((json['sha256'] as String?) ?? '').trim().toLowerCase();
+    if (sizeBytes == null || sizeBytes <= 0) return null;
+
     final fileName = (json['fileName'] as String?)?.trim() ?? '';
     if (fileName.isEmpty) return null;
 
     final kind = ((json['kind'] as String?) ?? 'audio').trim().toLowerCase();
-    final format = ((json['format'] as String?) ?? '').trim().toLowerCase();
+    final rawFormat = ((json['format'] as String?) ?? '').trim().toLowerCase();
+    final format = rawFormat.isNotEmpty
+        ? rawFormat
+        : p.extension(fileName).replaceFirst('.', '').toLowerCase();
     final role = ((json['role'] as String?) ?? 'main').trim().toLowerCase();
     final title = ((json['title'] as String?) ?? '').trim();
     final subtitle = ((json['subtitle'] as String?) ?? '').trim();
@@ -1246,6 +1497,9 @@ class _IncomingNearbyDescriptor {
 
     return _IncomingNearbyDescriptor(
       payloadId: payloadId,
+      sessionId: sessionId,
+      sizeBytes: sizeBytes,
+      sha256Hex: sha256Hex,
       fileName: fileName,
       format: format,
       kind: kind == 'video' ? 'video' : 'audio',

@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../models/media_item.dart';
 import '../local/local_library_store.dart';
+import '../network/backend_api_error.dart';
 import '../network/dio_client.dart';
 import 'package:listenfy/Modules/sources/domain/source_origin.dart';
 import 'package:listenfy/Modules/sources/domain/detect_source_origin.dart';
@@ -196,6 +197,8 @@ class MediaRepository {
       );
 
       return true;
+    } on BackendApiException {
+      rethrow;
     } catch (e) {
       print('Download failed: $e');
       return false;
@@ -265,7 +268,12 @@ class MediaRepository {
       } else {
         print('Error: $e');
       }
-      // 🔥 importante: si falla, retorna vacío para que requestAndFetchMedia haga return false
+      if (e is dio.DioException) {
+        throw BackendApiException.fromDio(
+          e,
+          fallbackMessage: 'No se pudo preparar la descarga.',
+        );
+      }
       return '';
     }
   }
@@ -361,6 +369,12 @@ class MediaRepository {
             print('DATA: ${e.response?.data}');
           } else {
             print('Download failed after $maxAttempts attempts: $e');
+          }
+          if (e is dio.DioException) {
+            throw BackendApiException.fromDio(
+              e,
+              fallbackMessage: 'No se pudo descargar el archivo remoto.',
+            );
           }
           return false;
         }
@@ -499,8 +513,9 @@ class MediaRepository {
     if (url == null || url.trim().isEmpty) return MediaSource.local;
 
     final u = url.toLowerCase();
-    if (u.contains('youtube') || u.contains('youtu.be'))
+    if (u.contains('youtube') || u.contains('youtu.be')) {
       return MediaSource.youtube;
+    }
 
     return MediaSource.local;
   }

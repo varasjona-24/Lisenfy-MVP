@@ -87,6 +87,7 @@ class LocalConnectPlaybackSync {
       'durationMs': (duration ?? 0) * 1000,
       'isPlaying': _audioService.isPlaying.value,
       'isBuffering': _audioService.isLoading.value,
+      'speed': _audioService.speed.value,
       'shuffleEnabled': _audioService.shuffleEnabled,
     };
   }
@@ -134,9 +135,11 @@ class LocalConnectPlaybackSync {
       ),
       'isFavorite': item.isFavorite,
       'playCount': item.playCount,
+      'lastPlayedAt': item.lastPlayedAt,
       'fullListenCount': item.fullListenCount,
       'skipCount': item.skipCount,
       'avgListenProgress': item.avgListenProgress,
+      'lastCompletedAt': item.lastCompletedAt,
     };
   }
 
@@ -162,9 +165,11 @@ class LocalConnectPlaybackSync {
       ),
       'isFavorite': item.isFavorite,
       'playCount': item.playCount,
+      'lastPlayedAt': item.lastPlayedAt,
       'fullListenCount': item.fullListenCount,
       'skipCount': item.skipCount,
       'avgListenProgress': item.avgListenProgress,
+      'lastCompletedAt': item.lastCompletedAt,
     };
   }
 

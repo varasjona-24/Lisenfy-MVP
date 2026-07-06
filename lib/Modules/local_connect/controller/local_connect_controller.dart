@@ -35,4 +35,12 @@ class LocalConnectController extends GetxController {
   Future<void> rejectPairing(String requestId) {
     return _service.rejectPairingRequest(requestId);
   }
+
+  Future<void> revokeSession(String clientId) {
+    return _service.revokeSession(clientId);
+  }
+
+  Future<void> revokeAllSessions() {
+    return _service.revokeAllSessions();
+  }
 }

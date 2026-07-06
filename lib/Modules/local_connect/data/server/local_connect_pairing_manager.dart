@@ -93,6 +93,23 @@ class LocalConnectPairingManager {
     return _pendingByRequestId.remove(requestId);
   }
 
+  LocalConnectClientSession? revokeSession(String clientId) {
+    cleanupExpired();
+    final session = _sessionsByClientId.remove(clientId);
+    if (session == null) return null;
+    _clientIdByToken.remove(session.token);
+    _pendingByRequestId.removeWhere((_, req) => req.clientId == clientId);
+    return session;
+  }
+
+  List<LocalConnectClientSession> revokeAllSessions() {
+    cleanupExpired();
+    final revoked = _sessionsByClientId.values.toList(growable: false);
+    _sessionsByClientId.clear();
+    _clientIdByToken.clear();
+    return revoked;
+  }
+
   LocalConnectPairingRequest? findPendingByClientId(String clientId) {
     if (clientId.trim().isEmpty) return null;
     final pending =

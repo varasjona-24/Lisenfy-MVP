@@ -1,11 +1,14 @@
-String buildLocalConnectWebPage() {
+import 'dart:convert';
+
+String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
+  final i18n = <String, String>{..._localConnectWebFallbacks, ...translations};
   return '''
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Listenfy Local Connect</title>
+  <title>${_htmlText(i18n, 'title')}</title>
   <style>
     :root {
       --bg: #060a12;
@@ -16,6 +19,7 @@ String buildLocalConnectWebPage() {
       --muted: #9ab0c6;
       --accent: #35d8a3;
       --accent-2: #5da9ff;
+      --accent-3: #f7c86a;
       --border: #1f3349;
       --danger: #ff6b6b;
       --radius: 16px;
@@ -158,6 +162,7 @@ String buildLocalConnectWebPage() {
       display: grid;
       gap: 14px;
       grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      align-items: start;
     }
 
     .now-panel {
@@ -165,23 +170,33 @@ String buildLocalConnectWebPage() {
       display: grid;
       gap: 14px;
       align-content: start;
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(53, 216, 163, 0.08), transparent 42%),
+        linear-gradient(180deg, color-mix(in oklab, var(--card-2) 90%, black), color-mix(in oklab, var(--card) 94%, black));
+    }
+
+    .now-panel > * {
+      position: relative;
+      z-index: 1;
     }
 
     .cover-row {
       display: grid;
-      grid-template-columns: 190px 1fr;
+      grid-template-columns: 220px 1fr;
       gap: 16px;
       align-items: start;
     }
 
     .cover-wrap {
-      width: 190px;
-      height: 190px;
-      border-radius: 14px;
+      width: 220px;
+      height: 220px;
+      border-radius: 18px;
       border: 1px solid var(--border);
       overflow: hidden;
       background: linear-gradient(150deg, #1b2d45, #101b2a);
-      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 18px 34px rgba(0, 0, 0, 0.38);
     }
 
     .cover {
@@ -191,11 +206,20 @@ String buildLocalConnectWebPage() {
       display: block;
     }
 
+    .eyebrow {
+      margin-bottom: 8px;
+      color: color-mix(in oklab, var(--accent) 82%, white);
+      font-size: 11px;
+      font-weight: 720;
+      letter-spacing: 0.75px;
+      text-transform: uppercase;
+    }
+
     .meta h1 {
       margin: 0 0 4px;
-      font-size: 27px;
+      font-size: 32px;
       line-height: 1.12;
-      letter-spacing: -0.35px;
+      letter-spacing: 0;
       font-weight: 745;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -208,7 +232,7 @@ String buildLocalConnectWebPage() {
       margin: 0;
       font-size: 22px;
       font-weight: 540;
-      letter-spacing: -0.2px;
+      letter-spacing: 0;
       color: color-mix(in oklab, var(--text) 96%, #a6c4df);
     }
 
@@ -228,6 +252,33 @@ String buildLocalConnectWebPage() {
       color: var(--muted);
       font-size: 12px;
       background: color-mix(in oklab, var(--bg-soft) 87%, black);
+    }
+
+    .track-chips {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .track-chip {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 9px;
+      color: var(--muted);
+      background: color-mix(in oklab, var(--bg-soft) 86%, black);
+      font-size: 12px;
+      line-height: 1;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-chip.strong {
+      color: color-mix(in oklab, var(--accent-3) 78%, white);
+      border-color: color-mix(in oklab, var(--accent-3) 38%, var(--border));
+      background: color-mix(in oklab, var(--accent-3) 10%, var(--bg-soft));
     }
 
     .artist-profile {
@@ -305,7 +356,7 @@ String buildLocalConnectWebPage() {
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
     }
 
@@ -335,11 +386,75 @@ String buildLocalConnectWebPage() {
       text-overflow: ellipsis;
     }
 
+    .stat-value.accent {
+      color: color-mix(in oklab, var(--accent) 80%, white);
+    }
+
+    .track-history {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 11px 12px;
+      background: color-mix(in oklab, var(--bg-soft) 88%, black);
+      display: grid;
+      gap: 10px;
+    }
+
+    .track-history-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .track-history-head h3 {
+      margin: 0;
+      font-size: 14px;
+      color: var(--text);
+      letter-spacing: 0;
+    }
+
+    .track-history-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .track-history-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      display: grid;
+      gap: 2px;
+      background: color-mix(in oklab, var(--bg) 88%, black);
+      min-width: 0;
+    }
+
+    .track-history-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+    }
+
+    .track-history-value {
+      font-size: 15px;
+      font-weight: 680;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     .queue-panel {
       padding: 14px;
       display: grid;
       gap: 12px;
       align-content: start;
+      align-self: start;
+      height: max-content;
+      position: sticky;
+      top: 14px;
     }
 
     .queue-head {
@@ -352,7 +467,7 @@ String buildLocalConnectWebPage() {
     .queue-head h2 {
       margin: 0;
       font-size: 22px;
-      letter-spacing: -0.35px;
+      letter-spacing: 0;
       font-weight: 710;
     }
 
@@ -457,8 +572,33 @@ String buildLocalConnectWebPage() {
       list-style: none;
       display: grid;
       gap: 8px;
-      max-height: 270px;
+      max-height: min(42vh, 420px);
       overflow: auto;
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in oklab, var(--border) 86%, white) transparent;
+    }
+
+    .queue-list::-webkit-scrollbar,
+    .stats::-webkit-scrollbar,
+    .track-history-grid::-webkit-scrollbar,
+    .artist-kpis::-webkit-scrollbar {
+      width: 8px;
+      height: 6px;
+    }
+
+    .queue-list::-webkit-scrollbar-thumb,
+    .stats::-webkit-scrollbar-thumb,
+    .track-history-grid::-webkit-scrollbar-thumb,
+    .artist-kpis::-webkit-scrollbar-thumb {
+      background: color-mix(in oklab, var(--border) 86%, white);
+      border-radius: 999px;
+    }
+
+    .queue-list::-webkit-scrollbar-track,
+    .stats::-webkit-scrollbar-track,
+    .track-history-grid::-webkit-scrollbar-track,
+    .artist-kpis::-webkit-scrollbar-track {
+      background: transparent;
     }
 
     .queue-item {
@@ -588,7 +728,7 @@ String buildLocalConnectWebPage() {
 
     .artist-kpis {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 8px;
     }
 
@@ -718,8 +858,6 @@ String buildLocalConnectWebPage() {
       padding: 12px 14px;
       display: grid;
       gap: 10px;
-      position: sticky;
-      bottom: 10px;
       backdrop-filter: blur(8px);
     }
 
@@ -765,19 +903,207 @@ String buildLocalConnectWebPage() {
       line-height: 1;
     }
 
+    @media (min-width: 1400px) {
+      .shell {
+        max-width: 1500px;
+        padding: 28px 28px 32px;
+        gap: 18px;
+      }
+
+      .topbar {
+        padding: 18px 22px;
+      }
+
+      .brand {
+        font-size: 22px;
+      }
+
+      .status-pill {
+        font-size: 15px;
+        padding: 9px 14px;
+      }
+
+      .main-grid {
+        grid-template-columns: minmax(0, 1.35fr) minmax(420px, 0.75fr);
+        gap: 18px;
+      }
+
+      .now-panel {
+        padding: 22px;
+        gap: 18px;
+      }
+
+      .cover-row {
+        grid-template-columns: 320px 1fr;
+        gap: 24px;
+      }
+
+      .cover-wrap {
+        width: 320px;
+        height: 320px;
+        border-radius: 22px;
+      }
+
+      .eyebrow {
+        font-size: 13px;
+      }
+
+      .meta h1 {
+        font-size: 46px;
+        line-height: 1.08;
+      }
+
+      .meta .artist {
+        font-size: 30px;
+      }
+
+      .meta .album {
+        font-size: 18px;
+      }
+
+      .meta .state,
+      .track-chip,
+      .artist-insight-pill {
+        font-size: 15px;
+      }
+
+      .track-chip {
+        padding: 8px 12px;
+      }
+
+      .stat {
+        min-height: 78px;
+        padding: 13px;
+      }
+
+      .stat-label,
+      .track-history-label,
+      .artist-kpi-label {
+        font-size: 12px;
+      }
+
+      .stat-value,
+      .track-history-value,
+      .artist-kpi-value {
+        font-size: 22px;
+      }
+
+      .track-history,
+      .artist-insights,
+      .queue-panel {
+        padding: 16px;
+      }
+
+      .track-history-head h3,
+      .artist-head h3 {
+        font-size: 18px;
+      }
+
+      .artist-profile {
+        min-height: 86px;
+        padding: 12px;
+      }
+
+      .artist-profile-avatar-wrap {
+        width: 64px;
+        height: 64px;
+      }
+
+      .artist-profile-name {
+        font-size: 18px;
+      }
+
+      .artist-profile-line {
+        font-size: 15px;
+      }
+
+      .artist-next-list {
+        max-height: 240px;
+      }
+
+      .artist-next-item,
+      .queue-item {
+        padding: 11px 12px;
+      }
+
+      .artist-next-title,
+      .queue-item-title {
+        font-size: 16px;
+      }
+
+      .artist-next-sub,
+      .queue-item-sub {
+        font-size: 14px;
+      }
+
+      .queue-head h2 {
+        font-size: 28px;
+      }
+
+      .queue-count {
+        font-size: 15px;
+      }
+
+      .queue-carousel {
+        grid-auto-columns: minmax(190px, 1fr);
+      }
+
+      .queue-list {
+        max-height: min(46vh, 560px);
+      }
+
+      .dock {
+        padding: 16px 18px;
+        gap: 14px;
+      }
+
+      .seek-wrap {
+        padding: 11px 14px;
+      }
+
+      .time-row {
+        font-size: 15px;
+      }
+
+      .dock-controls {
+        grid-template-columns: repeat(6, minmax(120px, 1fr)) minmax(220px, 0.8fr);
+        gap: 10px;
+      }
+
+      .btn {
+        font-size: 16px;
+        padding: 13px 12px;
+      }
+
+      .volume-wrap {
+        padding: 10px 12px;
+      }
+
+      .volume-wrap .small {
+        font-size: 13px;
+      }
+    }
+
     @media (max-width: 980px) {
+      .shell {
+        max-width: 760px;
+      }
+
       .main-grid {
         grid-template-columns: 1fr;
       }
 
+      .queue-panel {
+        position: static;
+      }
+
       .cover-row {
-        grid-template-columns: 1fr;
+        grid-template-columns: 180px 1fr;
       }
 
       .cover-wrap {
-        width: 100%;
-        height: auto;
-        aspect-ratio: 1 / 1;
+        width: 180px;
+        height: 180px;
       }
 
       .meta h1 {
@@ -798,7 +1124,15 @@ String buildLocalConnectWebPage() {
       }
 
       .artist-kpis {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .track-history-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .dock-controls {
@@ -809,6 +1143,327 @@ String buildLocalConnectWebPage() {
         grid-auto-columns: minmax(130px, 1fr);
       }
     }
+
+    @media (max-width: 720px) {
+      body {
+        background:
+          linear-gradient(180deg, #080f1d 0%, var(--bg) 52%, #050912 100%);
+      }
+
+      .shell {
+        padding: 10px 10px 14px;
+        gap: 10px;
+      }
+
+      .card {
+        border-radius: 12px;
+      }
+
+      .topbar {
+        padding: 10px 12px;
+      }
+
+      .brand {
+        min-width: 0;
+      }
+
+      .brand span:last-child {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .status-pill {
+        padding: 6px 9px;
+        white-space: nowrap;
+      }
+
+      .pairing {
+        padding: 12px;
+      }
+
+      .now-panel {
+        padding: 12px;
+        gap: 10px;
+      }
+
+      .cover-row {
+        grid-template-columns: 88px minmax(0, 1fr);
+        gap: 11px;
+        align-items: center;
+      }
+
+      .cover-wrap {
+        width: 88px;
+        height: 88px;
+        border-radius: 12px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.32);
+      }
+
+      .eyebrow {
+        display: none;
+      }
+
+      .meta h1 {
+        font-size: 20px;
+        line-height: 1.14;
+        -webkit-line-clamp: 2;
+      }
+
+      .meta .artist {
+        font-size: 15px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .meta .album {
+        display: none;
+      }
+
+      .meta .state {
+        margin-top: 7px;
+        padding: 5px 8px;
+        font-size: 11px;
+      }
+
+      .track-chips {
+        margin-top: 7px;
+        gap: 5px;
+      }
+
+      .track-chip {
+        padding: 5px 7px;
+        font-size: 11px;
+        max-width: 140px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(4, minmax(88px, 1fr));
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: thin;
+      }
+
+      .stat {
+        min-height: 54px;
+        min-width: 88px;
+        padding: 8px;
+        scroll-snap-align: start;
+      }
+
+      .stat-label,
+      .track-history-label,
+      .artist-kpi-label {
+        font-size: 9px;
+      }
+
+      .track-history {
+        padding: 10px;
+      }
+
+      .track-history-grid {
+        grid-template-columns: repeat(5, minmax(88px, 1fr));
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: thin;
+      }
+
+      .track-history-card {
+        min-width: 88px;
+        scroll-snap-align: start;
+      }
+
+      .artist-insights {
+        padding: 10px;
+      }
+
+      .artist-profile {
+        min-height: 60px;
+        padding: 8px;
+      }
+
+      .artist-profile-avatar-wrap {
+        width: 42px;
+        height: 42px;
+      }
+
+      .artist-profile-name {
+        font-size: 13px;
+      }
+
+      .artist-profile-line {
+        font-size: 11px;
+      }
+
+      .artist-kpis {
+        grid-template-columns: repeat(5, minmax(88px, 1fr));
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: thin;
+      }
+
+      .artist-kpi {
+        min-width: 88px;
+        scroll-snap-align: start;
+      }
+
+      .artist-next-list {
+        max-height: 188px;
+      }
+
+      @media (orientation: portrait) {
+        .artist-insights {
+          display: grid;
+        }
+
+        .queue-carousel {
+          display: none;
+        }
+      }
+
+      .queue-panel {
+        padding: 12px;
+      }
+
+      .queue-carousel {
+        display: none;
+      }
+
+      .queue-list {
+        max-height: none;
+      }
+
+      .queue-item {
+        padding: 9px 9px;
+      }
+
+      .queue-item-time {
+        display: none;
+      }
+
+      .dock {
+        padding: 9px;
+        gap: 8px;
+        border-radius: 14px;
+        margin-top: 2px;
+      }
+
+      .seek-wrap {
+        padding: 6px 8px;
+      }
+
+      .dock-controls {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .dock-controls .btn {
+        padding: 9px 6px;
+        font-size: 12px;
+      }
+
+      #btnShuffle {
+        display: none;
+      }
+
+      .volume-wrap {
+        grid-column: span 3;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .cover-row {
+        grid-template-columns: 72px minmax(0, 1fr);
+      }
+
+      .cover-wrap {
+        width: 72px;
+        height: 72px;
+      }
+
+      .meta h1 {
+        font-size: 18px;
+      }
+
+      .track-chip {
+        max-width: 112px;
+      }
+    }
+
+    @media (max-width: 980px) and (max-height: 520px) and (orientation: landscape) {
+      .shell {
+        max-width: none;
+        padding: 8px;
+      }
+
+      .cover-row {
+        grid-template-columns: 76px minmax(0, 1fr);
+      }
+
+      .cover-wrap {
+        width: 76px;
+        height: 76px;
+        border-radius: 10px;
+      }
+
+      .meta h1 {
+        font-size: 18px;
+        -webkit-line-clamp: 1;
+      }
+
+      .meta .artist {
+        font-size: 14px;
+      }
+
+      .track-history,
+      .artist-insights {
+        display: none;
+      }
+
+      .queue-carousel {
+        display: none;
+      }
+
+      .queue-list {
+        max-height: 180px;
+      }
+
+      .dock {
+        padding: 7px;
+        gap: 6px;
+      }
+
+      .seek-wrap {
+        padding: 5px 7px;
+      }
+
+      .dock-controls {
+        grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(120px, 1fr);
+        gap: 5px;
+      }
+
+      .dock-controls .btn {
+        padding: 8px 5px;
+        font-size: 11px;
+      }
+
+      #btnShuffle {
+        display: none;
+      }
+
+      .volume-wrap {
+        grid-column: auto;
+        padding: 6px 7px;
+      }
+
+      .volume-wrap .small {
+        display: none;
+      }
+    }
   </style>
 </head>
 <body>
@@ -816,15 +1471,15 @@ String buildLocalConnectWebPage() {
     <header class="card topbar">
       <div class="brand">
         <span class="brand-dot"></span>
-        <span>Listenfy Local Connect</span>
+        <span>${_htmlText(i18n, 'title')}</span>
       </div>
-      <span id="pairingState" class="status-pill unpaired">Not paired</span>
+      <span id="pairingState" class="status-pill unpaired">${_htmlText(i18n, 'notPaired')}</span>
     </header>
 
     <section class="card pairing" id="pairingCard">
-      <div class="pairing-title">Pairing required</div>
-      <div class="small">Request access from this browser and approve on your phone.</div>
-      <button id="btnPair" class="btn btn-primary">Request pairing</button>
+      <div class="pairing-title">${_htmlText(i18n, 'pairingRequired')}</div>
+      <div class="small">${_htmlText(i18n, 'pairingInstructions')}</div>
+      <button id="btnPair" class="btn btn-primary">${_htmlText(i18n, 'requestPairing')}</button>
       <span id="pairingInfo" class="small"></span>
     </section>
 
@@ -835,31 +1490,70 @@ String buildLocalConnectWebPage() {
             <img id="cover" class="cover" alt="Cover" />
           </div>
           <div class="meta">
-            <h1 id="title">No track</h1>
+            <div class="eyebrow">${_htmlText(i18n, 'remoteSession')}</div>
+            <h1 id="title">${_htmlText(i18n, 'noTrack')}</h1>
             <p id="artist" class="artist">—</p>
-            <p id="album" class="album">Info: —</p>
-            <div id="playbackState" class="state">Waiting session</div>
+            <p id="album" class="album">${_htmlText(i18n, 'info')}: —</p>
+            <div id="playbackState" class="state">${_htmlText(i18n, 'waitingSession')}</div>
+            <div class="track-chips">
+              <span id="chipSpeed" class="track-chip strong">1.00x</span>
+              <span id="chipSource" class="track-chip">${_htmlText(i18n, 'source')}: —</span>
+              <span id="chipFavorite" class="track-chip">${_htmlText(i18n, 'notFavorite')}</span>
+            </div>
           </div>
         </div>
 
         <div class="stats">
           <div class="stat">
-            <div class="stat-label">Current Time</div>
+            <div class="stat-label">${_htmlText(i18n, 'currentTime')}</div>
             <div id="statCurrent" class="stat-value">00:00</div>
           </div>
           <div class="stat">
-            <div class="stat-label">Duration</div>
+            <div class="stat-label">${_htmlText(i18n, 'duration')}</div>
             <div id="statDuration" class="stat-value">00:00</div>
           </div>
           <div class="stat">
-            <div class="stat-label">Queue Position</div>
+            <div class="stat-label">${_htmlText(i18n, 'queuePosition')}</div>
             <div id="statQueuePos" class="stat-value">-</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">${_htmlText(i18n, 'progress')}</div>
+            <div id="statProgress" class="stat-value accent">0%</div>
           </div>
         </div>
 
+        <section class="track-history">
+          <div class="track-history-head">
+            <h3>${_htmlText(i18n, 'trackHistory')}</h3>
+            <span id="trackHistoryNote" class="artist-insight-pill">${_htmlText(i18n, 'realAppData')}</span>
+          </div>
+          <div class="track-history-grid">
+            <div class="track-history-card">
+              <span class="track-history-label">${_htmlText(i18n, 'plays')}</span>
+              <strong id="trackPlays" class="track-history-value">0</strong>
+            </div>
+            <div class="track-history-card">
+              <span class="track-history-label">${_htmlText(i18n, 'completed')}</span>
+              <strong id="trackCompleted" class="track-history-value">0</strong>
+            </div>
+            <div class="track-history-card">
+              <span class="track-history-label">${_htmlText(i18n, 'skips')}</span>
+              <strong id="trackSkips" class="track-history-value">0</strong>
+            </div>
+            <div class="track-history-card">
+              <span class="track-history-label">${_htmlText(i18n, 'retention')}</span>
+              <strong id="trackRetention" class="track-history-value">-</strong>
+            </div>
+            <div class="track-history-card">
+              <span class="track-history-label">${_htmlText(i18n, 'lastPlayed')}</span>
+              <strong id="trackLastPlayed" class="track-history-value">-</strong>
+            </div>
+          </div>
+        </section>
+
         <section class="artist-insights">
           <div class="artist-head">
-            <h3>Artist Data</h3>
+            <h3>${_htmlText(i18n, 'artistData')}</h3>
             <span id="artistInsightCount" class="artist-insight-pill">-</span>
           </div>
           <div class="artist-profile">
@@ -868,36 +1562,44 @@ String buildLocalConnectWebPage() {
               <span id="artistAvatarFallback" class="artist-profile-avatar-fallback">--</span>
             </div>
             <div class="artist-profile-meta">
-              <div id="artistProfileName" class="artist-profile-name">Artista desconocido</div>
-              <div id="artistProfileType" class="artist-profile-line">Tipo: desconocido</div>
-              <div id="artistProfileSource" class="artist-profile-line">Fuente: —</div>
+              <div id="artistProfileName" class="artist-profile-name">${_htmlText(i18n, 'unknownArtist')}</div>
+              <div id="artistProfileType" class="artist-profile-line">${_htmlText(i18n, 'type')}: ${_htmlText(i18n, 'unknown')}</div>
+              <div id="artistProfileSource" class="artist-profile-line">${_htmlText(i18n, 'source')}: —</div>
             </div>
           </div>
           <div class="artist-kpis">
             <div class="artist-kpi">
-              <span class="artist-kpi-label">Tracks in queue</span>
+              <span class="artist-kpi-label">${_htmlText(i18n, 'queueTracks')}</span>
               <strong id="artistTracksByArtist" class="artist-kpi-value">0</strong>
             </div>
             <div class="artist-kpi">
-              <span class="artist-kpi-label">Total plays</span>
+              <span class="artist-kpi-label">${_htmlText(i18n, 'queuePlays')}</span>
               <strong id="artistAlbumsCount" class="artist-kpi-value">0</strong>
             </div>
             <div class="artist-kpi">
-              <span class="artist-kpi-label">Avg completion</span>
+              <span class="artist-kpi-label">${_htmlText(i18n, 'queueCompletes')}</span>
+              <strong id="artistCompletedCount" class="artist-kpi-value">0</strong>
+            </div>
+            <div class="artist-kpi">
+              <span class="artist-kpi-label">${_htmlText(i18n, 'queueSkips')}</span>
+              <strong id="artistSkipCount" class="artist-kpi-value">0</strong>
+            </div>
+            <div class="artist-kpi">
+              <span class="artist-kpi-label">${_htmlText(i18n, 'queueAvg')}</span>
               <strong id="artistTotalDuration" class="artist-kpi-value">0%</strong>
             </div>
           </div>
-          <div class="artist-subhead">Next tracks by this artist</div>
+          <div class="artist-subhead">${_htmlText(i18n, 'nextTracksByArtist')}</div>
           <ul id="artistNextList" class="artist-next-list">
-            <li class="artist-next-empty">No artist data available yet.</li>
+            <li class="artist-next-empty">${_htmlText(i18n, 'noArtistDataYet')}</li>
           </ul>
         </section>
       </section>
 
       <section class="card queue-panel">
         <div class="queue-head">
-          <h2>Queue</h2>
-          <span id="queueCount" class="queue-count">0 tracks</span>
+          <h2>${_htmlText(i18n, 'queue')}</h2>
+          <span id="queueCount" class="queue-count">0 ${_htmlText(i18n, 'tracks')}</span>
         </div>
         <div id="queueCarousel" class="queue-carousel"></div>
         <ul id="queueList" class="queue-list"></ul>
@@ -914,14 +1616,14 @@ String buildLocalConnectWebPage() {
       </div>
 
       <div class="dock-controls">
-        <button id="btnPrev" class="btn">Previous</button>
-        <button id="btnPlayPause" class="btn btn-primary">Play</button>
-        <button id="btnNext" class="btn">Next</button>
-        <button id="btnShuffle" class="btn">Shuffle</button>
+        <button id="btnPrev" class="btn">${_htmlText(i18n, 'previous')}</button>
+        <button id="btnPlayPause" class="btn btn-primary">${_htmlText(i18n, 'play')}</button>
+        <button id="btnNext" class="btn">${_htmlText(i18n, 'next')}</button>
+        <button id="btnShuffle" class="btn">${_htmlText(i18n, 'shuffle')}</button>
         <button id="btnSeekBack" class="btn">-10s</button>
         <button id="btnSeekFwd" class="btn">+10s</button>
         <div class="volume-wrap">
-          <span class="small">Volume</span>
+          <span class="small">${_htmlText(i18n, 'volume')}</span>
           <input id="volumeBar" type="range" min="0" max="100" value="100" />
         </div>
       </div>
@@ -931,6 +1633,15 @@ String buildLocalConnectWebPage() {
   </div>
 
   <script>
+    const i18n = ${jsonEncode(i18n)};
+    function t(key) {
+      return i18n[key] || key;
+    }
+
+    function plural(count, singularKey, pluralKey) {
+      return Number(count) === 1 ? t(singularKey) : t(pluralKey);
+    }
+
     const state = {
       token: localStorage.getItem("listenfy_local_token") || "",
       clientId: localStorage.getItem("listenfy_local_client_id") || "",
@@ -940,7 +1651,7 @@ String buildLocalConnectWebPage() {
       sessionPollTimer: null,
       healthPollTimer: null,
       pairingPollTimer: null,
-      playback: { positionMs: 0, durationMs: 0, isPlaying: false, isBuffering: false, volume: 1, shuffleEnabled: false },
+      playback: { positionMs: 0, durationMs: 0, isPlaying: false, isBuffering: false, speed: 1, volume: 1, shuffleEnabled: false },
       queue: [],
       currentQueueIndex: 0,
       currentTrackId: "",
@@ -985,9 +1696,21 @@ String buildLocalConnectWebPage() {
       statCurrent: document.getElementById("statCurrent"),
       statDuration: document.getElementById("statDuration"),
       statQueuePos: document.getElementById("statQueuePos"),
+      statProgress: document.getElementById("statProgress"),
+      chipSpeed: document.getElementById("chipSpeed"),
+      chipSource: document.getElementById("chipSource"),
+      chipFavorite: document.getElementById("chipFavorite"),
+      trackHistoryNote: document.getElementById("trackHistoryNote"),
+      trackPlays: document.getElementById("trackPlays"),
+      trackCompleted: document.getElementById("trackCompleted"),
+      trackSkips: document.getElementById("trackSkips"),
+      trackRetention: document.getElementById("trackRetention"),
+      trackLastPlayed: document.getElementById("trackLastPlayed"),
       artistInsightCount: document.getElementById("artistInsightCount"),
       artistTracksByArtist: document.getElementById("artistTracksByArtist"),
       artistAlbumsCount: document.getElementById("artistAlbumsCount"),
+      artistCompletedCount: document.getElementById("artistCompletedCount"),
+      artistSkipCount: document.getElementById("artistSkipCount"),
       artistTotalDuration: document.getElementById("artistTotalDuration"),
       artistNextList: document.getElementById("artistNextList"),
       seekBar: document.getElementById("seekBar"),
@@ -1013,10 +1736,74 @@ String buildLocalConnectWebPage() {
       return m + ":" + s;
     }
 
+    function formatSpeed(value) {
+      const speed = clampPlaybackSpeed(value);
+      return speed.toFixed(speed === Math.round(speed) ? 0 : 2) + "x";
+    }
+
+    function formatPercentRatio(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return "-";
+      return Math.round(Math.max(0, Math.min(1, n)) * 100) + "%";
+    }
+
+    function formatCompactDate(timestampMs) {
+      const raw = Number(timestampMs || 0);
+      if (!Number.isFinite(raw) || raw <= 0) return "-";
+      const date = new Date(raw);
+      if (Number.isNaN(date.getTime())) return "-";
+      const now = Date.now();
+      const diffMs = Math.max(0, now - date.getTime());
+      const minute = 60 * 1000;
+      const hour = 60 * minute;
+      const day = 24 * hour;
+      if (diffMs < hour) {
+        const mins = Math.max(1, Math.round(diffMs / minute));
+        return mins + "m ago";
+      }
+      if (diffMs < day) {
+        const hours = Math.max(1, Math.round(diffMs / hour));
+        return hours + "h ago";
+      }
+      if (diffMs < 7 * day) {
+        const days = Math.max(1, Math.round(diffMs / day));
+        return days + "d ago";
+      }
+      return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    }
+
     function clamp01(value) {
       const n = Number(value);
       if (!Number.isFinite(n)) return 1;
       return Math.max(0, Math.min(1, n));
+    }
+
+    function clampPlaybackSpeed(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n) || n <= 0) return 1;
+      return Math.max(0.25, Math.min(4, n));
+    }
+
+    function applyAudioPlaybackSpeed() {
+      const safeSpeed = clampPlaybackSpeed(state.playback.speed);
+      state.playback.speed = safeSpeed;
+      if (Math.abs(Number(el.audioPlayer.playbackRate || 1) - safeSpeed) < 0.001) return;
+      el.audioPlayer.playbackRate = safeSpeed;
+    }
+
+    function normalizedListenProgress(item) {
+      const raw = Number(item?.avgListenProgress);
+      if (!Number.isFinite(raw) || raw <= 0) return null;
+      if (raw <= 1) return Math.max(0, Math.min(1, raw));
+      if (raw <= 100) return Math.max(0, Math.min(1, raw / 100));
+      return null;
+    }
+
+    function hasListenSample(item) {
+      const plays = Number(item?.playCount || 0);
+      const completed = Number(item?.fullListenCount || 0);
+      const skips = Number(item?.skipCount || 0);
+      return plays > 0 || completed > 0 || skips > 0 || normalizedListenProgress(item) != null;
     }
 
     function detectBrowserName(ua) {
@@ -1186,10 +1973,10 @@ String buildLocalConnectWebPage() {
         parts.push(country);
       }
       if (track?.isFavorite === true) {
-        parts.push("favorite");
+        parts.push(t("favorite").toLowerCase());
       }
 
-      return parts.length > 0 ? "Info: " + parts.join(" · ") : "Info: —";
+      return parts.length > 0 ? t("info") + ": " + parts.join(" · ") : t("info") + ": —";
     }
 
     function artistInitials(name) {
@@ -1204,12 +1991,12 @@ String buildLocalConnectWebPage() {
 
     function inferArtistType(name) {
       const normalized = String(name || "").trim().toLowerCase();
-      if (!normalized) return "desconocido";
+      if (!normalized) return t("unknown");
 
       const collabHints = [" feat ", " ft ", " x ", " & ", ",", " and ", " y ", " con "];
       for (const hint of collabHints) {
         if (normalized.includes(hint)) {
-          return "colaboracion / varios artistas";
+          return t("artistKindCollab");
         }
       }
 
@@ -1231,17 +2018,17 @@ String buildLocalConnectWebPage() {
       ];
       for (const hint of groupHints) {
         if (normalized.includes(hint)) {
-          return "dueto, banda o grupo musical";
+          return t("artistKindBand");
         }
       }
 
-      return "soloist, DJ, or musician";
+      return t("artistKindSoloist");
     }
 
     function formatArtistKind(kind) {
       const value = String(kind || "").trim().toLowerCase();
-      if (value === "band") return "Dueto, banda o grupo musical";
-      if (value === "singer") return "Soloist, DJ, or musician";
+      if (value === "band") return t("artistKindBand");
+      if (value === "singer") return t("artistKindSoloist");
       return "";
     }
 
@@ -1438,7 +2225,7 @@ String buildLocalConnectWebPage() {
 
     function renderArtistProfile(track) {
       const profile = track?.artistProfile || null;
-      const artistName = String(profile?.displayName || track?.artist || "").trim() || "Artista desconocido";
+      const artistName = String(profile?.displayName || track?.artist || "").trim() || t("unknownArtist");
       const source = String(track?.source || "").trim();
       const origin = String(track?.origin || "").trim();
       const sourceLabel = source || origin
@@ -1450,7 +2237,7 @@ String buildLocalConnectWebPage() {
       const hasProfileKind = kindFromProfile.length > 0;
       const typeLine = hasProfileKind
         ? kindFromProfile
-        : "Tipo (estimado): " + inferArtistType(artistName);
+        : t("estimatedType") + ": " + inferArtistType(artistName);
       const flag = flagFromCountryCode(profile?.countryCode);
       const countryName = String(profile?.country || track?.country || "").trim();
       const typeWithCountry = (hasProfileKind && (flag || countryName))
@@ -1467,13 +2254,13 @@ String buildLocalConnectWebPage() {
       const memberCountRaw = Number(profile?.memberCount);
       const memberCount = Number.isFinite(memberCountRaw) ? Math.max(0, Math.floor(memberCountRaw)) : 0;
       const detailParts = [];
-      if (tracksByArtist > 0) detailParts.push(tracksByArtist + " canciones");
+      if (tracksByArtist > 0) detailParts.push(tracksByArtist + " " + plural(tracksByArtist, "track", "tracks"));
       if (String(profile?.kind || "").toLowerCase() === "band" && memberCount > 0) {
-        detailParts.push(memberCount + " integrantes");
+        detailParts.push(memberCount + " " + plural(memberCount, "member", "members"));
       }
       const secondaryLine = detailParts.length > 0
         ? detailParts.join(" · ")
-        : "Fuente: " + sourceLabel;
+        : t("source") + ": " + sourceLabel;
 
       el.artistProfileName.textContent = artistName;
       el.artistProfileType.textContent = typeWithCountry;
@@ -1537,7 +2324,7 @@ String buildLocalConnectWebPage() {
         if (response?.status === "already_paired" && response?.token) {
           setToken(response.token);
           state.waitingPairing = false;
-          el.pairingInfo.textContent = "Pairing approved.";
+          el.pairingInfo.textContent = t("pairingApproved");
           stopPairingPolling();
           if (response?.session) {
             renderNowPlaying(response.session);
@@ -1563,7 +2350,7 @@ String buildLocalConnectWebPage() {
         }
         state.pairingPollTicks += 1;
         if (state.pairingPollTicks >= 10) {
-          el.pairingInfo.textContent = "Waiting for approval on your phone...";
+          el.pairingInfo.textContent = t("waitingApprovalPhone");
         }
         checkPairingStatus();
       }, 1500);
@@ -1573,41 +2360,77 @@ String buildLocalConnectWebPage() {
       if (state.token) {
         el.pairingState.className = "status-pill paired";
         if (state.syncUnstable) {
-          el.pairingState.textContent = "Paired · Syncing…";
+          el.pairingState.textContent = t("pairedSyncing");
         } else if (state.wsConnected) {
-          el.pairingState.textContent = "Paired · Live";
+          el.pairingState.textContent = t("pairedLive");
         } else {
-          el.pairingState.textContent = "Paired · Reconnecting";
+          el.pairingState.textContent = t("pairedReconnecting");
         }
         el.pairingCard.style.display = "none";
       } else {
         el.pairingState.className = "status-pill unpaired";
-        el.pairingState.textContent = state.waitingPairing ? "Waiting approval" : "Not paired";
+        el.pairingState.textContent = state.waitingPairing ? t("waitingApproval") : t("notPaired");
         el.pairingCard.style.display = "grid";
       }
     }
 
     function updatePlaybackStateBadge() {
       if (state.playback.isBuffering) {
-        el.playbackState.textContent = "Buffering";
+        el.playbackState.textContent = t("buffering");
         return;
       }
       if (state.playback.isPlaying) {
-        el.playbackState.textContent = "Playing";
+        el.playbackState.textContent = t("playing");
         return;
       }
-      el.playbackState.textContent = "Paused";
+      el.playbackState.textContent = t("paused");
     }
 
     function updateShuffleButton() {
       const enabled = !!state.playback.shuffleEnabled;
-      el.btnShuffle.textContent = enabled ? "Shuffle On" : "Shuffle Off";
+      el.btnShuffle.textContent = enabled ? t("shuffleOn") : t("shuffleOff");
       el.btnShuffle.classList.toggle("btn-toggle-active", enabled);
+    }
+
+    function updateTrackChips(track) {
+      el.chipSpeed.textContent = formatSpeed(state.playback.speed);
+
+      const source = String(track?.source || track?.origin || "").trim();
+      const format = String(track?.format || "").trim();
+      const sourceParts = [];
+      if (source) sourceParts.push(source);
+      if (format) sourceParts.push(format.toUpperCase());
+      el.chipSource.textContent = sourceParts.length > 0
+        ? t("source") + ": " + sourceParts.join(" · ")
+        : t("source") + ": —";
+
+      const isFavorite = track?.isFavorite === true;
+      el.chipFavorite.textContent = isFavorite ? t("favorite") : t("notFavorite");
+      el.chipFavorite.classList.toggle("strong", isFavorite);
+    }
+
+    function updateTrackHistory(track) {
+      const plays = Math.max(0, Math.floor(Number(track?.playCount || 0)));
+      const completed = Math.max(0, Math.floor(Number(track?.fullListenCount || 0)));
+      const skips = Math.max(0, Math.floor(Number(track?.skipCount || 0)));
+      const retention = normalizedListenProgress(track);
+      const hasHistory = hasListenSample(track);
+
+      el.trackPlays.textContent = String(plays);
+      el.trackCompleted.textContent = String(completed);
+      el.trackSkips.textContent = String(skips);
+      el.trackRetention.textContent = retention == null ? "-" : formatPercentRatio(retention);
+      el.trackLastPlayed.textContent = formatCompactDate(track?.lastPlayedAt);
+      el.trackHistoryNote.textContent = hasHistory ? t("realAppData") : t("noHistoryYet");
     }
 
     function updateStatCards() {
       el.statCurrent.textContent = formatMs(state.playback.positionMs);
       el.statDuration.textContent = formatMs(state.playback.durationMs);
+      const progress = state.playback.durationMs > 0
+        ? state.playback.positionMs / state.playback.durationMs
+        : 0;
+      el.statProgress.textContent = formatPercentRatio(progress);
       if (state.queue.length > 0) {
         const pos = state.currentQueueIndex + 1;
         el.statQueuePos.textContent = pos + " / " + state.queue.length;
@@ -1625,8 +2448,10 @@ String buildLocalConnectWebPage() {
         el.artistInsightCount.textContent = "-";
         el.artistTracksByArtist.textContent = "0";
         el.artistAlbumsCount.textContent = "0";
-        el.artistTotalDuration.textContent = "0%";
-        el.artistNextList.innerHTML = "<li class=\\"artist-next-empty\\">No artist info available for this track.</li>";
+        el.artistCompletedCount.textContent = "0";
+        el.artistSkipCount.textContent = "0";
+        el.artistTotalDuration.textContent = "-";
+        el.artistNextList.innerHTML = "<li class=\\"artist-next-empty\\">" + escapeHtml(t("noArtistInfoForTrack")) + "</li>";
         return;
       }
 
@@ -1639,15 +2464,19 @@ String buildLocalConnectWebPage() {
       });
 
       let totalPlays = 0;
+      let totalCompleted = 0;
+      let totalSkips = 0;
       let totalCompletion = 0;
       let completionSamples = 0;
       let favoriteCount = 0;
       const sourceSet = new Set();
       for (const entry of sameArtistEntries) {
         totalPlays += Number(entry.item?.playCount || 0);
-        const completion = Number(entry.item?.avgListenProgress);
-        if (Number.isFinite(completion)) {
-          totalCompletion += Math.max(0, Math.min(1, completion));
+        totalCompleted += Number(entry.item?.fullListenCount || 0);
+        totalSkips += Number(entry.item?.skipCount || 0);
+        const completion = normalizedListenProgress(entry.item);
+        if (hasListenSample(entry.item) && completion != null) {
+          totalCompletion += completion;
           completionSamples += 1;
         }
         if (entry.item?.isFavorite === true) favoriteCount += 1;
@@ -1655,15 +2484,19 @@ String buildLocalConnectWebPage() {
         if (source) sourceSet.add(source);
       }
 
-      const avgCompletion = completionSamples > 0 ? (totalCompletion / completionSamples) : 0;
+      const avgCompletion = completionSamples > 0 ? (totalCompletion / completionSamples) : null;
       const sourceLabel = sourceSet.size > 0
         ? Array.from(sourceSet).join(" / ")
-        : "unknown source";
+        : t("unknownSource");
 
-      el.artistInsightCount.textContent = sameArtistEntries.length + " tracks · " + favoriteCount + " fav · " + sourceLabel;
+      el.artistInsightCount.textContent = sameArtistEntries.length + " " + plural(sameArtistEntries.length, "track", "tracks") + " · " + favoriteCount + " " + t("favShort") + " · " + sourceLabel;
       el.artistTracksByArtist.textContent = String(sameArtistEntries.length);
       el.artistAlbumsCount.textContent = String(totalPlays);
-      el.artistTotalDuration.textContent = Math.round(avgCompletion * 100) + "%";
+      el.artistCompletedCount.textContent = String(totalCompleted);
+      el.artistSkipCount.textContent = String(totalSkips);
+      el.artistTotalDuration.textContent = avgCompletion == null
+        ? "-"
+        : formatPercentRatio(avgCompletion);
 
       const upcoming = sameArtistEntries
         .filter((entry) => entry.index > state.currentQueueIndex)
@@ -1673,17 +2506,19 @@ String buildLocalConnectWebPage() {
       if (upcoming.length === 0) {
         const emptyItem = document.createElement("li");
         emptyItem.className = "artist-next-empty";
-        emptyItem.textContent = "No more tracks from this artist in the current queue.";
+        emptyItem.textContent = t("noMoreArtistTracks");
         el.artistNextList.appendChild(emptyItem);
         return;
       }
 
       upcoming.forEach(({ item, index, relation }) => {
-        const title = escapeHtml(item?.title || "Unknown");
-        const source = escapeHtml(String(item?.source || "").trim() || "source unknown");
+        const title = escapeHtml(item?.title || t("unknown"));
+        const source = escapeHtml(String(item?.source || "").trim() || t("unknownSource"));
         const plays = Number(item?.playCount || 0);
-        const roleLabel = relation?.isCollaboration ? "feat/collab" : "principal";
-        const subtitle = source + " · " + roleLabel + " · " + plays + (plays === 1 ? " play" : " plays");
+        const completion = normalizedListenProgress(item);
+        const roleLabel = relation?.isCollaboration ? t("roleCollab") : t("rolePrincipal");
+        const completionLabel = completion == null ? t("noRetention") : formatPercentRatio(completion);
+        const subtitle = source + " · " + roleLabel + " · " + plays + " " + plural(plays, "playUnit", "playsUnit") + " · " + completionLabel;
         const li = document.createElement("li");
         li.className = "artist-next-item";
         li.innerHTML =
@@ -1723,6 +2558,9 @@ String buildLocalConnectWebPage() {
         durationMs: playback.durationMs || 0,
         isPlaying: !!playback.isPlaying,
         isBuffering: !!playback.isBuffering,
+        speed: typeof playback.speed === "number"
+          ? clampPlaybackSpeed(playback.speed)
+          : clampPlaybackSpeed(state.playback.speed),
         volume: typeof playback.volume === "number" ? playback.volume : 1,
         shuffleEnabled: typeof playback.shuffleEnabled === "boolean"
           ? playback.shuffleEnabled
@@ -1732,7 +2570,7 @@ String buildLocalConnectWebPage() {
       state.currentQueueIndex = normalizedQueueIndex;
       state.currentTrackId = nextTrackId;
 
-      el.title.textContent = track?.title || "No track";
+      el.title.textContent = track?.title || t("noTrack");
       el.artist.textContent = track?.artist || "—";
       el.album.textContent = buildTrackInfoLine(track);
       renderArtistProfile(track);
@@ -1756,8 +2594,11 @@ String buildLocalConnectWebPage() {
       const safeVolume = clamp01(state.playback.volume || 1);
       el.volumeBar.value = Math.round(safeVolume * 100);
       el.audioPlayer.volume = safeVolume;
-      el.btnPlayPause.textContent = state.playback.isPlaying ? "Pause" : "Play";
+      applyAudioPlaybackSpeed();
+      el.btnPlayPause.textContent = state.playback.isPlaying ? t("pause") : t("play");
       updateShuffleButton();
+      updateTrackChips(track);
+      updateTrackHistory(track);
 
       updatePlaybackStateBadge();
       updateStatCards();
@@ -1779,7 +2620,7 @@ String buildLocalConnectWebPage() {
       const indexChanged = state.currentQueueIndex !== state.lastRenderedQueueIndex;
       const trackChanged = state.currentTrackId !== state.lastRenderedTrackId;
 
-      const countLabel = state.queue.length + " track" + (state.queue.length === 1 ? "" : "s");
+      const countLabel = state.queue.length + " " + plural(state.queue.length, "track", "tracks");
       el.queueCount.textContent = countLabel;
 
       if (!queueChanged && !indexChanged && !trackChanged) {
@@ -1799,8 +2640,8 @@ String buildLocalConnectWebPage() {
           "<div class=\\"queue-item-main\\">"
           + "<span class=\\"queue-item-index\\">" + state.queue.length + "</span>"
           + "<div class=\\"queue-item-text\\">"
-          + "<div class=\\"queue-item-title\\">Large queue optimized</div>"
-          + "<div class=\\"queue-item-sub\\">Showing tracks around the current song</div>"
+          + "<div class=\\"queue-item-title\\">" + escapeHtml(t("largeQueueOptimized")) + "</div>"
+          + "<div class=\\"queue-item-sub\\">" + escapeHtml(t("showingAroundCurrent")) + "</div>"
           + "</div>"
           + "</div>";
         el.queueList.appendChild(head);
@@ -1810,7 +2651,7 @@ String buildLocalConnectWebPage() {
         const item = entry.item;
         const i = entry.index;
         const isActive = i === state.currentQueueIndex;
-        const title = escapeHtml(item.title || "Unknown");
+        const title = escapeHtml(item.title || t("unknown"));
         const artist = escapeHtml(item.artist || "—");
         const coverUrl = queueCoverUrl(item, i);
 
@@ -1893,6 +2734,7 @@ String buildLocalConnectWebPage() {
         state.currentAudioSrc = src;
         el.audioPlayer.src = src;
       }
+      applyAudioPlaybackSpeed();
       syncAudioClockWithState(false);
       if (state.playback.isPlaying) {
         el.audioPlayer.play().catch(() => {});
@@ -1922,7 +2764,7 @@ String buildLocalConnectWebPage() {
     async function requestPairing() {
       state.waitingPairing = true;
       updatePairingUi();
-      el.pairingInfo.textContent = "Sending request...";
+      el.pairingInfo.textContent = t("sendingRequest");
       try {
         const response = await api("/api/pairing/request", "POST", {
           clientId: state.clientId,
@@ -1931,7 +2773,7 @@ String buildLocalConnectWebPage() {
         if (response?.status === "already_paired" && response?.token) {
           setToken(response.token);
           state.waitingPairing = false;
-          el.pairingInfo.textContent = "Already paired.";
+          el.pairingInfo.textContent = t("alreadyPaired");
           if (response?.session) {
             renderNowPlaying(response.session);
           } else {
@@ -1939,12 +2781,12 @@ String buildLocalConnectWebPage() {
           }
           connectWs();
         } else {
-          el.pairingInfo.textContent = "Request sent. Approve on your phone.";
+          el.pairingInfo.textContent = t("requestSent");
           startPairingPolling();
           checkPairingStatus();
         }
       } catch (e) {
-        el.pairingInfo.textContent = "Could not request pairing.";
+        el.pairingInfo.textContent = t("couldNotRequestPairing");
         state.waitingPairing = false;
         console.warn("[LocalConnect] Pairing request failed", e);
       }
@@ -1979,13 +2821,13 @@ String buildLocalConnectWebPage() {
           state.currentAudioSrc = "";
           state.waitingPairing = false;
           stopPairingPolling();
-          el.pairingInfo.textContent = "Session expired. Request pairing again.";
+          el.pairingInfo.textContent = t("sessionExpired");
           updatePairingUi();
           return;
         }
 
         state.syncUnstable = true;
-        el.pairingInfo.textContent = "Sync unstable. Reconnecting…";
+        el.pairingInfo.textContent = t("syncUnstable");
         scheduleWsReconnect(500);
         updatePairingUi();
         console.warn("[LocalConnect] Session load failed", e);
@@ -2043,7 +2885,7 @@ String buildLocalConnectWebPage() {
             setToken("");
             state.waitingPairing = false;
             stopPairingPolling();
-            el.pairingInfo.textContent = "Session ended on phone.";
+            el.pairingInfo.textContent = t("sessionEnded");
             updatePairingUi();
             break;
           case "pairingApproved":
@@ -2058,7 +2900,14 @@ String buildLocalConnectWebPage() {
           case "pairingRejected":
             state.waitingPairing = false;
             stopPairingPolling();
-            el.pairingInfo.textContent = "Pairing rejected on phone.";
+            el.pairingInfo.textContent = t("pairingRejected");
+            updatePairingUi();
+            break;
+          case "sessionRevoked":
+            setToken("");
+            state.waitingPairing = false;
+            stopPairingPolling();
+            el.pairingInfo.textContent = t("sessionRevoked");
             updatePairingUi();
             break;
           case "currentTrackChanged":
@@ -2079,15 +2928,20 @@ String buildLocalConnectWebPage() {
               state.playback.durationMs = msg.payload.durationMs || 0;
               state.playback.isPlaying = !!msg.payload.isPlaying;
               state.playback.isBuffering = !!msg.payload.isBuffering;
+              if (typeof msg.payload.speed === "number") {
+                state.playback.speed = clampPlaybackSpeed(msg.payload.speed);
+              }
               if (typeof msg.payload.shuffleEnabled === "boolean") {
                 state.playback.shuffleEnabled = msg.payload.shuffleEnabled;
               }
+              applyAudioPlaybackSpeed();
+              el.chipSpeed.textContent = formatSpeed(state.playback.speed);
               el.timeCurrent.textContent = formatMs(state.playback.positionMs);
               el.timeDuration.textContent = formatMs(state.playback.durationMs);
               el.seekBar.value = state.playback.durationMs > 0
                 ? Math.floor((state.playback.positionMs / state.playback.durationMs) * 1000)
                 : 0;
-              el.btnPlayPause.textContent = state.playback.isPlaying ? "Pause" : "Play";
+              el.btnPlayPause.textContent = state.playback.isPlaying ? t("pause") : t("play");
               updateShuffleButton();
               updatePlaybackStateBadge();
               updateStatCards();
@@ -2166,7 +3020,7 @@ String buildLocalConnectWebPage() {
           setToken("");
           state.waitingPairing = false;
           stopPairingPolling();
-          el.pairingInfo.textContent = "Session expired. Request pairing again.";
+          el.pairingInfo.textContent = t("sessionExpired");
           updatePairingUi();
         }
         return false;
@@ -2273,12 +3127,12 @@ String buildLocalConnectWebPage() {
     });
     el.audioPlayer.addEventListener("play", () => {
       state.playback.isPlaying = true;
-      el.btnPlayPause.textContent = "Pause";
+      el.btnPlayPause.textContent = t("pause");
       updatePlaybackStateBadge();
     });
     el.audioPlayer.addEventListener("pause", () => {
       state.playback.isPlaying = false;
-      el.btnPlayPause.textContent = "Play";
+      el.btnPlayPause.textContent = t("play");
       updatePlaybackStateBadge();
     });
 
@@ -2303,7 +3157,7 @@ String buildLocalConnectWebPage() {
         }
 
         state.syncUnstable = true;
-        el.pairingInfo.textContent = "Sync unstable. Reconnecting…";
+        el.pairingInfo.textContent = t("syncUnstable");
         updatePairingUi();
 
         if (wsStale) {
@@ -2329,3 +3183,92 @@ String buildLocalConnectWebPage() {
 </html>
 ''';
 }
+
+String _htmlText(Map<String, String> i18n, String key) {
+  return htmlEscape.convert(i18n[key] ?? _localConnectWebFallbacks[key] ?? key);
+}
+
+const Map<String, String> _localConnectWebFallbacks = <String, String>{
+  'title': 'Listenfy Local Connect',
+  'notPaired': 'Not paired',
+  'pairingRequired': 'Pairing required',
+  'pairingInstructions':
+      'Request access from this browser and approve on your phone.',
+  'requestPairing': 'Request pairing',
+  'remoteSession': 'Remote session',
+  'noTrack': 'No track',
+  'info': 'Info',
+  'waitingSession': 'Waiting session',
+  'source': 'Source',
+  'notFavorite': 'Not favorite',
+  'favorite': 'Favorite',
+  'currentTime': 'Current Time',
+  'duration': 'Duration',
+  'queuePosition': 'Queue Position',
+  'progress': 'Progress',
+  'trackHistory': 'Track history',
+  'realAppData': 'Real app data',
+  'noHistoryYet': 'No history yet',
+  'plays': 'Plays',
+  'completed': 'Completed',
+  'skips': 'Skips',
+  'retention': 'Retention',
+  'lastPlayed': 'Last played',
+  'artistData': 'Artist Data',
+  'unknownArtist': 'Unknown artist',
+  'unknown': 'Unknown',
+  'type': 'Type',
+  'queueTracks': 'Queue tracks',
+  'queuePlays': 'Queue plays',
+  'queueCompletes': 'Queue completes',
+  'queueSkips': 'Queue skips',
+  'queueAvg': 'Queue avg',
+  'nextTracksByArtist': 'Next tracks by this artist',
+  'noArtistDataYet': 'No artist data available yet.',
+  'noArtistInfoForTrack': 'No artist info available for this track.',
+  'noMoreArtistTracks': 'No more tracks from this artist in the current queue.',
+  'queue': 'Queue',
+  'track': 'track',
+  'tracks': 'tracks',
+  'playUnit': 'play',
+  'playsUnit': 'plays',
+  'previous': 'Previous',
+  'play': 'Play',
+  'pause': 'Pause',
+  'next': 'Next',
+  'shuffle': 'Shuffle',
+  'shuffleOn': 'Shuffle On',
+  'shuffleOff': 'Shuffle Off',
+  'volume': 'Volume',
+  'buffering': 'Buffering',
+  'playing': 'Playing',
+  'paused': 'Paused',
+  'pairedSyncing': 'Paired · Syncing...',
+  'pairedLive': 'Paired · Live',
+  'pairedReconnecting': 'Paired · Reconnecting',
+  'waitingApproval': 'Waiting approval',
+  'pairingApproved': 'Pairing approved.',
+  'waitingApprovalPhone': 'Waiting for approval on your phone...',
+  'sendingRequest': 'Sending request...',
+  'alreadyPaired': 'Already paired.',
+  'requestSent': 'Request sent. Approve on your phone.',
+  'couldNotRequestPairing': 'Could not request pairing.',
+  'sessionExpired': 'Session expired. Request pairing again.',
+  'syncUnstable': 'Sync unstable. Reconnecting...',
+  'sessionEnded': 'Session ended on phone.',
+  'sessionRevoked': 'Session revoked on phone.',
+  'pairingRejected': 'Pairing rejected on phone.',
+  'unknownSource': 'unknown source',
+  'favShort': 'fav',
+  'noRetention': 'no retention',
+  'roleCollab': 'feat/collab',
+  'rolePrincipal': 'principal',
+  'member': 'member',
+  'members': 'members',
+  'estimatedType': 'Estimated type',
+  'artistKindCollab': 'collaboration / multiple artists',
+  'artistKindBand': 'Duo, band, or music group',
+  'artistKindSoloist': 'Soloist, DJ, or musician',
+  'largeQueueOptimized': 'Large queue optimized',
+  'showingAroundCurrent': 'Showing tracks around the current song',
+};

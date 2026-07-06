@@ -183,6 +183,181 @@ class LocalConnectServerService extends GetxService {
     );
   }
 
+  Future<void> revokeSession(String clientId) async {
+    final session = _pairingManager.revokeSession(clientId);
+    if (session == null) return;
+    await _closeClientSession(
+      clientId: session.clientId,
+      reason: 'revoked',
+      clientName: session.clientName,
+    );
+    _refreshState();
+    Get.snackbar(
+      tr('connect.title'),
+      tr('connect.session_revoked', args: [session.clientName]),
+      snackPosition: SnackPosition.BOTTOM,
+    );
+  }
+
+  Future<void> revokeAllSessions() async {
+    final revoked = _pairingManager.revokeAllSessions();
+    if (revoked.isEmpty) return;
+    for (final session in revoked) {
+      await _closeClientSession(
+        clientId: session.clientId,
+        reason: 'revoked_all',
+        clientName: session.clientName,
+      );
+    }
+    _refreshState();
+    Get.snackbar(
+      tr('connect.title'),
+      tr('connect.all_sessions_revoked'),
+      snackPosition: SnackPosition.BOTTOM,
+    );
+  }
+
+  Map<String, String> _localConnectWebTranslations() {
+    String value(String key, String fallback) {
+      final translationKey = 'local_connect.web.$key';
+      final translated = tr(translationKey);
+      if (translated == translationKey) return fallback;
+      return translated;
+    }
+
+    return <String, String>{
+      'title': value('title', 'Listenfy Local Connect'),
+      'notPaired': value('not_paired', 'Not paired'),
+      'pairingRequired': value('pairing_required', 'Pairing required'),
+      'pairingInstructions': value(
+        'pairing_instructions',
+        'Request access from this browser and approve on your phone.',
+      ),
+      'requestPairing': value('request_pairing', 'Request pairing'),
+      'remoteSession': value('remote_session', 'Remote session'),
+      'noTrack': value('no_track', 'No track'),
+      'info': value('info', 'Info'),
+      'waitingSession': value('waiting_session', 'Waiting session'),
+      'source': value('source', 'Source'),
+      'notFavorite': value('not_favorite', 'Not favorite'),
+      'favorite': value('favorite', 'Favorite'),
+      'currentTime': value('current_time', 'Current Time'),
+      'duration': value('duration', 'Duration'),
+      'queuePosition': value('queue_position', 'Queue Position'),
+      'progress': value('progress', 'Progress'),
+      'trackHistory': value('track_history', 'Track history'),
+      'realAppData': value('real_app_data', 'Real app data'),
+      'noHistoryYet': value('no_history_yet', 'No history yet'),
+      'plays': value('plays', 'Plays'),
+      'completed': value('completed', 'Completed'),
+      'skips': value('skips', 'Skips'),
+      'retention': value('retention', 'Retention'),
+      'lastPlayed': value('last_played', 'Last played'),
+      'artistData': value('artist_data', 'Artist Data'),
+      'unknownArtist': value('unknown_artist', 'Unknown artist'),
+      'unknown': value('unknown', 'Unknown'),
+      'type': value('type', 'Type'),
+      'queueTracks': value('queue_tracks', 'Queue tracks'),
+      'queuePlays': value('queue_plays', 'Queue plays'),
+      'queueCompletes': value('queue_completes', 'Queue completes'),
+      'queueSkips': value('queue_skips', 'Queue skips'),
+      'queueAvg': value('queue_avg', 'Queue avg'),
+      'nextTracksByArtist': value(
+        'next_tracks_by_artist',
+        'Next tracks by this artist',
+      ),
+      'noArtistDataYet': value(
+        'no_artist_data_yet',
+        'No artist data available yet.',
+      ),
+      'noArtistInfoForTrack': value(
+        'no_artist_info_for_track',
+        'No artist info available for this track.',
+      ),
+      'noMoreArtistTracks': value(
+        'no_more_artist_tracks',
+        'No more tracks from this artist in the current queue.',
+      ),
+      'queue': value('queue', 'Queue'),
+      'track': value('track', 'track'),
+      'tracks': value('tracks', 'tracks'),
+      'playUnit': value('play_unit', 'play'),
+      'playsUnit': value('plays_unit', 'plays'),
+      'previous': value('previous', 'Previous'),
+      'play': value('play', 'Play'),
+      'pause': value('pause', 'Pause'),
+      'next': value('next', 'Next'),
+      'shuffle': value('shuffle', 'Shuffle'),
+      'shuffleOn': value('shuffle_on', 'Shuffle On'),
+      'shuffleOff': value('shuffle_off', 'Shuffle Off'),
+      'volume': value('volume', 'Volume'),
+      'buffering': value('buffering', 'Buffering'),
+      'playing': value('playing', 'Playing'),
+      'paused': value('paused', 'Paused'),
+      'pairedSyncing': value('paired_syncing', 'Paired · Syncing...'),
+      'pairedLive': value('paired_live', 'Paired · Live'),
+      'pairedReconnecting': value(
+        'paired_reconnecting',
+        'Paired · Reconnecting',
+      ),
+      'waitingApproval': value('waiting_approval', 'Waiting approval'),
+      'pairingApproved': value('pairing_approved', 'Pairing approved.'),
+      'waitingApprovalPhone': value(
+        'waiting_approval_phone',
+        'Waiting for approval on your phone...',
+      ),
+      'sendingRequest': value('sending_request', 'Sending request...'),
+      'alreadyPaired': value('already_paired', 'Already paired.'),
+      'requestSent': value(
+        'request_sent',
+        'Request sent. Approve on your phone.',
+      ),
+      'couldNotRequestPairing': value(
+        'could_not_request_pairing',
+        'Could not request pairing.',
+      ),
+      'sessionExpired': value(
+        'session_expired',
+        'Session expired. Request pairing again.',
+      ),
+      'syncUnstable': value('sync_unstable', 'Sync unstable. Reconnecting...'),
+      'sessionEnded': value('session_ended', 'Session ended on phone.'),
+      'sessionRevoked': value(
+        'session_revoked_web',
+        'Session revoked on phone.',
+      ),
+      'pairingRejected': value(
+        'pairing_rejected',
+        'Pairing rejected on phone.',
+      ),
+      'unknownSource': value('unknown_source', 'unknown source'),
+      'favShort': value('fav_short', 'fav'),
+      'noRetention': value('no_retention', 'no retention'),
+      'roleCollab': value('role_collab', 'feat/collab'),
+      'rolePrincipal': value('role_principal', 'principal'),
+      'member': value('member', 'member'),
+      'members': value('members', 'members'),
+      'estimatedType': value('estimated_type', 'Estimated type'),
+      'artistKindCollab': value(
+        'artist_kind_collab',
+        'collaboration / multiple artists',
+      ),
+      'artistKindBand': value('artist_kind_band', 'Duo, band, or music group'),
+      'artistKindSoloist': value(
+        'artist_kind_soloist',
+        'Soloist, DJ, or musician',
+      ),
+      'largeQueueOptimized': value(
+        'large_queue_optimized',
+        'Large queue optimized',
+      ),
+      'showingAroundCurrent': value(
+        'showing_around_current',
+        'Showing tracks around the current song',
+      ),
+    };
+  }
+
   Future<void> _handleRequest(HttpRequest request) async {
     try {
       _log('HTTP ${request.method} ${request.uri.path}');
@@ -193,7 +368,12 @@ class LocalConnectServerService extends GetxService {
 
       switch ('${request.method} ${request.uri.path}') {
         case 'GET /':
-          await _serveHtml(request, buildLocalConnectWebPage());
+          await _serveHtml(
+            request,
+            buildLocalConnectWebPage(
+              translations: _localConnectWebTranslations(),
+            ),
+          );
           return;
         case 'GET /health':
           await _writeJson(request.response, <String, dynamic>{
@@ -819,6 +999,30 @@ class LocalConnectServerService extends GetxService {
     for (final clientId in clientIds) {
       _sendToClient(clientId, type: type, payload: payload);
     }
+  }
+
+  Future<void> _closeClientSession({
+    required String clientId,
+    required String reason,
+    required String clientName,
+  }) async {
+    _authorizedSocketClients.remove(clientId);
+    final socket = _socketByClientId.remove(clientId);
+    if (socket == null) return;
+    try {
+      socket.add(
+        jsonEncode(<String, dynamic>{
+          'type': 'sessionRevoked',
+          'payload': <String, dynamic>{
+            'clientId': clientId,
+            'clientName': clientName,
+            'reason': reason,
+          },
+          'sentAt': DateTime.now().toIso8601String(),
+        }),
+      );
+      await socket.close(WebSocketStatus.policyViolation, 'Session revoked');
+    } catch (_) {}
   }
 
   void _sendToClient(

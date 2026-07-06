@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 import '../../../app/data/repo/media_repository.dart';
+import '../../../app/data/network/backend_api_error.dart';
 import '../../../app/services/notification_service.dart';
 
 class DownloadTaskService extends GetxService {
@@ -143,7 +144,9 @@ class DownloadTaskService extends GetxService {
     } catch (e) {
       String msg = 'Error inesperado';
 
-      if (e is dio.DioException) {
+      if (e is BackendApiException) {
+        msg = _backendErrorMessage(e);
+      } else if (e is dio.DioException) {
         switch (e.type) {
           case dio.DioExceptionType.receiveTimeout:
             msg = tr('imports.receive_timeout');
@@ -175,5 +178,15 @@ class DownloadTaskService extends GetxService {
       isDownloading.value = false;
       downloadProgress.value = -1;
     }
+  }
+
+  String _backendErrorMessage(BackendApiException error) {
+    final message = error.message.trim().isNotEmpty
+        ? error.message.trim()
+        : tr('imports.failed');
+    if (error.retryable && error.retryAfterSeconds != null) {
+      return '$message Reintenta en ${error.retryAfterSeconds}s.';
+    }
+    return message;
   }
 }

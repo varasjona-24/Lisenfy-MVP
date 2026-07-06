@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
@@ -356,8 +357,58 @@ class _ManifestArrayStats {
   final int totalObjects;
 }
 
+class _BackupFileManifestEntry {
+  const _BackupFileManifestEntry({
+    required this.path,
+    required this.size,
+    required this.sha256,
+  });
+
+  final String path;
+  final int size;
+  final String sha256;
+
+  Map<String, dynamic> toJson() => {
+    'path': path,
+    'size': size,
+    'sha256': sha256,
+  };
+}
+
+class _BackupManifestInspection {
+  const _BackupManifestInspection({
+    required this.backupVersion,
+    required this.createdAt,
+    required this.appPackage,
+    required this.itemCount,
+    required this.playlistCount,
+    required this.artistCount,
+    required this.captureCount,
+    required this.expectedFiles,
+    required this.missingFiles,
+    required this.hasFileManifest,
+  });
+
+  final int backupVersion;
+  final String createdAt;
+  final String appPackage;
+  final int itemCount;
+  final int playlistCount;
+  final int artistCount;
+  final int captureCount;
+  final int expectedFiles;
+  final int missingFiles;
+  final bool hasFileManifest;
+
+  bool get hasMissingFiles => missingFiles > 0;
+}
+
 /// Gestiona: exportar e importar copias de seguridad de la librería.
 class BackupRestoreController extends GetxController {
+  static const int _currentBackupVersion = 2;
+  static const String _appPackage = 'com.jv24dev.listenfy';
+  static const int _maxInMemoryManifestBytes = 32 * 1024 * 1024;
+
   // ============================
   // Estado Reactivo (UI)
   // ============================
@@ -1174,6 +1225,7 @@ class BackupRestoreController extends GetxController {
       await tempDir.create(recursive: true);
       final filesDir = Directory(p.join(tempDir.path, 'files'));
       await filesDir.create(recursive: true);
+      final fileManifestByRel = <String, _BackupFileManifestEntry>{};
 
       Future<String?> copyToBackup(String? absPath) async {
         final clean = absPath?.trim() ?? '';
@@ -1181,10 +1233,20 @@ class BackupRestoreController extends GetxController {
         final src = File(clean);
         if (!await src.exists()) return null;
 
-        final rel = _relativeBackupPath(appDir.path, clean);
+        final rel = _safeBackupRelPath(_relativeBackupPath(appDir.path, clean));
+        if (rel == null) return null;
         final dest = File(p.join(filesDir.path, rel));
         await dest.parent.create(recursive: true);
         await src.copy(dest.path);
+        if (!fileManifestByRel.containsKey(rel)) {
+          final size = await dest.length();
+          final hash = await _sha256ForFile(dest);
+          fileManifestByRel[rel] = _BackupFileManifestEntry(
+            path: rel,
+            size: size,
+            sha256: hash,
+          );
+        }
         return rel;
       }
 
@@ -1362,12 +1424,29 @@ class BackupRestoreController extends GetxController {
       };
       // ─────────────────────────────────────────────────────────────────────
 
+      final createdAt = DateTime.now().toIso8601String();
+      final backupSummary = <String, dynamic>{
+        'items': itemsJson.length,
+        'playlists': playlistsJson.length,
+        'artists': artistsJson.length,
+        'captures': capturesJson.length,
+        'sourceThemePills': pills.length,
+        'sourceThemeTopics': topicsJson.length,
+        'sourceThemeTopicPlaylists': topicPlaylistsJson.length,
+        'files': fileManifestByRel.length,
+      };
       final manifest = <String, dynamic>{
         'version': 1,
-        'createdAt': DateTime.now().toIso8601String(),
+        'backupVersion': _currentBackupVersion,
+        'createdAt': createdAt,
+        'appPackage': _appPackage,
+        'summary': backupSummary,
         'backupOptions': <String, dynamic>{
           'includeInstrumentalVariants': includeInstrumentalVariants,
         },
+        'backupFiles': fileManifestByRel.values
+            .map((entry) => entry.toJson())
+            .toList(),
         'items': itemsJson,
         'playlists': playlistsJson,
         'artists': artistsJson,
@@ -1526,32 +1605,73 @@ class BackupRestoreController extends GetxController {
       progress.value = 0.3;
 
       final manifestLength = await manifestFile.length();
-      final useStreamingManifest = manifestLength > 8 * 1024 * 1024;
+      final useStreamingManifest = manifestLength > _maxInMemoryManifestBytes;
       Map<String, dynamic>? manifest;
       if (useStreamingManifest) {
         currentOperation.value = tr('backup.operations.reading_large_manifest');
       } else {
-        final manifestRaw = await manifestFile.readAsString();
-        manifest = jsonDecode(manifestRaw) as Map<String, dynamic>;
+        try {
+          final manifestRaw = await manifestFile.readAsString();
+          final decoded = jsonDecode(manifestRaw);
+          if (decoded is! Map) {
+            throw const FormatException('manifest root is not an object');
+          }
+          manifest = Map<String, dynamic>.from(decoded);
+        } catch (_) {
+          throw Exception('Invalid manifest');
+        }
       }
 
+      if (manifest != null) {
+        final inspection = _inspectBackupManifest(manifest, zipIndex);
+        await _closeProgressDialog();
+        await _yieldUi(80);
+        final confirmed = await _showBackupInspectionDialog(inspection);
+        if (confirmed != true) {
+          await tempDir.delete(recursive: true);
+          return;
+        }
+        _showProgressDialog(tr('backup.restore_progress_title'));
+        await _yieldUi(50);
+        currentOperation.value = tr('backup.operations.reading_manifest');
+        progress.value = 0.3;
+      }
+      final expectedFilesByRel = _backupFilesByRel(manifest);
+
       String? resolveRel(String? rel) {
-        final clean = rel?.trim() ?? '';
-        if (clean.isEmpty) return null;
-        return p.join(appDir.path, clean);
+        final safe = _safeBackupRelPath(rel);
+        if (safe == null) return null;
+        final appRoot = p.normalize(appDir.path);
+        final dest = p.normalize(p.join(appRoot, safe));
+        if (!p.isWithin(appRoot, dest) && dest != appRoot) {
+          return null;
+        }
+        return dest;
       }
 
       Future<void> restoreFile(String? rel) async {
-        final clean = rel?.trim() ?? '';
-        if (clean.isEmpty) return;
-        final entry = zipIndex.find(p.posix.join('files', clean));
+        final safe = _safeBackupRelPath(rel);
+        if (safe == null) return;
+        final entry = zipIndex.find(p.posix.join('files', safe));
         if (entry == null) return;
-        final dest = File(p.join(appDir.path, clean));
+        final destPath = resolveRel(safe);
+        if (destPath == null) return;
+        final dest = File(destPath);
         await _extractZipBackupEntry(
           zipPath: path,
           entry: entry,
           outputPath: dest.path,
         );
+        final expectedFile = expectedFilesByRel[safe];
+        if (expectedFile != null) {
+          final valid = await _verifyRestoredFile(dest, expectedFile);
+          if (!valid) {
+            try {
+              if (await dest.exists()) await dest.delete();
+            } catch (_) {}
+            throw Exception('Backup file integrity check failed: $safe');
+          }
+        }
       }
 
       Map<String, dynamic>? appearancePayload;
@@ -2025,6 +2145,170 @@ class BackupRestoreController extends GetxController {
   // ============================
   // 🧰 HELPERS
   // ============================
+  Future<bool?> _showBackupInspectionDialog(
+    _BackupManifestInspection inspection,
+  ) {
+    final createdAt = inspection.createdAt.trim().isEmpty
+        ? tr('backup.unknown_value')
+        : inspection.createdAt;
+    final packageLabel = inspection.appPackage.trim().isEmpty
+        ? tr('backup.unknown_value')
+        : inspection.appPackage;
+    final notes = <String>[
+      tr('backup.inspect_version', args: ['${inspection.backupVersion}']),
+      tr(
+        'backup.inspect_counts',
+        args: [
+          '${inspection.itemCount}',
+          '${inspection.playlistCount}',
+          '${inspection.artistCount}',
+          '${inspection.captureCount}',
+        ],
+      ),
+      tr('backup.inspect_created_at', args: [createdAt]),
+      tr('backup.inspect_package', args: [packageLabel]),
+      inspection.hasFileManifest
+          ? tr(
+              'backup.inspect_files',
+              args: [
+                '${inspection.expectedFiles}',
+                '${inspection.missingFiles}',
+              ],
+            )
+          : tr('backup.inspect_legacy_files'),
+      if (inspection.hasMissingFiles) tr('backup.inspect_missing_warning'),
+    ];
+
+    return _showActionDialog(
+      title: tr('backup.inspect_title'),
+      subtitle: inspection.hasMissingFiles
+          ? tr('backup.inspect_subtitle_with_missing')
+          : tr('backup.inspect_subtitle'),
+      icon: inspection.hasMissingFiles
+          ? Icons.warning_amber_rounded
+          : Icons.fact_check_rounded,
+      accent: inspection.hasMissingFiles ? Colors.orange : Colors.teal,
+      notes: notes,
+      confirmText: tr('backup.restore_confirm'),
+    );
+  }
+
+  _BackupManifestInspection _inspectBackupManifest(
+    Map<String, dynamic> manifest,
+    _ZipBackupIndex zipIndex,
+  ) {
+    final summary = manifest['summary'] is Map
+        ? Map<String, dynamic>.from(manifest['summary'] as Map)
+        : const <String, dynamic>{};
+    final fileManifest = _backupFilesByRel(manifest);
+    var missingFiles = 0;
+
+    for (final entry in fileManifest.values) {
+      final zipEntry = zipIndex.find(p.posix.join('files', entry.path));
+      if (zipEntry == null || zipEntry.isDirectory) {
+        missingFiles++;
+      } else if (entry.size > 0 && zipEntry.uncompressedSize != entry.size) {
+        missingFiles++;
+      }
+    }
+
+    return _BackupManifestInspection(
+      backupVersion:
+          (manifest['backupVersion'] as num?)?.toInt() ??
+          (manifest['version'] as num?)?.toInt() ??
+          1,
+      createdAt: manifest['createdAt']?.toString() ?? '',
+      appPackage: manifest['appPackage']?.toString() ?? '',
+      itemCount: _manifestCount(manifest, summary, 'items'),
+      playlistCount: _manifestCount(manifest, summary, 'playlists'),
+      artistCount: _manifestCount(manifest, summary, 'artists'),
+      captureCount: _manifestCount(manifest, summary, 'captures'),
+      expectedFiles: fileManifest.length,
+      missingFiles: missingFiles,
+      hasFileManifest: fileManifest.isNotEmpty,
+    );
+  }
+
+  int _manifestCount(
+    Map<String, dynamic> manifest,
+    Map<String, dynamic> summary,
+    String key,
+  ) {
+    final summaryValue = summary[key];
+    if (summaryValue is num) return summaryValue.toInt();
+    final raw = manifest[key == 'captures' ? 'captureGallery' : key];
+    if (raw is List) return raw.length;
+    return 0;
+  }
+
+  Map<String, _BackupFileManifestEntry> _backupFilesByRel(
+    Map<String, dynamic>? manifest,
+  ) {
+    final rawFiles = manifest?['backupFiles'];
+    if (rawFiles is! List) return const <String, _BackupFileManifestEntry>{};
+
+    final files = <String, _BackupFileManifestEntry>{};
+    for (final raw in rawFiles) {
+      if (raw is! Map) continue;
+      final map = Map<String, dynamic>.from(raw);
+      final safePath = _safeBackupRelPath(map['path']?.toString());
+      if (safePath == null) continue;
+      final sizeRaw = map['size'];
+      final size = sizeRaw is num
+          ? sizeRaw.toInt()
+          : int.tryParse(sizeRaw?.toString() ?? '') ?? 0;
+      final hash = map['sha256']?.toString().trim().toLowerCase() ?? '';
+      files[safePath] = _BackupFileManifestEntry(
+        path: safePath,
+        size: size,
+        sha256: hash,
+      );
+    }
+    return files;
+  }
+
+  Future<bool> _verifyRestoredFile(
+    File file,
+    _BackupFileManifestEntry expected,
+  ) async {
+    try {
+      if (!await file.exists()) return false;
+      if (expected.size > 0 && await file.length() != expected.size) {
+        return false;
+      }
+      if (expected.sha256.length == 64) {
+        final digest = await _sha256ForFile(file);
+        if (digest != expected.sha256) return false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String> _sha256ForFile(File file) async {
+    final digest = await sha256.bind(file.openRead()).first;
+    return digest.toString();
+  }
+
+  String? _safeBackupRelPath(String? rel) {
+    final raw = rel?.trim().replaceAll('\\', '/') ?? '';
+    if (raw.isEmpty) return null;
+    if (raw.contains('\u0000')) return null;
+    if (raw.startsWith('/') || raw.startsWith('~')) return null;
+
+    final normalized = p.posix.normalize(raw);
+    if (normalized == '.' || normalized.isEmpty) return null;
+    if (normalized.startsWith('../') || normalized == '..') return null;
+    if (p.posix.isAbsolute(normalized)) return null;
+
+    final segments = normalized.split('/');
+    if (segments.any((segment) => segment.isEmpty || segment == '..')) {
+      return null;
+    }
+    return normalized;
+  }
+
   Future<_ManifestArrayStats> _forEachManifestObject(
     File manifestFile,
     String key,

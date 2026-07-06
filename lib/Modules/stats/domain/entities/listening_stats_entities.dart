@@ -702,19 +702,19 @@ class ListeningStats {
   }
 
   static int effectiveCompletedFor(MediaItem item) {
-    if (item.playCount <= 0 && item.fullListenCount <= 0) {
-      return 0;
+    if (item.fullListenCount > 0) {
+      return item.fullListenCount;
     }
-    final completedFromPlays = max(item.playCount - item.skipCount, 0);
-    return max(item.fullListenCount, completedFromPlays);
+    if (item.playCount <= 0) return 0;
+    return max(item.playCount - item.skipCount, 0);
   }
 
   static int listenScoreFor(MediaItem item) {
-    if (item.playCount <= 0 && item.fullListenCount <= 0) {
-      return 0;
+    if (item.fullListenCount > 0) {
+      return item.fullListenCount;
     }
-    final skipAdjustedPlays = max(item.playCount - item.skipCount, 0);
-    return max(skipAdjustedPlays, 0) + max(item.fullListenCount, 0);
+    if (item.playCount <= 0) return 0;
+    return max(item.playCount - item.skipCount, 0);
   }
 
   static String _formatBytes(int bytes) {

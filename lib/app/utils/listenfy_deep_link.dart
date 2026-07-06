@@ -10,19 +10,32 @@ class ListenfyNearbyInvite {
   final String senderName;
   final String title;
   final String subtitle;
+  final int? expiresAt;
 
   const ListenfyNearbyInvite({
     required this.sessionId,
     required this.senderName,
     required this.title,
     required this.subtitle,
+    this.expiresAt,
   });
+
+  bool get isExpired {
+    final value = expiresAt;
+    if (value == null || value <= 0) return false;
+    return DateTime.now().millisecondsSinceEpoch > value;
+  }
 }
 
 class ListenfyDeepLink {
   static const String _scheme = 'listenfy';
   static const String _hostOpen = 'open';
   static const String _hostTransfer = 'transfer';
+  static final RegExp _nearbySessionPattern = RegExp(r'^[A-Za-z0-9_-]{32,64}$');
+  static const int _maxRawQrLength = 2048;
+  static const int _maxSenderLength = 64;
+  static const int _maxTitleLength = 120;
+  static const int _maxSubtitleLength = 180;
 
   static Uri buildOpenLocalImportUri() {
     return Uri(
@@ -37,24 +50,31 @@ class ListenfyDeepLink {
     required String senderName,
     required String title,
     required String subtitle,
+    int? expiresAt,
   }) {
+    final query = <String, String>{
+      'target': 'nearby-invite',
+      'sid': sessionId,
+      'from': senderName,
+      'title': title,
+      'subtitle': subtitle,
+    };
+    if (expiresAt != null && expiresAt > 0) {
+      query['exp'] = '$expiresAt';
+    }
+
     return Uri(
       scheme: _scheme,
       host: _hostTransfer,
       path: '/nearby',
-      queryParameters: <String, String>{
-        'target': 'nearby-invite',
-        'sid': sessionId,
-        'from': senderName,
-        'title': title,
-        'subtitle': subtitle,
-      },
+      queryParameters: query,
     );
   }
 
   static ListenfyDeepLinkTarget parseRaw(String raw) {
     final value = raw.trim();
     if (value.isEmpty) return ListenfyDeepLinkTarget.unknown;
+    if (value.length > _maxRawQrLength) return ListenfyDeepLinkTarget.unknown;
     final uri = Uri.tryParse(value);
     if (uri == null) return ListenfyDeepLinkTarget.unknown;
     return parseUri(uri);
@@ -94,6 +114,7 @@ class ListenfyDeepLink {
   static ListenfyNearbyInvite? parseNearbyInviteRaw(String raw) {
     final value = raw.trim();
     if (value.isEmpty) return null;
+    if (value.length > _maxRawQrLength) return null;
     final uri = Uri.tryParse(value);
     if (uri == null) return null;
     return parseNearbyInviteUri(uri);
@@ -108,13 +129,25 @@ class ListenfyDeepLink {
     final senderName = (uri.queryParameters['from'] ?? '').trim();
     final title = (uri.queryParameters['title'] ?? '').trim();
     final subtitle = (uri.queryParameters['subtitle'] ?? '').trim();
+    final expiresAt = int.tryParse((uri.queryParameters['exp'] ?? '').trim());
 
     if (sessionId.isEmpty || senderName.isEmpty) return null;
+    if (!_nearbySessionPattern.hasMatch(sessionId)) return null;
+    if (senderName.length > _maxSenderLength) return null;
+    if (title.length > _maxTitleLength) return null;
+    if (subtitle.length > _maxSubtitleLength) return null;
+    if (expiresAt != null &&
+        expiresAt > 0 &&
+        DateTime.now().millisecondsSinceEpoch > expiresAt) {
+      return null;
+    }
+
     return ListenfyNearbyInvite(
       sessionId: sessionId,
       senderName: senderName,
       title: title,
       subtitle: subtitle,
+      expiresAt: expiresAt,
     );
   }
 }

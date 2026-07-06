@@ -55,6 +55,8 @@ class LocalConnectPage extends GetView<LocalConnectController> {
                           running: running,
                           url: url,
                           clients: clients,
+                          onRevoke: controller.revokeSession,
+                          onRevokeAll: controller.revokeAllSessions,
                         ),
                       ),
                     ],
@@ -79,7 +81,11 @@ class LocalConnectPage extends GetView<LocalConnectController> {
                     onReject: controller.rejectPairing,
                   ),
                   const SizedBox(height: 12),
-                  _ClientsCard(clients: clients),
+                  _ClientsCard(
+                    clients: clients,
+                    onRevoke: controller.revokeSession,
+                    onRevokeAll: controller.revokeAllSessions,
+                  ),
                 ],
               );
             },
@@ -139,11 +145,15 @@ class _SideColumn extends StatelessWidget {
     required this.running,
     required this.url,
     required this.clients,
+    required this.onRevoke,
+    required this.onRevokeAll,
   });
 
   final bool running;
   final String url;
   final List<LocalConnectClientSession> clients;
+  final Future<void> Function(String clientId) onRevoke;
+  final Future<void> Function() onRevokeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +162,11 @@ class _SideColumn extends StatelessWidget {
       children: [
         _QrCard(running: running, url: url),
         const SizedBox(height: 12),
-        _ClientsCard(clients: clients),
+        _ClientsCard(
+          clients: clients,
+          onRevoke: onRevoke,
+          onRevokeAll: onRevokeAll,
+        ),
       ],
     );
   }
@@ -534,9 +548,15 @@ class _PairRequestTile extends StatelessWidget {
 }
 
 class _ClientsCard extends StatelessWidget {
-  const _ClientsCard({required this.clients});
+  const _ClientsCard({
+    required this.clients,
+    required this.onRevoke,
+    required this.onRevokeAll,
+  });
 
   final List<LocalConnectClientSession> clients;
+  final Future<void> Function(String clientId) onRevoke;
+  final Future<void> Function() onRevokeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -574,6 +594,17 @@ class _ClientsCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (clients.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _confirmRevokeAll(context),
+                  icon: const Icon(Icons.link_off_rounded),
+                  label: Text(tr('connect.revoke_all')),
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             if (clients.isEmpty)
               _EmptyMessage(
@@ -587,6 +618,12 @@ class _ClientsCard extends StatelessWidget {
                 final expiryLimit = _formatDateTimeCompact(
                   client.expiresAt.toLocal(),
                 );
+                final approvedAt = _formatDateTimeCompact(
+                  client.approvedAt.toLocal(),
+                );
+                final lastSeenAt = _formatDateTimeCompact(
+                  client.lastSeenAt.toLocal(),
+                );
                 return Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   decoration: BoxDecoration(
@@ -596,6 +633,7 @@ class _ClientsCard extends StatelessWidget {
                     ),
                   ),
                   child: ListTile(
+                    contentPadding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
                     leading: Icon(
                       connected ? Icons.lan_rounded : Icons.computer_outlined,
                       color: connected ? Colors.green : scheme.onSurfaceVariant,
@@ -625,16 +663,42 @@ class _ClientsCard extends StatelessWidget {
                             color: scheme.onSurfaceVariant,
                           ),
                         ),
+                        const SizedBox(height: 2),
+                        Text(
+                          tr(
+                            'connect.session_dates',
+                            args: [approvedAt, lastSeenAt],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
                       ],
                     ),
-                    trailing: _StatusPill(
-                      label: connected
-                          ? tr('connect.connected')
-                          : tr('connect.inactive'),
-                      icon: connected
-                          ? Icons.check_circle_rounded
-                          : Icons.schedule_rounded,
-                      color: connected ? Colors.green : scheme.onSurfaceVariant,
+                    trailing: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _StatusPill(
+                          label: connected
+                              ? tr('connect.connected')
+                              : tr('connect.inactive'),
+                          icon: connected
+                              ? Icons.check_circle_rounded
+                              : Icons.schedule_rounded,
+                          color: connected
+                              ? Colors.green
+                              : scheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(height: 6),
+                        IconButton(
+                          tooltip: tr('connect.revoke'),
+                          onPressed: () => _confirmRevoke(context, client),
+                          icon: const Icon(Icons.link_off_rounded),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -643,6 +707,57 @@ class _ClientsCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmRevoke(
+    BuildContext context,
+    LocalConnectClientSession client,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('connect.revoke_title')),
+        content: Text(tr('connect.revoke_body', args: [client.clientName])),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('common.cancel')),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.link_off_rounded),
+            label: Text(tr('connect.revoke')),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await onRevoke(client.clientId);
+    }
+  }
+
+  Future<void> _confirmRevokeAll(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('connect.revoke_all_title')),
+        content: Text(tr('connect.revoke_all_body')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('common.cancel')),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.link_off_rounded),
+            label: Text(tr('connect.revoke_all')),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await onRevokeAll();
+    }
   }
 }
 
