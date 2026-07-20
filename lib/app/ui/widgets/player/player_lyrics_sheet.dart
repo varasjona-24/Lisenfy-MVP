@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:get/get.dart';
 
 import '../../../data/local/local_library_store.dart';
 import '../../../models/media_item.dart';
+import '../../../services/audio_service.dart';
 
 void openPlayerLyricsSheet(MediaItem item, {double heightFactor = 0.62}) {
   if (Get.isBottomSheetOpen ?? false) return;
@@ -46,14 +49,43 @@ class _PlayerLyricsSheetState extends State<PlayerLyricsSheet> {
   };
 
   Map<String, String> _byLang = const <String, String>{};
+  Map<String, List<TimedLyricCue>> _timedByLang =
+      const <String, List<TimedLyricCue>>{};
   String _selectedLang = '';
   bool _resolving = false;
+  Duration _playbackPosition = Duration.zero;
+  int _lastAutoScrolledIndex = -1;
+
+  final ScrollController _lyricsScrollController = ScrollController();
+  List<GlobalKey> _cueKeys = const <GlobalKey>[];
+  StreamSubscription<Duration>? _positionSub;
 
   @override
   void initState() {
     super.initState();
+    _bindAudioService();
     _applyItem(widget.item);
     _resolveLatestItem();
+  }
+
+  @override
+  void dispose() {
+    _positionSub?.cancel();
+    _lyricsScrollController.dispose();
+    super.dispose();
+  }
+
+  void _bindAudioService() {
+    if (!Get.isRegistered<AudioService>()) return;
+    final audioService = Get.find<AudioService>();
+    _playbackPosition = audioService.currentPosition;
+    _positionSub = audioService.positionStream.listen((position) {
+      if (!mounted) return;
+      setState(() {
+        _playbackPosition = position;
+      });
+      _scheduleActiveCueScroll();
+    });
   }
 
   Map<String, String> _buildLyricsMap(MediaItem item) {
@@ -91,14 +123,75 @@ class _PlayerLyricsSheetState extends State<PlayerLyricsSheet> {
 
   void _applyItem(MediaItem item) {
     final next = _buildLyricsMap(item);
+    final timed = _buildTimedLyricsMap(item);
     _byLang = next;
+    _timedByLang = timed;
     if (next.isEmpty) {
       _selectedLang = '';
       return;
     }
     if (!next.containsKey(_selectedLang)) {
       _selectedLang = next.keys.first;
+      _lastAutoScrolledIndex = -1;
     }
+  }
+
+  Map<String, List<TimedLyricCue>> _buildTimedLyricsMap(MediaItem item) {
+    final raw = item.timedLyrics ?? const <String, List<TimedLyricCue>>{};
+    final out = <String, List<TimedLyricCue>>{};
+    for (final entry in raw.entries) {
+      final key = entry.key.trim().toLowerCase();
+      if (key.isEmpty) continue;
+      final cues =
+          entry.value
+              .where((cue) => cue.text.trim().isNotEmpty)
+              .toList(growable: false)
+            ..sort((a, b) => a.startMs.compareTo(b.startMs));
+      if (cues.isEmpty) continue;
+      out[key] = cues;
+    }
+    return out;
+  }
+
+  int _activeCueIndex(List<TimedLyricCue> cues, int positionMs) {
+    if (cues.isEmpty) return -1;
+    if (positionMs < cues.first.startMs) return -1;
+
+    for (var i = 0; i < cues.length; i++) {
+      final cue = cues[i];
+      final next = i + 1 < cues.length ? cues[i + 1] : null;
+      final endMs = cue.endMs ?? next?.startMs;
+      if (endMs == null) return i;
+      if (positionMs >= cue.startMs && positionMs < endMs) return i;
+    }
+
+    return cues.length - 1;
+  }
+
+  void _scheduleActiveCueScroll() {
+    final cues = _timedByLang[_selectedLang] ?? const <TimedLyricCue>[];
+    final activeIndex = _activeCueIndex(cues, _playbackPosition.inMilliseconds);
+    if (activeIndex < 0 || activeIndex == _lastAutoScrolledIndex) return;
+    _lastAutoScrolledIndex = activeIndex;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || activeIndex >= _cueKeys.length) return;
+      final context = _cueKeys[activeIndex].currentContext;
+      if (context == null) return;
+      Scrollable.ensureVisible(
+        context,
+        alignment: 0.38,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
+      );
+    });
+  }
+
+  void _syncCueKeys(int count) {
+    if (_cueKeys.length == count) return;
+    _cueKeys = List<GlobalKey>.generate(count, (_) => GlobalKey());
+    _lastAutoScrolledIndex = -1;
   }
 
   Future<void> _resolveLatestItem() async {
@@ -147,6 +240,12 @@ class _PlayerLyricsSheetState extends State<PlayerLyricsSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final lyrics = _selectedLang.isEmpty ? '' : (_byLang[_selectedLang] ?? '');
+    final timedCues = _timedByLang[_selectedLang] ?? const <TimedLyricCue>[];
+    final activeCueIndex = _activeCueIndex(
+      timedCues,
+      _playbackPosition.inMilliseconds,
+    );
+    _syncCueKeys(timedCues.length);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -183,7 +282,9 @@ class _PlayerLyricsSheetState extends State<PlayerLyricsSheet> {
                       onSelected: (_) {
                         setState(() {
                           _selectedLang = lang;
+                          _lastAutoScrolledIndex = -1;
                         });
+                        _scheduleActiveCueScroll();
                       },
                     ),
                   )
@@ -211,6 +312,13 @@ class _PlayerLyricsSheetState extends State<PlayerLyricsSheet> {
                           ),
                         ),
                       )
+                    : timedCues.isNotEmpty
+                    ? _TimedLyricsView(
+                        cues: timedCues,
+                        activeIndex: activeCueIndex,
+                        scrollController: _lyricsScrollController,
+                        cueKeys: _cueKeys,
+                      )
                     : SingleChildScrollView(
                         child: SelectableText(
                           lyrics,
@@ -221,6 +329,64 @@ class _PlayerLyricsSheetState extends State<PlayerLyricsSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TimedLyricsView extends StatelessWidget {
+  const _TimedLyricsView({
+    required this.cues,
+    required this.activeIndex,
+    required this.scrollController,
+    required this.cueKeys,
+  });
+
+  final List<TimedLyricCue> cues;
+  final int activeIndex;
+  final ScrollController scrollController;
+  final List<GlobalKey> cueKeys;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SingleChildScrollView(
+      controller: scrollController,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: List<Widget>.generate(cues.length, (index) {
+          final cue = cues[index];
+          final isActive = index == activeIndex;
+          final isPast = activeIndex >= 0 && index < activeIndex;
+          return Padding(
+            padding: EdgeInsets.only(bottom: index == cues.length - 1 ? 0 : 6),
+            child: AnimatedContainer(
+              key: index < cueKeys.length ? cueKeys[index] : null,
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? theme.colorScheme.primaryContainer.withValues(alpha: 0.74)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                cue.text,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: isActive
+                      ? theme.colorScheme.onPrimaryContainer
+                      : isPast
+                      ? theme.colorScheme.onSurfaceVariant
+                      : theme.colorScheme.onSurface,
+                  fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
+                  height: 1.28,
+                ),
+              ),
+            ),
+          );
+        }),
       ),
     );
   }

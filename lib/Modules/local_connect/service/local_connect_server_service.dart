@@ -478,11 +478,19 @@ class LocalConnectServerService extends GetxService {
         type: 'pairingApproved',
         payload: <String, dynamic>{'clientId': clientId, 'token': token},
       );
-      _sendToClient(
-        clientId,
-        type: 'playbackStateChanged',
-        payload: _playbackSync.buildSessionPayload(includeQueue: true),
-      );
+      if (_audioService.isInPrivatePlaybackSession) {
+        _sendToClient(
+          clientId,
+          type: 'privatePlaybackLocked',
+          payload: _privatePlaybackPayload(),
+        );
+      } else {
+        _sendToClient(
+          clientId,
+          type: 'playbackStateChanged',
+          payload: _playbackSync.buildSessionPayload(includeQueue: true),
+        );
+      }
     } else {
       _authorizedSocketClients.remove(clientId);
       _log('WS requires pairing for client=$clientId');
@@ -530,7 +538,9 @@ class LocalConnectServerService extends GetxService {
     final existingSession = _pairingManager.findSessionByClientId(clientId);
     if (existingSession != null && !existingSession.isExpired) {
       _log('pairing already approved for client=$clientId');
-      final sessionPayload = _playbackSync.buildSessionPayload();
+      final sessionPayload = _audioService.isInPrivatePlaybackSession
+          ? _privatePlaybackPayload()
+          : _playbackSync.buildSessionPayload();
       await _writeJson(request.response, <String, dynamic>{
         'status': 'already_paired',
         'clientId': existingSession.clientId,
@@ -581,7 +591,9 @@ class LocalConnectServerService extends GetxService {
         'clientId': session.clientId,
         'token': session.token,
         'expiresAt': session.expiresAt.toIso8601String(),
-        'session': _playbackSync.buildSessionPayload(),
+        'session': _audioService.isInPrivatePlaybackSession
+            ? _privatePlaybackPayload()
+            : _playbackSync.buildSessionPayload(),
       });
       return;
     }
@@ -620,7 +632,26 @@ class LocalConnectServerService extends GetxService {
       );
     }
     _refreshState();
+    if (_audioService.isInPrivatePlaybackSession) {
+      await _writePrivatePlaybackLocked(request);
+      return;
+    }
     await handler(request);
+  }
+
+  Map<String, dynamic> _privatePlaybackPayload() {
+    return <String, dynamic>{
+      'privatePlayback': true,
+      'reason': 'lyrics_sync',
+      'message': tr('local_connect.private_playback_locked.message'),
+    };
+  }
+
+  Future<void> _writePrivatePlaybackLocked(HttpRequest request) async {
+    await _writeJson(request.response, <String, dynamic>{
+      'error': 'private_playback_locked',
+      ..._privatePlaybackPayload(),
+    }, statusCode: HttpStatus.locked);
   }
 
   Future<void> _handleSessionSnapshot(HttpRequest request) async {
@@ -912,6 +943,9 @@ class LocalConnectServerService extends GetxService {
   }
 
   void _tickPlaybackSync() {
+    if (_audioService.isInPrivatePlaybackSession) return;
+    if (_authorizedSocketClients.isEmpty) return;
+
     final trackSig = _playbackSync.trackSignature();
     final playbackSig = _playbackSync.playbackStateSignature();
     final queueSig = _playbackSync.queueSignature();

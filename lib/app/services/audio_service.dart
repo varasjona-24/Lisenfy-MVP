@@ -48,6 +48,7 @@ class AudioService extends GetxService {
   final RxBool isPlaying = false.obs;
   final RxBool isLoading = false.obs;
   final RxBool miniPlayerDismissed = false.obs;
+  final RxBool isPrivatePlaybackSession = false.obs;
   final RxDouble speed = 1.0.obs;
   final RxDouble volume = 1.0.obs;
   final RxInt crossfadeSeconds = 0.obs;
@@ -75,6 +76,7 @@ class AudioService extends GetxService {
   Duration _positionOverride = Duration.zero;
   bool _nextHandlerStopShouldHardStop = false;
   bool _hiddenSessionSnapshotPreserved = false;
+  int _privatePlaybackSessionDepth = 0;
   Timer? _lastItemPersistTimer;
   Timer? _homeWidgetUpdateTimer;
   MediaItem? _pendingLastItem;
@@ -101,6 +103,7 @@ class AudioService extends GetxService {
   Duration? get currentDuration => _player.duration;
 
   bool get hasSourceLoaded => _player.processingState != ProcessingState.idle;
+  bool get isInPrivatePlaybackSession => isPrivatePlaybackSession.value;
   List<MediaItem> get queueItems => List<MediaItem>.from(_queueItems);
   int get queueLength => _queueItems.length;
   int get queueRevision => _queueRevision;
@@ -108,6 +111,22 @@ class AudioService extends GetxService {
     final idx = _player.currentIndex ?? _activeIndex;
     if (idx < 0 || idx >= _queueItems.length) return 0;
     return idx;
+  }
+
+  void beginPrivatePlaybackSession() {
+    _privatePlaybackSessionDepth += 1;
+    if (!isPrivatePlaybackSession.value) {
+      isPrivatePlaybackSession.value = true;
+    }
+  }
+
+  void endPrivatePlaybackSession() {
+    if (_privatePlaybackSessionDepth > 0) {
+      _privatePlaybackSessionDepth -= 1;
+    }
+    if (_privatePlaybackSessionDepth == 0 && isPrivatePlaybackSession.value) {
+      isPrivatePlaybackSession.value = false;
+    }
   }
 
   void applyUpdatedMediaItem(MediaItem updatedItem) {

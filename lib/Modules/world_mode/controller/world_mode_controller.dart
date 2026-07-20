@@ -11,6 +11,8 @@ import '../domain/entities/world_explore_options.dart';
 import '../domain/repositories/world_mode_repository.dart';
 import '../services/world_mode_playback_facade.dart';
 
+enum WorldViewMode { map, globe }
+
 class WorldModeController extends GetxController {
   WorldModeController({
     required WorldModeRepository repository,
@@ -26,6 +28,7 @@ class WorldModeController extends GetxController {
   final RxBool isLoadingStations = false.obs;
   final RxBool preferOnline = true.obs;
   final RxBool isMapExpanded = false.obs;
+  final Rx<WorldViewMode> worldViewMode = WorldViewMode.globe.obs;
   final RxString errorMessage = ''.obs;
   final RxString searchQuery = ''.obs;
 
@@ -72,6 +75,10 @@ class WorldModeController extends GetxController {
 
   void setMapExpanded(bool value) {
     isMapExpanded.value = value;
+  }
+
+  void setWorldViewMode(WorldViewMode mode) {
+    worldViewMode.value = mode;
   }
 
   Future<void> selectCountry(

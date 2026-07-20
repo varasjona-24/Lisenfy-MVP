@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart' as dio;
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -12,6 +14,101 @@ import '../network/backend_api_error.dart';
 import '../network/dio_client.dart';
 import 'package:listenfy/Modules/sources/domain/source_origin.dart';
 import 'package:listenfy/Modules/sources/domain/detect_source_origin.dart';
+
+class ImportedPlaylistResult {
+  const ImportedPlaylistResult({
+    required this.playlistId,
+    required this.name,
+    required this.itemIds,
+    required this.total,
+    required this.imported,
+    required this.failed,
+    this.coverUrl,
+  });
+
+  final String playlistId;
+  final String name;
+  final List<String> itemIds;
+  final int total;
+  final int imported;
+  final int failed;
+  final String? coverUrl;
+}
+
+class PlaylistPreviewEntry {
+  const PlaylistPreviewEntry({
+    required this.url,
+    required this.title,
+    required this.index,
+    required this.isAvailable,
+    this.artist,
+    this.durationMs,
+    this.thumbnail,
+    this.availabilityReason,
+  });
+
+  final String url;
+  final String title;
+  final int index;
+  final String? artist;
+  final int? durationMs;
+  final String? thumbnail;
+  final bool isAvailable;
+  final String? availabilityReason;
+
+  factory PlaylistPreviewEntry.fromMap(Map<String, dynamic> map) {
+    final durationMs = (map['durationMs'] as num?)?.toInt();
+    final duration = map['duration'];
+    final resolvedDurationMs =
+        durationMs ??
+        (duration is num
+            ? (duration > 10000 ? duration.round() : (duration * 1000).round())
+            : null);
+    return PlaylistPreviewEntry(
+      url: (map['url'] as String?)?.trim() ?? '',
+      title: (map['title'] as String?)?.trim() ?? '',
+      artist: (map['artist'] as String?)?.trim(),
+      durationMs: resolvedDurationMs,
+      thumbnail: (map['thumbnail'] as String?)?.trim(),
+      index: (map['index'] as num?)?.toInt() ?? 0,
+      isAvailable: map['isAvailable'] != false,
+      availabilityReason: (map['availabilityReason'] as String?)?.trim(),
+    );
+  }
+}
+
+class PlaylistPreview {
+  const PlaylistPreview({
+    required this.name,
+    required this.total,
+    required this.entries,
+    this.thumbnail,
+  });
+
+  final String name;
+  final int total;
+  final List<PlaylistPreviewEntry> entries;
+  final String? thumbnail;
+
+  factory PlaylistPreview.fromMap(Map<String, dynamic> map) {
+    final rawEntries = (map['entries'] as List?) ?? const [];
+    final entries = rawEntries
+        .whereType<Map>()
+        .map(
+          (raw) => PlaylistPreviewEntry.fromMap(Map<String, dynamic>.from(raw)),
+        )
+        .where((entry) => entry.url.isNotEmpty)
+        .toList(growable: false);
+    return PlaylistPreview(
+      name: (map['name'] as String?)?.trim().isNotEmpty == true
+          ? (map['name'] as String).trim()
+          : 'Playlist',
+      total: (map['total'] as num?)?.toInt() ?? entries.length,
+      thumbnail: (map['thumbnail'] as String?)?.trim(),
+      entries: entries,
+    );
+  }
+}
 
 class MediaRepository {
   // ============================
@@ -202,6 +299,187 @@ class MediaRepository {
     } catch (e) {
       print('Download failed: $e');
       return false;
+    }
+  }
+
+  Future<ImportedPlaylistResult?> importPlaylistFromUrl({
+    required String url,
+    required String kind,
+    required String format,
+    String? quality,
+    int maxItems = 50,
+    List<String>? selectedUrls,
+    void Function(int current, int total, String title)? onItemProgress,
+    void Function(int received, int total)? onFileProgress,
+  }) async {
+    try {
+      final normalizedUrl = url.trim();
+      if (normalizedUrl.isEmpty) return null;
+
+      final normalizedKind = kind.toLowerCase().trim();
+      final normalizedFormat = format.toLowerCase().trim();
+      final resp = await _client.post(
+        '/media/playlist/import',
+        data: {
+          'url': normalizedUrl,
+          'kind': normalizedKind,
+          'format': normalizedFormat,
+          if (quality != null && quality.trim().isNotEmpty)
+            'quality': quality.trim(),
+          'maxItems': maxItems,
+          if (selectedUrls != null && selectedUrls.isNotEmpty)
+            'selectedUrls': selectedUrls,
+        },
+        options: dio.Options(
+          receiveTimeout: const Duration(minutes: 45),
+          sendTimeout: const Duration(minutes: 2),
+        ),
+      );
+
+      final data = resp.data;
+      if (data is! Map) return null;
+
+      final playlistRaw = data['playlist'];
+      final playlist = playlistRaw is Map
+          ? Map<String, dynamic>.from(playlistRaw)
+          : <String, dynamic>{};
+      final playlistId = (playlist['id'] as String?)?.trim() ?? '';
+      final name =
+          (data['name'] as String?)?.trim() ??
+          (playlist['name'] as String?)?.trim() ??
+          'Playlist';
+      final coverUrl = (data['thumbnail'] as String?)?.trim();
+      final itemsRaw = (data['items'] as List?) ?? const [];
+      final total = (data['total'] as num?)?.toInt() ?? itemsRaw.length;
+      final failed = (data['failed'] as num?)?.toInt() ?? 0;
+      final itemIds = <String>[];
+
+      for (var i = 0; i < itemsRaw.length; i++) {
+        final raw = itemsRaw[i];
+        if (raw is! Map) continue;
+        final item = Map<String, dynamic>.from(raw);
+        final mediaId = (item['mediaId'] as String?)?.trim() ?? '';
+        if (mediaId.isEmpty) continue;
+
+        final title = (item['title'] as String?)?.trim() ?? mediaId;
+        onItemProgress?.call(i + 1, itemsRaw.length, title);
+
+        final destPath = await _buildDestPath(
+          resolvedId: mediaId,
+          kind: normalizedKind,
+          format: normalizedFormat,
+        );
+        final ok = await _downloadWithRetry(
+          path: '/media/file/$mediaId/$normalizedKind/$normalizedFormat',
+          savePath: destPath,
+          onProgress: onFileProgress,
+        );
+        if (!ok) continue;
+
+        final file = File(destPath);
+        if (!await file.exists()) continue;
+        final fileSize = await file.length();
+        if (fileSize <= 0) continue;
+
+        final thumbnail = (item['thumbnail'] as String?)?.trim();
+        final thumbnailLocalPath = thumbnail != null && thumbnail.isNotEmpty
+            ? await _downloadThumbnailToDisk(
+                resolvedId: mediaId,
+                thumbnailUrl: thumbnail,
+              )
+            : null;
+
+        final variant = MediaVariant(
+          kind: normalizedKind == 'video'
+              ? MediaVariantKind.video
+              : MediaVariantKind.audio,
+          format: normalizedFormat,
+          fileName: p.basename(destPath),
+          localPath: destPath,
+          createdAt: DateTime.now().millisecondsSinceEpoch,
+          size: fileSize,
+        );
+
+        final resolved = MediaItem(
+          id: mediaId,
+          publicId: mediaId,
+          title: title,
+          subtitle: (item['artist'] as String?)?.trim() ?? '',
+          source: MediaSource.youtube,
+          origin: SourceOrigin.youtube,
+          thumbnail: thumbnail,
+          thumbnailLocalPath: null,
+          durationSeconds: MediaItem.normalizeDurationSeconds(item['duration']),
+          variants: const [],
+        );
+
+        final saved = await _upsertItemWithVariant(
+          resolvedId: mediaId,
+          url: (item['url'] as String?)?.trim(),
+          source: MediaSource.youtube,
+          variant: variant,
+          resolved: resolved,
+          thumbnailLocalPath: thumbnailLocalPath,
+        );
+        itemIds.add(
+          saved.publicId.trim().isNotEmpty ? saved.publicId : saved.id,
+        );
+      }
+
+      return ImportedPlaylistResult(
+        playlistId: playlistId.isNotEmpty
+            ? playlistId
+            : 'pl_${DateTime.now().millisecondsSinceEpoch}',
+        name: name,
+        itemIds: itemIds,
+        total: total,
+        imported: itemIds.length,
+        failed: failed + (itemsRaw.length - itemIds.length),
+        coverUrl: coverUrl?.isEmpty == true ? null : coverUrl,
+      );
+    } on BackendApiException {
+      rethrow;
+    } catch (e) {
+      if (e is dio.DioException) {
+        throw BackendApiException.fromDio(
+          e,
+          fallbackMessage: tr('imports.playlist_failed'),
+        );
+      }
+      return null;
+    }
+  }
+
+  Future<PlaylistPreview?> resolvePlaylistFromUrl({
+    required String url,
+    int maxItems = 100,
+  }) async {
+    try {
+      final normalizedUrl = url.trim();
+      if (normalizedUrl.isEmpty) return null;
+
+      final resp = await _client.get(
+        '/media/playlist/resolve',
+        queryParameters: {'url': normalizedUrl, 'maxItems': maxItems},
+        options: dio.Options(
+          receiveTimeout: const Duration(minutes: 2),
+          sendTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      final data = resp.data;
+      if (data is! Map) return null;
+      return PlaylistPreview.fromMap(Map<String, dynamic>.from(data));
+    } on BackendApiException {
+      rethrow;
+    } catch (e) {
+      if (e is dio.DioException) {
+        throw BackendApiException.fromDio(
+          e,
+          fallbackMessage: tr('imports.playlist_failed'),
+        );
+      }
+      return null;
     }
   }
 
@@ -546,7 +824,7 @@ class MediaRepository {
         s.contains('.org');
   }
 
-  Future<void> _upsertItemWithVariant({
+  Future<MediaItem> _upsertItemWithVariant({
     required String resolvedId,
     required String? url,
     required MediaSource source,
@@ -626,7 +904,7 @@ class MediaRepository {
       );
 
       await _store.upsert(updated);
-      return;
+      return updated;
     }
 
     // Si no existe, intentar crear desde resolve-info para tener portada/título
@@ -671,5 +949,6 @@ class MediaRepository {
     );
 
     await _store.upsert(item);
+    return item;
   }
 }

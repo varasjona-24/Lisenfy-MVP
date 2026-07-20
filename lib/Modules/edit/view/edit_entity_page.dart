@@ -1073,6 +1073,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
         artist: _subtitleCtrl.text.trim().isNotEmpty
             ? _subtitleCtrl.text.trim()
             : item.subtitle,
+        syncItem: item,
         lyrics: item.lyrics,
         lyricsLanguage: item.lyricsLanguage,
         translations: item.translations,

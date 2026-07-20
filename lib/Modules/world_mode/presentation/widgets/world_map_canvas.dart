@@ -4,8 +4,10 @@ import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../domain/entities/country_entity.dart';
+import '../models/globe_land_shape.dart';
 
 class WorldMapCanvas extends StatefulWidget {
   const WorldMapCanvas({
@@ -38,6 +40,13 @@ class _WorldMapCanvasState extends State<WorldMapCanvas> {
   final TransformationController _transformController =
       TransformationController();
   bool _panEnabled = false;
+  List<GlobeLandShape> _landShapes = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLandShapes();
+  }
 
   @override
   void didUpdateWidget(covariant WorldMapCanvas oldWidget) {
@@ -61,6 +70,18 @@ class _WorldMapCanvasState extends State<WorldMapCanvas> {
     final shouldEnablePan = scale > _panEnableThreshold;
     if (shouldEnablePan == _panEnabled) return;
     setState(() => _panEnabled = shouldEnablePan);
+  }
+
+  Future<void> _loadLandShapes() async {
+    try {
+      final raw = await rootBundle.loadString('assets/geo/land-110m.json');
+      final shapes = GlobeLandShape.fromTopoJson(raw);
+      if (!mounted) return;
+      setState(() => _landShapes = shapes);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _landShapes = const []);
+    }
   }
 
   @override
@@ -110,9 +131,11 @@ class _WorldMapCanvasState extends State<WorldMapCanvas> {
                   children: [
                     Positioned.fromRect(
                       rect: mapRect,
-                      child: Image.asset(
-                        'assets/ui/Mapa-Mundi.jpg',
-                        fit: BoxFit.fill,
+                      child: CustomPaint(
+                        painter: _WorldMapBackgroundPainter(
+                          landShapes: _landShapes,
+                          colorScheme: scheme,
+                        ),
                       ),
                     ),
                     Positioned.fromRect(
@@ -285,7 +308,9 @@ class _CountryPoint extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final color = selected ? scheme.primary : _regionColor(country.regionKey);
+    final color = selected
+        ? scheme.primary
+        : WorldMapRegionColors.colorFor(country.regionKey);
     final dotSize = selected ? 16.0 : 12.0;
     final innerDotSize = selected ? 4.8 : 3.6;
 
@@ -338,8 +363,158 @@ class _CountryPoint extends StatelessWidget {
       ),
     );
   }
+}
 
-  Color _regionColor(String regionKey) {
+class _WorldMapBackgroundPainter extends CustomPainter {
+  const _WorldMapBackgroundPainter({
+    required this.landShapes,
+    required this.colorScheme,
+  });
+
+  final List<GlobeLandShape> landShapes;
+  final ColorScheme colorScheme;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    _drawOcean(canvas, rect);
+    _drawGraticule(canvas, size);
+    _drawLand(canvas, size);
+    _drawShade(canvas, rect);
+  }
+
+  void _drawOcean(Canvas canvas, Rect rect) {
+    final shader = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: const [Color(0xFF12365E), Color(0xFF1F6AAD), Color(0xFF072348)],
+      stops: const [0, 0.48, 1],
+    ).createShader(rect);
+    canvas.drawRect(rect, Paint()..shader = shader);
+  }
+
+  void _drawGraticule(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8
+      ..color = Colors.white.withValues(alpha: 0.075);
+
+    for (var longitude = -150; longitude <= 150; longitude += 30) {
+      final x = _longitudeToX(longitude.toDouble(), size.width);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+
+    for (var latitude = -60; latitude <= 60; latitude += 30) {
+      final y = _latitudeToY(latitude.toDouble(), size.height);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+
+    canvas.drawLine(
+      Offset(0, size.height / 2),
+      Offset(size.width, size.height / 2),
+      paint..color = Colors.white.withValues(alpha: 0.10),
+    );
+  }
+
+  void _drawLand(Canvas canvas, Size size) {
+    final fillPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = const Color(0xFF5FC58D).withValues(alpha: 0.42);
+    final ridgePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round
+      ..color = Colors.white.withValues(alpha: 0.16);
+
+    for (final shape in landShapes) {
+      final path = Path()..fillType = PathFillType.evenOdd;
+      var hasPath = false;
+
+      for (final ring in shape.rings) {
+        if (ring.length < 3) continue;
+        final segments = _splitDateLineSegments(ring);
+        for (final segment in segments) {
+          if (segment.length < 3) continue;
+          final points = segment
+              .map((point) => _project(point, size))
+              .toList(growable: false);
+          path.moveTo(points.first.dx, points.first.dy);
+          for (final point in points.skip(1)) {
+            path.lineTo(point.dx, point.dy);
+          }
+          path.close();
+          hasPath = true;
+        }
+      }
+
+      if (!hasPath) continue;
+      canvas.drawPath(path, fillPaint);
+      canvas.drawPath(path, ridgePaint);
+    }
+  }
+
+  void _drawShade(Canvas canvas, Rect rect) {
+    final shader = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        Colors.white.withValues(alpha: 0.04),
+        Colors.transparent,
+        Colors.black.withValues(alpha: 0.20),
+      ],
+      stops: const [0, 0.48, 1],
+    ).createShader(rect);
+    canvas.drawRect(rect, Paint()..shader = shader);
+  }
+
+  List<List<GlobeLandPoint>> _splitDateLineSegments(List<GlobeLandPoint> ring) {
+    final segments = <List<GlobeLandPoint>>[];
+    var current = <GlobeLandPoint>[];
+
+    for (final point in ring) {
+      if (current.isNotEmpty) {
+        final previous = current.last;
+        final crossesDateLine =
+            (point.longitude - previous.longitude).abs() > 180;
+        if (crossesDateLine) {
+          if (current.length >= 3) segments.add(current);
+          current = <GlobeLandPoint>[];
+        }
+      }
+      current.add(point);
+    }
+
+    if (current.length >= 3) segments.add(current);
+    return segments;
+  }
+
+  Offset _project(GlobeLandPoint point, Size size) {
+    return Offset(
+      _longitudeToX(point.longitude, size.width),
+      _latitudeToY(point.latitude, size.height),
+    );
+  }
+
+  double _longitudeToX(double longitude, double width) {
+    return ((longitude + 180) / 360).clamp(0.0, 1.0) * width;
+  }
+
+  double _latitudeToY(double latitude, double height) {
+    return ((90 - latitude) / 180).clamp(0.0, 1.0) * height;
+  }
+
+  @override
+  bool shouldRepaint(covariant _WorldMapBackgroundPainter oldDelegate) {
+    return oldDelegate.landShapes != landShapes ||
+        oldDelegate.colorScheme != colorScheme;
+  }
+}
+
+class WorldMapRegionColors {
+  const WorldMapRegionColors._();
+
+  static Color colorFor(String regionKey) {
     switch (regionKey) {
       case 'americas':
         return const Color(0xFFE8793F);

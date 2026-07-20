@@ -9,6 +9,7 @@ import 'package:get/get.dart';
 import '../../controller/world_mode_controller.dart';
 import '../../domain/entities/country_station_entity.dart';
 import '../widgets/country_station_card.dart';
+import '../widgets/world_globe_canvas.dart';
 import '../widgets/world_map_canvas.dart';
 
 class WorldModePage extends GetView<WorldModeController> {
@@ -72,15 +73,56 @@ class _ImmersiveAtlasViewState extends State<_ImmersiveAtlasView> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ── Mapa interactivo a pantalla completa ──
+          // ── Mapa/globo interactivo a pantalla completa ──
           Positioned.fill(
+            child: Obx(() {
+              final countries = ctrl.filteredCountries.toList(growable: false);
+              final selectedCode = ctrl.selectedCountry.value?.code;
+              final mode = ctrl.worldViewMode.value;
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 420),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(
+                      scale: Tween<double>(
+                        begin: 0.975,
+                        end: 1,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  );
+                },
+                child: mode == WorldViewMode.globe
+                    ? WorldGlobeCanvas(
+                        key: const ValueKey<String>('world-globe'),
+                        countries: countries,
+                        selectedCountryCode: selectedCode,
+                        onCountryTap: ctrl.selectCountry,
+                        interactive: true,
+                        showHint: false,
+                      )
+                    : WorldMapCanvas(
+                        key: const ValueKey<String>('world-map'),
+                        countries: countries,
+                        selectedCountryCode: selectedCode,
+                        onCountryTap: ctrl.selectCountry,
+                        interactive: true,
+                        showHint: false,
+                      ),
+              );
+            }),
+          ),
+
+          Positioned(
+            top: topPadding + 76,
+            right: 12,
             child: Obx(
-              () => WorldMapCanvas(
-                countries: ctrl.filteredCountries.toList(growable: false),
-                selectedCountryCode: ctrl.selectedCountry.value?.code,
-                onCountryTap: ctrl.selectCountry,
-                interactive: true,
-                showHint: false,
+              () => _ViewModeToggle(
+                mode: ctrl.worldViewMode.value,
+                onChanged: ctrl.setWorldViewMode,
               ),
             ),
           ),
@@ -244,6 +286,86 @@ class _BarButton extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(9),
           child: Icon(icon, color: iconColor, size: 21),
+        ),
+      ),
+    );
+  }
+}
+
+class _ViewModeToggle extends StatelessWidget {
+  const _ViewModeToggle({required this.mode, required this.onChanged});
+
+  final WorldViewMode mode;
+  final ValueChanged<WorldViewMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.34),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ViewModeButton(
+                icon: Icons.public_rounded,
+                tooltip: tr('world_mode.view_globe'),
+                selected: mode == WorldViewMode.globe,
+                onTap: () => onChanged(WorldViewMode.globe),
+              ),
+              _ViewModeButton(
+                icon: Icons.map_rounded,
+                tooltip: tr('world_mode.view_map'),
+                selected: mode == WorldViewMode.map,
+                onTap: () => onChanged(WorldViewMode.map),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ViewModeButton extends StatelessWidget {
+  const _ViewModeButton({
+    required this.icon,
+    required this.tooltip,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: selected
+            ? scheme.primary.withValues(alpha: 0.88)
+            : Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: 42,
+            height: 38,
+            child: Icon(
+              icon,
+              color: Colors.white.withValues(alpha: selected ? 1 : 0.74),
+              size: 20,
+            ),
+          ),
         ),
       ),
     );

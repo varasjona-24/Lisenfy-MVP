@@ -18,6 +18,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../app/core/presentation/getx_state_controller.dart';
 import '../../../app/core/presentation/view_status.dart';
 import '../../../app/data/local/local_library_store.dart';
+import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/services/local_media_metadata_service.dart';
@@ -40,6 +41,7 @@ class DownloadsController extends GetxStateController<DownloadsState> {
   // ============================
   final LoadDownloadItemsUseCase _loadDownloadItemsUseCase;
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
+  final MediaRepository _mediaRepository = Get.find<MediaRepository>();
   final DownloadTaskService _downloadTask = Get.find<DownloadTaskService>();
   final LocalMediaMetadataService _metadata =
       Get.find<LocalMediaMetadataService>();
@@ -441,16 +443,22 @@ class DownloadsController extends GetxStateController<DownloadsState> {
     required String url,
     required String kind,
     String? quality,
+    List<String>? selectedPlaylistUrls,
   }) async {
     final ok = await _downloadTask.downloadFromUrl(
       mediaId: mediaId,
       url: url,
       kind: kind,
       quality: quality,
+      selectedPlaylistUrls: selectedPlaylistUrls,
     );
     if (ok && !isClosed) {
       await load();
     }
+  }
+
+  Future<PlaylistPreview?> resolvePlaylistPreview(String url) {
+    return _mediaRepository.resolvePlaylistFromUrl(url: url, maxItems: 100);
   }
 
   // ============================

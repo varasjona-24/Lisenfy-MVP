@@ -126,7 +126,7 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                           children: [
                             Expanded(
                               child: Text(
-                                'Historial de imports',
+                                tr('downloads.history'),
                                 style: theme.textTheme.headlineSmall?.copyWith(
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -204,7 +204,7 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'No hay imports en este rango.',
+                  tr('downloads.history_empty_range'),
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -317,7 +317,7 @@ class _BankingCalendarSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 2, bottom: 8),
           child: Text(
-            'Filtro de fecha',
+            tr('downloads.date_filter_title'),
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
               color: scheme.onSurface,

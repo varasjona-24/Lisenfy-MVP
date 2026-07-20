@@ -349,7 +349,7 @@ class DownloadHistoryController
 
       return HistoryGroup(
         id: '$monthKey-W$wn',
-        label: 'Semana $wn',
+        label: tr('downloads.week_label', args: [wn.toString()]),
         date: date,
         subGroups: _buildDailyGroups(weekItems, DateTime.now()),
       );
@@ -432,18 +432,18 @@ class DownloadHistoryController
   String _monthLabel(DateTime date, DateTime now) {
     final months = [
       '',
-      'Enero',
-      'Febrero',
-      'Marzo',
-      'Abril',
-      'Mayo',
-      'Junio',
-      'Julio',
-      'Agosto',
-      'Septiembre',
-      'Octubre',
-      'Noviembre',
-      'Diciembre',
+      tr('downloads.months.january'),
+      tr('downloads.months.february'),
+      tr('downloads.months.march'),
+      tr('downloads.months.april'),
+      tr('downloads.months.may'),
+      tr('downloads.months.june'),
+      tr('downloads.months.july'),
+      tr('downloads.months.august'),
+      tr('downloads.months.september'),
+      tr('downloads.months.october'),
+      tr('downloads.months.november'),
+      tr('downloads.months.december'),
     ];
     final monthName = months[date.month];
 
@@ -613,7 +613,7 @@ class DownloadHistoryController
 
   String customDateRangeLabel() {
     final range = customDateRange.value;
-    if (range == null) return 'Seleccionar rango';
+    if (range == null) return tr('downloads.select_range');
     return '${dayLabelSimple(range.start)} - ${dayLabelSimple(range.end)}';
   }
 

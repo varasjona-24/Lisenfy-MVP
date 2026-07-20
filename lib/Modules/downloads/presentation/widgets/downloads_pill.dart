@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 
 import '../../../../app/routes/app_routes.dart';
 import '../../../../app/utils/listenfy_deep_link.dart';
+import '../../../../app/data/repo/media_repository.dart';
 import '../../controller/downloads_controller.dart';
 import '../../../../app/ui/themes/app_spacing.dart';
 import '../../../../app/models/media_item.dart';
@@ -208,13 +209,54 @@ class DownloadsPill extends GetView<DownloadsController> {
       );
 
       if (result != null) {
-        await controller.downloadFromUrl(url: result.url, kind: result.kind);
+        List<String>? selectedPlaylistUrls;
+        if (_isLikelyYoutubePlaylistUrl(result.url)) {
+          Get.snackbar(
+            tr('imports.playlist_selection_title'),
+            tr('imports.playlist_loading'),
+            snackPosition: SnackPosition.BOTTOM,
+          );
+          final preview = await controller.resolvePlaylistPreview(result.url);
+          if (preview == null || preview.entries.isEmpty) {
+            Get.snackbar(
+              tr('imports.playlist_selection_title'),
+              tr('imports.playlist_failed'),
+              snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: Colors.orange,
+            );
+            return;
+          }
+          if (!context.mounted) return;
+          selectedPlaylistUrls = await showDialog<List<String>>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => _PlaylistSelectionDialog(preview: preview),
+          );
+          if (selectedPlaylistUrls == null || selectedPlaylistUrls.isEmpty) {
+            return;
+          }
+        }
+
+        await controller.downloadFromUrl(
+          url: result.url,
+          kind: result.kind,
+          selectedPlaylistUrls: selectedPlaylistUrls,
+        );
       }
     } finally {
       if (clearSharedOnClose) {
         controller.sharedUrl.value = '';
       }
     }
+  }
+
+  static bool _isLikelyYoutubePlaylistUrl(String url) {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null) return false;
+    final host = uri.host.toLowerCase();
+    if (!host.contains('youtube.com') && host != 'youtu.be') return false;
+    final list = uri.queryParameters['list']?.trim() ?? '';
+    return list.length > 8;
   }
 
   // ============================
@@ -573,6 +615,342 @@ class _ImportUrlResult {
   final String kind;
 
   const _ImportUrlResult({required this.url, required this.kind});
+}
+
+class _PlaylistSelectionDialog extends StatefulWidget {
+  const _PlaylistSelectionDialog({required this.preview});
+
+  final PlaylistPreview preview;
+
+  @override
+  State<_PlaylistSelectionDialog> createState() =>
+      _PlaylistSelectionDialogState();
+}
+
+class _PlaylistSelectionDialogState extends State<_PlaylistSelectionDialog> {
+  late final Set<String> _selectedUrls;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedUrls = widget.preview.entries
+        .where((entry) => entry.isAvailable)
+        .map((entry) => entry.url)
+        .toSet();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final entries = widget.preview.entries;
+    final unavailableCount = entries
+        .where((entry) => !entry.isAvailable)
+        .length;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 680),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.playlist_add_check_rounded,
+                      color: scheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr('imports.playlist_selection_title'),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.preview.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: tr('common.close'),
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                tr(
+                  'imports.playlist_selection_subtitle',
+                  args: [entries.length.toString()],
+                ),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              if (unavailableCount > 0) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: scheme.errorContainer.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: scheme.error.withValues(alpha: 0.22),
+                    ),
+                  ),
+                  child: Text(
+                    tr(
+                      'imports.playlist_unavailable_notice',
+                      args: [unavailableCount.toString()],
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onErrorContainer,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Chip(
+                    avatar: const Icon(Icons.check_circle_rounded, size: 18),
+                    label: Text(
+                      tr(
+                        'imports.playlist_selected_count',
+                        args: [_selectedUrls.length.toString()],
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _selectAll,
+                    icon: const Icon(Icons.done_all_rounded),
+                    label: Text(tr('imports.playlist_select_all')),
+                  ),
+                  TextButton.icon(
+                    onPressed: _clearSelection,
+                    icon: const Icon(Icons.remove_done_rounded),
+                    label: Text(tr('imports.playlist_clear_selection')),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Flexible(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: scheme.outlineVariant),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: entries.length,
+                      separatorBuilder: (_, _) =>
+                          Divider(height: 1, color: scheme.outlineVariant),
+                      itemBuilder: (context, index) {
+                        final entry = entries[index];
+                        final selected = _selectedUrls.contains(entry.url);
+                        final artist = entry.artist?.trim() ?? '';
+                        final duration = _formatDuration(entry.durationMs);
+                        final enabled = entry.isAvailable;
+                        final reason = _availabilityLabel(entry);
+                        return CheckboxListTile(
+                          value: selected,
+                          onChanged: enabled ? (_) => _toggle(entry.url) : null,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          secondary: _PlaylistEntryCover(entry: entry),
+                          title: Text(
+                            entry.title.isNotEmpty
+                                ? entry.title
+                                : tr('imports.playlist_unknown_track'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: enabled
+                                ? null
+                                : TextStyle(color: scheme.onSurfaceVariant),
+                          ),
+                          subtitle: Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              if (artist.isNotEmpty || duration.isNotEmpty)
+                                Text(
+                                  [
+                                    if (artist.isNotEmpty) artist,
+                                    if (duration.isNotEmpty) duration,
+                                  ].join(' · '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              if (!enabled)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: scheme.errorContainer,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    reason,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: scheme.onErrorContainer,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(tr('common.cancel')),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _selectedUrls.isEmpty ? null : _submit,
+                      icon: const Icon(Icons.download_rounded),
+                      label: Text(tr('imports.playlist_import_selected')),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _toggle(String url) {
+    setState(() {
+      if (_selectedUrls.contains(url)) {
+        _selectedUrls.remove(url);
+      } else {
+        _selectedUrls.add(url);
+      }
+    });
+  }
+
+  void _selectAll() {
+    setState(() {
+      _selectedUrls
+        ..clear()
+        ..addAll(
+          widget.preview.entries
+              .where((entry) => entry.isAvailable)
+              .map((entry) => entry.url),
+        );
+    });
+  }
+
+  void _clearSelection() {
+    setState(_selectedUrls.clear);
+  }
+
+  void _submit() {
+    if (_selectedUrls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('imports.playlist_no_selection'))),
+      );
+      return;
+    }
+    Navigator.of(context).pop(_selectedUrls.toList(growable: false));
+  }
+
+  String _formatDuration(int? durationMs) {
+    if (durationMs == null || durationMs <= 0) return '';
+    final totalSeconds = durationMs ~/ 1000;
+    final minutes = (totalSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  String _availabilityLabel(PlaylistPreviewEntry entry) {
+    final reason = entry.availabilityReason?.trim().toLowerCase() ?? '';
+    if (reason.contains('private')) return tr('imports.playlist_private_item');
+    if (reason.contains('deleted')) return tr('imports.playlist_deleted_item');
+    return tr('imports.playlist_unavailable_item');
+  }
+}
+
+class _PlaylistEntryCover extends StatelessWidget {
+  const _PlaylistEntryCover({required this.entry});
+
+  final PlaylistPreviewEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final thumbnail = entry.thumbnail?.trim() ?? '';
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 48,
+        height: 48,
+        color: scheme.surfaceContainerHighest,
+        child: thumbnail.isEmpty
+            ? Icon(Icons.music_note_rounded, color: scheme.onSurfaceVariant)
+            : Image.network(
+                thumbnail,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Icon(
+                  Icons.music_note_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+      ),
+    );
+  }
 }
 
 class _ImportUrlDialog extends StatefulWidget {

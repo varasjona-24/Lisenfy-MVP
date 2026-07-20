@@ -13,6 +13,7 @@ import 'package:listenfy/app/services/lyrics_service.dart';
 class LyricsEntryArgs {
   final String title;
   final String artist;
+  final MediaItem? syncItem;
   final String? lyrics;
   final String? lyricsLanguage;
   final Map<String, String>? translations;
@@ -21,6 +22,7 @@ class LyricsEntryArgs {
   const LyricsEntryArgs({
     required this.title,
     required this.artist,
+    this.syncItem,
     this.lyrics,
     this.lyricsLanguage,
     this.translations,
@@ -79,6 +81,9 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
   String _activePreviewKey = 'en';
 
   AudioService? _audioService;
+  MediaItem? _syncItem;
+  _LyricsSyncPlaybackSnapshot? _playbackSnapshot;
+  bool _privatePlaybackSessionStarted = false;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration?>? _durationSub;
   Duration _playbackPosition = Duration.zero;
@@ -304,19 +309,37 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
   }
 
   Future<void> _togglePlayback() async {
-    if (_audioService == null) return;
-    await _audioService!.toggle();
+    final audioService = _audioService;
+    if (audioService == null) return;
+
+    final item = _syncItem;
+    if (item != null && !_isSyncTrackLoaded(item)) {
+      await _ensureSyncTrackLoaded(autoPlay: true);
+      return;
+    }
+
+    await audioService.toggle();
     if (mounted) setState(() {});
   }
 
   Future<void> _seekBackTwoSeconds() async {
     if (_audioService == null) return;
+    final item = _syncItem;
+    if (item != null && !_isSyncTrackLoaded(item)) {
+      final prepared = await _ensureSyncTrackLoaded(autoPlay: false);
+      if (!prepared) return;
+    }
     final nextMs = (_playbackPosition.inMilliseconds - 2000).clamp(0, 1 << 31);
     await _audioService!.seek(Duration(milliseconds: nextMs));
   }
 
   Future<void> _seekToStart() async {
     if (_audioService == null) return;
+    final item = _syncItem;
+    if (item != null && !_isSyncTrackLoaded(item)) {
+      final prepared = await _ensureSyncTrackLoaded(autoPlay: false);
+      if (!prepared) return;
+    }
     await _audioService!.seek(Duration.zero);
   }
 
@@ -349,13 +372,19 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     });
   }
 
-  void _markNextCue() {
+  Future<void> _markNextCue() async {
     if (_audioService == null) {
       Get.snackbar(
         'Karaoke',
         tr('lyrics.play_from_player'),
         snackPosition: SnackPosition.BOTTOM,
       );
+      return;
+    }
+
+    final item = _syncItem;
+    if (item != null && !_isSyncTrackLoaded(item)) {
+      await _ensureSyncTrackLoaded(autoPlay: true);
       return;
     }
 
@@ -407,6 +436,139 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     setState(() {
       _timedLyrics[_lyricsLang] = updated;
     });
+  }
+
+  MediaVariant? _syncVariantFor(MediaItem item) {
+    final localAudio = item.localAudioVariant;
+    if (localAudio != null && localAudio.isValid) return localAudio;
+
+    for (final variant in item.variants) {
+      if (variant.kind == MediaVariantKind.audio && variant.isValid) {
+        return variant;
+      }
+    }
+
+    for (final variant in item.variants) {
+      if (variant.isValid) return variant;
+    }
+
+    return null;
+  }
+
+  bool _isSyncTrackLoaded(MediaItem item) {
+    final current = _audioService?.currentItem.value;
+    if (current == null) return false;
+    final currentPublicId = current.publicId.trim();
+    final itemPublicId = item.publicId.trim();
+    if (current.id.trim() == item.id.trim()) return true;
+    return currentPublicId.isNotEmpty &&
+        itemPublicId.isNotEmpty &&
+        currentPublicId == itemPublicId;
+  }
+
+  void _capturePlaybackSnapshotIfNeeded(AudioService audioService) {
+    if (!_privatePlaybackSessionStarted) {
+      audioService.beginPrivatePlaybackSession();
+      _privatePlaybackSessionStarted = true;
+    }
+
+    if (_playbackSnapshot != null) return;
+
+    final currentItem = audioService.currentItem.value;
+    final currentVariant = audioService.currentVariant.value;
+    if (currentItem == null || currentVariant == null) return;
+
+    final queue = audioService.queueItems;
+    _playbackSnapshot = _LyricsSyncPlaybackSnapshot(
+      item: currentItem,
+      variant: currentVariant,
+      queue: queue.isEmpty ? <MediaItem>[currentItem] : queue,
+      queueIndex: audioService.currentQueueIndex,
+      position: audioService.currentPosition,
+    );
+
+    Get.snackbar(
+      'Karaoke',
+      tr('lyrics.sync_queue_paused_restore'),
+      snackPosition: SnackPosition.BOTTOM,
+    );
+  }
+
+  Future<void> _restorePlaybackSnapshot() async {
+    final audioService = _audioService;
+    final snapshot = _playbackSnapshot;
+    if (audioService == null) return;
+    if (snapshot == null) {
+      if (_privatePlaybackSessionStarted) {
+        await audioService.stop();
+      }
+      if (_privatePlaybackSessionStarted) {
+        _privatePlaybackSessionStarted = false;
+        audioService.endPrivatePlaybackSession();
+      }
+      return;
+    }
+    _playbackSnapshot = null;
+
+    try {
+      await audioService.play(
+        snapshot.item,
+        snapshot.variant,
+        autoPlay: false,
+        queue: snapshot.queue,
+        queueIndex: snapshot.queueIndex,
+        initialPosition: snapshot.position,
+      );
+      await audioService.pause();
+    } catch (_) {
+      await audioService.stop();
+    } finally {
+      if (_privatePlaybackSessionStarted) {
+        _privatePlaybackSessionStarted = false;
+        audioService.endPrivatePlaybackSession();
+      }
+    }
+  }
+
+  Future<bool> _ensureSyncTrackLoaded({required bool autoPlay}) async {
+    final audioService = _audioService;
+    final item = _syncItem;
+    if (audioService == null || item == null) return true;
+
+    if (_isSyncTrackLoaded(item)) {
+      if (autoPlay && !audioService.isPlaying.value) {
+        await audioService.toggle();
+      }
+      return true;
+    }
+
+    final variant = _syncVariantFor(item);
+    if (variant == null) {
+      Get.snackbar(
+        'Karaoke',
+        tr('lyrics.sync_no_playable_variant'),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return false;
+    }
+
+    _capturePlaybackSnapshotIfNeeded(audioService);
+    await audioService.play(
+      item,
+      variant,
+      autoPlay: autoPlay,
+      queue: <MediaItem>[item],
+      queueIndex: 0,
+      initialPosition: Duration.zero,
+    );
+    _playbackPosition = Duration.zero;
+    final durationSeconds =
+        variant.durationSeconds ?? item.effectiveDurationSeconds;
+    if (durationSeconds != null && durationSeconds > 0) {
+      _playbackDuration = Duration(seconds: durationSeconds);
+    }
+    if (mounted) setState(() {});
+    return true;
   }
 
   Future<void> _translateLyrics() async {
@@ -462,6 +624,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
 
   @override
   void dispose() {
+    unawaited(_restorePlaybackSnapshot());
     _positionSub?.cancel();
     _durationSub?.cancel();
     _titleController.dispose();
@@ -500,6 +663,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     _titleController.text = entryArgs.title.trim();
     _artistController.text = entryArgs.artist.trim();
     _lyricsController.text = (entryArgs.lyrics ?? '').trim();
+    _syncItem = entryArgs.syncItem;
 
     final rawMainLang = (entryArgs.lyricsLanguage ?? '').trim().toLowerCase();
     if (_languageCodes.contains(rawMainLang)) {
@@ -1082,4 +1246,20 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
       ),
     );
   }
+}
+
+class _LyricsSyncPlaybackSnapshot {
+  const _LyricsSyncPlaybackSnapshot({
+    required this.item,
+    required this.variant,
+    required this.queue,
+    required this.queueIndex,
+    required this.position,
+  });
+
+  final MediaItem item;
+  final MediaVariant variant;
+  final List<MediaItem> queue;
+  final int queueIndex;
+  final Duration position;
 }
