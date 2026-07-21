@@ -1475,6 +1475,14 @@
     "shuffle_stations": "Shuffle stations",
     "no_stations": "No stations for this region yet.",
     "generation_error": "Could not generate stations for the region",
+    "preview": "Preview",
+    "station_title_radio": "{} Radio",
+    "station_title_mix": "{} · Mix {}",
+    "station_subtitle_tracks": "{} tracks · {}",
+    "station_sources": {
+      "local": "local",
+      "hybrid": "hybrid"
+    },
     "station_types": {
       "gateway": "Gateway",
       "essentials": "Essentials",

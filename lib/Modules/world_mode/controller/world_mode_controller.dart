@@ -7,7 +7,6 @@ import 'package:get/get.dart';
 import '../../../app/models/media_item.dart';
 import '../domain/entities/country_entity.dart';
 import '../domain/entities/country_station_entity.dart';
-import '../domain/entities/world_explore_options.dart';
 import '../domain/repositories/world_mode_repository.dart';
 import '../services/world_mode_playback_facade.dart';
 
@@ -26,7 +25,6 @@ class WorldModeController extends GetxController {
 
   final RxBool isLoadingCountries = false.obs;
   final RxBool isLoadingStations = false.obs;
-  final RxBool preferOnline = true.obs;
   final RxBool isMapExpanded = false.obs;
   final Rx<WorldViewMode> worldViewMode = WorldViewMode.globe.obs;
   final RxString errorMessage = ''.obs;
@@ -55,7 +53,7 @@ class WorldModeController extends GetxController {
       countries.assignAll(result);
       _applyFilter();
       if (selectedCountry.value == null && result.isNotEmpty) {
-        await selectCountry(result.first, forceRefresh: false);
+        await selectCountry(result.first);
       }
     } catch (e) {
       errorMessage.value = tr('world_mode.load_regions_error');
@@ -69,10 +67,6 @@ class WorldModeController extends GetxController {
     _applyFilter();
   }
 
-  void toggleOnlinePreference(bool value) {
-    preferOnline.value = value;
-  }
-
   void setMapExpanded(bool value) {
     isMapExpanded.value = value;
   }
@@ -81,13 +75,10 @@ class WorldModeController extends GetxController {
     worldViewMode.value = mode;
   }
 
-  Future<void> selectCountry(
-    CountryEntity country, {
-    bool forceRefresh = false,
-  }) async {
+  Future<void> selectCountry(CountryEntity country) async {
     selectedCountry.value = country;
     _shuffleSeed = _rng.nextInt(0x7FFFFFFF);
-    await _loadStations(country, forceRefresh: forceRefresh);
+    await _loadStations(country);
   }
 
   Future<void> refreshStations() async {
@@ -95,7 +86,7 @@ class WorldModeController extends GetxController {
     if (country == null) return;
     // Genera un seed nuevo → orden completamente diferente cada vez
     _shuffleSeed = _rng.nextInt(0x7FFFFFFF);
-    await _loadStations(country, forceRefresh: true);
+    await _loadStations(country);
   }
 
   Future<void> playStation(CountryStationEntity station) async {
@@ -146,20 +137,13 @@ class WorldModeController extends GetxController {
     await _playbackFacade.playQueue(next, startIndex: 0);
   }
 
-  Future<void> _loadStations(
-    CountryEntity country, {
-    required bool forceRefresh,
-  }) async {
+  Future<void> _loadStations(CountryEntity country) async {
     isLoadingStations.value = true;
     errorMessage.value = '';
     try {
       final result = await _repository.exploreCountry(
         country: country,
-        options: WorldExploreOptions(
-          preferOnline: preferOnline.value,
-          forceRefresh: forceRefresh,
-          shuffleSeed: _shuffleSeed,
-        ),
+        shuffleSeed: _shuffleSeed,
       );
       stations.assignAll(result);
     } catch (_) {

@@ -179,7 +179,6 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
 
     return ClipRect(
       child: BackdropFilter(
@@ -237,18 +236,6 @@ class _TopBar extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(width: 8),
-
-              // ── Toggle online / offline ──
-              Obx(() {
-                final online = ctrl.preferOnline.value;
-                return _BarButton(
-                  icon: online ? Icons.wifi_rounded : Icons.wifi_off_rounded,
-                  onTap: () => ctrl.toggleOnlinePreference(!online),
-                  active: online,
-                  activeColor: scheme.primary,
-                );
-              }),
             ],
           ),
         ),
@@ -258,34 +245,22 @@ class _TopBar extends StatelessWidget {
 }
 
 class _BarButton extends StatelessWidget {
-  const _BarButton({
-    required this.icon,
-    required this.onTap,
-    this.active = false,
-    this.activeColor,
-  });
+  const _BarButton({required this.icon, required this.onTap});
 
   final IconData icon;
   final VoidCallback onTap;
-  final bool active;
-  final Color? activeColor;
 
   @override
   Widget build(BuildContext context) {
-    final bg = active
-        ? (activeColor ?? Colors.white).withValues(alpha: 0.85)
-        : Colors.white.withValues(alpha: 0.14);
-    final iconColor = active ? Colors.white : Colors.white;
-
     return Material(
-      color: bg,
+      color: Colors.white.withValues(alpha: 0.14),
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Padding(
           padding: const EdgeInsets.all(9),
-          child: Icon(icon, color: iconColor, size: 21),
+          child: Icon(icon, color: Colors.white, size: 21),
         ),
       ),
     );
@@ -517,14 +492,6 @@ class _StationsSheet extends StatelessWidget {
                                   ),
                           ),
                           tooltip: tr('world_mode.shuffle_stations'),
-                        ),
-                        IconButton(
-                          onPressed: onSearchTap,
-                          icon: Icon(
-                            Icons.search_rounded,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                          tooltip: tr('world_mode.search_region'),
                         ),
                       ],
                     ),

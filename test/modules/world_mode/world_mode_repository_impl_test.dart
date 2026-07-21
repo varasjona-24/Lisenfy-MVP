@@ -6,12 +6,9 @@ import 'package:listenfy/Modules/artists/domain/artist_profile.dart';
 import 'package:listenfy/Modules/sources/domain/source_origin.dart';
 import 'package:listenfy/Modules/world_mode/agent/local_affinity_engine.dart';
 import 'package:listenfy/Modules/world_mode/agent/radio_station_planner.dart';
-import 'package:listenfy/Modules/world_mode/agent/sync_manager.dart';
 import 'package:listenfy/Modules/world_mode/data/datasources/world_local_datasource.dart';
-import 'package:listenfy/Modules/world_mode/data/datasources/world_remote_datasource.dart';
 import 'package:listenfy/Modules/world_mode/data/repositories/world_mode_repository_impl.dart';
 import 'package:listenfy/Modules/world_mode/domain/entities/country_entity.dart';
-import 'package:listenfy/Modules/world_mode/domain/entities/world_explore_options.dart';
 import 'package:listenfy/Modules/world_mode/domain/entities/world_region_catalog.dart';
 import 'package:listenfy/app/data/local/local_library_store.dart';
 import 'package:listenfy/app/data/network/dio_client.dart';
@@ -68,7 +65,7 @@ void main() {
 
         final rioStations = await repository.exploreCountry(
           country: _regionEntity('rio_plata'),
-          options: const WorldExploreOptions(preferOnline: false),
+          shuffleSeed: 1,
         );
         final rioIds = rioStations
             .expand((s) => s.tracks)
@@ -82,7 +79,7 @@ void main() {
 
         final naStations = await repository.exploreCountry(
           country: _regionEntity('norteamerica_anglosajona'),
-          options: const WorldExploreOptions(preferOnline: false),
+          shuffleSeed: 1,
         );
         final naIds = naStations
             .expand((s) => s.tracks)
@@ -91,7 +88,7 @@ void main() {
 
         final ukStations = await repository.exploreCountry(
           country: _regionEntity('islas_britanicas'),
-          options: const WorldExploreOptions(preferOnline: false),
+          shuffleSeed: 1,
         );
         final ukIds = ukStations
             .expand((s) => s.tracks)
@@ -121,7 +118,7 @@ void main() {
         );
         final stations = await repository.exploreCountry(
           country: _regionEntity('rio_plata'),
-          options: const WorldExploreOptions(preferOnline: false),
+          shuffleSeed: 1,
         );
 
         expect(stations.length, 3);
@@ -151,7 +148,6 @@ WorldModeRepositoryImpl _buildRepository({
     artistStore: artistStore,
     affinityEngine: affinity,
     radioPlanner: RadioStationPlanner(affinity),
-    syncManager: SyncManager(WorldRemoteDatasource(DioClient())),
   );
 }
 

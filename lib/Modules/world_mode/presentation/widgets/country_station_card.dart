@@ -67,11 +67,14 @@ class CountryStationCard extends StatelessWidget {
                         children: [
                           _ChipLabel(
                             icon: Icons.queue_music_rounded,
-                            text: '${station.tracks.length} tracks',
+                            text: tr(
+                              'world_mode.tracks_count',
+                              args: ['${station.tracks.length}'],
+                            ),
                           ),
                           _ChipLabel(
                             icon: Icons.memory_rounded,
-                            text: station.source,
+                            text: _sourceLabel(station.source),
                           ),
                         ],
                       ),
@@ -103,7 +106,7 @@ class CountryStationCard extends StatelessWidget {
             if (station.tracks.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
-                'Preview',
+                tr('world_mode.preview'),
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -122,6 +125,13 @@ class CountryStationCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _sourceLabel(String source) {
+    final key = source.trim().toLowerCase();
+    if (key == 'local') return tr('world_mode.station_sources.local');
+    if (key == 'hybrid') return tr('world_mode.station_sources.hybrid');
+    return source;
   }
 }
 
