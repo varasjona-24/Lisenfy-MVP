@@ -1153,16 +1153,12 @@
       "styles": {
         "square": "normal",
         "vinyl": "disco",
-        "landscape": "paisaje",
-        "wave": "ondas",
-        "miniSpectrum": "mini espectro"
+        "landscape": "paisaje"
       },
       "descriptions": {
         "square": "Vista clásica centrada en la carátula.",
         "vinyl": "Vista de disco con presencia visual.",
-        "landscape": "Portada grande con fondo inmersivo.",
-        "wave": "Forma de onda amplia y estable.",
-        "miniSpectrum": "Espectro circular más dinámico."
+        "landscape": "Portada grande con fondo inmersivo."
       }
     },
     "languages": {

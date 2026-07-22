@@ -1143,16 +1143,12 @@
       "styles": {
         "square": "normal",
         "vinyl": "vinyl",
-        "landscape": "landscape",
-        "wave": "wave",
-        "miniSpectrum": "mini spectrum"
+        "landscape": "landscape"
       },
       "descriptions": {
         "square": "Classic view centered on the cover.",
         "vinyl": "Disc view with stronger visual presence.",
-        "landscape": "Large cover with an immersive background.",
-        "wave": "Wide, stable waveform.",
-        "miniSpectrum": "A more dynamic circular spectrum."
+        "landscape": "Large cover with an immersive background."
       }
     },
     "languages": {

@@ -53,8 +53,6 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
       CoverStyle.square => Icons.photo_rounded,
       CoverStyle.vinyl => Icons.album_rounded,
       CoverStyle.landscape => Icons.landscape_rounded,
-      CoverStyle.wave => Icons.graphic_eq_rounded,
-      CoverStyle.miniSpectrum => Icons.equalizer_rounded,
     };
   }
 
@@ -63,8 +61,6 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
       CoverStyle.square => 'normal',
       CoverStyle.vinyl => 'disco',
       CoverStyle.landscape => 'paisaje',
-      CoverStyle.wave => 'ondas',
-      CoverStyle.miniSpectrum => 'mini espectro',
     };
   }
 
@@ -697,8 +693,6 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
       CoverStyle.square => Icons.photo_rounded,
       CoverStyle.vinyl => Icons.album_rounded,
       CoverStyle.landscape => Icons.landscape_rounded,
-      CoverStyle.wave => Icons.graphic_eq_rounded,
-      CoverStyle.miniSpectrum => Icons.equalizer_rounded,
     };
   }
 
@@ -707,8 +701,6 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
       CoverStyle.square => tr('player.visualizer.styles.square'),
       CoverStyle.vinyl => tr('player.visualizer.styles.vinyl'),
       CoverStyle.landscape => tr('player.visualizer.styles.landscape'),
-      CoverStyle.wave => tr('player.visualizer.styles.wave'),
-      CoverStyle.miniSpectrum => tr('player.visualizer.styles.miniSpectrum'),
     };
   }
 
@@ -717,10 +709,6 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
       CoverStyle.square => tr('player.visualizer.descriptions.square'),
       CoverStyle.vinyl => tr('player.visualizer.descriptions.vinyl'),
       CoverStyle.landscape => tr('player.visualizer.descriptions.landscape'),
-      CoverStyle.wave => tr('player.visualizer.descriptions.wave'),
-      CoverStyle.miniSpectrum => tr(
-        'player.visualizer.descriptions.miniSpectrum',
-      ),
     };
   }
 
