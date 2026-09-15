@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class AnimatedListenfyLogo extends StatefulWidget {
+  static const double _visualScale = 0.54;
+
   final double size;
   final Color? color;
   final Duration duration;
@@ -62,11 +64,16 @@ class _AnimatedListenfyLogoState extends State<AnimatedListenfyLogo>
         position: _slide,
         child: ScaleTransition(
           scale: _scale,
-          child: SvgPicture.asset(
-            'assets/logo/listenfy_logo.svg',
-            width: widget.size,
-            height: widget.size,
-            colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
+          child: SizedBox.square(
+            dimension: widget.size,
+            child: Center(
+              child: SvgPicture.asset(
+                'assets/logo/listenfy_logo.svg',
+                width: widget.size * AnimatedListenfyLogo._visualScale,
+                height: widget.size * AnimatedListenfyLogo._visualScale,
+                colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
+              ),
+            ),
           ),
         ),
       ),

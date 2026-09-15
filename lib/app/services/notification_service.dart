@@ -51,7 +51,7 @@ class NotificationService extends GetxService {
     tz_data.initializeTimeZones();
     await _configureLocalTimezone();
 
-    const android = AndroidInitializationSettings('ic_notification');
+    const android = AndroidInitializationSettings('ic_listenfy_notification');
     const iOS = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,

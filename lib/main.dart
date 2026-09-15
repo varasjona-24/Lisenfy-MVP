@@ -98,7 +98,7 @@ Future<void> main() async {
       androidNotificationChannelName: 'Reproducción',
       androidNotificationChannelDescription: 'Controles de reproducción',
       androidNotificationOngoing: true,
-      androidNotificationIcon: 'drawable/ic_notification',
+      androidNotificationIcon: 'drawable/ic_listenfy_notification',
       preloadArtwork: true,
     ),
   );

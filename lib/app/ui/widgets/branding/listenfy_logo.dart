@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class ListenfyLogo extends StatelessWidget {
+  static const double _visualScale = 0.54;
+
   final double size;
   final bool showText;
   final Color? color;
@@ -21,10 +23,16 @@ class ListenfyLogo extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SvgPicture.asset(
-          'assets/logo/listenfy_logo.svg',
-          height: size,
-          colorFilter: ColorFilter.mode(c, BlendMode.srcIn),
+        SizedBox.square(
+          dimension: size,
+          child: Center(
+            child: SvgPicture.asset(
+              'assets/logo/listenfy_logo.svg',
+              width: size * _visualScale,
+              height: size * _visualScale,
+              colorFilter: ColorFilter.mode(c, BlendMode.srcIn),
+            ),
+          ),
         ),
         if (showText) ...[
           const SizedBox(width: 8),

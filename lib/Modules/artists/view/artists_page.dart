@@ -132,10 +132,17 @@ class ArtistsPage extends GetView<ArtistsController> {
   Widget _header(ThemeData theme, BuildContext context) {
     final scheme = theme.colorScheme;
     final artists = controller.filtered;
-    final totalSongs = artists.fold<int>(
-      0,
-      (sum, artist) => sum + artist.count,
-    );
+    final songIds = <String>{};
+    for (final artist in artists) {
+      for (final item in artist.items) {
+        if (!item.hasAudioLocal) continue;
+        final key = item.publicId.trim().isNotEmpty
+            ? item.publicId.trim()
+            : item.id.trim();
+        if (key.isNotEmpty) songIds.add(key);
+      }
+    }
+    final totalSongs = songIds.length;
     final bands = artists
         .where((artist) => artist.kind == ArtistProfileKind.band)
         .length;

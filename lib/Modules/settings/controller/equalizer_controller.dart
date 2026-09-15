@@ -20,6 +20,7 @@ class EqualizerController extends GetxController {
   final RxBool eqAvailable = false.obs;
   final RxString eqUnavailableMessage = ''.obs;
   StreamSubscription<int?>? _audioSessionSub;
+  StreamSubscription<void>? _equalizerRefreshSub;
   int? _lastAudioSessionId;
 
   @override
@@ -33,6 +34,7 @@ class EqualizerController extends GetxController {
   @override
   void onClose() {
     _audioSessionSub?.cancel();
+    _equalizerRefreshSub?.cancel();
     super.onClose();
   }
 
@@ -77,7 +79,10 @@ class EqualizerController extends GetxController {
   // ============================
   // 🔧 INIT / REFRESH
   // ============================
-  Future<void> refreshEqualizer() => _initEqualizer();
+  Future<void> refreshEqualizer() {
+    _bindAudioSession();
+    return _initEqualizerWithRetries();
+  }
 
   void _bindAudioSession() {
     if (!Get.isRegistered<AudioService>()) return;
@@ -85,12 +90,30 @@ class EqualizerController extends GetxController {
     if (!audio.eqSupported) return;
 
     _audioSessionSub?.cancel();
+    _equalizerRefreshSub?.cancel();
     _audioSessionSub = audio.androidAudioSessionIdStream.listen((sessionId) {
       if (sessionId == null || sessionId <= 0) return;
       if (_lastAudioSessionId == sessionId && eqAvailable.value) return;
       _lastAudioSessionId = sessionId;
-      _initEqualizer();
+      _initEqualizerWithRetries();
     });
+    _equalizerRefreshSub = audio.equalizerRefreshRequests.listen((_) {
+      _initEqualizerWithRetries();
+    });
+  }
+
+  Future<void> _initEqualizerWithRetries() async {
+    for (final delay in const [
+      Duration.zero,
+      Duration(milliseconds: 120),
+      Duration(milliseconds: 400),
+    ]) {
+      if (delay > Duration.zero) {
+        await Future.delayed(delay);
+      }
+      await _initEqualizer();
+      if (eqAvailable.value) return;
+    }
   }
 
   Future<void> _initEqualizer() async {

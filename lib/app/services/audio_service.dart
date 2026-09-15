@@ -104,6 +104,8 @@ class AudioService extends GetxService {
   MediaItem? _pendingLastItem;
   MediaVariant? _pendingLastVariant;
   String _lastHomeWidgetSignature = '';
+  final StreamController<void> _equalizerRefreshController =
+      StreamController<void>.broadcast();
 
   void _showMiniPlayerForPlayback() {
     _hiddenSessionSnapshotPreserved = false;
@@ -116,15 +118,25 @@ class AudioService extends GetxService {
     _showMiniPlayerForPlayback();
   }
 
+  void _requestEqualizerRefresh() {
+    if (!eqSupported || _equalizerRefreshController.isClosed) return;
+    _equalizerRefreshController.add(null);
+  }
+
   void _playWithoutBlocking() {
     unawaited(
-      _player.play().catchError((error, stackTrace) {
+      _player.play().then((_) => _requestEqualizerRefresh()).catchError((
+        error,
+        stackTrace,
+      ) {
         debugPrint('AudioService play failed: $error');
       }),
     );
   }
 
   bool get eqSupported => Platform.isAndroid && _androidEqualizer != null;
+  Stream<void> get equalizerRefreshRequests =>
+      _equalizerRefreshController.stream;
   int? get androidAudioSessionId => _player.androidAudioSessionId;
   Stream<int?> get androidAudioSessionIdStream =>
       _player.androidAudioSessionIdStream;
@@ -268,6 +280,7 @@ class AudioService extends GetxService {
     _flushPendingLastItem();
     _lastItemPersistTimer?.cancel();
     _homeWidgetUpdateTimer?.cancel();
+    _equalizerRefreshController.close();
     if (!_hiddenSessionSnapshotPreserved) {
       _persistSessionSnapshot();
     }
@@ -458,6 +471,7 @@ class AudioService extends GetxService {
         initialIndex: _activeIndex,
         initialPosition: initialPosition,
       );
+      _requestEqualizerRefresh();
 
       currentItem.value = _queueItems[_activeIndex];
       currentVariant.value = _queueVariants[_activeIndex];
@@ -511,6 +525,7 @@ class AudioService extends GetxService {
         initialIndex: targetIndex,
         initialPosition: Duration.zero,
       );
+      _requestEqualizerRefresh();
 
       _queueItems = nextQueueItems;
       _queueVariants = nextQueueVariants;
@@ -840,6 +855,7 @@ class AudioService extends GetxService {
       initialIndex: _activeIndex,
       initialPosition: pos,
     );
+    _requestEqualizerRefresh();
 
     currentItem.value = _queueItems[_activeIndex];
     currentVariant.value = _queueVariants[_activeIndex];
@@ -979,6 +995,7 @@ class AudioService extends GetxService {
       initialIndex: _activeIndex,
       initialPosition: pos,
     );
+    _requestEqualizerRefresh();
 
     if (_queueItems.isNotEmpty) {
       currentItem.value = _queueItems[_activeIndex];
@@ -1171,6 +1188,7 @@ class AudioService extends GetxService {
         initialIndex: _activeIndex,
         initialPosition: initialPos,
       );
+      _requestEqualizerRefresh();
 
       currentItem.value = _queueItems[_activeIndex];
       currentVariant.value = _queueVariants[_activeIndex];
