@@ -5,7 +5,9 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.ContentValues
+import android.content.ComponentName
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -49,6 +51,7 @@ class MainActivity : AudioServiceActivity() {
     private val channel = "listenfy/bluetooth_audio"
     private val mediaMetadataChannel = "listenfy/media_metadata"
     private val androidAutoArtworkChannel = "listenfy/android_auto_artwork"
+    private val appIconChannel = "listenfy/app_icon"
     private val spatialChannel = "listenfy/spatial_audio"
     private val openalChannel = "listenfy/openal"
     private val audioCleanupChannel = "listenfy/audio_cleanup"
@@ -66,6 +69,22 @@ class MainActivity : AudioServiceActivity() {
     private var reverb: PresetReverb? = null
     private var envReverb: EnvironmentalReverb? = null
     private var loudness: LoudnessEnhancer? = null
+
+    private val launcherAliases = linkedMapOf(
+        "original" to "com.example.listenfy.LauncherOriginal",
+        "graffiti" to "com.example.listenfy.LauncherGraffiti",
+        "mythological" to "com.example.listenfy.LauncherMythological",
+        "crystal" to "com.example.listenfy.LauncherCrystal",
+        "venom" to "com.example.listenfy.LauncherVenom",
+        "tropical" to "com.example.listenfy.LauncherTropical",
+        "asphalt" to "com.example.listenfy.LauncherAsphalt",
+        "pastel" to "com.example.listenfy.LauncherPastel",
+        "pixel" to "com.example.listenfy.LauncherPixel",
+        "vintage" to "com.example.listenfy.LauncherVintage",
+        "paper" to "com.example.listenfy.LauncherPaper",
+        "vip" to "com.example.listenfy.LauncherVip",
+        "cyberpunk" to "com.example.listenfy.LauncherCyberpunk"
+    )
 
     private data class SilenceSegment(
         val startMs: Int,
@@ -88,6 +107,28 @@ class MainActivity : AudioServiceActivity() {
                 when (call.method) {
                     "getArtworkProviderAuthority" -> {
                         result.success("$packageName.android_auto_artwork")
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, appIconChannel)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getCurrentIcon" -> result.success(getCurrentLauncherIcon())
+                    "setIcon" -> {
+                        val iconId = call.argument<String>("iconId")
+                        if (iconId == null || !launcherAliases.containsKey(iconId)) {
+                            result.error("invalid_icon", "Unknown launcher icon: $iconId", null)
+                            return@setMethodCallHandler
+                        }
+
+                        try {
+                            setLauncherIcon(iconId)
+                            result.success(iconId)
+                        } catch (error: Throwable) {
+                            result.error("launcher_icon_failed", error.message, null)
+                        }
                     }
                     else -> result.notImplemented()
                 }
@@ -634,6 +675,43 @@ class MainActivity : AudioServiceActivity() {
                 }
             }
 
+    }
+
+    private fun getCurrentLauncherIcon(): String {
+        for ((iconId, aliasClassName) in launcherAliases) {
+            val component = ComponentName(packageName, aliasClassName)
+            val state = packageManager.getComponentEnabledSetting(component)
+            if (state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
+                return iconId
+            }
+            if (
+                iconId == "original" &&
+                state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+            ) {
+                return iconId
+            }
+        }
+        return "original"
+    }
+
+    private fun setLauncherIcon(iconId: String) {
+        val targetClassName = launcherAliases.getValue(iconId)
+        val flags = PackageManager.DONT_KILL_APP
+
+        packageManager.setComponentEnabledSetting(
+            ComponentName(packageName, targetClassName),
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+            flags
+        )
+
+        for ((_, aliasClassName) in launcherAliases) {
+            if (aliasClassName == targetClassName) continue
+            packageManager.setComponentEnabledSetting(
+                ComponentName(packageName, aliasClassName),
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                flags
+            )
+        }
     }
 
     override fun onDestroy() {

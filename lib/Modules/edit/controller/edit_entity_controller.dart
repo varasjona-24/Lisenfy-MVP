@@ -482,6 +482,97 @@ class EditEntityController extends GetxController {
       ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
   }
 
+  /// Returns only media with the same cover aspect ratio as [sourceKind].
+  /// Audio covers are square and video thumbnails are 16:9, so mixing them
+  /// would produce incorrectly cropped artwork.
+  Future<List<MediaItem>> coverTransferCandidateMedia({
+    required MediaItem source,
+    required MediaVariantKind sourceKind,
+  }) async {
+    final latest = await resolveLatestMedia(source);
+    final sourceKey = _libraryKeyFor(latest);
+    final all = await _store.readAll();
+    return all
+        .where((item) {
+          if (_libraryKeyFor(item) == sourceKey) return false;
+          return sourceKind == MediaVariantKind.video
+              ? item.hasVideoLocal
+              : item.hasAudioLocal;
+        })
+        .toList(growable: false)
+      ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+  }
+
+  /// Applies a physical copy of [source]'s cover to every selected target.
+  /// A separate file is deliberately created for each target, so removing or
+  /// replacing the source cover never leaves another item pointing at a
+  /// deleted file.
+  Future<int> applyCoverToMediaTargets({
+    required MediaItem source,
+    required List<MediaItem> targets,
+    String? sourceLocalCoverPath,
+  }) async {
+    if (targets.isEmpty) return 0;
+
+    final latestSource = await resolveLatestMedia(source);
+    final localCover = sourceLocalCoverPath?.trim().isNotEmpty == true
+        ? sourceLocalCoverPath!.trim()
+        : (latestSource.thumbnailLocalPath?.trim() ?? '');
+    String sourcePath = localCover;
+    if (sourcePath.isEmpty || !await File(sourcePath).exists()) {
+      final remoteCover = latestSource.thumbnail?.trim() ?? '';
+      if (remoteCover.isEmpty) {
+        throw StateError('The source item has no cover to apply.');
+      }
+      final cached = await cacheRemoteToLocal(
+        id: '${latestSource.id}-cover-transfer-source',
+        url: remoteCover,
+      );
+      sourcePath = cached?.trim() ?? '';
+    }
+
+    final sourceFile = File(sourcePath);
+    if (sourcePath.isEmpty || !await sourceFile.exists()) {
+      throw StateError('The source cover file is not available.');
+    }
+
+    final appDir = await getApplicationDocumentsDirectory();
+    final coversDir = Directory(p.join(appDir.path, 'downloads', 'covers'));
+    if (!await coversDir.exists()) {
+      await coversDir.create(recursive: true);
+    }
+
+    final extension = p.extension(sourcePath).toLowerCase();
+    final safeExtension = extension == '.png' || extension == '.webp'
+        ? extension
+        : '.jpg';
+    final sourceKey = _libraryKeyFor(latestSource);
+    var applied = 0;
+
+    for (final target in targets) {
+      final latestTarget = await resolveLatestMedia(target);
+      if (_libraryKeyFor(latestTarget) == sourceKey) continue;
+
+      final targetPath = p.join(
+        coversDir.path,
+        '${latestTarget.id}-cover-copy-${DateTime.now().microsecondsSinceEpoch}-$applied$safeExtension',
+      );
+      await sourceFile.copy(targetPath);
+
+      final updatedTarget = latestTarget.copyWith(
+        thumbnail: '',
+        thumbnailLocalPath: targetPath,
+      );
+      await _applyMediaMetadataToSiblings(updatedTarget);
+      applied++;
+    }
+
+    if (applied > 0) {
+      await _refreshDependentControllers();
+    }
+    return applied;
+  }
+
   Future<MediaDataTransferResult?> transferMediaData({
     required MediaItem source,
     required MediaItem target,

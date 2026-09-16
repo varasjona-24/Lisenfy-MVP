@@ -55,6 +55,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
   int? _colorValue;
   bool _audioCleanupBusy = false;
   bool _dataTransferBusy = false;
+  bool _coverTransferBusy = false;
   bool _metadataSuggestionBusy = false;
   MediaItem? _mediaDraft;
   ArtistProfileKind _artistKind = ArtistProfileKind.singer;
@@ -912,6 +913,62 @@ class _EditEntityPageState extends State<EditEntityPage> {
     }
   }
 
+  Future<void> _runCoverTransferFlow() async {
+    if (!_isMedia || _media == null || _coverTransferBusy) return;
+
+    final sourceKind = _isVideoMedia
+        ? MediaVariantKind.video
+        : MediaVariantKind.audio;
+    setState(() => _coverTransferBusy = true);
+    try {
+      final candidates = await _controller.coverTransferCandidateMedia(
+        source: _media!,
+        sourceKind: sourceKind,
+      );
+      if (!mounted) return;
+      if (candidates.isEmpty) {
+        Get.snackbar(
+          tr('edit.apply_cover_title'),
+          tr('edit.apply_cover_no_candidates'),
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+
+      final targets = await _showCoverTransferTargetSheet(
+        candidates,
+        sourceKind,
+      );
+      if (!mounted || targets.isEmpty) return;
+
+      final confirmed = await _confirmCoverTransfer(targets.length);
+      if (!mounted || confirmed != true) return;
+
+      final applied = await _controller.applyCoverToMediaTargets(
+        source: _media!,
+        targets: targets,
+        sourceLocalCoverPath: _localThumbPath,
+      );
+      if (!mounted || applied == 0) return;
+
+      Get.snackbar(
+        tr('edit.apply_cover_completed_title'),
+        tr('edit.apply_cover_completed_body', args: ['$applied']),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } on StateError {
+      if (mounted) {
+        Get.snackbar(
+          tr('edit.apply_cover_title'),
+          tr('edit.apply_cover_source_missing'),
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _coverTransferBusy = false);
+    }
+  }
+
   Future<void> _runMusicBrainzSuggestionFlow() async {
     if (!_isMedia || _media == null || _metadataSuggestionBusy) return;
 
@@ -1163,6 +1220,48 @@ class _EditEntityPageState extends State<EditEntityPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => _TransferTargetSheet(candidates: candidates),
+    );
+  }
+
+  Future<List<MediaItem>> _showCoverTransferTargetSheet(
+    List<MediaItem> candidates,
+    MediaVariantKind sourceKind,
+  ) async {
+    return (await showModalBottomSheet<List<MediaItem>>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          builder: (_) => _CoverTransferTargetSheet(
+            candidates: candidates,
+            sourceKind: sourceKind,
+          ),
+        )) ??
+        const <MediaItem>[];
+  }
+
+  Future<bool?> _confirmCoverTransfer(int targetCount) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('edit.apply_cover_title')),
+        content: Text(
+          tr('edit.apply_cover_confirm_body', args: ['$targetCount']),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(tr('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(tr('edit.apply_cover_confirm')),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2512,19 +2611,18 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _ExtraActionCard(
-                        icon: Icons.travel_explore_rounded,
-                        title: tr('edit.metadata_suggestions_title'),
-                        subtitle: tr('edit.metadata_suggestions_subtitle'),
-                        busy: _metadataSuggestionBusy,
-                        busyLabel: tr('edit.metadata_suggestions_searching'),
-                        actionLabel: tr('edit.metadata_suggestions_action'),
-                        onPressed: _runMusicBrainzSuggestionFlow,
-                      ),
-                      const SizedBox(height: 14),
-                      Divider(color: theme.colorScheme.outlineVariant),
-                      const SizedBox(height: 10),
                       if (_isAudioMedia) ...[
+                        _ExtraActionCard(
+                          icon: Icons.travel_explore_rounded,
+                          title: tr('edit.metadata_suggestions_title'),
+                          subtitle: tr('edit.metadata_suggestions_subtitle'),
+                          busy: _metadataSuggestionBusy,
+                          busyLabel: tr('edit.metadata_suggestions_searching'),
+                          actionLabel: tr('edit.metadata_suggestions_action'),
+                          onPressed: _runMusicBrainzSuggestionFlow,
+                        ),
+                        const SizedBox(height: 14),
+                        Divider(color: theme.colorScheme.outlineVariant),
                         const SizedBox(height: 12),
                         _ExtraActionCard(
                           icon: Icons.auto_fix_high_rounded,
@@ -2548,6 +2646,24 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         actionLabel: tr('edit.transfer_to_song'),
                         onPressed: _runDataTransferFlow,
                       ),
+                      if (_isAudioMedia || _isVideoMedia) ...[
+                        const SizedBox(height: 14),
+                        Divider(color: theme.colorScheme.outlineVariant),
+                        const SizedBox(height: 10),
+                        _ExtraActionCard(
+                          icon: Icons.copy_all_rounded,
+                          title: tr('edit.apply_cover_title'),
+                          subtitle: tr(
+                            _isVideoMedia
+                                ? 'edit.apply_cover_video_subtitle'
+                                : 'edit.apply_cover_audio_subtitle',
+                          ),
+                          busy: _coverTransferBusy,
+                          busyLabel: tr('edit.applying_cover'),
+                          actionLabel: tr('edit.apply_cover_action'),
+                          onPressed: _runCoverTransferFlow,
+                        ),
+                      ],
                       if (_isAudioMedia) ...[
                         const SizedBox(height: 14),
                         Divider(color: theme.colorScheme.outlineVariant),
@@ -3332,6 +3448,270 @@ class _TransferTargetSheetState extends State<_TransferTargetSheet> {
                         );
                       },
                     ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CoverTransferTargetSheet extends StatefulWidget {
+  const _CoverTransferTargetSheet({
+    required this.candidates,
+    required this.sourceKind,
+  });
+
+  final List<MediaItem> candidates;
+  final MediaVariantKind sourceKind;
+
+  @override
+  State<_CoverTransferTargetSheet> createState() =>
+      _CoverTransferTargetSheetState();
+}
+
+class _CoverTransferTargetSheetState extends State<_CoverTransferTargetSheet> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  final Set<String> _selectedIds = <String>{};
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<MediaItem> get _filtered {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return widget.candidates;
+    return widget.candidates
+        .where(
+          (item) =>
+              item.title.toLowerCase().contains(query) ||
+              item.displaySubtitle.toLowerCase().contains(query),
+        )
+        .toList(growable: false);
+  }
+
+  String _selectionKey(MediaItem item) =>
+      item.publicId.trim().isNotEmpty ? item.publicId.trim() : item.id;
+
+  void _toggleAllVisible() {
+    final items = _filtered;
+    final allSelected =
+        items.isNotEmpty &&
+        items.every((item) => _selectedIds.contains(_selectionKey(item)));
+    setState(() {
+      for (final item in items) {
+        final key = _selectionKey(item);
+        if (allSelected) {
+          _selectedIds.remove(key);
+        } else {
+          _selectedIds.add(key);
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final items = _filtered;
+    final kindLabel = widget.sourceKind == MediaVariantKind.video
+        ? tr('edit.apply_cover_video_kind')
+        : tr('edit.apply_cover_audio_kind');
+
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * .82,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.copy_all_rounded),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          tr('edit.apply_cover_choose_targets'),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(tr('common.close')),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    tr('edit.apply_cover_kind_hint', args: [kindLabel]),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _searchCtrl,
+                    onChanged: (value) => setState(() => _query = value),
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      hintText: tr('home.search.by_title_artist'),
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _query.trim().isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _query = '');
+                              },
+                            ),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Chip(
+                        avatar: Icon(
+                          widget.sourceKind == MediaVariantKind.video
+                              ? Icons.videocam_rounded
+                              : Icons.music_note_rounded,
+                          size: 18,
+                        ),
+                        label: Text(
+                          tr(
+                            'edit.available_count',
+                            args: ['${widget.candidates.length}'],
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: items.isEmpty ? null : _toggleAllVisible,
+                        child: Text(tr('edit.select_all')),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: items.isEmpty
+                  ? Center(
+                      child: Text(
+                        tr('edit.no_songs_found'),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      itemCount: items.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        final key = _selectionKey(item);
+                        final selected = _selectedIds.contains(key);
+                        final thumb = item.effectiveThumbnail?.trim() ?? '';
+                        final provider = thumb.isEmpty
+                            ? null
+                            : (thumb.startsWith('http')
+                                  ? NetworkImage(thumb)
+                                  : FileImage(File(thumb)) as ImageProvider);
+                        return Material(
+                          color: selected
+                              ? scheme.primaryContainer.withValues(alpha: .42)
+                              : scheme.surface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(
+                              color: selected
+                                  ? scheme.primary
+                                  : scheme.outlineVariant,
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: CheckboxListTile(
+                            value: selected,
+                            onChanged: (_) {
+                              setState(() {
+                                if (selected) {
+                                  _selectedIds.remove(key);
+                                } else {
+                                  _selectedIds.add(key);
+                                }
+                              });
+                            },
+                            secondary: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: provider == null
+                                    ? ColoredBox(
+                                        color: scheme.surfaceContainerHighest,
+                                        child: Icon(
+                                          widget.sourceKind ==
+                                                  MediaVariantKind.video
+                                              ? Icons.videocam_rounded
+                                              : Icons.music_note_rounded,
+                                        ),
+                                      )
+                                    : Image(image: provider, fit: BoxFit.cover),
+                              ),
+                            ),
+                            title: Text(
+                              item.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              item.displaySubtitle.isEmpty
+                                  ? tr('edit.unknown_artist')
+                                  : item.displaySubtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _selectedIds.isEmpty
+                      ? null
+                      : () {
+                          final targets = widget.candidates
+                              .where(
+                                (item) =>
+                                    _selectedIds.contains(_selectionKey(item)),
+                              )
+                              .toList(growable: false);
+                          Navigator.of(context).pop(targets);
+                        },
+                  icon: const Icon(Icons.copy_all_rounded),
+                  label: Text(
+                    tr(
+                      'edit.apply_cover_to_count',
+                      args: ['${_selectedIds.length}'],
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),

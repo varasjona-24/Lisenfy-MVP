@@ -7,6 +7,7 @@ import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:file_picker/file_picker.dart';
@@ -25,6 +26,13 @@ import 'playback_settings_controller.dart';
 import 'sleep_timer_controller.dart';
 import 'equalizer_controller.dart';
 
+class LauncherIconOption {
+  final String id;
+  final String assetPath;
+
+  const LauncherIconOption({required this.id, required this.assetPath});
+}
+
 /// Gestiona: apariencia, caché, bluetooth, cookies YouTube, storage info y reset.
 ///
 /// Las demás responsabilidades fueron extraídas a:
@@ -34,6 +42,10 @@ import 'equalizer_controller.dart';
 /// - [BackupRestoreController] — export/import de librería
 class SettingsController extends GetxController with WidgetsBindingObserver {
   final GetStorage _storage = GetStorage();
+  static const MethodChannel _appIconChannel = MethodChannel(
+    'listenfy/app_icon',
+  );
+  static const _selectedAppIconKey = 'selectedAppIcon';
   static const _smartCarouselInterval = Duration(minutes: 90);
   static const _smartCarouselEnabledKey = 'smartBackgroundCarouselEnabled';
   static const _orderedCarouselEnabledKey = 'orderedBackgroundCarouselEnabled';
@@ -44,6 +56,32 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
 
   // 🌗 Modo de brillo
   final Rx<Brightness> brightness = Brightness.dark.obs;
+
+  // 📱 Icono del launcher (Android)
+  static const List<LauncherIconOption> launcherIconOptions = [
+    LauncherIconOption(id: 'original', assetPath: 'assets/icons/Original.jpeg'),
+    LauncherIconOption(id: 'graffiti', assetPath: 'assets/icons/Grafiti.jpeg'),
+    LauncherIconOption(
+      id: 'mythological',
+      assetPath: 'assets/icons/Mitologico.jpeg',
+    ),
+    LauncherIconOption(id: 'crystal', assetPath: 'assets/icons/Cristal.jpeg'),
+    LauncherIconOption(id: 'venom', assetPath: 'assets/icons/Venom.jpeg'),
+    LauncherIconOption(id: 'tropical', assetPath: 'assets/icons/Tropical.jpeg'),
+    LauncherIconOption(id: 'asphalt', assetPath: 'assets/icons/Asfalto.jpeg'),
+    LauncherIconOption(id: 'pastel', assetPath: 'assets/icons/Pastel.jpeg'),
+    LauncherIconOption(id: 'pixel', assetPath: 'assets/icons/Pixel.jpeg'),
+    LauncherIconOption(id: 'vintage', assetPath: 'assets/icons/Vintage.jpeg'),
+    LauncherIconOption(id: 'paper', assetPath: 'assets/icons/Papel.jpeg'),
+    LauncherIconOption(id: 'vip', assetPath: 'assets/icons/VIP.jpeg'),
+    LauncherIconOption(
+      id: 'cyberpunk',
+      assetPath: 'assets/icons/Cyberpunk.jpeg',
+    ),
+  ];
+  final RxString selectedAppIcon = 'original'.obs;
+  final RxBool isChangingAppIcon = false.obs;
+  bool get launcherIconSupported => Platform.isAndroid;
 
   // 🖼️ Fondo personalizado
   final RxString appBackgroundImagePath = ''.obs;
@@ -69,6 +107,7 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
     super.onInit();
     WidgetsBinding.instance.addObserver(this);
     _loadSettings();
+    unawaited(_loadSelectedAppIcon());
     _startBackgroundCarouselTimer();
     _rotateBackgroundIfDue();
     _configureAudioSession();
@@ -122,6 +161,63 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
     brightness.value = b;
     _storage.write('brightness', b == Brightness.light ? 'light' : 'dark');
     _applyTheme();
+  }
+
+  Future<void> _loadSelectedAppIcon() async {
+    final fallback =
+        _storage.read<String>(_selectedAppIconKey)?.trim() ?? 'original';
+    if (!launcherIconSupported) {
+      selectedAppIcon.value = fallback;
+      return;
+    }
+
+    try {
+      final current = await _appIconChannel.invokeMethod<String>(
+        'getCurrentIcon',
+      );
+      final valid = launcherIconOptions.any((option) => option.id == current);
+      selectedAppIcon.value = valid ? current! : 'original';
+      await _storage.write(_selectedAppIconKey, selectedAppIcon.value);
+    } on PlatformException catch (error) {
+      debugPrint('Unable to read launcher icon: ${error.message}');
+      selectedAppIcon.value =
+          launcherIconOptions.any((option) => option.id == fallback)
+          ? fallback
+          : 'original';
+    }
+  }
+
+  Future<void> setAppIcon(String iconId, {bool showFeedback = true}) async {
+    if (!launcherIconSupported || isChangingAppIcon.value) return;
+    if (!launcherIconOptions.any((option) => option.id == iconId)) return;
+    if (selectedAppIcon.value == iconId) return;
+
+    isChangingAppIcon.value = true;
+    try {
+      final selected = await _appIconChannel.invokeMethod<String>('setIcon', {
+        'iconId': iconId,
+      });
+      selectedAppIcon.value = selected ?? iconId;
+      await _storage.write(_selectedAppIconKey, selectedAppIcon.value);
+      if (showFeedback) {
+        Get.snackbar(
+          tr('settings.appearance.app_icon_changed_title'),
+          tr('settings.appearance.app_icon_changed_body'),
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } on PlatformException catch (error) {
+      debugPrint('Unable to change launcher icon: ${error.message}');
+      if (showFeedback) {
+        Get.snackbar(
+          tr('settings.appearance.app_icon_error_title'),
+          tr('settings.appearance.app_icon_error_body'),
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } finally {
+      isChangingAppIcon.value = false;
+    }
   }
 
   Future<void> setSmartBackgroundCarouselEnabled(bool enabled) async {
@@ -653,6 +749,7 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
   // 🔄 RESET
   // ============================
   Future<void> resetSettings() async {
+    await setAppIcon('original', showFeedback: false);
     await removeAllAppBackgroundImages();
     smartBackgroundCarouselEnabled.value = false;
     orderedBackgroundCarouselEnabled.value = false;

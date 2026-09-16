@@ -91,6 +91,7 @@ class AudioService extends GetxService {
   int _queueRevision = 0;
   int _lastHandlerQueueRevision = -1;
   bool _shuffleEnabled = false;
+  bool _suppressCurrentIndexUpdates = false;
   bool get shuffleEnabled => _shuffleEnabled;
   DateTime _lastSessionPersistAt = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime _lastHomeWidgetUpdateAt = DateTime.fromMillisecondsSinceEpoch(0);
@@ -154,9 +155,8 @@ class AudioService extends GetxService {
   int get queueLength => _queueItems.length;
   int get queueRevision => _queueRevision;
   int get currentQueueIndex {
-    final idx = _player.currentIndex ?? _activeIndex;
-    if (idx < 0 || idx >= _queueItems.length) return 0;
-    return idx;
+    if (_queueItems.isEmpty) return 0;
+    return _activeIndex.clamp(0, _queueItems.length - 1).toInt();
   }
 
   void beginPrivatePlaybackSession() {
@@ -248,6 +248,7 @@ class AudioService extends GetxService {
     });
 
     _player.currentIndexStream.listen((idx) {
+      if (_suppressCurrentIndexUpdates) return;
       if (idx == null) return;
       if (idx < 0 || idx >= _queueItems.length) return;
       if (idx >= _queueVariants.length) return;
@@ -815,14 +816,14 @@ class AudioService extends GetxService {
     if (oldIndex == newIndex) return;
 
     final wasPlaying = _player.playing;
-    final pos = currentPosition;
     var activeIndex = currentQueueIndex;
 
-    final movedItem = _queueItems.removeAt(oldIndex);
-    final movedVariant = _queueVariants.removeAt(oldIndex);
-    _queueItems.insert(newIndex, movedItem);
-    _queueVariants.insert(newIndex, movedVariant);
-    _markQueueChanged();
+    final nextQueueItems = List<MediaItem>.from(_queueItems);
+    final nextQueueVariants = List<MediaVariant>.from(_queueVariants);
+    final movedItem = nextQueueItems.removeAt(oldIndex);
+    final movedVariant = nextQueueVariants.removeAt(oldIndex);
+    nextQueueItems.insert(newIndex, movedItem);
+    nextQueueVariants.insert(newIndex, movedVariant);
 
     if (activeIndex == oldIndex) {
       activeIndex = newIndex;
@@ -835,27 +836,40 @@ class AudioService extends GetxService {
         activeIndex < oldIndex) {
       activeIndex += 1;
     }
+    _suppressCurrentIndexUpdates = true;
+    try {
+      await _player.moveAudioSource(oldIndex, newIndex);
+    } catch (e) {
+      debugPrint('AudioService moveAudioSource failed: $e');
+      _queueItems = nextQueueItems;
+      _queueVariants = nextQueueVariants;
+      _activeIndex = activeIndex.clamp(0, _queueItems.length - 1).toInt();
+      _markQueueChanged();
+      if (!_shuffleEnabled) {
+        _linearItems = List<MediaItem>.from(_queueItems);
+        _linearVariants = List<MediaVariant>.from(_queueVariants);
+      }
+      await _reloadQueueAtCurrentPosition(wasPlaying: wasPlaying);
+      currentItem.value = _queueItems[_activeIndex];
+      currentVariant.value = _queueVariants[_activeIndex];
+      _persistLastItem(_queueItems[_activeIndex], _queueVariants[_activeIndex]);
+      _keepLastItem = true;
+      _persistSessionSnapshot();
+      _notifyHandler();
+      return;
+    } finally {
+      _suppressCurrentIndexUpdates = false;
+    }
+
+    _queueItems = nextQueueItems;
+    _queueVariants = nextQueueVariants;
     _activeIndex = activeIndex.clamp(0, _queueItems.length - 1).toInt();
+    _markQueueChanged();
 
     if (!_shuffleEnabled) {
       _linearItems = List<MediaItem>.from(_queueItems);
       _linearVariants = List<MediaVariant>.from(_queueVariants);
     }
-
-    final sources = <AudioSource>[];
-    for (var i = 0; i < _queueItems.length; i++) {
-      sources.add(
-        AudioSource.uri(_resolvePlayableUri(_queueItems[i], _queueVariants[i])),
-      );
-    }
-
-    _beginTrackPositionLifecycle(pos);
-    await _player.setAudioSources(
-      sources,
-      initialIndex: _activeIndex,
-      initialPosition: pos,
-    );
-    _requestEqualizerRefresh();
 
     currentItem.value = _queueItems[_activeIndex];
     currentVariant.value = _queueVariants[_activeIndex];
@@ -864,8 +878,6 @@ class AudioService extends GetxService {
 
     if (wasPlaying) {
       _playWithoutBlocking();
-    } else {
-      await _player.pause();
     }
     _persistSessionSnapshot();
     _notifyHandler();
@@ -962,11 +974,19 @@ class AudioService extends GetxService {
       return;
     }
 
-    final playing = _player.playing;
-    final pos = currentPosition;
-    final current = currentItem.value;
-    final currentV = currentVariant.value;
-
+    final wasPlaying = _player.playing;
+    final position = _trustedCurrentPosition;
+    final currentIndexBeforeShuffle = currentQueueIndex;
+    final current =
+        currentItem.value ??
+        (currentIndexBeforeShuffle < _queueItems.length
+            ? _queueItems[currentIndexBeforeShuffle]
+            : null);
+    final currentV =
+        currentVariant.value ??
+        (currentIndexBeforeShuffle < _queueVariants.length
+            ? _queueVariants[currentIndexBeforeShuffle]
+            : null);
     final linearIndex = _findLinearIndex(current, currentV);
     if (_shuffleEnabled && _linearItems.length > 1) {
       final shuffled = _buildShuffledIndices(
@@ -978,23 +998,26 @@ class AudioService extends GetxService {
     } else {
       _queueItems = List<MediaItem>.from(_linearItems);
       _queueVariants = List<MediaVariant>.from(_linearVariants);
-      _activeIndex = linearIndex.clamp(0, _queueItems.length - 1);
+      _activeIndex = linearIndex.clamp(0, _queueItems.length - 1).toInt();
     }
     _markQueueChanged();
 
-    final sources = <AudioSource>[];
-    for (var i = 0; i < _queueItems.length; i++) {
-      sources.add(
+    final sources = <AudioSource>[
+      for (var i = 0; i < _queueItems.length; i++)
         AudioSource.uri(_resolvePlayableUri(_queueItems[i], _queueVariants[i])),
-      );
-    }
+    ];
 
-    _beginTrackPositionLifecycle(pos);
-    await _player.setAudioSources(
-      sources,
-      initialIndex: _activeIndex,
-      initialPosition: pos,
-    );
+    _beginTrackPositionLifecycle(position);
+    _suppressCurrentIndexUpdates = true;
+    try {
+      await _player.setAudioSources(
+        sources,
+        initialIndex: _activeIndex,
+        initialPosition: position,
+      );
+    } finally {
+      _suppressCurrentIndexUpdates = false;
+    }
     _requestEqualizerRefresh();
 
     if (_queueItems.isNotEmpty) {
@@ -1004,7 +1027,7 @@ class AudioService extends GetxService {
       _keepLastItem = true;
     }
 
-    if (playing) {
+    if (wasPlaying) {
       _playWithoutBlocking();
     } else {
       await _player.pause();
@@ -1047,6 +1070,29 @@ class AudioService extends GetxService {
       await params.bands[index].setGain(gain);
     } catch (e) {
       debugPrint('Equalizer setEqBandGain error: $e');
+    }
+  }
+
+  Future<void> _reloadQueueAtCurrentPosition({required bool wasPlaying}) async {
+    final pos = currentPosition;
+    final sources = <AudioSource>[];
+    for (var i = 0; i < _queueItems.length; i++) {
+      sources.add(
+        AudioSource.uri(_resolvePlayableUri(_queueItems[i], _queueVariants[i])),
+      );
+    }
+
+    _beginTrackPositionLifecycle(pos);
+    await _player.setAudioSources(
+      sources,
+      initialIndex: _activeIndex,
+      initialPosition: pos,
+    );
+    _requestEqualizerRefresh();
+    if (wasPlaying) {
+      _playWithoutBlocking();
+    } else {
+      await _player.pause();
     }
   }
 
@@ -1219,6 +1265,11 @@ class AudioService extends GetxService {
     return _restoreSessionIfAny(autoPlayOverride: autoPlay);
   }
 
+  void persistSessionNow() {
+    _flushPendingLastItem();
+    _persistSessionSnapshot();
+  }
+
   void _persistSessionSnapshot({bool throttle = false}) {
     if (_queueItems.isEmpty || _queueVariants.isEmpty) return;
     if (_queueItems.length != _queueVariants.length) return;
@@ -1240,7 +1291,10 @@ class AudioService extends GetxService {
       _queueVariants.map((e) => e.toJson()).toList(growable: false),
     );
     _storage.write(_sessionIndexKey, currentQueueIndex);
-    _storage.write(_sessionPositionMsKey, currentPosition.inMilliseconds);
+    _storage.write(
+      _sessionPositionMsKey,
+      _trustedCurrentPosition.inMilliseconds,
+    );
     _storage.write(_sessionWasPlayingKey, _player.playing);
   }
 
@@ -1257,8 +1311,17 @@ class AudioService extends GetxService {
     }
 
     _storage.write(_sessionIndexKey, currentQueueIndex);
-    _storage.write(_sessionPositionMsKey, currentPosition.inMilliseconds);
+    _storage.write(
+      _sessionPositionMsKey,
+      _trustedCurrentPosition.inMilliseconds,
+    );
     _storage.write(_sessionWasPlayingKey, _player.playing);
+  }
+
+  Duration get _trustedCurrentPosition {
+    final playerPosition = _player.position;
+    if (playerPosition > Duration.zero) return playerPosition;
+    return currentPosition;
   }
 
   void _clearSessionSnapshot() {
@@ -1408,6 +1471,8 @@ class AudioService extends GetxService {
 
     final useExplicit =
         queueIndex != null && queueIndex >= 0 && queueIndex < source.length;
+    int? explicitFallbackIndex;
+    var selectedFound = false;
 
     for (var i = 0; i < source.length; i++) {
       final qItem = source[i];
@@ -1422,10 +1487,17 @@ class AudioService extends GetxService {
       outVariants.add(qVariant);
 
       if (useExplicit && i == queueIndex) {
-        start = outItems.length - 1;
-      } else if (!useExplicit && _sameItem(qItem, selectedItem)) {
-        start = outItems.length - 1;
+        explicitFallbackIndex = outItems.length - 1;
       }
+
+      if (!selectedFound && _sameItem(qItem, selectedItem)) {
+        start = outItems.length - 1;
+        selectedFound = true;
+      }
+    }
+
+    if (!selectedFound && explicitFallbackIndex != null) {
+      start = explicitFallbackIndex;
     }
 
     if (outItems.isEmpty) {

@@ -236,12 +236,13 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   StreamSubscription<bool>? _notificationClickSub;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkPermissions();
     unawaited(Get.find<DeepLinkService>().start());
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -260,8 +261,21 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notificationClickSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      if (Get.isRegistered<AudioService>()) {
+        Get.find<AudioService>().persistSessionNow();
+      }
+    }
   }
 
   Future<void> _checkPermissions() async {

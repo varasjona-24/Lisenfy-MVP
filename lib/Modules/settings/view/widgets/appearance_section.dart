@@ -172,6 +172,20 @@ class AppearanceSection extends GetView<SettingsController> {
                 Divider(color: theme.dividerColor.withValues(alpha: .12)),
                 const SizedBox(height: 12),
 
+                if (controller.launcherIconSupported) ...[
+                  Obx(
+                    () => _LauncherIconPicker(
+                      options: SettingsController.launcherIconOptions,
+                      selectedId: controller.selectedAppIcon.value,
+                      busy: controller.isChangingAppIcon.value,
+                      onSelected: controller.setAppIcon,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(color: theme.dividerColor.withValues(alpha: .12)),
+                  const SizedBox(height: 12),
+                ],
+
                 Obx(() {
                   final imagePaths = controller.appBackgroundImagePaths
                       .where((path) => File(path).existsSync())
@@ -262,6 +276,115 @@ class AppearanceSection extends GetView<SettingsController> {
                 }),
               ],
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LauncherIconPicker extends StatelessWidget {
+  final List<LauncherIconOption> options;
+  final String selectedId;
+  final bool busy;
+  final ValueChanged<String> onSelected;
+
+  const _LauncherIconPicker({
+    required this.options,
+    required this.selectedId,
+    required this.busy,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: tr('settings.appearance.app_icon_title'),
+          subtitle: tr('settings.appearance.app_icon_subtitle'),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 104,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: options.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final option = options[index];
+              final selected = option.id == selectedId;
+
+              return SizedBox(
+                width: 72,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: busy || selected ? null : () => onSelected(option.id),
+                  child: Column(
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        width: 66,
+                        height: 66,
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: selected
+                                ? scheme.primary
+                                : theme.dividerColor.withValues(alpha: .18),
+                            width: selected ? 3 : 1,
+                          ),
+                        ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(13),
+                              child: Image.asset(
+                                option.assetPath,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            if (selected)
+                              Align(
+                                alignment: Alignment.topRight,
+                                child: Container(
+                                  margin: const EdgeInsets.all(3),
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: scheme.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.check_rounded,
+                                    size: 13,
+                                    color: scheme.onPrimary,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        tr('settings.appearance.app_icons.${option.id}'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: selected ? scheme.primary : null,
+                          fontWeight: selected ? FontWeight.w700 : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],
