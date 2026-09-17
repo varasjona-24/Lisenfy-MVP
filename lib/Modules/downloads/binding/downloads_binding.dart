@@ -5,7 +5,6 @@ import 'package:listenfy/Modules/downloads/domain/usecases/load_download_items_u
 import 'package:listenfy/app/data/repo/media_repository.dart';
 
 import '../controller/downloads_controller.dart';
-import '../service/download_task_service.dart';
 
 // ============================
 // 📦 BINDINGS
@@ -31,9 +30,6 @@ class DownloadsBinding extends Bindings {
       );
     }
 
-    if (!Get.isRegistered<DownloadTaskService>()) {
-      Get.put(DownloadTaskService(), permanent: true);
-    }
     if (!Get.isRegistered<DownloadsController>()) {
       Get.put(
         DownloadsController(

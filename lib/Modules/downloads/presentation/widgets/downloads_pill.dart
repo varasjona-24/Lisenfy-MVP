@@ -11,7 +11,6 @@ import '../../controller/downloads_controller.dart';
 import '../../../../app/ui/themes/app_spacing.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../nearby_transfer/view/nearby_qr_scanner_page.dart';
-import '../views/imports_webview_page.dart';
 
 /// Widget tipo "pill" con opciones de descargas
 class DownloadsPill extends GetView<DownloadsController> {
@@ -73,17 +72,6 @@ class DownloadsPill extends GetView<DownloadsController> {
                     [
                       _importActionTile(
                         context: context,
-                        icon: Icons.link_rounded,
-                        title: tr('downloads.url_import_title'),
-                        subtitle: tr('downloads.url_import_subtitle'),
-                        onTap: () => DownloadsPill.showImportUrlDialog(
-                          context,
-                          controller,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      _importActionTile(
-                        context: context,
                         icon: Icons.folder_open_rounded,
                         title: tr('downloads.local_import_title'),
                         subtitle: tr('downloads.local_import_subtitle'),
@@ -96,39 +84,6 @@ class DownloadsPill extends GetView<DownloadsController> {
                         title: tr('downloads.scan_qr_title'),
                         subtitle: tr('downloads.scan_qr_subtitle'),
                         onTap: () => _scanListenfyQr(),
-                      ),
-                      const SizedBox(height: 6),
-                      _importActionTile(
-                        context: context,
-                        icon: Icons.public_rounded,
-                        title: tr('downloads.web_search_title'),
-                        subtitle: tr('downloads.web_search_subtitle'),
-                        onTap: () async {
-                          final size = MediaQuery.of(context).size;
-                          final scheme = Theme.of(context).colorScheme;
-                          await showDialog<void>(
-                            context: context,
-                            barrierDismissible: true,
-                            builder: (ctx) {
-                              return Dialog(
-                                insetPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 20,
-                                ),
-                                clipBehavior: Clip.antiAlias,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(22),
-                                ),
-                                backgroundColor: scheme.surface,
-                                child: SizedBox(
-                                  width: size.width * 0.9,
-                                  height: size.height * 0.54,
-                                  child: const ImportsWebViewPage(),
-                                ),
-                              );
-                            },
-                          );
-                        },
                       ),
                     ].map((child) {
                       if (child is SizedBox) return child;
@@ -201,76 +156,6 @@ class DownloadsPill extends GetView<DownloadsController> {
         ),
       ),
     );
-  }
-
-  // ============================
-  // 🌐 IMPORTS URL (DIALOG)
-  // ============================
-  /// 🌐 Dialog mejorado de descargas online
-  static Future<void> showImportUrlDialog(
-    BuildContext context,
-    DownloadsController controller, {
-    String? initialUrl,
-    bool clearSharedOnClose = false,
-  }) async {
-    try {
-      final result = await showDialog<_ImportUrlResult>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) {
-          return _ImportUrlDialog(initialUrl: initialUrl);
-        },
-      );
-
-      if (result != null) {
-        List<String>? selectedPlaylistUrls;
-        if (_isLikelyYoutubePlaylistUrl(result.url)) {
-          Get.snackbar(
-            tr('imports.playlist_selection_title'),
-            tr('imports.playlist_loading'),
-            snackPosition: SnackPosition.BOTTOM,
-          );
-          final preview = await controller.resolvePlaylistPreview(result.url);
-          if (preview == null || preview.entries.isEmpty) {
-            Get.snackbar(
-              tr('imports.playlist_selection_title'),
-              tr('imports.playlist_failed'),
-              snackPosition: SnackPosition.BOTTOM,
-              backgroundColor: Colors.orange,
-            );
-            return;
-          }
-          if (!context.mounted) return;
-          selectedPlaylistUrls = await showDialog<List<String>>(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => _PlaylistSelectionDialog(preview: preview),
-          );
-          if (selectedPlaylistUrls == null || selectedPlaylistUrls.isEmpty) {
-            return;
-          }
-        }
-
-        await controller.downloadFromUrl(
-          url: result.url,
-          kind: result.kind,
-          selectedPlaylistUrls: selectedPlaylistUrls,
-        );
-      }
-    } finally {
-      if (clearSharedOnClose) {
-        controller.sharedUrl.value = '';
-      }
-    }
-  }
-
-  static bool _isLikelyYoutubePlaylistUrl(String url) {
-    final uri = Uri.tryParse(url.trim());
-    if (uri == null) return false;
-    final host = uri.host.toLowerCase();
-    if (!host.contains('youtube.com') && host != 'youtu.be') return false;
-    final list = uri.queryParameters['list']?.trim() ?? '';
-    return list.length > 8;
   }
 
   // ============================
@@ -968,9 +853,7 @@ class _PlaylistEntryCover extends StatelessWidget {
 }
 
 class _ImportUrlDialog extends StatefulWidget {
-  final String? initialUrl;
-
-  const _ImportUrlDialog({this.initialUrl});
+  const _ImportUrlDialog();
 
   @override
   State<_ImportUrlDialog> createState() => _ImportUrlDialogState();
@@ -983,7 +866,7 @@ class _ImportUrlDialogState extends State<_ImportUrlDialog> {
   @override
   void initState() {
     super.initState();
-    _urlCtrl = TextEditingController(text: widget.initialUrl?.trim() ?? '');
+    _urlCtrl = TextEditingController();
   }
 
   @override

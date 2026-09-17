@@ -17,7 +17,6 @@ import 'app/routes/app_pages.dart';
 import 'app/routes/app_routes.dart';
 import 'app/ui/themes/app_theme_factory.dart';
 import 'app/ui/widgets/player/mini_player_bar.dart';
-import 'app/ui/widgets/download/download_progress_banner.dart';
 
 import 'app/data/network/dio_client.dart';
 import 'app/data/repo/media_repository.dart';
@@ -41,7 +40,6 @@ import 'Modules/downloads/controller/downloads_controller.dart';
 import 'Modules/downloads/data/repositories/downloads_repository_impl.dart';
 import 'Modules/downloads/domain/contracts/downloads_repository.dart';
 import 'Modules/downloads/domain/usecases/load_download_items_usecase.dart';
-import 'Modules/downloads/service/download_task_service.dart';
 import 'Modules/artists/data/artist_store.dart';
 import 'Modules/playlists/data/playlist_store.dart';
 import 'Modules/sources/data/source_theme_topic_store.dart';
@@ -182,9 +180,6 @@ Future<void> main() async {
   Get.put<LocalRecommendationService>(recommendationService, permanent: true);
   Get.put<RecommendationEngine>(recommendationService, permanent: true);
 
-  // 🚚 Runtime global de imports/descargas
-  Get.put(DownloadTaskService(), permanent: true);
-
   if (!Get.isRegistered<DownloadsRepository>()) {
     Get.lazyPut<DownloadsRepository>(
       () =>
@@ -322,7 +317,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           return Stack(
             children: [
               child,
-              const DownloadProgressBanner(),
               Positioned(
                 left: 0,
                 right: 0,

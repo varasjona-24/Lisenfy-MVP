@@ -8,10 +8,6 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
         </intent>
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT" />
-            <data android:mimeType="text/plain" />
-        </intent>
     </queries>
 
     <!-- Network -->
@@ -152,13 +148,6 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="listenfy" android:host="open" />
                 <data android:scheme="listenfy" android:host="transfer" />
-            </intent-filter>
-
-            <!-- Compartir texto (URLs) -->
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="text/plain" />
             </intent-filter>
 
             <!-- Compartir archivos multimedia (incluye flujo desde Bluetooth) -->

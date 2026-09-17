@@ -8,7 +8,6 @@ import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_custom_tabs/flutter_custom_tabs.dart';
 import 'package:get/get.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
@@ -18,13 +17,11 @@ import 'package:path_provider/path_provider.dart';
 import '../../../app/core/presentation/getx_state_controller.dart';
 import '../../../app/core/presentation/view_status.dart';
 import '../../../app/data/local/local_library_store.dart';
-import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/services/local_media_metadata_service.dart';
 import '../../../app/services/notification_service.dart';
 import '../domain/usecases/load_download_items_usecase.dart';
-import '../service/download_task_service.dart';
 import '../state/downloads_state.dart';
 import '../presentation/widgets/downloads_pill.dart';
 
@@ -41,28 +38,18 @@ class DownloadsController extends GetxStateController<DownloadsState> {
   // ============================
   final LoadDownloadItemsUseCase _loadDownloadItemsUseCase;
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
-  final MediaRepository _mediaRepository = Get.find<MediaRepository>();
-  final DownloadTaskService _downloadTask = Get.find<DownloadTaskService>();
   final LocalMediaMetadataService _metadata =
       Get.find<LocalMediaMetadataService>();
 
   // ============================
   // 🧭 ESTADO UI
   // ============================
-  final RxBool customTabOpening = false.obs;
-  RxBool get isDownloading => _downloadTask.isDownloading;
-  RxDouble get downloadProgress => _downloadTask.downloadProgress;
-  RxString get downloadStatus => _downloadTask.downloadStatus;
-
   bool get isLoading => state.value.status.isLoading;
   List<MediaItem> get downloads => state.value.items;
 
   // 📁 Archivos locales para importar
   final RxList<MediaItem> localFilesForImport = <MediaItem>[].obs;
   final RxBool importing = false.obs;
-  final RxString sharedUrl = ''.obs;
-  final RxBool shareDialogOpen = false.obs;
-  final RxBool sharedArgConsumed = false.obs;
   final RxBool localImportArgConsumed = false.obs;
   final RxBool localImportDialogOpen = false.obs;
   final RxBool openLocalImportRequested = false.obs;
@@ -148,8 +135,7 @@ class DownloadsController extends GetxStateController<DownloadsState> {
         }
 
         if (_isLikelyWebUrl(filePath)) {
-          debugPrint('[SHARE] Detected URL, calling _setSharedUrl');
-          _setSharedUrl(filePath);
+          debugPrint('[SHARE] Ignoring URL in Play edition');
           continue;
         }
 
@@ -264,103 +250,8 @@ class DownloadsController extends GetxStateController<DownloadsState> {
     });
   }
 
-  void _setSharedUrl(String? value) {
-    final v = (value ?? '').trim();
-    if (v.isEmpty) return;
-    if (!_isLikelyWebUrl(v)) return;
-    sharedUrl.value = v;
-    _openImportsFromShare(v);
-  }
-
-  void _openImportsFromShare(String url) {
-    if (Get.currentRoute == AppRoutes.downloads) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (Get.currentRoute != AppRoutes.downloads) {
-        Get.toNamed(AppRoutes.downloads, arguments: {'sharedUrl': url});
-      }
-    });
-  }
-
   void requestOpenLocalImport() {
     openLocalImportRequested.value = true;
-  }
-
-  // ============================
-  // 🌐 CUSTOM TAB
-  // ============================
-  String normalizeImportUrl(String raw) {
-    final t = raw.trim();
-    if (t.isEmpty) return 'https://m.youtube.com';
-    if (t.startsWith('http://') || t.startsWith('https://')) return t;
-    return 'https://$t';
-  }
-
-  Future<void> openCustomTab(BuildContext context, String rawUrl) async {
-    if (customTabOpening.value) return;
-
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final url = normalizeImportUrl(rawUrl);
-    final uri = Uri.tryParse(url);
-    if (uri == null) {
-      Get.snackbar(
-        tr('downloads.invalid_url_title'),
-        tr('downloads.invalid_url_body').replaceFirst('{}', url),
-      );
-      return;
-    }
-
-    customTabOpening.value = true;
-    try {
-      if (Platform.isMacOS) {
-        final result = await Process.run('/usr/bin/open', [uri.toString()]);
-        if (result.exitCode != 0) {
-          throw Exception(result.stderr.toString());
-        }
-        return;
-      }
-
-      await launchUrl(
-        uri,
-        prefersDeepLink: false,
-        customTabsOptions: CustomTabsOptions(
-          browser: const CustomTabsBrowserConfiguration(
-            prefersDefaultBrowser: true,
-            fallbackCustomTabs: <String>[
-              'com.brave.browser',
-              'com.microsoft.emmx',
-              'com.sec.android.app.sbrowser',
-              'com.opera.browser',
-            ],
-          ),
-          colorSchemes: CustomTabsColorSchemes.defaults(
-            toolbarColor: cs.surface,
-          ),
-          showTitle: true,
-          urlBarHidingEnabled: true,
-          shareState: CustomTabsShareState.on,
-          instantAppsEnabled: false,
-          closeButton: CustomTabsCloseButton(
-            icon: CustomTabsCloseButtonIcons.back,
-          ),
-          animations: CustomTabsSystemAnimations.slideIn(),
-        ),
-        safariVCOptions: SafariViewControllerOptions(
-          preferredBarTintColor: cs.surface,
-          preferredControlTintColor: cs.onSurface,
-          barCollapsingEnabled: true,
-          dismissButtonStyle: SafariViewControllerDismissButtonStyle.close,
-        ),
-      );
-    } catch (e) {
-      debugPrint('CustomTab launch error: $e');
-      Get.snackbar(
-        tr('downloads.open_failed_title'),
-        tr('downloads.open_failed_body'),
-      );
-    } finally {
-      customTabOpening.value = false;
-    }
   }
 
   // ============================
@@ -433,32 +324,6 @@ class DownloadsController extends GetxStateController<DownloadsState> {
       default:
         return tr('downloads.usage_all');
     }
-  }
-
-  // ============================
-  // ⬇️ DESCARGAR DESDE URL
-  // ============================
-  Future<void> downloadFromUrl({
-    String? mediaId,
-    required String url,
-    required String kind,
-    String? quality,
-    List<String>? selectedPlaylistUrls,
-  }) async {
-    final ok = await _downloadTask.downloadFromUrl(
-      mediaId: mediaId,
-      url: url,
-      kind: kind,
-      quality: quality,
-      selectedPlaylistUrls: selectedPlaylistUrls,
-    );
-    if (ok && !isClosed) {
-      await load();
-    }
-  }
-
-  Future<PlaylistPreview?> resolvePlaylistPreview(String url) {
-    return _mediaRepository.resolvePlaylistFromUrl(url: url, maxItems: 100);
   }
 
   // ============================

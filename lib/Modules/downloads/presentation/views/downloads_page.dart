@@ -24,40 +24,14 @@ class DownloadsPage extends GetView<DownloadsController> {
     final scheme = theme.colorScheme;
 
     final home = Get.find<HomeController>();
-    final argUrl = (Get.arguments is Map)
-        ? (Get.arguments as Map)['sharedUrl']?.toString().trim()
-        : null;
     final argOpenLocalImport = (Get.arguments is Map)
         ? ((Get.arguments as Map)['openLocalImport'] == true)
         : false;
 
     return Obx(() {
-      final shared = controller.sharedUrl.value;
-      final dialogOpen = controller.shareDialogOpen.value;
       final shouldOpenLocalImport = controller.openLocalImportRequested.value;
 
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if ((controller.sharedUrl.value.isEmpty) &&
-            (argUrl?.isNotEmpty ?? false) &&
-            controller.sharedArgConsumed.value == false) {
-          controller.sharedUrl.value = argUrl ?? '';
-          controller.sharedArgConsumed.value = true;
-        }
-
-        if (shared.isNotEmpty && dialogOpen == false) {
-          controller.shareDialogOpen.value = true;
-          final url = shared;
-          controller.sharedUrl.value = '';
-          await DownloadsPill.showImportUrlDialog(
-            context,
-            controller,
-            initialUrl: url,
-            clearSharedOnClose: true,
-          );
-          controller.shareDialogOpen.value = false;
-          if (!context.mounted) return;
-        }
-
         final needsLocalDialog =
             (argOpenLocalImport &&
                 controller.localImportArgConsumed.value == false) ||
