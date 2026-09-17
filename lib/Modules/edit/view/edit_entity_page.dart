@@ -56,6 +56,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
   bool _audioCleanupBusy = false;
   bool _dataTransferBusy = false;
   bool _coverTransferBusy = false;
+  bool _coverGallerySaving = false;
   bool _metadataSuggestionBusy = false;
   MediaItem? _mediaDraft;
   ArtistProfileKind _artistKind = ArtistProfileKind.singer;
@@ -969,6 +970,47 @@ class _EditEntityPageState extends State<EditEntityPage> {
     }
   }
 
+  Future<void> _saveCoverToGallery() async {
+    if (!_isMedia || _media == null || _coverGallerySaving) return;
+
+    final name = await _askCoverGalleryName();
+    if (!mounted || name == null) return;
+
+    setState(() => _coverGallerySaving = true);
+    try {
+      await _controller.saveMediaCoverToGallery(
+        item: _media!,
+        name: name,
+        localCoverPath: _localThumbPath,
+      );
+      if (mounted) {
+        Get.snackbar(
+          tr('edit.save_cover_gallery_title'),
+          tr('edit.save_cover_gallery_success'),
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } on ArgumentError {
+      if (mounted) {
+        Get.snackbar(
+          tr('edit.save_cover_gallery_title'),
+          tr('edit.save_cover_gallery_name_required'),
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } on StateError {
+      if (mounted) {
+        Get.snackbar(
+          tr('edit.save_cover_gallery_title'),
+          tr('edit.save_cover_gallery_missing'),
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _coverGallerySaving = false);
+    }
+  }
+
   Future<void> _runMusicBrainzSuggestionFlow() async {
     if (!_isMedia || _media == null || _metadataSuggestionBusy) return;
 
@@ -1263,6 +1305,40 @@ class _EditEntityPageState extends State<EditEntityPage> {
         ],
       ),
     );
+  }
+
+  Future<String?> _askCoverGalleryName() async {
+    final controller = TextEditingController(
+      text: '${_titleCtrl.text.trim()} ${tr('edit.cover')}'.trim(),
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('edit.save_cover_gallery_title')),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (value) => Navigator.of(ctx).pop(value.trim()),
+          decoration: InputDecoration(
+            labelText: tr('edit.save_cover_gallery_name_label'),
+            prefixIcon: const Icon(Icons.image_rounded),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(tr('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: Text(tr('edit.save_cover_gallery_action')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
   }
 
   Future<bool?> _confirmDataTransfer(MediaItem target) {
@@ -2662,6 +2738,18 @@ class _EditEntityPageState extends State<EditEntityPage> {
                           busyLabel: tr('edit.applying_cover'),
                           actionLabel: tr('edit.apply_cover_action'),
                           onPressed: _runCoverTransferFlow,
+                        ),
+                        const SizedBox(height: 14),
+                        Divider(color: theme.colorScheme.outlineVariant),
+                        const SizedBox(height: 10),
+                        _ExtraActionCard(
+                          icon: Icons.add_photo_alternate_outlined,
+                          title: tr('edit.save_cover_gallery_title'),
+                          subtitle: tr('edit.save_cover_gallery_subtitle'),
+                          busy: _coverGallerySaving,
+                          busyLabel: tr('edit.saving_cover_gallery'),
+                          actionLabel: tr('edit.save_cover_gallery_action'),
+                          onPressed: _saveCoverToGallery,
                         ),
                       ],
                       if (_isAudioMedia) ...[

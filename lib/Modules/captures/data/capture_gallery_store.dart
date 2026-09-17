@@ -33,10 +33,14 @@ class CaptureGalleryStore {
     required String title,
     String? sourceTitle,
     String? sourceId,
+    String extension = '.jpg',
   }) async {
     final dir = await captureDirectory();
+    final normalizedExtension = extension.toLowerCase() == '.png'
+        ? '.png'
+        : '.jpg';
     final fileName =
-        'listenfy_capture_${sanitizeFileName(title)}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        'listenfy_capture_${sanitizeFileName(title)}_${DateTime.now().millisecondsSinceEpoch}$normalizedExtension';
     final file = File(p.join(dir.path, fileName));
     await file.writeAsBytes(bytes, flush: true);
     await setSource(file.path, title: sourceTitle ?? title, sourceId: sourceId);

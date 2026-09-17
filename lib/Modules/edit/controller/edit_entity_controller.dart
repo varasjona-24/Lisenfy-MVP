@@ -573,6 +573,68 @@ class EditEntityController extends GetxController {
     return applied;
   }
 
+  /// Saves an independent copy of a media cover in Listenfy's own gallery.
+  Future<String> saveMediaCoverToGallery({
+    required MediaItem item,
+    required String name,
+    String? localCoverPath,
+  }) async {
+    final cleanName = name.trim();
+    if (cleanName.isEmpty) {
+      throw ArgumentError('A name is required for the gallery image.');
+    }
+
+    final latest = await resolveLatestMedia(item);
+    final preferredLocal = localCoverPath?.trim().isNotEmpty == true
+        ? localCoverPath!.trim()
+        : (latest.thumbnailLocalPath?.trim() ?? '');
+    var sourcePath = preferredLocal;
+    var downloadedForExport = false;
+
+    if (sourcePath.isEmpty || !await File(sourcePath).exists()) {
+      final remote = latest.thumbnail?.trim() ?? '';
+      if (remote.isEmpty) {
+        throw StateError('The media item has no cover to save.');
+      }
+      final cached = await cacheRemoteToLocal(
+        id: '${latest.id}-cover-gallery-export',
+        url: remote,
+      );
+      sourcePath = cached?.trim() ?? '';
+      downloadedForExport = sourcePath.isNotEmpty;
+    }
+
+    final source = File(sourcePath);
+    if (sourcePath.isEmpty || !await source.exists()) {
+      throw StateError('The media cover file is not available.');
+    }
+
+    try {
+      final extension = p.extension(sourcePath).toLowerCase() == '.png'
+          ? '.png'
+          : '.jpg';
+      final storedPath = await _capturesStore.saveCapture(
+        bytes: await source.readAsBytes(),
+        title: cleanName,
+        sourceTitle: latest.title,
+        sourceId: _libraryKeyFor(latest),
+        extension: extension,
+      );
+      final renamedPath = await _capturesStore.renameCapture(
+        storedPath,
+        cleanName,
+      );
+      if (Get.isRegistered<CaptureGalleryController>()) {
+        await Get.find<CaptureGalleryController>().reload();
+      }
+      return renamedPath;
+    } finally {
+      if (downloadedForExport) {
+        await deleteFile(sourcePath);
+      }
+    }
+  }
+
   Future<MediaDataTransferResult?> transferMediaData({
     required MediaItem source,
     required MediaItem target,
