@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:listenfy/Modules/artists/data/artist_store.dart';
 import 'package:listenfy/Modules/artists/domain/artist_profile.dart';
 import 'package:listenfy/app/data/local/local_library_store.dart';
@@ -5,6 +7,7 @@ import 'package:listenfy/app/utils/artist_credit_parser.dart';
 import 'package:listenfy/app/models/media_item.dart';
 import 'package:listenfy/app/services/audio_service.dart';
 import 'package:listenfy/Modules/sources/domain/source_origin.dart';
+import 'local_connect_http_policy.dart';
 
 class LocalConnectPlaybackSync {
   LocalConnectPlaybackSync({
@@ -20,15 +23,50 @@ class LocalConnectPlaybackSync {
   final LocalLibraryStore _localLibraryStore;
   static final RegExp _parenChunkPattern = RegExp(r'\([^)]*\)|\[[^\]]*\]');
 
+  int _artistStoreRevision = -1;
+  int _libraryRevision = -1;
+  final Map<String, ArtistProfile> _profilesByKey = <String, ArtistProfile>{};
+  final Map<String, ArtistProfile> _profilesByName = <String, ArtistProfile>{};
+  final Map<String, int> _trackCountByArtistKey = <String, int>{};
+  final Map<String, ArtistCredits> _creditsByArtistText =
+      <String, ArtistCredits>{};
+  final Map<String, Map<String, dynamic>?> _artistProfileJsonCache =
+      <String, Map<String, dynamic>?>{};
+  final Map<String, ArtistProfile?> _resolvedProfiles = {};
+  String? _cachedQueueSignature;
+  List<Map<String, dynamic>> _cachedQueue = const [];
+
   String queueSignature() {
-    return '${_audioService.queueRevision}:${_audioService.queueLength}:${_audioService.currentQueueIndex}';
+    return '${_audioService.queueRevision}:${_audioService.queueLength}:${_artistStore.revision}:${_localLibraryStore.revision}';
   }
 
   String trackSignature() {
     final current = _audioService.currentItem.value;
     final variant = _audioService.currentVariant.value;
     if (current == null || variant == null) return 'none';
-    return '${current.id}::${current.title}::${current.displaySubtitle}::${current.effectiveThumbnail ?? ''}::${variant.kind.name}::${variant.format}::${variant.localPath ?? variant.fileName}';
+    return '${current.id}::${current.title}::${current.displaySubtitle}::${current.effectiveThumbnail ?? ''}::$currentVariantId';
+  }
+
+  /// Stable stream identity without publishing the device filesystem path.
+  String? get currentVariantId {
+    final variant = _audioService.currentVariant.value;
+    final item = _audioService.currentItem.value;
+    if (variant == null || item == null) return null;
+    return sha256
+        .convert(
+          utf8.encode(
+            jsonEncode([
+              item.id,
+              variant.kind.name,
+              variant.format,
+              variant.roleKey,
+              variant.localPath,
+              variant.fileName,
+              variant.createdAt,
+            ]),
+          ),
+        )
+        .toString();
   }
 
   String playbackStateSignature() {
@@ -37,22 +75,21 @@ class LocalConnectPlaybackSync {
     final speed = _audioService.speed.value.toStringAsFixed(2);
     final volume = _audioService.volume.value.toStringAsFixed(2);
     final shuffle = _audioService.shuffleEnabled;
-    return '$playing|$buffering|$speed|$volume|$shuffle';
+    return '$playing|$buffering|$speed|$volume|$shuffle|${_audioService.currentQueueIndex}';
   }
 
   Map<String, dynamic> buildSessionPayload({bool includeQueue = true}) {
+    _ensureMetadataIndex();
     final current = _audioService.currentItem.value;
     final duration =
         _audioService.currentVariant.value?.durationSeconds ??
         current?.effectiveDurationSeconds;
     final positionMs = _audioService.currentPosition.inMilliseconds;
-    final artistProfileCache = <String, Map<String, dynamic>?>{};
-    final queue = includeQueue ? _audioService.queueItems : const <MediaItem>[];
     final currentQueueIndex = _audioService.currentQueueIndex;
-    final queueLength = includeQueue ? queue.length : _audioService.queueLength;
+    final queueLength = _audioService.queueLength;
 
     return <String, dynamic>{
-      'track': _trackToJson(current, artistProfileCache: artistProfileCache),
+      'track': _trackToJson(current),
       'playback': <String, dynamic>{
         'isPlaying': _audioService.isPlaying.value,
         'isBuffering': _audioService.isLoading.value,
@@ -62,15 +99,7 @@ class LocalConnectPlaybackSync {
         'volume': _audioService.volume.value,
         'shuffleEnabled': _audioService.shuffleEnabled,
       },
-      if (includeQueue)
-        'queue': queue
-            .map(
-              (item) => _queueItemToJson(
-                item,
-                artistProfileCache: artistProfileCache,
-              ),
-            )
-            .toList(),
+      if (includeQueue) 'queue': queuePayload(),
       'currentQueueIndex': currentQueueIndex,
       'hasNext': currentQueueIndex < queueLength - 1,
       'hasPrevious': currentQueueIndex > 0,
@@ -93,27 +122,25 @@ class LocalConnectPlaybackSync {
   }
 
   Map<String, dynamic>? currentTrackPayload() {
-    final artistProfileCache = <String, Map<String, dynamic>?>{};
-    return _trackToJson(
-      _audioService.currentItem.value,
-      artistProfileCache: artistProfileCache,
-    );
+    _ensureMetadataIndex();
+    return _trackToJson(_audioService.currentItem.value);
   }
 
   List<Map<String, dynamic>> queuePayload() {
-    final artistProfileCache = <String, Map<String, dynamic>?>{};
-    return _audioService.queueItems
-        .map(
-          (item) =>
-              _queueItemToJson(item, artistProfileCache: artistProfileCache),
-        )
-        .toList();
+    _ensureMetadataIndex();
+    final signature = queueSignature();
+    if (_cachedQueueSignature != signature) {
+      _cachedQueue = List.unmodifiable(
+        _audioService.queueItems.map(
+          (item) => Map<String, dynamic>.unmodifiable(_queueItemToJson(item)),
+        ),
+      );
+      _cachedQueueSignature = signature;
+    }
+    return _cachedQueue;
   }
 
-  Map<String, dynamic>? _trackToJson(
-    MediaItem? item, {
-    required Map<String, Map<String, dynamic>?> artistProfileCache,
-  }) {
+  Map<String, dynamic>? _trackToJson(MediaItem? item) {
     if (item == null) return null;
     final duration =
         _audioService.currentVariant.value?.durationSeconds ??
@@ -127,12 +154,11 @@ class LocalConnectPlaybackSync {
       'durationMs': (duration ?? 0) * 1000,
       'kind': _audioService.currentVariant.value?.kind.name,
       'format': _audioService.currentVariant.value?.format,
+      'variantId': currentVariantId,
+      'variantRole': _audioService.currentVariant.value?.roleKey,
       'source': item.source.name,
       'origin': item.origin.key,
-      'artistProfile': _artistProfileToJson(
-        item,
-        artistProfileCache: artistProfileCache,
-      ),
+      'artistProfile': _artistProfileToJson(item),
       'isFavorite': item.isFavorite,
       'playCount': item.playCount,
       'lastPlayedAt': item.lastPlayedAt,
@@ -143,10 +169,7 @@ class LocalConnectPlaybackSync {
     };
   }
 
-  Map<String, dynamic> _queueItemToJson(
-    MediaItem item, {
-    required Map<String, Map<String, dynamic>?> artistProfileCache,
-  }) {
+  Map<String, dynamic> _queueItemToJson(MediaItem item) {
     final audioVariant = item.localAudioVariant;
     final duration =
         audioVariant?.durationSeconds ?? item.effectiveDurationSeconds;
@@ -159,10 +182,7 @@ class LocalConnectPlaybackSync {
       'durationMs': (duration ?? 0) * 1000,
       'source': item.source.name,
       'origin': item.origin.key,
-      'artistProfile': _artistProfileToJson(
-        item,
-        artistProfileCache: artistProfileCache,
-      ),
+      'artistProfile': _artistProfileToJson(item),
       'isFavorite': item.isFavorite,
       'playCount': item.playCount,
       'lastPlayedAt': item.lastPlayedAt,
@@ -175,21 +195,27 @@ class LocalConnectPlaybackSync {
 
   String? _coverUrl(MediaItem item) {
     final local = item.thumbnailLocalPath?.trim();
-    if (local != null && local.isNotEmpty) return local;
+    if (local != null && local.isNotEmpty) {
+      return Uri(
+        path: '/cover/item',
+        queryParameters: {'itemId': item.id},
+      ).toString();
+    }
     final remote = item.thumbnail?.trim();
-    if (remote != null && remote.isNotEmpty) return remote;
+    if (LocalConnectHttpPolicy.isRemoteUrl(remote)) return remote;
     return null;
   }
 
-  Map<String, dynamic>? _artistProfileToJson(
-    MediaItem item, {
-    required Map<String, Map<String, dynamic>?> artistProfileCache,
-  }) {
-    final profile = _resolveArtistProfile(item);
+  Map<String, dynamic>? _artistProfileToJson(MediaItem item) {
+    if (_resolvedProfiles.length >= 2048) _resolvedProfiles.clear();
+    final profile = _resolvedProfiles.putIfAbsent(
+      item.displaySubtitle,
+      () => _resolveArtistProfile(item),
+    );
     if (profile == null) return null;
     final key = profile.key;
-    if (artistProfileCache.containsKey(key)) {
-      return artistProfileCache[key];
+    if (_artistProfileJsonCache.containsKey(key)) {
+      return _artistProfileJsonCache[key];
     }
     final trackCount = _trackCountForArtistKey(key);
     final data = <String, dynamic>{
@@ -198,17 +224,21 @@ class LocalConnectPlaybackSync {
       'kind': profile.kind.key,
       'country': profile.country,
       'countryCode': profile.countryCode,
-      'thumbnail': profile.thumbnail,
-      'thumbnailLocalPath': profile.thumbnailLocalPath,
+      'thumbnail': LocalConnectHttpPolicy.isRemoteUrl(profile.thumbnail)
+          ? profile.thumbnail
+          : null,
+      // Artwork is served by id; never expose device filesystem paths.
+      'thumbnailLocalPath': null,
       'memberCount': profile.memberKeys.length,
       'trackCount': trackCount,
     };
-    artistProfileCache[key] = data;
-    return data;
+    return _artistProfileJsonCache[key] = Map<String, dynamic>.unmodifiable(
+      data,
+    );
   }
 
   ArtistProfile? _resolveArtistProfile(MediaItem item) {
-    final credits = ArtistCreditParser.parse(item.displaySubtitle);
+    final credits = _creditsFor(item.displaySubtitle);
     final primaryName = ArtistCreditParser.cleanName(credits.primaryArtist);
     if (primaryName.isEmpty) return null;
 
@@ -223,21 +253,9 @@ class LocalConnectPlaybackSync {
       ArtistCreditParser.normalizeKey(rawSubtitle),
     }..removeWhere((key) => key.isEmpty || key == 'unknown');
 
-    final profiles = _artistStore.readAllSync();
-    if (profiles.isEmpty) return null;
-
-    final byNormalizedKey = <String, ArtistProfile>{};
-    for (final profile in profiles) {
-      final profileKey = ArtistCreditParser.normalizeKey(profile.key);
-      if (profileKey.isEmpty || profileKey == 'unknown') continue;
-      final existing = byNormalizedKey[profileKey];
-      byNormalizedKey[profileKey] =
-          _pickRicherProfile(existing, profile) ?? profile;
-    }
-
     ArtistProfile? byKey;
     for (final candidate in keyCandidates) {
-      byKey = _pickRicherProfile(byKey, byNormalizedKey[candidate]);
+      byKey = _pickRicherProfile(byKey, _profilesByKey[candidate]);
     }
 
     ArtistProfile? byName;
@@ -245,12 +263,8 @@ class LocalConnectPlaybackSync {
       ArtistCreditParser.normalizeKey(primaryName),
       ArtistCreditParser.normalizeKey(strippedPrimary),
     }..removeWhere((key) => key.isEmpty || key == 'unknown');
-    if (nameTargets.isNotEmpty) {
-      for (final profile in profiles) {
-        final displayKey = ArtistCreditParser.normalizeKey(profile.displayName);
-        if (!nameTargets.contains(displayKey)) continue;
-        byName = _pickRicherProfile(byName, profile);
-      }
+    for (final target in nameTargets) {
+      byName = _pickRicherProfile(byName, _profilesByName[target]);
     }
 
     return _pickRicherProfile(byKey, byName);
@@ -285,14 +299,67 @@ class LocalConnectPlaybackSync {
   int _trackCountForArtistKey(String artistKey) {
     final target = ArtistCreditParser.normalizeKey(artistKey);
     if (target.isEmpty || target == 'unknown') return 0;
-    final library = _localLibraryStore.readAllSync();
-    var count = 0;
-    for (final item in library) {
-      final credits = ArtistCreditParser.parse(item.displaySubtitle);
-      if (credits.containsArtistKey(target)) {
-        count += 1;
-      }
+    return _trackCountByArtistKey[target] ?? 0;
+  }
+
+  /// Recorre artistas y biblioteca solo tras un cambio persistido. Esto evita
+  /// hacerlo una vez por cada pista al serializar una cola para Connect.
+  void _ensureMetadataIndex() {
+    final artistRevision = _artistStore.revision;
+    final libraryRevision = _localLibraryStore.revision;
+    if (artistRevision == _artistStoreRevision &&
+        libraryRevision == _libraryRevision) {
+      return;
     }
-    return count;
+
+    _artistProfileJsonCache.clear();
+    _resolvedProfiles.clear();
+
+    if (artistRevision != _artistStoreRevision) {
+      _profilesByKey.clear();
+      _profilesByName.clear();
+      for (final profile in _artistStore.readAllSync()) {
+        final profileKey = ArtistCreditParser.normalizeKey(profile.key);
+        if (profileKey.isNotEmpty && profileKey != 'unknown') {
+          _profilesByKey[profileKey] =
+              _pickRicherProfile(_profilesByKey[profileKey], profile) ??
+              profile;
+        }
+
+        final displayKey = ArtistCreditParser.normalizeKey(profile.displayName);
+        if (displayKey.isNotEmpty && displayKey != 'unknown') {
+          _profilesByName[displayKey] =
+              _pickRicherProfile(_profilesByName[displayKey], profile) ??
+              profile;
+        }
+      }
+      _artistStoreRevision = artistRevision;
+    }
+
+    if (libraryRevision != _libraryRevision) {
+      _trackCountByArtistKey.clear();
+      _creditsByArtistText.clear();
+      for (final item in _localLibraryStore.readAllSync()) {
+        final credits = _creditsFor(item.displaySubtitle);
+        for (final artist in credits.allArtists) {
+          final key = ArtistCreditParser.normalizeKey(artist);
+          if (key.isEmpty || key == 'unknown') continue;
+          _trackCountByArtistKey.update(
+            key,
+            (count) => count + 1,
+            ifAbsent: () => 1,
+          );
+        }
+      }
+      _libraryRevision = libraryRevision;
+    }
+  }
+
+  ArtistCredits _creditsFor(String artistText) {
+    if (_creditsByArtistText.length >= 2048) _creditsByArtistText.clear();
+    return _creditsByArtistText.putIfAbsent(
+      artistText,
+      () => ArtistCreditParser.parse(artistText),
+    );
   }
 }

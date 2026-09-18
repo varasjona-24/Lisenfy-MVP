@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
@@ -17,19 +18,29 @@ import '../../../app/data/local/local_library_store.dart';
 import '../../../app/services/notification_service.dart';
 import '../../artists/data/artist_store.dart';
 import '../data/server/local_connect_pairing_manager.dart';
+import '../data/server/local_connect_http_policy.dart';
 import '../data/server/local_connect_playback_sync.dart';
 import '../data/web/local_connect_web_page.dart';
 import '../domain/entities/local_connect_models.dart';
 
 class LocalConnectServerService extends GetxService {
-  LocalConnectServerService({Duration tokenTtl = const Duration(minutes: 15)})
-    : _pairingManager = LocalConnectPairingManager(tokenTtl: tokenTtl);
+  LocalConnectServerService({
+    Duration tokenTtl = const Duration(minutes: 15),
+    AudioService? audioService,
+    LocalLibraryStore? libraryStore,
+    ArtistStore? artistStore,
+  }) : _pairingManager = LocalConnectPairingManager(tokenTtl: tokenTtl),
+       _audioService = audioService ?? Get.find<AudioService>(),
+       _localLibraryStore = libraryStore ?? Get.find<LocalLibraryStore>(),
+       _artistStore =
+           artistStore ??
+           (Get.isRegistered<ArtistStore>()
+               ? Get.find<ArtistStore>()
+               : ArtistStore(Get.find<GetStorage>()));
 
-  final AudioService _audioService = Get.find<AudioService>();
-  final LocalLibraryStore _localLibraryStore = Get.find<LocalLibraryStore>();
-  final ArtistStore _artistStore = Get.isRegistered<ArtistStore>()
-      ? Get.find<ArtistStore>()
-      : ArtistStore(Get.find<GetStorage>());
+  final AudioService _audioService;
+  final LocalLibraryStore _localLibraryStore;
+  final ArtistStore _artistStore;
   final LocalConnectPairingManager _pairingManager;
 
   late final LocalConnectPlaybackSync _playbackSync = LocalConnectPlaybackSync(
@@ -42,6 +53,12 @@ class LocalConnectServerService extends GetxService {
   final Map<String, WebSocket> _socketByClientId = <String, WebSocket>{};
   final Set<String> _authorizedSocketClients = <String>{};
   Timer? _playbackTicker;
+  bool _starting = false;
+  int _activeRequests = 0;
+  final Map<HttpResponse, String> _activeStreams = {};
+  final Map<String, (DateTime, int)> _pairingAttempts = {};
+  bool _privatePlaybackWasActive = false;
+  DateTime _lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   String _lastTrackSignature = '';
   String _lastPlaybackSignature = '';
@@ -73,19 +90,21 @@ class LocalConnectServerService extends GetxService {
   @override
   void onClose() {
     _pendingNotificationWorker?.dispose();
+    unawaited(stop());
     super.onClose();
   }
 
-  Future<void> start() async {
-    if (isRunning.value) return;
+  Future<void> start({InternetAddress? address}) async {
+    if (isRunning.value || _starting) return;
+    _starting = true;
     serverError.value = '';
 
     try {
-      final bindAddress = InternetAddress.anyIPv4;
-      final server = await HttpServer.bind(bindAddress, 0);
+      final lanIp = address ?? await _resolveLanAddress();
+      final server = await HttpServer.bind(lanIp, 0);
+      server.idleTimeout = const Duration(seconds: 15);
       _httpServer = server;
 
-      final lanIp = await _resolveLanAddress();
       final url = 'http://${lanIp.address}:${server.port}';
       serverUrl.value = url;
       wsUrl.value = 'ws://${lanIp.address}:${server.port}/ws';
@@ -111,31 +130,33 @@ class LocalConnectServerService extends GetxService {
       serverError.value = 'No se pudo iniciar servidor local: $error';
       _log('server start failed: $error');
       await stop();
+    } finally {
+      _starting = false;
     }
   }
 
   Future<void> stop() async {
+    isRunning.value = false;
     _playbackTicker?.cancel();
     _playbackTicker = null;
-
-    for (final socket in _socketByClientId.values) {
-      try {
-        await socket.close(WebSocketStatus.normalClosure, 'Server stopped');
-      } catch (_) {}
-    }
+    final sockets = _socketByClientId.values.toList();
     _socketByClientId.clear();
     _authorizedSocketClients.clear();
-
-    if (_httpServer != null) {
-      await _httpServer!.close(force: true);
-      _httpServer = null;
+    _pairingManager.revokeAllSessions();
+    _pairingAttempts.clear();
+    for (final response in _activeStreams.keys.toList()) {
+      unawaited(_abortResponse(response));
     }
-
-    isRunning.value = false;
+    _activeStreams.clear();
+    for (final socket in sockets) {
+      unawaited(socket.close(WebSocketStatus.normalClosure, 'Server stopped'));
+    }
+    final server = _httpServer;
+    _httpServer = null;
+    if (server != null) await server.close(force: true);
     serverUrl.value = '';
     wsUrl.value = '';
     _refreshState();
-    _log('server stopped');
   }
 
   Future<void> approvePairingRequest(String requestId) async {
@@ -143,23 +164,7 @@ class LocalConnectServerService extends GetxService {
     _refreshState();
     if (session == null) return;
 
-    _authorizedSocketClients.add(session.clientId);
-    _pairingManager.touchClient(clientId: session.clientId, isConnected: true);
-    _sendToClient(
-      session.clientId,
-      type: 'pairingApproved',
-      payload: <String, dynamic>{
-        'clientId': session.clientId,
-        'token': session.token,
-        'expiresAt': session.expiresAt.toIso8601String(),
-      },
-    );
-
-    _broadcastPaired(
-      type: 'pairingApproved',
-      payload: <String, dynamic>{'clientId': session.clientId},
-    );
-    _refreshState();
+    // Credentials are retrieved only by the browser holding the random receipt.
     if (Get.isRegistered<NotificationService>()) {
       await Get.find<NotificationService>().showConnectApproved(
         session.clientName,
@@ -171,21 +176,12 @@ class LocalConnectServerService extends GetxService {
     final request = _pairingManager.rejectRequest(requestId);
     _refreshState();
     if (request == null) return;
-
-    _sendToClient(
-      request.clientId,
-      type: 'pairingRejected',
-      payload: <String, dynamic>{'clientId': request.clientId},
-    );
-    _broadcastAny(
-      type: 'pairingRejected',
-      payload: <String, dynamic>{'clientId': request.clientId},
-    );
   }
 
   Future<void> revokeSession(String clientId) async {
     final session = _pairingManager.revokeSession(clientId);
     if (session == null) return;
+    _abortStreamsFor(session.clientId);
     await _closeClientSession(
       clientId: session.clientId,
       reason: 'revoked',
@@ -203,6 +199,7 @@ class LocalConnectServerService extends GetxService {
     final revoked = _pairingManager.revokeAllSessions();
     if (revoked.isEmpty) return;
     for (final session in revoked) {
+      _abortStreamsFor(session.clientId);
       await _closeClientSession(
         clientId: session.clientId,
         reason: 'revoked_all',
@@ -359,7 +356,31 @@ class LocalConnectServerService extends GetxService {
   }
 
   Future<void> _handleRequest(HttpRequest request) async {
+    var counted = false;
     try {
+      request.response.headers
+        ..set('X-Content-Type-Options', 'nosniff')
+        ..set('X-Frame-Options', 'DENY')
+        ..set('Referrer-Policy', 'no-referrer')
+        ..set('Cache-Control', 'no-store')
+        ..set(
+          'Content-Security-Policy',
+          "default-src 'none'; frame-ancestors 'none'; sandbox",
+        );
+      if (!isRunning.value ||
+          !LocalConnectHttpPolicy.allowsRequest(
+            server: Uri.parse(serverUrl.value),
+            host: request.headers.value(HttpHeaders.hostHeader),
+            origin: request.headers.value('origin'),
+            fetchSite: request.headers.value('sec-fetch-site'),
+          )) {
+        throw const ConnectHttpException(403, 'untrusted_origin');
+      }
+      if (_activeRequests >= 64) {
+        throw const ConnectHttpException(429, 'too_many_requests');
+      }
+      _activeRequests++;
+      counted = true;
       _log('HTTP ${request.method} ${request.uri.path}');
       if (request.uri.path == '/ws') {
         await _handleWebSocketUpgrade(request);
@@ -368,10 +389,21 @@ class LocalConnectServerService extends GetxService {
 
       switch ('${request.method} ${request.uri.path}') {
         case 'GET /':
+          final random = Random.secure();
+          final nonce = base64UrlEncode(
+            List<int>.generate(24, (_) => random.nextInt(256)),
+          );
+          request.response.headers.set(
+            'Content-Security-Policy',
+            "default-src 'none'; script-src 'nonce-$nonce'; style-src 'unsafe-inline'; "
+                "img-src 'self' http: https:; media-src 'self' http: https:; "
+                "connect-src 'self' ${wsUrl.value}; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+          );
           await _serveHtml(
             request,
             buildLocalConnectWebPage(
               translations: _localConnectWebTranslations(),
+              scriptNonce: nonce,
             ),
           );
           return;
@@ -435,180 +467,140 @@ class LocalConnectServerService extends GetxService {
           }, statusCode: HttpStatus.notFound);
       }
     } catch (error) {
-      if (kDebugMode) {
-        debugPrint('LocalConnect request error: $error');
-      }
+      final problem = error is ConnectHttpException
+          ? error
+          : error is FormatException ||
+                error is TypeError ||
+                error is ArgumentError
+          ? const ConnectHttpException(400, 'invalid_request')
+          : const ConnectHttpException(500, 'internal_error');
+      // Exception strings can contain URLs/tokens; log only the error category.
+      _log('HTTP failure: ${problem.code}');
       try {
-        await _writeJson(request.response, <String, dynamic>{
-          'error': 'internal_error',
-        }, statusCode: HttpStatus.internalServerError);
+        request.response.persistentConnection = false;
+        await _writeJson(request.response, {
+          'error': problem.code,
+        }, statusCode: problem.statusCode);
       } catch (_) {}
+    } finally {
+      if (counted) _activeRequests--;
     }
   }
 
   Future<void> _handleWebSocketUpgrade(HttpRequest request) async {
     final clientId = request.uri.queryParameters['clientId']?.trim() ?? '';
-    if (clientId.isEmpty) {
-      await _writeJson(request.response, <String, dynamic>{
-        'error': 'client_id_required',
-      }, statusCode: HttpStatus.badRequest);
+    final token = _extractToken(request);
+    if (request.method != 'GET' ||
+        !WebSocketTransformer.isUpgradeRequest(request)) {
+      throw const ConnectHttpException(400, 'invalid_upgrade');
+    }
+    if (clientId.isEmpty ||
+        !_pairingManager.isTokenAuthorized(token: token, clientId: clientId)) {
+      throw const ConnectHttpException(401, 'unauthorized');
+    }
+    final ws = await WebSocketTransformer.upgrade(
+      request,
+      compression: CompressionOptions.compressionOff,
+    );
+    if (!isRunning.value ||
+        !_pairingManager.isTokenAuthorized(token: token, clientId: clientId)) {
+      await ws.close(WebSocketStatus.policyViolation, 'Session ended');
       return;
     }
-
-    final ws = await WebSocketTransformer.upgrade(request);
-    _log('WS upgraded for client=$clientId');
     final previous = _socketByClientId[clientId];
-    if (previous != null) {
-      try {
-        await previous.close(WebSocketStatus.normalClosure, 'Replaced');
-      } catch (_) {}
-    }
     _socketByClientId[clientId] = ws;
-
-    final token = request.uri.queryParameters['token']?.trim() ?? '';
-    final authorized =
-        token.isNotEmpty &&
-        _pairingManager.isTokenAuthorized(token: token, clientId: clientId);
-    if (authorized) {
-      _authorizedSocketClients.add(clientId);
-      _pairingManager.touchClient(clientId: clientId, isConnected: true);
-      _log('WS authorized for client=$clientId');
-      _sendToClient(
-        clientId,
-        type: 'pairingApproved',
-        payload: <String, dynamic>{'clientId': clientId, 'token': token},
-      );
-      if (_audioService.isInPrivatePlaybackSession) {
-        _sendToClient(
-          clientId,
-          type: 'privatePlaybackLocked',
-          payload: _privatePlaybackPayload(),
-        );
-      } else {
-        _sendToClient(
-          clientId,
-          type: 'playbackStateChanged',
-          payload: _playbackSync.buildSessionPayload(includeQueue: true),
-        );
-      }
-    } else {
-      _authorizedSocketClients.remove(clientId);
-      _log('WS requires pairing for client=$clientId');
-      _sendToClient(
-        clientId,
-        type: 'pairingRequired',
-        payload: <String, dynamic>{'clientId': clientId},
-      );
+    _authorizedSocketClients.add(clientId);
+    if (previous != null) {
+      unawaited(previous.close(WebSocketStatus.normalClosure, 'Replaced'));
     }
-    _refreshState();
+    ws.pingInterval = const Duration(seconds: 20);
+    _pairingManager.touchClient(clientId: clientId, isConnected: true);
+    void disconnected() {
+      // The old connection may finish after its replacement is already active.
+      if (!identical(_socketByClientId[clientId], ws)) return;
+      _socketByClientId.remove(clientId);
+      _authorizedSocketClients.remove(clientId);
+      _pairingManager.disconnectClient(clientId);
+      _refreshState();
+    }
 
     ws.listen(
-      (_) {},
-      onDone: () {
-        _log('WS closed for client=$clientId');
-        _socketByClientId.remove(clientId);
-        _authorizedSocketClients.remove(clientId);
-        _pairingManager.disconnectClient(clientId);
-        _refreshState();
+      (_) {
+        unawaited(
+          ws.close(WebSocketStatus.policyViolation, 'Unexpected message'),
+        );
+        disconnected();
       },
-      onError: (_) {
-        _log('WS errored for client=$clientId');
-        _socketByClientId.remove(clientId);
-        _authorizedSocketClients.remove(clientId);
-        _pairingManager.disconnectClient(clientId);
-        _refreshState();
-      },
+      onDone: disconnected,
+      onError: (_) => disconnected(),
       cancelOnError: true,
     );
+    _sendToClient(
+      clientId,
+      type: _audioService.isInPrivatePlaybackSession
+          ? 'privatePlaybackLocked'
+          : 'playbackStateChanged',
+      payload: _audioService.isInPrivatePlaybackSession
+          ? _privatePlaybackPayload()
+          : _playbackSync.buildSessionPayload(),
+    );
+    _refreshState();
   }
 
   Future<void> _handlePairingRequest(HttpRequest request) async {
+    final now = DateTime.now();
+    _pairingAttempts.removeWhere(
+      (_, entry) => now.difference(entry.$1) > const Duration(minutes: 1),
+    );
+    final ip = request.connectionInfo?.remoteAddress.address ?? 'unknown';
+    final previous = _pairingAttempts[ip];
+    if ((previous?.$2 ?? 0) >= 6 ||
+        (_pairingAttempts.length >= 128 && previous == null)) {
+      throw const ConnectHttpException(429, 'pairing_rate_limited');
+    }
+    _pairingAttempts[ip] = (previous?.$1 ?? now, (previous?.$2 ?? 0) + 1);
     final body = await _readJsonBody(request);
     final clientId = (body['clientId'] as String? ?? '').trim();
-    final rawName = (body['clientName'] as String? ?? '').trim();
-    final clientName = rawName.isEmpty ? 'Browser client' : rawName;
-
-    if (clientId.isEmpty) {
-      await _writeJson(request.response, <String, dynamic>{
-        'error': 'client_id_required',
-      }, statusCode: HttpStatus.badRequest);
-      return;
+    final name = (body['clientName'] as String? ?? '').trim();
+    LocalConnectPairingRequest pending;
+    try {
+      pending = _pairingManager.requestPairing(
+        clientId: clientId,
+        clientName: name.isEmpty ? 'Browser client' : name,
+      );
+    } on StateError {
+      throw const ConnectHttpException(409, 'pairing_unavailable');
     }
-
-    final existingSession = _pairingManager.findSessionByClientId(clientId);
-    if (existingSession != null && !existingSession.isExpired) {
-      _log('pairing already approved for client=$clientId');
-      final sessionPayload = _audioService.isInPrivatePlaybackSession
-          ? _privatePlaybackPayload()
-          : _playbackSync.buildSessionPayload();
-      await _writeJson(request.response, <String, dynamic>{
-        'status': 'already_paired',
-        'clientId': existingSession.clientId,
-        'token': existingSession.token,
-        'expiresAt': existingSession.expiresAt.toIso8601String(),
-        'session': sessionPayload,
-      });
-      return;
-    }
-
-    final req = _pairingManager.requestPairing(
-      clientId: clientId,
-      clientName: clientName,
-    );
-    _log('pairing requested client=$clientId requestId=${req.id}');
     _refreshState();
-
-    _broadcastAny(
-      type: 'pairingRequested',
-      payload: <String, dynamic>{
-        'requestId': req.id,
-        'clientId': req.clientId,
-        'clientName': req.clientName,
-        'requestedAt': req.requestedAt.toIso8601String(),
-      },
-    );
-
-    await _writeJson(request.response, <String, dynamic>{
+    await _writeJson(request.response, {
       'status': 'pending_approval',
-      'requestId': req.id,
+      'requestId': pending.id,
     });
   }
 
   Future<void> _handlePairingStatus(HttpRequest request) async {
     final clientId = request.uri.queryParameters['clientId']?.trim() ?? '';
-    if (clientId.isEmpty) {
-      await _writeJson(request.response, <String, dynamic>{
-        'error': 'client_id_required',
-      }, statusCode: HttpStatus.badRequest);
-      return;
-    }
-
-    final session = _pairingManager.findSessionByClientId(clientId);
-    if (session != null && !session.isExpired) {
-      _log('pairing status approved for client=$clientId');
-      await _writeJson(request.response, <String, dynamic>{
+    final receipt = request.headers.value('x-listenfy-pairing') ?? '';
+    final tokenSession = _pairingManager.findSessionByToken(
+      _extractToken(request),
+    );
+    final session = tokenSession?.clientId == clientId
+        ? tokenSession
+        : _pairingManager.sessionForReceipt(clientId, receipt);
+    if (session != null) {
+      await _writeJson(request.response, {
         'status': 'already_paired',
         'clientId': session.clientId,
         'token': session.token,
         'expiresAt': session.expiresAt.toIso8601String(),
-        'session': _audioService.isInPrivatePlaybackSession
-            ? _privatePlaybackPayload()
-            : _playbackSync.buildSessionPayload(),
       });
       return;
     }
-
     final pending = _pairingManager.findPendingByClientId(clientId);
-    if (pending != null) {
-      await _writeJson(request.response, <String, dynamic>{
-        'status': 'pending_approval',
-        'requestId': pending.id,
-      });
-      return;
-    }
-
-    await _writeJson(request.response, <String, dynamic>{
-      'status': 'not_paired',
+    await _writeJson(request.response, {
+      'status': pending != null && receipt.isNotEmpty && pending.id == receipt
+          ? 'pending_approval'
+          : 'not_paired',
     });
   }
 
@@ -631,7 +623,6 @@ class LocalConnectServerService extends GetxService {
         isConnected: _socketByClientId.containsKey(session.clientId),
       );
     }
-    _refreshState();
     if (_audioService.isInPrivatePlaybackSession) {
       await _writePrivatePlaybackLocked(request);
       return;
@@ -689,7 +680,11 @@ class LocalConnectServerService extends GetxService {
 
   Future<void> _handleSeekControl(HttpRequest request) async {
     final body = await _readJsonBody(request);
-    final positionMs = (body['positionMs'] as num?)?.toInt() ?? 0;
+    final value = body['positionMs'];
+    if (value is! num || !value.isFinite) {
+      throw const ConnectHttpException(400, 'invalid_position');
+    }
+    final positionMs = value.toInt();
     await _audioService.seek(
       Duration(milliseconds: positionMs.clamp(0, 1 << 31)),
     );
@@ -698,7 +693,11 @@ class LocalConnectServerService extends GetxService {
 
   Future<void> _handleVolumeControl(HttpRequest request) async {
     final body = await _readJsonBody(request);
-    final volume = (body['volume'] as num?)?.toDouble() ?? 1.0;
+    final value = body['volume'];
+    if (value is! num || !value.isFinite) {
+      throw const ConnectHttpException(400, 'invalid_volume');
+    }
+    final volume = value.toDouble();
     await _audioService.setVolume(volume.clamp(0.0, 1.0));
     await _writeJson(request.response, <String, dynamic>{'ok': true});
   }
@@ -810,12 +809,12 @@ class LocalConnectServerService extends GetxService {
     }
 
     final remote = profile.thumbnail?.trim();
-    if (remote != null && remote.isNotEmpty) {
+    if (LocalConnectHttpPolicy.isRemoteUrl(remote)) {
       request.response.statusCode = HttpStatus.temporaryRedirect;
       request.response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
       request.response.headers.set(HttpHeaders.pragmaHeader, 'no-cache');
       request.response.headers.set(HttpHeaders.expiresHeader, '0');
-      request.response.headers.set(HttpHeaders.locationHeader, remote);
+      request.response.headers.set(HttpHeaders.locationHeader, remote!);
       await request.response.close();
       return;
     }
@@ -843,12 +842,12 @@ class LocalConnectServerService extends GetxService {
     }
 
     final remote = item.thumbnail?.trim();
-    if (remote != null && remote.isNotEmpty) {
+    if (LocalConnectHttpPolicy.isRemoteUrl(remote)) {
       request.response.statusCode = HttpStatus.temporaryRedirect;
       request.response.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
       request.response.headers.set(HttpHeaders.pragmaHeader, 'no-cache');
       request.response.headers.set(HttpHeaders.expiresHeader, '0');
-      request.response.headers.set(HttpHeaders.locationHeader, remote);
+      request.response.headers.set(HttpHeaders.locationHeader, remote!);
       await request.response.close();
       return;
     }
@@ -861,6 +860,15 @@ class LocalConnectServerService extends GetxService {
   Future<void> _handleCurrentStream(HttpRequest request) async {
     final variant = _audioService.currentVariant.value;
     final item = _audioService.currentItem.value;
+    final requestedTrack = request.uri.queryParameters['track'];
+    final requestedVariant = request.uri.queryParameters['variant'];
+    if (requestedVariant != null &&
+        requestedVariant != _playbackSync.currentVariantId) {
+      throw const ConnectHttpException(409, 'variant_changed');
+    }
+    if (requestedTrack != null && requestedTrack != item?.id) {
+      throw const ConnectHttpException(409, 'track_changed');
+    }
     if (variant == null || item == null) {
       await _writeJson(request.response, <String, dynamic>{
         'error': 'no_track_loaded',
@@ -872,13 +880,37 @@ class LocalConnectServerService extends GetxService {
     if (localPath != null && localPath.isNotEmpty) {
       final file = File(localPath);
       if (await file.exists()) {
-        await _serveAudioFileWithRange(request, file);
+        if (item.id != _audioService.currentItem.value?.id ||
+            !identical(variant, _audioService.currentVariant.value)) {
+          throw const ConnectHttpException(409, 'variant_changed');
+        }
+        final session = _pairingManager.findSessionByToken(
+          _extractToken(request),
+        );
+        if (session == null || _audioService.isInPrivatePlaybackSession) {
+          throw const ConnectHttpException(401, 'session_ended');
+        }
+        if (_activeStreams.values
+                .where((id) => id == session.clientId)
+                .length >=
+            4) {
+          throw const ConnectHttpException(429, 'too_many_streams');
+        }
+        _activeStreams[request.response] = session.clientId;
+        try {
+          await _serveAudioFileWithRange(request, file);
+        } finally {
+          _activeStreams.remove(request.response);
+        }
         return;
       }
     }
 
+    if (variant.isInstrumental || variant.isSpatial8d) {
+      throw const ConnectHttpException(404, 'variant_unavailable');
+    }
     final remote = item.playableUrl.trim();
-    if (remote.startsWith('http://') || remote.startsWith('https://')) {
+    if (LocalConnectHttpPolicy.isRemoteUrl(remote)) {
       request.response.statusCode = HttpStatus.temporaryRedirect;
       request.response.headers.set(HttpHeaders.locationHeader, remote);
       await request.response.close();
@@ -899,7 +931,7 @@ class LocalConnectServerService extends GetxService {
       _audioContentTypeFor(file.path),
     );
 
-    if (rangeHeader == null || !rangeHeader.startsWith('bytes=')) {
+    if (rangeHeader == null) {
       request.response.statusCode = HttpStatus.ok;
       request.response.contentLength = totalLength;
       await request.response.addStream(file.openRead());
@@ -907,24 +939,26 @@ class LocalConnectServerService extends GetxService {
       return;
     }
 
-    final range = rangeHeader.substring('bytes='.length).split('-');
-    final start = int.tryParse(range.first) ?? 0;
-    final end = (range.length > 1 && range[1].isNotEmpty)
-        ? (int.tryParse(range[1]) ?? (totalLength - 1))
-        : (totalLength - 1);
-
-    final safeStart = start.clamp(0, totalLength - 1);
-    final safeEnd = end.clamp(safeStart, totalLength - 1);
-    final chunkLength = safeEnd - safeStart + 1;
-
+    ConnectByteRange range;
+    try {
+      range = ConnectByteRange.parse(rangeHeader, totalLength);
+    } on ConnectHttpException {
+      request.response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
+      request.response.headers.set(
+        HttpHeaders.contentRangeHeader,
+        'bytes */$totalLength',
+      );
+      request.response.contentLength = 0;
+      await request.response.close();
+      return;
+    }
     request.response.statusCode = HttpStatus.partialContent;
     request.response.headers.set(
       HttpHeaders.contentRangeHeader,
-      'bytes $safeStart-$safeEnd/$totalLength',
+      'bytes ${range.start}-${range.end}/$totalLength',
     );
-    request.response.contentLength = chunkLength;
-
-    await request.response.addStream(file.openRead(safeStart, safeEnd + 1));
+    request.response.contentLength = range.length;
+    await request.response.addStream(file.openRead(range.start, range.end + 1));
     await request.response.close();
   }
 
@@ -943,41 +977,56 @@ class LocalConnectServerService extends GetxService {
   }
 
   void _tickPlaybackSync() {
-    if (_audioService.isInPrivatePlaybackSession) return;
+    final private = _audioService.isInPrivatePlaybackSession;
+    if (private) {
+      if (!_privatePlaybackWasActive) {
+        for (final response in _activeStreams.keys.toList()) {
+          unawaited(_abortResponse(response));
+        }
+        _broadcastPaired(
+          type: 'privatePlaybackLocked',
+          payload: _privatePlaybackPayload(),
+        );
+      }
+      _privatePlaybackWasActive = true;
+      return;
+    }
+    if (_privatePlaybackWasActive) {
+      _lastQueueSignature = '';
+      _privatePlaybackWasActive = false;
+    }
     if (_authorizedSocketClients.isEmpty) return;
-
     final trackSig = _playbackSync.trackSignature();
     final playbackSig = _playbackSync.playbackStateSignature();
     final queueSig = _playbackSync.queueSignature();
 
-    if (trackSig != _lastTrackSignature) {
-      _lastTrackSignature = trackSig;
-      _broadcastPaired(
-        type: 'currentTrackChanged',
-        payload: _playbackSync.buildSessionPayload(includeQueue: false),
-      );
-    }
-
-    if (playbackSig != _lastPlaybackSignature) {
-      _lastPlaybackSignature = playbackSig;
-      _broadcastPaired(
-        type: 'playbackStateChanged',
-        payload: _playbackSync.buildSessionPayload(includeQueue: false),
-      );
-    }
-
+    // One snapshot at most per tick, with the queue only when its contents change.
     if (queueSig != _lastQueueSignature) {
-      _lastQueueSignature = queueSig;
       _broadcastPaired(
         type: 'queueChanged',
-        payload: _playbackSync.buildSessionPayload(includeQueue: true),
+        payload: _playbackSync.buildSessionPayload(),
+      );
+    } else if (trackSig != _lastTrackSignature ||
+        playbackSig != _lastPlaybackSignature) {
+      _broadcastPaired(
+        type: trackSig != _lastTrackSignature
+            ? 'currentTrackChanged'
+            : 'playbackStateChanged',
+        payload: _playbackSync.buildSessionPayload(includeQueue: false),
       );
     }
+    _lastQueueSignature = queueSig;
+    _lastTrackSignature = trackSig;
+    _lastPlaybackSignature = playbackSig;
 
-    _broadcastPaired(
-      type: 'progressUpdated',
-      payload: _playbackSync.buildProgressPayload(),
-    );
+    final now = DateTime.now();
+    if (now.difference(_lastProgressAt) >= const Duration(seconds: 1)) {
+      _lastProgressAt = now;
+      _broadcastPaired(
+        type: 'progressUpdated',
+        payload: _playbackSync.buildProgressPayload(),
+      );
+    }
   }
 
   void _broadcastPaired({
@@ -986,22 +1035,22 @@ class LocalConnectServerService extends GetxService {
   }) {
     final pairedClientIds = _authorizedSocketClients.toList();
     final staleClientIds = <String>[];
-    final isProgressUpdate = type == 'progressUpdated';
+    final message = jsonEncode({
+      'type': type,
+      'payload': payload,
+      'sentAt': DateTime.now().toIso8601String(),
+    });
     for (final clientId in pairedClientIds) {
-      final touched = isProgressUpdate
-          ? _pairingManager.findSessionByClientId(clientId)
-          : _pairingManager.touchClient(
-              clientId: clientId,
-              isConnected: _socketByClientId.containsKey(clientId),
-            );
+      final touched = _pairingManager.findSessionByClientId(clientId);
       if (touched == null) {
         staleClientIds.add(clientId);
         continue;
       }
-      _sendToClient(clientId, type: type, payload: payload);
+      _sendEncoded(clientId, message);
     }
 
     for (final clientId in staleClientIds) {
+      _abortStreamsFor(clientId);
       _authorizedSocketClients.remove(clientId);
       final socket = _socketByClientId.remove(clientId);
       if (socket != null) {
@@ -1022,16 +1071,6 @@ class LocalConnectServerService extends GetxService {
         } catch (_) {}
       }
       _pairingManager.disconnectClient(clientId);
-    }
-  }
-
-  void _broadcastAny({
-    required String type,
-    required Map<String, dynamic> payload,
-  }) {
-    final clientIds = _socketByClientId.keys.toList();
-    for (final clientId in clientIds) {
-      _sendToClient(clientId, type: type, payload: payload);
     }
   }
 
@@ -1063,31 +1102,43 @@ class LocalConnectServerService extends GetxService {
     String clientId, {
     required String type,
     required Map<String, dynamic> payload,
-  }) {
+  }) => _sendEncoded(
+    clientId,
+    jsonEncode({
+      'type': type,
+      'payload': payload,
+      'sentAt': DateTime.now().toIso8601String(),
+    }),
+  );
+
+  void _sendEncoded(String clientId, String message) {
     final socket = _socketByClientId[clientId];
     if (socket == null) return;
     try {
-      socket.add(
-        jsonEncode(<String, dynamic>{
-          'type': type,
-          'payload': payload,
-          'sentAt': DateTime.now().toIso8601String(),
-        }),
-      );
+      socket.add(message);
     } catch (_) {
       _socketByClientId.remove(clientId);
       _authorizedSocketClients.remove(clientId);
       _pairingManager.disconnectClient(clientId);
+      unawaited(socket.close());
     }
   }
 
-  Future<Map<String, dynamic>> _readJsonBody(HttpRequest request) async {
-    final body = await utf8.decoder.bind(request).join();
-    if (body.trim().isEmpty) return <String, dynamic>{};
-    final decoded = jsonDecode(body);
-    if (decoded is Map<String, dynamic>) return decoded;
-    if (decoded is Map) return Map<String, dynamic>.from(decoded);
-    return <String, dynamic>{};
+  Future<Map<String, dynamic>> _readJsonBody(HttpRequest request) =>
+      LocalConnectHttpPolicy.readJson(request);
+
+  void _abortStreamsFor(String clientId) {
+    for (final entry in _activeStreams.entries.toList()) {
+      if (entry.value == clientId) unawaited(_abortResponse(entry.key));
+    }
+  }
+
+  Future<void> _abortResponse(HttpResponse response) async {
+    _activeStreams.remove(response);
+    try {
+      final socket = await response.detachSocket(writeHeaders: false);
+      socket.destroy();
+    } catch (_) {}
   }
 
   String _extractToken(HttpRequest request) {
@@ -1227,6 +1278,22 @@ class LocalConnectServerService extends GetxService {
     }
     _lastMaintenanceAt = now;
     _pairingManager.cleanupExpired();
+    for (final clientId in _activeStreams.values.toSet()) {
+      if (_pairingManager.findSessionByClientId(clientId) == null) {
+        _abortStreamsFor(clientId);
+      }
+    }
+    for (final clientId in _authorizedSocketClients.toList()) {
+      if (_pairingManager.findSessionByClientId(clientId) == null) {
+        unawaited(
+          _closeClientSession(
+            clientId: clientId,
+            reason: 'expired',
+            clientName: '',
+          ),
+        );
+      }
+    }
     _refreshState();
   }
 
