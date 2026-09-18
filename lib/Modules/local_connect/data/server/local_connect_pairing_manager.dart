@@ -9,6 +9,10 @@ class LocalConnectPairingManager {
 
   final Duration _tokenTtl;
   final Random _random = Random.secure();
+  static const maxPending = 32;
+  static const maxSessions = 16;
+  static const requestTtl = Duration(minutes: 5);
+  final Map<String, LocalConnectPairingRequest> _approvedReceipts = {};
 
   final Map<String, LocalConnectPairingRequest> _pendingByRequestId =
       <String, LocalConnectPairingRequest>{};
@@ -34,26 +38,21 @@ class LocalConnectPairingManager {
   }) {
     cleanupExpired();
 
-    final active = _sessionsByClientId[clientId];
-    if (active != null && !active.isExpired) {
-      return LocalConnectPairingRequest(
-        id: _buildId('paired'),
-        clientId: clientId,
-        clientName: clientName,
-        requestedAt: DateTime.now(),
-      );
+    if (!RegExp(r'^[a-zA-Z0-9_-]{1,128}$').hasMatch(clientId) ||
+        clientName.length > 120) {
+      throw ArgumentError('Invalid pairing identity');
     }
-
-    final existing = _pendingByRequestId.values.where((req) {
-      return req.clientId == clientId;
-    }).toList();
-
-    for (final req in existing) {
-      _pendingByRequestId.remove(req.id);
+    if (_sessionsByClientId.containsKey(clientId) ||
+        findPendingByClientId(clientId) != null) {
+      throw StateError('Pairing identity already in use');
+    }
+    if (_pendingByRequestId.length >= maxPending ||
+        _sessionsByClientId.length >= maxSessions) {
+      throw StateError('Pairing capacity reached');
     }
 
     final request = LocalConnectPairingRequest(
-      id: _buildId('pair'),
+      id: _createToken(),
       clientId: clientId,
       clientName: clientName,
       requestedAt: DateTime.now(),
@@ -64,6 +63,7 @@ class LocalConnectPairingManager {
 
   LocalConnectClientSession? approveRequest(String requestId) {
     cleanupExpired();
+    if (_sessionsByClientId.length >= maxSessions) return null;
 
     final request = _pendingByRequestId.remove(requestId);
     if (request == null) return null;
@@ -86,7 +86,21 @@ class LocalConnectPairingManager {
 
     _sessionsByClientId[session.clientId] = session;
     _clientIdByToken[session.token] = session.clientId;
+    _approvedReceipts[session.clientId] = request;
     return session;
+  }
+
+  /// A public client id is never sufficient to retrieve a session credential.
+  /// Only the browser that received this random receipt can finish pairing.
+  LocalConnectClientSession? sessionForReceipt(
+    String clientId,
+    String receipt,
+  ) {
+    cleanupExpired();
+    if (receipt.isEmpty || _approvedReceipts[clientId]?.id != receipt) {
+      return null;
+    }
+    return findSessionByClientId(clientId);
   }
 
   LocalConnectPairingRequest? rejectRequest(String requestId) {
@@ -98,6 +112,7 @@ class LocalConnectPairingManager {
     final session = _sessionsByClientId.remove(clientId);
     if (session == null) return null;
     _clientIdByToken.remove(session.token);
+    _approvedReceipts.remove(clientId);
     _pendingByRequestId.removeWhere((_, req) => req.clientId == clientId);
     return session;
   }
@@ -107,6 +122,8 @@ class LocalConnectPairingManager {
     final revoked = _sessionsByClientId.values.toList(growable: false);
     _sessionsByClientId.clear();
     _clientIdByToken.clear();
+    _approvedReceipts.clear();
+    _pendingByRequestId.clear();
     return revoked;
   }
 
@@ -177,6 +194,13 @@ class LocalConnectPairingManager {
   }
 
   void cleanupExpired() {
+    final cutoff = DateTime.now().subtract(requestTtl);
+    _pendingByRequestId.removeWhere(
+      (_, request) => request.requestedAt.isBefore(cutoff),
+    );
+    _approvedReceipts.removeWhere(
+      (_, request) => request.requestedAt.isBefore(cutoff),
+    );
     final expiredClientIds = <String>[];
     _sessionsByClientId.forEach((clientId, session) {
       if (session.isExpired) {
@@ -188,6 +212,7 @@ class LocalConnectPairingManager {
       final removed = _sessionsByClientId.remove(clientId);
       if (removed != null) {
         _clientIdByToken.remove(removed.token);
+        _approvedReceipts.remove(clientId);
       }
     }
   }
@@ -200,11 +225,5 @@ class LocalConnectPairingManager {
       buffer.write(alphabet[_random.nextInt(alphabet.length)]);
     }
     return buffer.toString();
-  }
-
-  String _buildId(String prefix) {
-    final now = DateTime.now().microsecondsSinceEpoch;
-    final random = _random.nextInt(1 << 31);
-    return '$prefix-$now-$random';
   }
 }

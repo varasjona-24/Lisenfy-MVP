@@ -6,6 +6,18 @@ class LocalLibraryStore {
 
   final GetStorage _box;
   static const _key = 'local_library_items';
+  int _revision = 0;
+  Object? _lastSnapshot;
+
+  /// Detect in-memory replacement immediately, including other store instances.
+  int get revision {
+    final snapshot = _box.read<List>(_key);
+    if (!identical(snapshot, _lastSnapshot)) {
+      _lastSnapshot = snapshot;
+      _revision++;
+    }
+    return _revision;
+  }
 
   Future<List<MediaItem>> readAll() async {
     return readAllSync();

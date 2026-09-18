@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 
 import '../domain/capture_cover_target.dart';
 
+enum _CoverTargetCategory { video, audio, collection }
+
 class CaptureCoverTargetSheet extends StatefulWidget {
   const CaptureCoverTargetSheet({super.key, required this.targets});
 
@@ -19,7 +21,7 @@ class CaptureCoverTargetSheet extends StatefulWidget {
 class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
   final TextEditingController _queryCtrl = TextEditingController();
   String _query = '';
-  bool _showVideos = true;
+  _CoverTargetCategory _category = _CoverTargetCategory.video;
   CaptureCoverTarget? _selected;
 
   @override
@@ -70,22 +72,27 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  SegmentedButton<bool>(
+                  SegmentedButton<_CoverTargetCategory>(
                     segments: [
                       ButtonSegment(
-                        value: true,
+                        value: _CoverTargetCategory.video,
                         label: Text(tr('captures.cover.videos')),
                         icon: const Icon(Icons.videocam_rounded),
                       ),
                       ButtonSegment(
-                        value: false,
+                        value: _CoverTargetCategory.audio,
+                        label: Text(tr('captures.cover.audio')),
+                        icon: const Icon(Icons.music_note_rounded),
+                      ),
+                      ButtonSegment(
+                        value: _CoverTargetCategory.collection,
                         label: Text(tr('captures.cover.collections')),
                         icon: const Icon(Icons.folder_rounded),
                       ),
                     ],
-                    selected: {_showVideos},
+                    selected: {_category},
                     onSelectionChanged: (value) {
-                      setState(() => _showVideos = value.first);
+                      setState(() => _category = value.first);
                     },
                   ),
                   const SizedBox(height: 12),
@@ -102,9 +109,17 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
                                 _queryCtrl.clear();
                               },
                             ),
-                      hintText: _showVideos
-                          ? tr('captures.cover.search_video')
-                          : tr('captures.cover.search_collection'),
+                      hintText: switch (_category) {
+                        _CoverTargetCategory.video => tr(
+                          'captures.cover.search_video',
+                        ),
+                        _CoverTargetCategory.audio => tr(
+                          'captures.cover.search_audio',
+                        ),
+                        _CoverTargetCategory.collection => tr(
+                          'captures.cover.search_collection',
+                        ),
+                      },
                       border: const OutlineInputBorder(),
                     ),
                   ),
@@ -118,7 +133,13 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
                   final all = snapshot.data ?? const <CaptureCoverTarget>[];
                   final filtered = all
                       .where((target) {
-                        if (_showVideos != target.isVideo) return false;
+                        final matchesCategory = switch (_category) {
+                          _CoverTargetCategory.video => target.isVideo,
+                          _CoverTargetCategory.audio => target.isAudio,
+                          _CoverTargetCategory.collection =>
+                            target.isCollection,
+                        };
+                        if (!matchesCategory) return false;
                         if (_query.isEmpty) return true;
                         return target.label.toLowerCase().contains(_query) ||
                             target.subtitle.toLowerCase().contains(_query);
@@ -131,9 +152,17 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
                   if (filtered.isEmpty) {
                     return Center(
                       child: Text(
-                        _showVideos
-                            ? 'No hay videos disponibles.'
-                            : 'No hay collections disponibles.',
+                        switch (_category) {
+                          _CoverTargetCategory.video => tr(
+                            'captures.cover.no_videos',
+                          ),
+                          _CoverTargetCategory.audio => tr(
+                            'captures.cover.no_audio',
+                          ),
+                          _CoverTargetCategory.collection => tr(
+                            'captures.cover.no_collections',
+                          ),
+                        },
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -149,6 +178,7 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
                       final target = filtered[index];
                       return _SelectableCoverTarget(
                         target: target,
+                        compact: target.isAudio,
                         selected:
                             _selected?.id == target.id &&
                             _selected?.type == target.type,
@@ -184,6 +214,7 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
   IconData _iconFor(CaptureCoverTarget target) {
     return switch (target.type) {
       CaptureCoverTargetType.video => Icons.videocam_rounded,
+      CaptureCoverTargetType.audio => Icons.music_note_rounded,
       CaptureCoverTargetType.topic => Icons.folder_rounded,
       CaptureCoverTargetType.playlist => Icons.video_library_rounded,
     };
@@ -193,12 +224,14 @@ class _CaptureCoverTargetSheetState extends State<CaptureCoverTargetSheet> {
 class _SelectableCoverTarget extends StatelessWidget {
   const _SelectableCoverTarget({
     required this.target,
+    required this.compact,
     required this.selected,
     required this.icon,
     required this.onTap,
   });
 
   final CaptureCoverTarget target;
+  final bool compact;
   final bool selected;
   final IconData icon;
   final VoidCallback onTap;
@@ -209,7 +242,7 @@ class _SelectableCoverTarget extends StatelessWidget {
     final scheme = theme.colorScheme;
     final image = _imageProvider();
 
-    return Material(
+    final material = Material(
       color: selected
           ? scheme.primaryContainer.withValues(alpha: 0.48)
           : scheme.surface,
@@ -220,66 +253,105 @@ class _SelectableCoverTarget extends StatelessWidget {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 10, 42, 10),
-              child: Row(
+      child: compact
+          ? ListTile(
+              onTap: onTap,
+              leading: _coverImage(
+                image: image,
+                scheme: scheme,
+                width: 48,
+                height: 48,
+              ),
+              title: Text(
+                target.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                target.subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: Checkbox(value: selected, onChanged: (_) => onTap()),
+            )
+          : InkWell(
+              onTap: onTap,
+              child: Stack(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: SizedBox(
-                      width: 72,
-                      height: 44,
-                      child: image == null
-                          ? ColoredBox(
-                              color: scheme.primary.withValues(alpha: .12),
-                              child: Icon(icon, color: scheme.primary),
-                            )
-                          : Image(image: image, fit: BoxFit.cover),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 10, 42, 10),
+                    child: Row(
                       children: [
-                        Text(
-                          target.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                        _coverImage(
+                          image: image,
+                          scheme: scheme,
+                          width: 72,
+                          height: 44,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          target.subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                target.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                target.subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
+                  Positioned(
+                    right: 8,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: Checkbox(
+                        value: selected,
+                        onChanged: (_) => onTap(),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-            Positioned(
-              right: 8,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: Checkbox(value: selected, onChanged: (_) => onTap()),
-              ),
-            ),
-          ],
-        ),
+    );
+    return material;
+  }
+
+  Widget _coverImage({
+    required ImageProvider? image,
+    required ColorScheme scheme,
+    required double width,
+    required double height,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: image == null
+            ? ColoredBox(
+                color: scheme.primary.withValues(alpha: .12),
+                child: Icon(icon, color: scheme.primary),
+              )
+            : Image(image: image, fit: BoxFit.cover),
       ),
     );
   }

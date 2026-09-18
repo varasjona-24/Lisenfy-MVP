@@ -8,6 +8,19 @@ class ArtistStore {
 
   final GetStorage _box;
   static const _key = 'artist_profiles';
+  int _revision = 0;
+  Object? _lastSnapshot;
+
+  /// GetStorage replaces the value synchronously, before its disk flush. This
+  /// also detects writes made by another store instance or a storage reset.
+  int get revision {
+    final snapshot = _box.read<List>(_key);
+    if (!identical(snapshot, _lastSnapshot)) {
+      _lastSnapshot = snapshot;
+      _revision++;
+    }
+    return _revision;
+  }
 
   Future<List<ArtistProfile>> readAll() async {
     return readAllSync();

@@ -1,4 +1,4 @@
-enum CaptureCoverTargetType { video, topic, playlist }
+enum CaptureCoverTargetType { video, audio, topic, playlist }
 
 class CaptureCoverTarget {
   const CaptureCoverTarget({
@@ -18,5 +18,7 @@ class CaptureCoverTarget {
   final String? thumbnailUrl;
 
   bool get isVideo => type == CaptureCoverTargetType.video;
-  bool get isCollection => !isVideo;
+  bool get isAudio => type == CaptureCoverTargetType.audio;
+  bool get isMedia => isVideo || isAudio;
+  bool get isCollection => !isMedia;
 }

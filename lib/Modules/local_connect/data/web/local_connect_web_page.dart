@@ -1,6 +1,9 @@
 import 'dart:convert';
 
-String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
+String buildLocalConnectWebPage({
+  Map<String, String> translations = const {},
+  String scriptNonce = '',
+}) {
   final i18n = <String, String>{..._localConnectWebFallbacks, ...translations};
   return '''
 <!doctype html>
@@ -1632,8 +1635,8 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
     <audio id="audioPlayer" preload="auto" style="display:none;"></audio>
   </div>
 
-  <script>
-    const i18n = ${jsonEncode(i18n)};
+  <script nonce="${htmlEscape.convert(scriptNonce)}">
+    const i18n = ${jsonEncode(i18n).replaceAll('<', r'\u003c')};
     function t(key) {
       return i18n[key] || key;
     }
@@ -1643,8 +1646,13 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
     }
 
     const state = {
-      token: localStorage.getItem("listenfy_local_token") || "",
-      clientId: localStorage.getItem("listenfy_local_client_id") || "",
+      token: sessionStorage.getItem("listenfy_local_token") || "",
+      pairingReceipt: sessionStorage.getItem("listenfy_pairing_receipt") || "",
+      pairingCheckPending: false,
+      sessionLoadPending: false,
+      privatePlayback: false,
+      queueVersion: 0,
+      clientId: sessionStorage.getItem("listenfy_local_client_id") || "",
       socket: null,
       wsReconnectTimer: null,
       wsReconnectDelayMs: 1500,
@@ -1655,6 +1663,8 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
       queue: [],
       currentQueueIndex: 0,
       currentTrackId: "",
+      currentVariantId: "",
+      sourceLoading: false,
       currentAudioSrc: "",
       currentCoverSrc: "",
       lastRenderedQueueSignature: "",
@@ -1671,11 +1681,13 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
       seekSyncLockUntilMs: 0
     };
 
+    // Retire credentials persisted by older versions.
+    localStorage.removeItem("listenfy_local_token");
     const MAX_RENDERED_QUEUE_ITEMS = 90;
 
     if (!state.clientId) {
       state.clientId = "web-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
-      localStorage.setItem("listenfy_local_client_id", state.clientId);
+      sessionStorage.setItem("listenfy_local_client_id", state.clientId);
     }
 
     const el = {
@@ -1867,6 +1879,8 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
       } catch (_) {}
 
       state.currentAudioSrc = "";
+      state.sourceLoading = false;
+      el.audioPlayer.onloadedmetadata = null;
     }
 
     function queueSignature(queue) {
@@ -1932,7 +1946,7 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
       const waitMs = Math.max(300, Number(delayMs || state.wsReconnectDelayMs || 1500));
       state.wsReconnectTimer = setTimeout(() => {
         state.wsReconnectTimer = null;
-        if (!state.token && !state.waitingPairing) return;
+        if (!state.token) return;
         connectWs();
       }, waitMs);
     }
@@ -1965,6 +1979,8 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
       const source = String(track?.source || "").trim();
       const country = String(track?.country || "").trim();
       const parts = [];
+      if (track?.variantRole === "instrumental") parts.push("Instrumental");
+      if (track?.variantRole === "spatial8d") parts.push("8D");
 
       if (source) {
         parts.push(source);
@@ -2286,17 +2302,21 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
         el.artistAvatarFallback.style.display = "none";
       };
 
-      el.artistAvatar.src = avatarSrc;
+      if (el.artistAvatar.getAttribute("src") !== avatarSrc) el.artistAvatar.src = avatarSrc;
       el.artistAvatar.style.display = "block";
     }
 
     function setToken(token) {
       state.token = (token || "").trim();
       if (state.token) {
-        localStorage.setItem("listenfy_local_token", state.token);
+        sessionStorage.setItem("listenfy_local_token", state.token);
         markSessionSyncNow();
       } else {
-        localStorage.removeItem("listenfy_local_token");
+        sessionStorage.removeItem("listenfy_local_token");
+        state.socket?.close();
+        state.queue = [];
+        state.queueVersion += 1;
+        renderQueue();
         state.wsConnected = false;
         state.syncUnstable = false;
         state.sessionLastSyncAt = 0;
@@ -2319,8 +2339,10 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
     }
 
     async function checkPairingStatus() {
+      if (state.pairingCheckPending || !state.pairingReceipt) return;
+      state.pairingCheckPending = true;
       try {
-        const response = await api("/api/pairing/status?clientId=" + encodeURIComponent(state.clientId));
+        const response = await api("/api/pairing/status?clientId=" + encodeURIComponent(state.clientId), "GET", undefined, { "X-Listenfy-Pairing": state.pairingReceipt });
         if (response?.status === "already_paired" && response?.token) {
           setToken(response.token);
           state.waitingPairing = false;
@@ -2331,11 +2353,20 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
           } else {
             await loadSession();
           }
+          state.pairingReceipt = "";
+          sessionStorage.removeItem("listenfy_pairing_receipt");
           connectWs();
+        } else if (response?.status === "not_paired") {
+          state.waitingPairing = false;
+          state.pairingReceipt = "";
+          sessionStorage.removeItem("listenfy_pairing_receipt");
+          stopPairingPolling();
+          el.pairingInfo.textContent = t("sessionEnded");
         }
       } catch (_) {
-        // Keep waiting while network is stable.
+        // A later poll may recover a transient network error.
       } finally {
+        state.pairingCheckPending = false;
         updatePairingUi();
       }
     }
@@ -2518,7 +2549,7 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
         const completion = normalizedListenProgress(item);
         const roleLabel = relation?.isCollaboration ? t("roleCollab") : t("rolePrincipal");
         const completionLabel = completion == null ? t("noRetention") : formatPercentRatio(completion);
-        const subtitle = source + " · " + roleLabel + " · " + plays + " " + plural(plays, "playUnit", "playsUnit") + " · " + completionLabel;
+        const subtitle = source + " · " + escapeHtml(roleLabel) + " · " + plays + " " + escapeHtml(plural(plays, "playUnit", "playsUnit")) + " · " + escapeHtml(completionLabel);
         const li = document.createElement("li");
         li.className = "artist-next-item";
         li.innerHTML =
@@ -2542,7 +2573,7 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
       const queueIndex = Number(payload?.currentQueueIndex ?? state.currentQueueIndex ?? 0);
       const normalizedQueueIndex = Math.max(0, Math.min(Math.max(queue.length - 1, 0), queueIndex));
       const queueTrack = queue.length > 0 ? queue[normalizedQueueIndex] : null;
-      const track = payload?.track || queueTrack || null;
+      const track = Object.hasOwn(payload || {}, "track") ? payload.track : (queueTrack || null);
       const playback = payload?.playback || {};
       const nextTrackId = track?.id || "";
       const sameTrack = previousTrackId && nextTrackId && previousTrackId === nextTrackId;
@@ -2566,9 +2597,11 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
           ? playback.shuffleEnabled
           : !!state.playback.shuffleEnabled
       };
+      if (Array.isArray(payload?.queue)) state.queueVersion += 1;
       state.queue = queue;
       state.currentQueueIndex = normalizedQueueIndex;
       state.currentTrackId = nextTrackId;
+      state.currentVariantId = String(track?.variantId || "");
 
       el.title.textContent = track?.title || t("noTrack");
       el.artist.textContent = track?.artist || "—";
@@ -2591,7 +2624,7 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
       el.seekBar.value = state.playback.durationMs > 0
         ? Math.floor((state.playback.positionMs / state.playback.durationMs) * 1000)
         : 0;
-      const safeVolume = clamp01(state.playback.volume || 1);
+      const safeVolume = clamp01(state.playback.volume ?? 1);
       el.volumeBar.value = Math.round(safeVolume * 100);
       el.audioPlayer.volume = safeVolume;
       applyAudioPlaybackSpeed();
@@ -2615,7 +2648,7 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
     }
 
     function renderQueue() {
-      const signature = queueSignature(state.queue);
+      const signature = state.queueVersion;
       const queueChanged = signature !== state.lastRenderedQueueSignature;
       const indexChanged = state.currentQueueIndex !== state.lastRenderedQueueIndex;
       const trackChanged = state.currentTrackId !== state.lastRenderedTrackId;
@@ -2653,7 +2686,7 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
         const isActive = i === state.currentQueueIndex;
         const title = escapeHtml(item.title || t("unknown"));
         const artist = escapeHtml(item.artist || "—");
-        const coverUrl = queueCoverUrl(item, i);
+        const coverUrl = escapeHtml(queueCoverUrl(item, i));
 
         const card = document.createElement("article");
         card.className = "queue-cover-item" + (isActive ? " active" : "");
@@ -2729,11 +2762,24 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
         clearRemoteAudioPlayback();
         return;
       }
-      const src = withToken("/stream/current?track=" + encodeURIComponent(state.currentTrackId));
+      const src = withToken("/stream/current?track=" + encodeURIComponent(state.currentTrackId)
+        + "&variant=" + encodeURIComponent(state.currentVariantId));
       if (state.currentAudioSrc !== src) {
         state.currentAudioSrc = src;
+        state.sourceLoading = true;
+        el.audioPlayer.onloadedmetadata = () => {
+          if (state.currentAudioSrc !== src) return;
+          state.sourceLoading = false;
+          // The phone owns the position, including resets when changing variant.
+          syncAudioClockWithState(true);
+          applyAudioPlaybackSpeed();
+          if (state.playback.isPlaying) el.audioPlayer.play().catch(() => {});
+          else el.audioPlayer.pause();
+        };
         el.audioPlayer.src = src;
+        return;
       }
+      if (state.sourceLoading) return;
       applyAudioPlaybackSpeed();
       syncAudioClockWithState(false);
       if (state.playback.isPlaying) {
@@ -2743,98 +2789,90 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
       }
     }
 
-    async function api(path, method = "GET", body) {
-      const sep = path.includes("?") ? "&" : "?";
-      const url = state.token ? (path + sep + "token=" + encodeURIComponent(state.token)) : path;
-      const res = await fetch(url, {
-        method,
-        cache: "no-store",
-        headers: { "Content-Type": "application/json" },
-        body: body ? JSON.stringify(body) : undefined
-      });
-      if (!res.ok) {
-        console.warn("[LocalConnect] API error", method, path, res.status);
-        const err = new Error("HTTP " + res.status);
-        err.status = res.status;
-        throw err;
+    async function api(path, method = "GET", body, extraHeaders = {}) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      try {
+        const res = await fetch(path, {
+          method,
+          cache: "no-store",
+          referrerPolicy: "no-referrer",
+          signal: controller.signal,
+          headers: {
+            "Content-Type": "application/json",
+            ...(state.token ? { Authorization: "Bearer " + state.token } : {}),
+            ...extraHeaders
+          },
+          body: body ? JSON.stringify(body) : undefined
+        });
+        if (!res.ok) {
+          const err = new Error("HTTP " + res.status);
+          err.status = res.status;
+          throw err;
+        }
+        return await res.json();
+      } finally {
+        clearTimeout(timeout);
       }
-      return res.json().catch(() => ({}));
     }
 
     async function requestPairing() {
+      if (state.waitingPairing) return;
       state.waitingPairing = true;
       updatePairingUi();
       el.pairingInfo.textContent = t("sendingRequest");
       try {
-        const response = await api("/api/pairing/request", "POST", {
-          clientId: state.clientId,
-          clientName: buildReadableClientName()
-        });
-        if (response?.status === "already_paired" && response?.token) {
-          setToken(response.token);
-          state.waitingPairing = false;
-          el.pairingInfo.textContent = t("alreadyPaired");
-          if (response?.session) {
-            renderNowPlaying(response.session);
-          } else {
-            await loadSession();
-          }
-          connectWs();
-        } else {
-          el.pairingInfo.textContent = t("requestSent");
-          startPairingPolling();
-          checkPairingStatus();
+        if (!state.pairingReceipt) {
+          // An expired/rejected identity cannot be used to claim an existing session.
+          state.clientId = "web-" + Array.from(crypto.getRandomValues(new Uint8Array(16)),
+            (n) => n.toString(16).padStart(2, "0")).join("");
+          sessionStorage.setItem("listenfy_local_client_id", state.clientId);
+          const response = await api("/api/pairing/request", "POST", {
+            clientId: state.clientId,
+            clientName: buildReadableClientName()
+          });
+          state.pairingReceipt = response.requestId || "";
+          sessionStorage.setItem("listenfy_pairing_receipt", state.pairingReceipt);
         }
-      } catch (e) {
+        el.pairingInfo.textContent = t("requestSent");
+        startPairingPolling();
+        checkPairingStatus();
+      } catch (_) {
         el.pairingInfo.textContent = t("couldNotRequestPairing");
         state.waitingPairing = false;
-        console.warn("[LocalConnect] Pairing request failed", e);
       }
       updatePairingUi();
     }
 
     async function loadSession() {
-      if (!state.token) return;
+      if (!state.token || state.sessionLoadPending) return;
+      state.sessionLoadPending = true;
       try {
-        const data = await api("/api/session");
-        markSessionSyncNow();
-        if (data?.track || (Array.isArray(data?.queue) && data.queue.length > 0)) {
-          renderNowPlaying(data);
-          return;
-        }
-        const pair = await Promise.all([
-          api("/api/current"),
-          api("/api/queue")
-        ]);
-        const current = pair[0];
-        const queue = pair[1];
-        renderNowPlaying({
-          track: current?.track || null,
-          playback: data?.playback || state.playback,
-          queue: queue?.queue || [],
-          currentQueueIndex: queue?.currentQueueIndex || 0
-        });
+        renderNowPlaying(await api("/api/session"));
+        state.privatePlayback = false;
       } catch (e) {
         const status = Number(e?.status || 0);
-        if (status === 401 || status === 403) {
+        if (status === 423) {
+          state.privatePlayback = true;
+          clearRemoteAudioPlayback();
+        } else if (status === 401 || status === 403) {
           setToken("");
-          state.currentAudioSrc = "";
           state.waitingPairing = false;
           stopPairingPolling();
           el.pairingInfo.textContent = t("sessionExpired");
-          updatePairingUi();
-          return;
+        } else {
+          state.syncUnstable = true;
+          el.pairingInfo.textContent = t("syncUnstable");
+          scheduleWsReconnect(500);
         }
-
-        state.syncUnstable = true;
-        el.pairingInfo.textContent = t("syncUnstable");
-        scheduleWsReconnect(500);
         updatePairingUi();
-        console.warn("[LocalConnect] Session load failed", e);
+      } finally {
+        state.sessionLoadPending = false;
       }
     }
 
     function connectWs() {
+      if (!state.token) return;
       if (state.wsReconnectTimer) {
         clearTimeout(state.wsReconnectTimer);
         state.wsReconnectTimer = null;
@@ -2865,9 +2903,7 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
         state.wsReconnectDelayMs = 1500;
         markWsMessageNow();
         updatePairingUi();
-        if (state.token) {
-          loadSession();
-        }
+        // The server sends the initial snapshot after the authenticated upgrade.
       };
 
       state.socket.onmessage = (evt) => {
@@ -2910,9 +2946,14 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
             el.pairingInfo.textContent = t("sessionRevoked");
             updatePairingUi();
             break;
+          case "privatePlaybackLocked":
+            state.privatePlayback = true;
+            clearRemoteAudioPlayback();
+            break;
           case "currentTrackChanged":
           case "playbackStateChanged":
           case "queueChanged":
+            state.privatePlayback = false;
             renderNowPlaying(msg.payload || {});
             break;
           case "progressUpdated":
@@ -2992,6 +3033,7 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
     }
 
     function syncAudioClockWithState(force = false) {
+      if (state.sourceLoading) return;
       if (!state.currentTrackId || !state.token) return;
       const desiredMs = Math.max(0, Number(state.playback.positionMs || 0));
       const desiredSec = desiredMs / 1000;
@@ -3084,7 +3126,7 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
     });
 
     el.volumeBar.addEventListener("input", () => {
-      const v = clamp01(Number(el.volumeBar.value || 100) / 100);
+      const v = clamp01(Number(el.volumeBar.value ?? 100) / 100);
       state.playback.volume = v;
       el.audioPlayer.volume = v;
       if (state.volumeSendTimer) {
@@ -3097,7 +3139,7 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
     });
 
     el.volumeBar.addEventListener("change", () => {
-      const v = clamp01(Number(el.volumeBar.value || 100) / 100);
+      const v = clamp01(Number(el.volumeBar.value ?? 100) / 100);
       state.playback.volume = v;
       el.audioPlayer.volume = v;
       if (state.volumeSendTimer) {
@@ -3113,6 +3155,7 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
     });
 
     el.audioPlayer.addEventListener("timeupdate", () => {
+      if (state.sourceLoading) return;
       if (!state.playback.isPlaying) return;
       if (Date.now() < state.seekSyncLockUntilMs) return;
       const pos = Math.floor((Number(el.audioPlayer.currentTime || 0)) * 1000);
@@ -3126,11 +3169,13 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
       updateStatCards();
     });
     el.audioPlayer.addEventListener("play", () => {
+      if (state.sourceLoading) return;
       state.playback.isPlaying = true;
       el.btnPlayPause.textContent = t("pause");
       updatePlaybackStateBadge();
     });
     el.audioPlayer.addEventListener("pause", () => {
+      if (state.sourceLoading) return;
       state.playback.isPlaying = false;
       el.btnPlayPause.textContent = t("play");
       updatePlaybackStateBadge();
@@ -3148,7 +3193,7 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
     function startHealthMonitor() {
       if (state.healthPollTimer) return;
       state.healthPollTimer = setInterval(() => {
-        if (!state.token) return;
+        if (!state.token || state.privatePlayback) return;
         const now = Date.now();
         const wsStale = state.wsConnected && state.wsLastMessageAt > 0 && (now - state.wsLastMessageAt) > 9000;
         const sessionStale = state.sessionLastSyncAt > 0 && (now - state.sessionLastSyncAt) > 15000;
@@ -3174,10 +3219,10 @@ String buildLocalConnectWebPage({Map<String, String> translations = const {}}) {
 
     updatePairingUi();
     updateShuffleButton();
+    if (state.pairingReceipt && !state.token) requestPairing();
     connectWs();
     startSessionPolling();
     startHealthMonitor();
-    loadSession();
   </script>
 </body>
 </html>
