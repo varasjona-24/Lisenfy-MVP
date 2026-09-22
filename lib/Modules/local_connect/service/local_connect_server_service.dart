@@ -243,6 +243,7 @@ class LocalConnectServerService extends GetxService {
       'queuePosition': value('queue_position', 'Queue Position'),
       'progress': value('progress', 'Progress'),
       'trackHistory': value('track_history', 'Track history'),
+      'lyrics': value('lyrics', 'Lyrics'),
       'realAppData': value('real_app_data', 'Real app data'),
       'noHistoryYet': value('no_history_yet', 'No history yet'),
       'plays': value('plays', 'Plays'),

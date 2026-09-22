@@ -166,7 +166,22 @@ class LocalConnectPlaybackSync {
       'skipCount': item.skipCount,
       'avgListenProgress': item.avgListenProgress,
       'lastCompletedAt': item.lastCompletedAt,
+      // Lyrics belong to the track currently being played. Keeping them out of
+      // queue entries avoids repeatedly sending potentially large local text.
+      'lyrics': _savedLyrics(item),
+      'lyricsLanguage': _savedLyricsLanguage(item),
     };
+  }
+
+  String? _savedLyrics(MediaItem item) {
+    final lyrics = item.lyrics?.trim();
+    return lyrics == null || lyrics.isEmpty ? null : lyrics;
+  }
+
+  String? _savedLyricsLanguage(MediaItem item) {
+    if (_savedLyrics(item) == null) return null;
+    final language = item.lyricsLanguage?.trim();
+    return language == null || language.isEmpty ? null : language;
   }
 
   Map<String, dynamic> _queueItemToJson(MediaItem item) {

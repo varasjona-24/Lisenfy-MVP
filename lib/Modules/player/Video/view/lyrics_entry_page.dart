@@ -386,7 +386,16 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
       return _expandLegacyCuesWithBreaks(sorted, lines);
     }
 
-    return _retitleCuesByIndex(sorted, lines);
+    if (hasBreaksInCues && sorted.length == lines.length) {
+      return _retitleCuesByIndex(sorted, lines);
+    }
+
+    // LRCLIB can legitimately contain extra or omitted timestamped cues for
+    // repetitions, ad-libs and instrumental passages. Renaming those cues by
+    // index would shift every following line: a blank stanza separator could
+    // become a real lyric and the final lyric would be lost. Preserve the
+    // provider's text whenever its cue count doesn't match the visible lines.
+    return sorted;
   }
 
   List<TimedLyricCue> _closeCueEnds(List<TimedLyricCue> cues) {

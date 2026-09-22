@@ -118,6 +118,30 @@ void main() {
     expect(identities.length, 3);
     expect(signatures.length, 3);
   });
+
+  test(
+    'current track exposes saved lyrics without duplicating them in queue',
+    () {
+      final audio = _Audio();
+      final item = _track(
+        'song',
+        'A',
+      ).copyWith(lyrics: 'Primera línea\nSegunda línea', lyricsLanguage: 'es');
+      audio.currentItem.value = item;
+      audio.queueItems = [item];
+      final sync = LocalConnectPlaybackSync(
+        audioService: audio,
+        artistStore: _Artists(),
+        localLibraryStore: _Library(),
+      );
+
+      final current = sync.currentTrackPayload()!;
+      expect(current['lyrics'], 'Primera línea\nSegunda línea');
+      expect(current['lyricsLanguage'], 'es');
+      expect(sync.queuePayload().single, isNot(contains('lyrics')));
+      expect(sync.queuePayload().single, isNot(contains('lyricsLanguage')));
+    },
+  );
   group('pairing security', () {
     test(
       'client id alone cannot retrieve credentials or replace a request',

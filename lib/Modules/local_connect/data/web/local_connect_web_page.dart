@@ -5,6 +5,13 @@ String buildLocalConnectWebPage({
   String scriptNonce = '',
 }) {
   final i18n = <String, String>{..._localConnectWebFallbacks, ...translations};
+  final queueLabel = (i18n['queue'] ?? '').trim().toLowerCase();
+  if (!translations.containsKey('expandQueue') && queueLabel == 'cola') {
+    i18n['expandQueue'] = 'Expandir';
+  }
+  if (!translations.containsKey('compactQueue') && queueLabel == 'cola') {
+    i18n['compactQueue'] = 'Compactar';
+  }
   return '''
 <!doctype html>
 <html lang="en">
@@ -14,24 +21,28 @@ String buildLocalConnectWebPage({
   <title>${_htmlText(i18n, 'title')}</title>
   <style>
     :root {
-      --bg: #060a12;
-      --bg-soft: #0b1320;
-      --card: #101b2a;
-      --card-2: #132335;
-      --text: #ecf3ff;
-      --muted: #9ab0c6;
+      --bg: #050807;
+      --bg-elevated: #0a100e;
+      --surface: #0d1512;
+      --surface-2: #111b17;
+      --surface-3: #17231e;
+      --text: #f2f7f4;
+      --muted: #8da198;
+      --muted-2: #64766e;
       --accent: #35d8a3;
-      --accent-2: #5da9ff;
-      --accent-3: #f7c86a;
-      --border: #1f3349;
-      --danger: #ff6b6b;
-      --radius: 16px;
-      --shadow: 0 12px 30px rgba(0, 0, 0, 0.34);
+      --accent-soft: rgba(53, 216, 163, 0.12);
+      --accent-border: rgba(53, 216, 163, 0.28);
+      --border: rgba(255, 255, 255, 0.075);
+      --danger: #ff7777;
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+      --shadow: 0 22px 60px rgba(0, 0, 0, 0.34);
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
+
+    html { color-scheme: dark; }
 
     body {
       margin: 0;
@@ -39,425 +50,335 @@ String buildLocalConnectWebPage({
       color: var(--text);
       font-family: "SF Pro Display", "Inter", "Segoe UI", Roboto, -apple-system, sans-serif;
       background:
-        radial-gradient(1000px 620px at 18% -18%, rgba(93, 169, 255, 0.24), transparent 60%),
-        radial-gradient(820px 500px at 98% -14%, rgba(53, 216, 163, 0.15), transparent 60%),
-        linear-gradient(180deg, #080f1d 0%, var(--bg) 44%, #050912 100%);
+        radial-gradient(900px 520px at 14% -10%, rgba(53, 216, 163, 0.12), transparent 58%),
+        radial-gradient(760px 480px at 92% 8%, rgba(53, 216, 163, 0.055), transparent 62%),
+        linear-gradient(180deg, #070b09 0%, var(--bg) 58%, #030504 100%);
     }
 
+    button, input { font: inherit; }
+    [hidden] { display: none !important; }
+
     .shell {
-      max-width: 1180px;
+      width: min(100%, 1680px);
       margin: 0 auto;
-      padding: 20px 16px 24px;
+      padding: clamp(12px, 2vw, 28px);
       display: grid;
-      gap: 14px;
+      gap: clamp(12px, 1.6vw, 20px);
     }
 
     .card {
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--card-2) 88%, black) 0%,
-        color-mix(in oklab, var(--card) 92%, black) 100%
-      );
+      border-radius: var(--radius-lg);
+      background: linear-gradient(180deg, rgba(17, 27, 23, 0.96), rgba(10, 16, 14, 0.98));
       box-shadow: var(--shadow);
     }
 
     .topbar {
-      padding: 14px 16px;
+      min-height: 64px;
+      padding: 12px 18px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
+      background: rgba(10, 16, 14, 0.78);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      position: sticky;
+      top: 10px;
+      z-index: 20;
     }
 
     .brand {
+      min-width: 0;
       display: flex;
       align-items: center;
       gap: 10px;
-      font-weight: 730;
-      letter-spacing: 0.2px;
+      font-weight: 760;
+      letter-spacing: -0.2px;
+      font-size: 18px;
     }
 
     .brand-dot {
-      width: 10px;
-      height: 10px;
+      width: 11px;
+      height: 11px;
       border-radius: 50%;
-      background: linear-gradient(180deg, var(--accent), var(--accent-2));
-      box-shadow: 0 0 14px color-mix(in oklab, var(--accent) 58%, transparent);
+      flex: 0 0 auto;
+      background: var(--accent);
+      box-shadow: 0 0 0 5px rgba(53, 216, 163, 0.08), 0 0 24px rgba(53, 216, 163, 0.38);
+    }
+
+    .status-pill, .queue-count, .artist-insight-pill, .track-chip, .lyrics-language {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.025);
     }
 
     .status-pill {
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 7px 12px;
+      padding: 7px 11px;
       font-size: 12px;
-      color: var(--muted);
-      background: color-mix(in oklab, var(--bg-soft) 88%, black);
+      white-space: nowrap;
     }
 
     .status-pill.paired {
       color: var(--accent);
-      border-color: color-mix(in oklab, var(--accent) 44%, var(--border));
-      background: color-mix(in oklab, var(--accent) 11%, transparent);
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
     }
 
-    .status-pill.unpaired {
-      color: #ffd48f;
-    }
+    .status-pill.unpaired { color: #ffd39a; }
 
     .pairing {
-      padding: 14px 16px;
+      width: min(100%, 620px);
+      justify-self: center;
+      padding: clamp(18px, 3vw, 28px);
       display: grid;
-      gap: 8px;
+      gap: 10px;
+      text-align: center;
+      background:
+        radial-gradient(500px 180px at 50% 0%, rgba(53, 216, 163, 0.11), transparent 70%),
+        linear-gradient(180deg, rgba(17, 27, 23, 0.98), rgba(8, 13, 11, 0.99));
     }
 
-    .pairing-title {
-      font-size: 15px;
-      font-weight: 680;
-    }
-
-    .small {
-      font-size: 12px;
-      color: var(--muted);
-    }
+    .pairing-title { font-size: 18px; font-weight: 730; }
+    .small { font-size: 12px; color: var(--muted); }
 
     .btn {
+      min-height: 42px;
       border: 1px solid var(--border);
-      background: color-mix(in oklab, var(--bg-soft) 88%, black);
+      background: rgba(255, 255, 255, 0.035);
       color: var(--text);
-      border-radius: 10px;
-      padding: 10px 10px;
+      border-radius: 999px;
+      padding: 9px 15px;
       cursor: pointer;
-      font-weight: 610;
-      letter-spacing: 0.14px;
-      transition: border-color 120ms ease, transform 100ms ease, filter 120ms ease;
+      font-weight: 650;
+      letter-spacing: 0.05px;
+      transition: transform 120ms ease, background 140ms ease, border-color 140ms ease, filter 140ms ease;
     }
 
     .btn:hover {
-      border-color: color-mix(in oklab, var(--accent) 43%, var(--border));
-      filter: brightness(1.03);
+      border-color: rgba(53, 216, 163, 0.34);
+      background: rgba(53, 216, 163, 0.075);
     }
 
-    .btn:active {
-      transform: translateY(1px);
-    }
+    .btn:active { transform: scale(0.98); }
 
     .btn-primary {
-      background: linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--accent) 30%, #123127) 0%,
-        color-mix(in oklab, var(--accent) 17%, #0c1421) 100%
-      );
+      color: #05110d;
+      border-color: transparent;
+      background: var(--accent);
+      box-shadow: 0 10px 28px rgba(53, 216, 163, 0.16);
     }
 
+    .btn-primary:hover { background: #48e2b0; filter: brightness(1.02); }
+
     .btn-toggle-active {
-      border-color: color-mix(in oklab, var(--accent) 52%, var(--border));
-      background: linear-gradient(
-        180deg,
-        color-mix(in oklab, var(--accent) 24%, #122f25) 0%,
-        color-mix(in oklab, var(--accent) 12%, #0c1421) 100%
-      );
-      color: color-mix(in oklab, var(--text) 95%, #d5ffee);
+      color: var(--accent);
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
     }
 
     .main-grid {
       display: grid;
-      gap: 14px;
-      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      grid-template-columns: 1fr;
+      gap: clamp(14px, 1.7vw, 22px);
       align-items: start;
     }
 
     .now-panel {
-      padding: 16px;
-      display: grid;
-      gap: 14px;
-      align-content: start;
-      position: relative;
+      min-width: 0;
       overflow: hidden;
+      padding: clamp(18px, 2.2vw, 30px);
+      display: grid;
+      gap: clamp(18px, 2vw, 26px);
+      position: relative;
+      isolation: isolate;
       background:
-        linear-gradient(135deg, rgba(53, 216, 163, 0.08), transparent 42%),
-        linear-gradient(180deg, color-mix(in oklab, var(--card-2) 90%, black), color-mix(in oklab, var(--card) 94%, black));
+        radial-gradient(720px 420px at 0% 0%, rgba(53, 216, 163, 0.09), transparent 62%),
+        linear-gradient(180deg, rgba(17, 27, 23, 0.98), rgba(8, 13, 11, 0.99));
     }
 
-    .now-panel > * {
-      position: relative;
-      z-index: 1;
+    .now-panel::before {
+      content: "";
+      position: absolute;
+      inset: -20% auto auto -10%;
+      width: 420px;
+      height: 420px;
+      border-radius: 50%;
+      background: rgba(53, 216, 163, 0.055);
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: -1;
     }
 
     .cover-row {
+      min-width: 0;
       display: grid;
-      grid-template-columns: 220px 1fr;
-      gap: 16px;
-      align-items: start;
+      grid-template-columns: clamp(300px, 28vw, 430px) minmax(0, 1fr);
+      gap: clamp(24px, 4vw, 58px);
+      align-items: center;
     }
 
     .cover-wrap {
-      width: 220px;
-      height: 220px;
-      border-radius: 18px;
-      border: 1px solid var(--border);
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: clamp(18px, 2vw, 28px);
       overflow: hidden;
-      background: linear-gradient(150deg, #1b2d45, #101b2a);
-      box-shadow: 0 18px 34px rgba(0, 0, 0, 0.38);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      background: linear-gradient(145deg, #17241f, #09100d);
+      box-shadow: 0 28px 58px rgba(0, 0, 0, 0.44);
     }
 
     .cover {
       width: 100%;
       height: 100%;
-      object-fit: cover;
       display: block;
+      object-fit: cover;
     }
 
+    .meta { min-width: 0; }
+
     .eyebrow {
-      margin-bottom: 8px;
-      color: color-mix(in oklab, var(--accent) 82%, white);
+      margin-bottom: 10px;
+      color: var(--accent);
       font-size: 11px;
-      font-weight: 720;
-      letter-spacing: 0.75px;
+      font-weight: 760;
+      letter-spacing: 1.1px;
       text-transform: uppercase;
     }
 
     .meta h1 {
-      margin: 0 0 4px;
-      font-size: 32px;
-      line-height: 1.12;
-      letter-spacing: 0;
-      font-weight: 745;
+      margin: 0;
+      font-size: clamp(30px, 4vw, 54px);
+      line-height: 1.02;
+      letter-spacing: -1.4px;
+      font-weight: 780;
       display: -webkit-box;
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .meta .artist {
+      margin: 12px 0 0;
+      font-size: clamp(19px, 2.1vw, 28px);
+      font-weight: 560;
+      color: #cbd8d2;
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .meta .artist {
-      margin: 0;
-      font-size: 22px;
-      font-weight: 540;
-      letter-spacing: 0;
-      color: color-mix(in oklab, var(--text) 96%, #a6c4df);
-    }
-
     .meta .album {
-      margin: 4px 0 0;
+      margin: 6px 0 0;
       color: var(--muted);
       font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .meta .state {
-      margin-top: 12px;
+      margin-top: 18px;
       display: inline-flex;
       align-items: center;
-      border: 1px solid var(--border);
-      border-radius: 999px;
+      min-height: 30px;
       padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
       color: var(--muted);
+      background: rgba(255, 255, 255, 0.025);
       font-size: 12px;
-      background: color-mix(in oklab, var(--bg-soft) 87%, black);
     }
 
     .track-chips {
-      margin-top: 12px;
+      margin-top: 10px;
       display: flex;
       flex-wrap: wrap;
       gap: 7px;
     }
 
     .track-chip {
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 6px 9px;
-      color: var(--muted);
-      background: color-mix(in oklab, var(--bg-soft) 86%, black);
-      font-size: 12px;
-      line-height: 1;
       max-width: 100%;
+      padding: 6px 9px;
+      font-size: 11px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
     .track-chip.strong {
-      color: color-mix(in oklab, var(--accent-3) 78%, white);
-      border-color: color-mix(in oklab, var(--accent-3) 38%, var(--border));
-      background: color-mix(in oklab, var(--accent-3) 10%, var(--bg-soft));
+      color: var(--accent);
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
     }
 
-    .artist-profile {
-      margin-top: 12px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: color-mix(in oklab, var(--bg-soft) 86%, black);
-      padding: 9px 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-height: 72px;
-    }
-
-    .artist-profile-avatar-wrap {
-      width: 54px;
-      height: 54px;
-      border-radius: 999px;
-      border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--border));
-      overflow: hidden;
-      flex: 0 0 auto;
-      background: linear-gradient(160deg, #19314b, #0f1a29);
+    .dock {
       display: grid;
-      place-items: center;
+      gap: 14px;
+      padding-top: 2px;
     }
 
-    .artist-profile-avatar {
+    .seek-wrap { display: grid; gap: 7px; }
+
+    input[type="range"] {
       width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .artist-profile-avatar-fallback {
-      width: 100%;
-      height: 100%;
-      display: grid;
-      place-items: center;
-      font-size: 15px;
-      font-weight: 720;
-      letter-spacing: 0.2px;
-      color: color-mix(in oklab, var(--text) 94%, #95b8d8);
-      text-transform: uppercase;
-    }
-
-    .artist-profile-meta {
-      min-width: 0;
-      display: grid;
-      gap: 2px;
-    }
-
-    .artist-profile-name {
-      font-size: 14px;
-      font-weight: 670;
-      color: var(--text);
-      line-height: 1.2;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .artist-insights .artist-profile {
-      margin-top: 4px;
-      margin-bottom: 10px;
-    }
-
-    .artist-profile-line {
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.25;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    .stat {
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: color-mix(in oklab, var(--bg-soft) 88%, black);
-      padding: 10px;
-      display: grid;
-      gap: 2px;
-      min-height: 60px;
-      align-content: center;
-    }
-
-    .stat-label {
-      font-size: 11px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .stat-value {
-      font-size: 15px;
-      font-weight: 650;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .stat-value.accent {
-      color: color-mix(in oklab, var(--accent) 80%, white);
-    }
-
-    .track-history {
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 11px 12px;
-      background: color-mix(in oklab, var(--bg-soft) 88%, black);
-      display: grid;
-      gap: 10px;
-    }
-
-    .track-history-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .track-history-head h3 {
       margin: 0;
-      font-size: 14px;
-      color: var(--text);
-      letter-spacing: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
     }
 
-    .track-history-grid {
+    #seekBar { height: 6px; }
+
+    .time-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .dock-controls {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: auto auto minmax(110px, auto) auto auto auto minmax(150px, 1fr);
+      align-items: center;
+      justify-content: center;
       gap: 8px;
     }
 
-    .track-history-card {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 8px;
-      display: grid;
-      gap: 2px;
-      background: color-mix(in oklab, var(--bg) 88%, black);
-      min-width: 0;
-    }
-
-    .track-history-label {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--muted);
-    }
-
-    .track-history-value {
+    #btnPlayPause {
+      min-width: 112px;
+      min-height: 48px;
       font-size: 15px;
-      font-weight: 680;
-      color: var(--text);
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      padding-inline: 22px;
+    }
+
+    #btnPrev, #btnNext, #btnSeekBack, #btnSeekFwd, #btnShuffle {
+      min-width: 74px;
+    }
+
+    .volume-wrap {
+      min-width: 145px;
+      display: grid;
+      grid-template-columns: auto minmax(80px, 1fr);
+      align-items: center;
+      gap: 9px;
+      padding-left: 8px;
+    }
+
+    .volume-wrap .small { white-space: nowrap; }
+
+    .queue-column {
+      min-width: 0;
+      position: static;
     }
 
     .queue-panel {
-      padding: 14px;
+      padding: 18px 20px 20px;
       display: grid;
-      gap: 12px;
-      align-content: start;
-      align-self: start;
-      height: max-content;
-      position: sticky;
-      top: 14px;
+      gap: 14px;
+      overflow: hidden;
     }
 
     .queue-head {
@@ -469,1003 +390,376 @@ String buildLocalConnectWebPage({
 
     .queue-head h2 {
       margin: 0;
-      font-size: 22px;
-      letter-spacing: 0;
-      font-weight: 710;
+      font-size: 20px;
+      letter-spacing: -0.35px;
+      font-weight: 740;
     }
 
-    .queue-count {
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 5px 10px;
-      font-size: 12px;
-      color: var(--muted);
-      background: color-mix(in oklab, var(--bg-soft) 88%, black);
+    .queue-head-actions {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-left: auto;
     }
+
+    .queue-count { padding: 5px 9px; font-size: 11px; white-space: nowrap; }
+
+    .queue-mobile-toggle {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 30px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      font: inherit;
+      font-size: 11px;
+      font-weight: 650;
+      cursor: pointer;
+      transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+    }
+
+    .queue-mobile-toggle:hover {
+      color: var(--text);
+      border-color: rgba(53,216,163,.25);
+      background: rgba(53,216,163,.055);
+    }
+
+    .queue-mobile-toggle-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 15px;
+      height: 15px;
+      font-size: 13px;
+      line-height: 1;
+      transition: transform 150ms ease;
+    }
+
+    .queue-panel.queue-expanded .queue-mobile-toggle-icon { transform: rotate(180deg); }
 
     .queue-carousel {
       display: grid;
       grid-auto-flow: column;
-      grid-auto-columns: minmax(148px, 1fr);
-      gap: 10px;
+      grid-auto-columns: clamp(154px, 13vw, 192px);
+      gap: 12px;
       overflow-x: auto;
-      padding-bottom: 6px;
+      padding: 3px 1px 9px;
       scroll-snap-type: x mandatory;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,.15) transparent;
     }
 
-    .queue-carousel::-webkit-scrollbar {
-      height: 6px;
-    }
-
-    .queue-carousel::-webkit-scrollbar-thumb {
-      background: color-mix(in oklab, var(--border) 84%, white);
-      border-radius: 999px;
-    }
+    .queue-carousel::-webkit-scrollbar { height: 5px; }
+    .queue-carousel::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 999px; }
 
     .queue-cover-item {
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-      background: color-mix(in oklab, var(--bg-soft) 86%, black);
-      scroll-snap-align: start;
-      transition: border-color 120ms ease, transform 120ms ease;
       min-width: 0;
+      overflow: hidden;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.025);
+      scroll-snap-align: start;
       cursor: pointer;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
     }
 
     .queue-cover-item:hover {
-      transform: translateY(-1px);
-      border-color: color-mix(in oklab, var(--accent) 42%, var(--border));
+      transform: translateY(-2px);
+      border-color: rgba(53,216,163,.3);
+      background: rgba(53,216,163,.04);
     }
 
     .queue-cover-item.active {
-      border-color: color-mix(in oklab, var(--accent) 54%, var(--border));
-      box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 24%, transparent);
+      border-color: var(--accent-border);
+      box-shadow: inset 0 0 0 1px rgba(53,216,163,.08);
     }
 
-    .queue-cover-wrap {
-      width: 100%;
-      aspect-ratio: 1 / 1;
-      background: linear-gradient(150deg, #1b2d45, #101b2a);
-      overflow: hidden;
-    }
-
-    .queue-cover {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .queue-cover-fallback {
-      width: 100%;
-      height: 100%;
-      display: grid;
-      place-items: center;
-      color: #8aa3bd;
-      font-size: 28px;
-    }
-
-    .queue-cover-meta {
-      padding: 8px 9px 9px;
-      display: grid;
-      gap: 2px;
-    }
-
-    .queue-cover-title {
-      font-size: 12px;
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-weight: 620;
-    }
-
-    .queue-cover-artist {
-      font-size: 11px;
-      color: var(--muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+    .queue-cover-wrap { width: 100%; aspect-ratio: 1; overflow: hidden; background: #101915; }
+    .queue-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .queue-cover-fallback { width:100%; height:100%; display:grid; place-items:center; color:var(--muted-2); font-size:28px; }
+    .queue-cover-meta { padding: 9px 10px 10px; display: grid; gap: 3px; }
+    .queue-cover-title { font-size: 12px; color: var(--text); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .queue-cover-artist { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .queue-list {
       margin: 0;
-      padding: 0;
+      padding: 0 2px 0 0;
       list-style: none;
-      display: grid;
-      gap: 8px;
-      max-height: min(42vh, 420px);
+      display: none;
+      gap: 5px;
+      max-height: min(48vh, 520px);
       overflow: auto;
       scrollbar-width: thin;
-      scrollbar-color: color-mix(in oklab, var(--border) 86%, white) transparent;
+      scrollbar-color: rgba(255,255,255,.14) transparent;
     }
 
-    .queue-list::-webkit-scrollbar,
-    .stats::-webkit-scrollbar,
-    .track-history-grid::-webkit-scrollbar,
-    .artist-kpis::-webkit-scrollbar {
-      width: 8px;
-      height: 6px;
-    }
-
-    .queue-list::-webkit-scrollbar-thumb,
-    .stats::-webkit-scrollbar-thumb,
-    .track-history-grid::-webkit-scrollbar-thumb,
-    .artist-kpis::-webkit-scrollbar-thumb {
-      background: color-mix(in oklab, var(--border) 86%, white);
-      border-radius: 999px;
-    }
-
-    .queue-list::-webkit-scrollbar-track,
-    .stats::-webkit-scrollbar-track,
-    .track-history-grid::-webkit-scrollbar-track,
-    .artist-kpis::-webkit-scrollbar-track {
-      background: transparent;
-    }
+    .queue-list::-webkit-scrollbar, .artist-next-list::-webkit-scrollbar { width: 6px; }
+    .queue-list::-webkit-scrollbar-thumb, .artist-next-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius:999px; }
 
     .queue-item {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 8px 10px;
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-      color: var(--text);
-      cursor: pointer;
-      background: color-mix(in oklab, var(--bg-soft) 78%, black);
-      transition: border-color 120ms ease, background 120ms ease;
-    }
-
-    .queue-item:hover {
-      border-color: color-mix(in oklab, var(--accent) 34%, var(--border));
-      background: color-mix(in oklab, var(--card-2) 86%, black);
-    }
-
-    .queue-item.active {
-      border-color: color-mix(in oklab, var(--accent) 45%, var(--border));
-      background: color-mix(in oklab, var(--accent) 10%, var(--card));
-    }
-
-    .queue-item-main {
       min-width: 0;
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .queue-item-index {
-      width: 24px;
-      height: 24px;
-      border-radius: 999px;
-      display: grid;
-      place-items: center;
-      font-size: 11px;
-      font-weight: 670;
-      color: var(--muted);
-      border: 1px solid var(--border);
-      background: color-mix(in oklab, var(--bg-soft) 92%, black);
-      flex: 0 0 auto;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .queue-item-text {
-      min-width: 0;
-      display: grid;
-      gap: 1px;
-    }
-
-    .queue-item-title {
-      font-size: 13px;
-      font-weight: 640;
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .queue-item-sub {
-      font-size: 12px;
-      color: var(--muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .queue-item-time {
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 4px 8px;
-      font-size: 12px;
-      line-height: 1;
-      color: var(--muted);
-      font-variant-numeric: tabular-nums;
-      background: color-mix(in oklab, var(--bg-soft) 88%, black);
-      flex: 0 0 auto;
-    }
-
-    .queue-item.active .queue-item-index {
-      color: color-mix(in oklab, var(--accent) 76%, white);
-      border-color: color-mix(in oklab, var(--accent) 45%, var(--border));
-      background: color-mix(in oklab, var(--accent) 18%, var(--bg-soft));
-    }
-
-    .queue-item.active .queue-item-time {
-      color: var(--text);
-      border-color: color-mix(in oklab, var(--accent) 38%, var(--border));
-    }
-
-    .artist-insights {
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 11px 12px;
-      background: color-mix(in oklab, var(--bg-soft) 88%, black);
-      display: grid;
-      gap: 10px;
-    }
-
-    .artist-head {
+      min-height: 54px;
+      padding: 8px 9px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-    }
-
-    .artist-head h3 {
-      margin: 0;
-      font-size: 14px;
-      letter-spacing: 0.2px;
-      color: var(--text);
-    }
-
-    .artist-insight-pill {
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 4px 8px;
-      font-size: 12px;
-      color: var(--muted);
-      background: color-mix(in oklab, var(--bg) 88%, black);
-    }
-
-    .artist-kpis {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    .artist-kpi {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 7px 8px;
-      display: grid;
-      gap: 2px;
-      background: color-mix(in oklab, var(--bg) 88%, black);
-    }
-
-    .artist-kpi-label {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--muted);
-    }
-
-    .artist-kpi-value {
-      font-size: 16px;
-      font-weight: 680;
-      color: var(--text);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .artist-subhead {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: var(--muted);
-    }
-
-    .artist-next-list {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      display: grid;
-      gap: 6px;
-      max-height: 148px;
-      overflow: auto;
-    }
-
-    .artist-next-item {
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      padding: 7px 8px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      cursor: pointer;
-      background: color-mix(in oklab, var(--bg) 88%, black);
-      transition: border-color 120ms ease, background 120ms ease;
-    }
-
-    .artist-next-item:hover {
-      border-color: color-mix(in oklab, var(--accent) 34%, var(--border));
-      background: color-mix(in oklab, var(--card-2) 88%, black);
-    }
-
-    .artist-next-main {
-      min-width: 0;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex: 1;
-    }
-
-    .artist-next-index {
-      font-size: 10px;
-      color: var(--muted);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 3px 6px;
-      line-height: 1;
-      font-variant-numeric: tabular-nums;
-      flex: 0 0 auto;
-      background: color-mix(in oklab, var(--bg-soft) 90%, black);
-    }
-
-    .artist-next-text {
-      min-width: 0;
-      display: grid;
-      gap: 1px;
-    }
-
-    .artist-next-title {
-      font-size: 12px;
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-weight: 620;
-    }
-
-    .artist-next-sub {
-      font-size: 11px;
-      color: var(--muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .artist-next-time {
-      font-size: 12px;
-      color: var(--muted);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 4px 8px;
-      line-height: 1;
-      font-variant-numeric: tabular-nums;
-      background: color-mix(in oklab, var(--bg-soft) 88%, black);
-      flex: 0 0 auto;
-    }
-
-    .artist-next-empty {
-      border: 1px dashed var(--border);
-      border-radius: 9px;
-      padding: 10px 9px;
-      color: var(--muted);
-      font-size: 12px;
-      background: color-mix(in oklab, var(--bg) 86%, black);
-    }
-
-    .dock {
-      padding: 12px 14px;
-      display: grid;
-      gap: 10px;
-      backdrop-filter: blur(8px);
-    }
-
-    .seek-wrap {
-      padding: 8px 10px;
-      border: 1px solid var(--border);
+      gap: 9px;
+      border: 1px solid transparent;
       border-radius: 12px;
-      background: color-mix(in oklab, var(--bg-soft) 88%, black);
+      color: var(--text);
+      background: transparent;
+      cursor: pointer;
+      transition: background 130ms ease, border-color 130ms ease;
     }
 
-    .time-row {
-      margin-top: 4px;
+    .queue-item:hover { background: rgba(255,255,255,.035); }
+    .queue-item.active { background: var(--accent-soft); border-color: rgba(53,216,163,.12); }
+
+    .queue-item-main { min-width: 0; flex: 1; display: flex; align-items: center; gap: 9px; }
+    .queue-item-index { width: 26px; height: 26px; border-radius: 8px; display:grid; place-items:center; flex:0 0 auto; color:var(--muted-2); font-size:10px; font-weight:700; background:rgba(255,255,255,.035); font-variant-numeric:tabular-nums; }
+    .queue-item.active .queue-item-index { color: var(--accent); background: rgba(53,216,163,.11); }
+    .queue-item-text { min-width: 0; display:grid; gap:2px; }
+    .queue-item-title { font-size:13px; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .queue-item-sub { font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .queue-item-time { flex:0 0 auto; color:var(--muted); font-size:11px; font-variant-numeric:tabular-nums; }
+
+    .details-card { overflow: hidden; }
+
+    .details-tabs {
       display: flex;
-      justify-content: space-between;
-      color: var(--muted);
-      font-size: 12px;
-      font-variant-numeric: tabular-nums;
-    }
-
-    input[type=range] {
-      width: 100%;
-      accent-color: var(--accent);
-    }
-
-    .dock-controls {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr)) minmax(160px, 0.8fr);
-      gap: 8px;
       align-items: center;
+      gap: 6px;
+      padding: 10px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      scrollbar-width: none;
     }
 
-    .volume-wrap {
+    .details-tabs::-webkit-scrollbar { display: none; }
+
+    .detail-tab {
+      flex: 0 0 auto;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      padding: 9px 13px;
+      cursor: pointer;
+      font-weight: 660;
+      font-size: 13px;
+      transition: color 120ms ease, background 120ms ease;
+    }
+
+    .detail-tab:hover { color: var(--text); background: rgba(255,255,255,.035); }
+    .detail-tab.is-active { color: var(--accent); background: var(--accent-soft); }
+
+    .details-body { padding: clamp(14px, 2vw, 22px); }
+    .detail-panel { display: none; }
+    .detail-panel.is-active { display: block; }
+
+    .stats {
       display: grid;
-      gap: 4px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat, .track-history-card, .artist-kpi {
+      min-width: 0;
+      border-radius: 14px;
+      background: rgba(255,255,255,.028);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      background: color-mix(in oklab, var(--bg-soft) 88%, black);
-      padding: 7px 9px;
     }
 
-    .volume-wrap .small {
-      font-size: 11px;
-      line-height: 1;
+    .stat { min-height: 86px; padding: 14px; display:grid; gap:5px; align-content:center; }
+    .stat-label, .track-history-label, .artist-kpi-label { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.65px; }
+    .stat-value { font-size:20px; font-weight:720; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
+    .stat-value.accent { color:var(--accent); }
+
+    .track-history, .artist-insights { display:grid; gap:12px; }
+    .info-block { margin-top: clamp(28px, 3vw, 38px); }
+    .info-block + .info-block { margin-top: clamp(34px, 3.4vw, 44px); }
+    .track-history-head, .artist-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:2px; }
+    .track-history-head h3, .artist-head h3 { margin:0; font-size:17px; }
+    .artist-insight-pill { padding:5px 9px; font-size:11px; }
+    .track-history-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:9px; }
+    .track-history-card { padding:12px; display:grid; gap:4px; }
+    .track-history-value { font-size:18px; font-weight:710; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
+
+    .artist-profile {
+      min-height: 82px;
+      padding: 10px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      border-radius:14px;
+      background:rgba(255,255,255,.025);
+      border:1px solid var(--border);
     }
 
-    @media (min-width: 1400px) {
-      .shell {
-        max-width: 1500px;
-        padding: 28px 28px 32px;
-        gap: 18px;
-      }
+    .artist-profile-avatar-wrap { width:60px; height:60px; flex:0 0 auto; border-radius:50%; overflow:hidden; display:grid; place-items:center; background:#122019; border:1px solid var(--accent-border); }
+    .artist-profile-avatar { width:100%; height:100%; object-fit:cover; display:block; }
+    .artist-profile-avatar-fallback { width:100%; height:100%; display:grid; place-items:center; color:var(--muted); font-size:14px; font-weight:720; text-transform:uppercase; }
+    .artist-profile-meta { min-width:0; display:grid; gap:3px; }
+    .artist-profile-name { font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .artist-profile-line { font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .artist-kpis { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:9px; }
+    .artist-kpi { padding:10px; display:grid; gap:4px; }
+    .artist-kpi-value { font-size:17px; font-weight:710; font-variant-numeric:tabular-nums; }
+    .artist-subhead { margin-top:2px; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.7px; }
+    .artist-next-list { margin:0; padding:0; list-style:none; display:grid; gap:6px; max-height:210px; overflow:auto; }
+    .artist-next-item { min-height:46px; padding:7px 9px; display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:11px; background:rgba(255,255,255,.025); border:1px solid transparent; cursor:pointer; }
+    .artist-next-item:hover { background:rgba(255,255,255,.04); border-color:var(--border); }
+    .artist-next-main { min-width:0; flex:1; display:flex; align-items:center; gap:8px; }
+    .artist-next-index { flex:0 0 auto; font-size:10px; color:var(--muted); }
+    .artist-next-text { min-width:0; display:grid; gap:1px; }
+    .artist-next-title { font-size:12px; font-weight:640; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .artist-next-sub { font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .artist-next-time { flex:0 0 auto; font-size:11px; color:var(--muted); }
+    .artist-next-empty { padding:14px; border-radius:12px; border:1px dashed var(--border); color:var(--muted); font-size:12px; text-align:center; }
 
-      .topbar {
-        padding: 18px 22px;
-      }
+    .lyrics-panel { min-width:0; }
+    .lyrics-panel-inner { display:grid; gap:12px; }
+    .lyrics-head { display:flex; align-items:center; gap:10px; }
+    .lyrics-mark { width:32px; height:32px; display:grid; place-items:center; border-radius:10px; color:var(--accent); background:var(--accent-soft); border:1px solid var(--accent-border); }
+    .lyrics-title { font-size:17px; font-weight:720; }
+    .lyrics-language { margin-left:auto; padding:4px 8px; font-size:10px; text-transform:uppercase; letter-spacing:.65px; }
+    .lyrics-scroll { max-height:min(48vh,520px); overflow:auto; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.14) transparent; }
+    .lyrics-content { margin:0; padding:16px 18px; border-radius:14px; background:rgba(255,255,255,.025); border:1px solid var(--border); color:var(--text); font:inherit; font-size:15px; line-height:1.82; white-space:pre-wrap; overflow-wrap:anywhere; }
 
-      .brand {
-        font-size: 22px;
-      }
+    @media (max-width: 1180px) {
+      .cover-row { grid-template-columns: clamp(250px, 31vw, 340px) minmax(0,1fr); }
+      .queue-carousel { grid-auto-columns: clamp(146px, 17vw, 180px); }
+      .dock-controls { grid-template-columns: repeat(6, auto) minmax(130px,1fr); }
+      #btnPrev, #btnNext, #btnSeekBack, #btnSeekFwd, #btnShuffle { min-width: 64px; padding-inline:11px; }
+    }
 
-      .status-pill {
-        font-size: 15px;
-        padding: 9px 14px;
-      }
+    @media (max-width: 920px) {
+      .shell { width:min(100%,820px); }
+      .queue-carousel { display:none; }
+      .queue-list { display:grid; max-height:420px; }
+      .cover-row { grid-template-columns: minmax(210px, 270px) minmax(0,1fr); }
+      .dock-controls { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      .volume-wrap { grid-column:1 / -1; grid-template-columns:auto 1fr; padding:4px 6px 0; }
+      .stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .track-history-grid, .artist-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .info-block { margin-top:26px; }
+      .info-block + .info-block { margin-top:30px; }
+    }
 
-      .main-grid {
-        grid-template-columns: minmax(0, 1.35fr) minmax(420px, 0.75fr);
-        gap: 18px;
-      }
-
-      .now-panel {
-        padding: 22px;
-        gap: 18px;
-      }
-
-      .cover-row {
-        grid-template-columns: 320px 1fr;
-        gap: 24px;
-      }
-
-      .cover-wrap {
-        width: 320px;
-        height: 320px;
-        border-radius: 22px;
-      }
-
-      .eyebrow {
-        font-size: 13px;
-      }
-
-      .meta h1 {
-        font-size: 46px;
-        line-height: 1.08;
-      }
-
-      .meta .artist {
-        font-size: 30px;
-      }
-
-      .meta .album {
-        font-size: 18px;
-      }
-
-      .meta .state,
-      .track-chip,
-      .artist-insight-pill {
-        font-size: 15px;
-      }
-
-      .track-chip {
-        padding: 8px 12px;
-      }
-
-      .stat {
-        min-height: 78px;
-        padding: 13px;
-      }
-
-      .stat-label,
-      .track-history-label,
-      .artist-kpi-label {
-        font-size: 12px;
-      }
-
-      .stat-value,
-      .track-history-value,
-      .artist-kpi-value {
-        font-size: 22px;
-      }
-
-      .track-history,
-      .artist-insights,
-      .queue-panel {
-        padding: 16px;
-      }
-
-      .track-history-head h3,
-      .artist-head h3 {
-        font-size: 18px;
-      }
-
-      .artist-profile {
-        min-height: 86px;
-        padding: 12px;
-      }
-
-      .artist-profile-avatar-wrap {
-        width: 64px;
-        height: 64px;
-      }
-
-      .artist-profile-name {
-        font-size: 18px;
-      }
-
-      .artist-profile-line {
-        font-size: 15px;
-      }
-
-      .artist-next-list {
-        max-height: 240px;
-      }
-
-      .artist-next-item,
-      .queue-item {
-        padding: 11px 12px;
-      }
-
-      .artist-next-title,
-      .queue-item-title {
-        font-size: 16px;
-      }
-
-      .artist-next-sub,
-      .queue-item-sub {
-        font-size: 14px;
-      }
-
-      .queue-head h2 {
-        font-size: 28px;
-      }
-
-      .queue-count {
-        font-size: 15px;
-      }
-
-      .queue-carousel {
-        grid-auto-columns: minmax(190px, 1fr);
-      }
-
+    @media (max-width: 640px) {
+      body { background:linear-gradient(180deg,#070b09 0%,#030504 100%); }
+      .shell { padding:8px; gap:9px; }
+      .card { border-radius:18px; box-shadow:0 14px 36px rgba(0,0,0,.28); }
+      .topbar { min-height:54px; top:6px; padding:9px 12px; border-radius:16px; }
+      .brand { font-size:15px; }
+      .status-pill { font-size:10px; padding:6px 8px; }
+      .pairing { padding:18px 14px; }
+      .now-panel { padding:14px; gap:17px; }
+      .cover-row { display:flex; flex-direction:column; align-items:center; gap:16px; }
+      .cover-wrap { width:min(78vw,330px); }
+      .meta { width:100%; text-align:center; }
+      .eyebrow { display:none; }
+      .meta h1 { font-size:clamp(23px,7.5vw,31px); line-height:1.08; letter-spacing:-.6px; -webkit-line-clamp:2; }
+      .meta .artist { margin-top:7px; font-size:17px; }
+      .meta .album { margin-top:4px; font-size:12px; }
+      .meta .state { margin-top:10px; }
+      .track-chips { justify-content:center; margin-top:8px; }
+      .track-chip { max-width:42vw; }
+      .dock { gap:12px; }
+      .dock-controls { grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
+      .dock-controls .btn { min-width:0; min-height:42px; padding:8px 7px; font-size:11px; }
+      #btnPlayPause { min-width:0; min-height:48px; font-size:13px; order:2; }
+      #btnPrev { order:1; }
+      #btnNext { order:3; }
+      #btnSeekBack { order:4; }
+      #btnShuffle { order:5; }
+      #btnSeekFwd { order:6; }
+      .volume-wrap { order:7; grid-column:1 / -1; }
+      .queue-panel { padding:13px; }
+      .queue-head { align-items:center; }
+      .queue-head h2 { font-size:18px; }
+      .queue-head-actions { gap:5px; }
+      .queue-mobile-toggle { display:inline-flex; }
+      .queue-mobile-toggle[hidden] { display:none; }
       .queue-list {
-        max-height: min(46vh, 560px);
+        max-height:320px;
+        overflow-y:auto;
+        overscroll-behavior:contain;
+        padding-right:4px;
+        scrollbar-gutter:stable;
       }
-
-      .dock {
-        padding: 16px 18px;
-        gap: 14px;
+      .queue-panel.queue-expanded .queue-list {
+        max-height:none;
+        overflow:visible;
+        padding-right:0;
       }
-
-      .seek-wrap {
-        padding: 11px 14px;
+      .queue-item { min-height:52px; }
+      .queue-item-time { display:none; }
+      .details-tabs { padding:8px; }
+      .detail-tab { padding:8px 11px; font-size:12px; }
+      .details-body { padding:12px; }
+      .stats { grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+      .stat { min-height:72px; padding:10px; }
+      .stat-value { font-size:17px; }
+      .track-history-grid, .artist-kpis {
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+        overflow:visible;
+        padding-bottom:0;
       }
-
-      .time-row {
-        font-size: 15px;
+      .track-history-card, .artist-kpi {
+        min-width:0;
+        min-height:78px;
+        padding:11px;
+        align-content:center;
       }
-
-      .dock-controls {
-        grid-template-columns: repeat(6, minmax(120px, 1fr)) minmax(220px, 0.8fr);
-        gap: 10px;
+      .track-history-card:last-child, .artist-kpi:last-child {
+        grid-column:1 / -1;
       }
-
-      .btn {
-        font-size: 16px;
-        padding: 13px 12px;
+      .track-history-label, .artist-kpi-label {
+        line-height:1.25;
+        overflow-wrap:anywhere;
       }
-
-      .volume-wrap {
-        padding: 10px 12px;
+      .track-history-value, .artist-kpi-value {
+        font-size:18px;
       }
-
-      .volume-wrap .small {
-        font-size: 13px;
-      }
+      .artist-profile { min-height:70px; }
+      .artist-profile-avatar-wrap { width:50px; height:50px; }
+      .lyrics-content { padding:13px 14px; font-size:14px; line-height:1.72; }
     }
 
-    @media (max-width: 980px) {
-      .shell {
-        max-width: 760px;
-      }
-
-      .main-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .queue-panel {
-        position: static;
-      }
-
-      .cover-row {
-        grid-template-columns: 180px 1fr;
-      }
-
-      .cover-wrap {
-        width: 180px;
-        height: 180px;
-      }
-
-      .meta h1 {
-        font-size: 24px;
-      }
-
-      .meta .artist {
-        font-size: 19px;
-      }
-
-      .artist-profile {
-        min-height: 68px;
-      }
-
-      .artist-profile-avatar-wrap {
-        width: 48px;
-        height: 48px;
-      }
-
-      .artist-kpis {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .track-history-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .dock-controls {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .queue-carousel {
-        grid-auto-columns: minmax(130px, 1fr);
-      }
+    @media (max-width: 390px) {
+      .cover-wrap { width:min(82vw,280px); }
+      .meta h1 { font-size:22px; }
+      .track-chip { max-width:38vw; }
+      .dock-controls .btn { font-size:10px; padding-inline:5px; }
+      .volume-wrap .small { display:none; }
+      .volume-wrap { grid-template-columns:1fr; }
+      .queue-head { flex-wrap:wrap; }
+      .queue-head-actions { width:100%; justify-content:space-between; }
+      .track-history-head, .artist-head { align-items:flex-start; }
+      .track-history-head h3, .artist-head h3 { font-size:16px; }
+      .artist-insight-pill { max-width:48%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .artist-profile { align-items:flex-start; }
+      .artist-profile-line { white-space:normal; overflow:visible; text-overflow:clip; line-height:1.35; }
     }
 
-    @media (max-width: 720px) {
-      body {
-        background:
-          linear-gradient(180deg, #080f1d 0%, var(--bg) 52%, #050912 100%);
-      }
-
-      .shell {
-        padding: 10px 10px 14px;
-        gap: 10px;
-      }
-
-      .card {
-        border-radius: 12px;
-      }
-
-      .topbar {
-        padding: 10px 12px;
-      }
-
-      .brand {
-        min-width: 0;
-      }
-
-      .brand span:last-child {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .status-pill {
-        padding: 6px 9px;
-        white-space: nowrap;
-      }
-
-      .pairing {
-        padding: 12px;
-      }
-
-      .now-panel {
-        padding: 12px;
-        gap: 10px;
-      }
-
-      .cover-row {
-        grid-template-columns: 88px minmax(0, 1fr);
-        gap: 11px;
-        align-items: center;
-      }
-
-      .cover-wrap {
-        width: 88px;
-        height: 88px;
-        border-radius: 12px;
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.32);
-      }
-
-      .eyebrow {
-        display: none;
-      }
-
-      .meta h1 {
-        font-size: 20px;
-        line-height: 1.14;
-        -webkit-line-clamp: 2;
-      }
-
-      .meta .artist {
-        font-size: 15px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .meta .album {
-        display: none;
-      }
-
-      .meta .state {
-        margin-top: 7px;
-        padding: 5px 8px;
-        font-size: 11px;
-      }
-
-      .track-chips {
-        margin-top: 7px;
-        gap: 5px;
-      }
-
-      .track-chip {
-        padding: 5px 7px;
-        font-size: 11px;
-        max-width: 140px;
-      }
-
-      .stats {
-        grid-template-columns: repeat(4, minmax(88px, 1fr));
-        overflow-x: auto;
-        padding-bottom: 2px;
-        scroll-snap-type: x mandatory;
-        scrollbar-width: thin;
-      }
-
-      .stat {
-        min-height: 54px;
-        min-width: 88px;
-        padding: 8px;
-        scroll-snap-align: start;
-      }
-
-      .stat-label,
-      .track-history-label,
-      .artist-kpi-label {
-        font-size: 9px;
-      }
-
-      .track-history {
-        padding: 10px;
-      }
-
-      .track-history-grid {
-        grid-template-columns: repeat(5, minmax(88px, 1fr));
-        overflow-x: auto;
-        padding-bottom: 2px;
-        scroll-snap-type: x mandatory;
-        scrollbar-width: thin;
-      }
-
-      .track-history-card {
-        min-width: 88px;
-        scroll-snap-align: start;
-      }
-
-      .artist-insights {
-        padding: 10px;
-      }
-
-      .artist-profile {
-        min-height: 60px;
-        padding: 8px;
-      }
-
-      .artist-profile-avatar-wrap {
-        width: 42px;
-        height: 42px;
-      }
-
-      .artist-profile-name {
-        font-size: 13px;
-      }
-
-      .artist-profile-line {
-        font-size: 11px;
-      }
-
-      .artist-kpis {
-        grid-template-columns: repeat(5, minmax(88px, 1fr));
-        overflow-x: auto;
-        padding-bottom: 2px;
-        scroll-snap-type: x mandatory;
-        scrollbar-width: thin;
-      }
-
-      .artist-kpi {
-        min-width: 88px;
-        scroll-snap-align: start;
-      }
-
-      .artist-next-list {
-        max-height: 188px;
-      }
-
-      @media (orientation: portrait) {
-        .artist-insights {
-          display: grid;
-        }
-
-        .queue-carousel {
-          display: none;
-        }
-      }
-
-      .queue-panel {
-        padding: 12px;
-      }
-
-      .queue-carousel {
-        display: none;
-      }
-
-      .queue-list {
-        max-height: none;
-      }
-
-      .queue-item {
-        padding: 9px 9px;
-      }
-
-      .queue-item-time {
-        display: none;
-      }
-
-      .dock {
-        padding: 9px;
-        gap: 8px;
-        border-radius: 14px;
-        margin-top: 2px;
-      }
-
-      .seek-wrap {
-        padding: 6px 8px;
-      }
-
-      .dock-controls {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 6px;
-      }
-
-      .dock-controls .btn {
-        padding: 9px 6px;
-        font-size: 12px;
-      }
-
-      #btnShuffle {
-        display: none;
-      }
-
-      .volume-wrap {
-        grid-column: span 3;
-      }
-    }
-
-    @media (max-width: 380px) {
-      .cover-row {
-        grid-template-columns: 72px minmax(0, 1fr);
-      }
-
-      .cover-wrap {
-        width: 72px;
-        height: 72px;
-      }
-
-      .meta h1 {
-        font-size: 18px;
-      }
-
-      .track-chip {
-        max-width: 112px;
-      }
-    }
-
-    @media (max-width: 980px) and (max-height: 520px) and (orientation: landscape) {
-      .shell {
-        max-width: none;
-        padding: 8px;
-      }
-
-      .cover-row {
-        grid-template-columns: 76px minmax(0, 1fr);
-      }
-
-      .cover-wrap {
-        width: 76px;
-        height: 76px;
-        border-radius: 10px;
-      }
-
-      .meta h1 {
-        font-size: 18px;
-        -webkit-line-clamp: 1;
-      }
-
-      .meta .artist {
-        font-size: 14px;
-      }
-
-      .track-history,
-      .artist-insights {
-        display: none;
-      }
-
-      .queue-carousel {
-        display: none;
-      }
-
-      .queue-list {
-        max-height: 180px;
-      }
-
-      .dock {
-        padding: 7px;
-        gap: 6px;
-      }
-
-      .seek-wrap {
-        padding: 5px 7px;
-      }
-
-      .dock-controls {
-        grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(120px, 1fr);
-        gap: 5px;
-      }
-
-      .dock-controls .btn {
-        padding: 8px 5px;
-        font-size: 11px;
-      }
-
-      #btnShuffle {
-        display: none;
-      }
-
-      .volume-wrap {
-        grid-column: auto;
-        padding: 6px 7px;
-      }
-
-      .volume-wrap .small {
-        display: none;
-      }
+    @media (max-width: 920px) and (max-height: 540px) and (orientation: landscape) {
+      .shell { width:100%; max-width:none; padding:7px; }
+      .topbar { position:static; }
+      .cover-row { grid-template-columns:150px minmax(0,1fr); gap:14px; }
+      .cover-wrap { width:150px; }
+      .meta { text-align:left; }
+      .meta h1 { font-size:22px; -webkit-line-clamp:1; }
+      .meta .artist { font-size:15px; }
+      .track-chips { justify-content:flex-start; }
+      .queue-list { max-height:245px; }
+      .dock-controls { grid-template-columns:repeat(6,minmax(0,1fr)); }
+      .volume-wrap { display:none; }
     }
   </style>
 </head>
@@ -1492,6 +786,7 @@ String buildLocalConnectWebPage({
           <div class="cover-wrap">
             <img id="cover" class="cover" alt="Cover" />
           </div>
+
           <div class="meta">
             <div class="eyebrow">${_htmlText(i18n, 'remoteSession')}</div>
             <h1 id="title">${_htmlText(i18n, 'noTrack')}</h1>
@@ -1506,131 +801,170 @@ String buildLocalConnectWebPage({
           </div>
         </div>
 
-        <div class="stats">
-          <div class="stat">
-            <div class="stat-label">${_htmlText(i18n, 'currentTime')}</div>
-            <div id="statCurrent" class="stat-value">00:00</div>
+        <div class="dock">
+          <div class="seek-wrap">
+            <input id="seekBar" type="range" min="0" max="1000" value="0" aria-label="Seek" />
+            <div class="time-row">
+              <span id="timeCurrent">00:00</span>
+              <span id="timeDuration">00:00</span>
+            </div>
           </div>
-          <div class="stat">
-            <div class="stat-label">${_htmlText(i18n, 'duration')}</div>
-            <div id="statDuration" class="stat-value">00:00</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">${_htmlText(i18n, 'queuePosition')}</div>
-            <div id="statQueuePos" class="stat-value">-</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">${_htmlText(i18n, 'progress')}</div>
-            <div id="statProgress" class="stat-value accent">0%</div>
+
+          <div class="dock-controls">
+            <button id="btnPrev" class="btn">${_htmlText(i18n, 'previous')}</button>
+            <button id="btnPlayPause" class="btn btn-primary">${_htmlText(i18n, 'play')}</button>
+            <button id="btnNext" class="btn">${_htmlText(i18n, 'next')}</button>
+            <button id="btnShuffle" class="btn">${_htmlText(i18n, 'shuffle')}</button>
+            <button id="btnSeekBack" class="btn">-10s</button>
+            <button id="btnSeekFwd" class="btn">+10s</button>
+            <div class="volume-wrap">
+              <span class="small">${_htmlText(i18n, 'volume')}</span>
+              <input id="volumeBar" type="range" min="0" max="100" value="100" aria-label="Volume" />
+            </div>
           </div>
         </div>
-
-        <section class="track-history">
-          <div class="track-history-head">
-            <h3>${_htmlText(i18n, 'trackHistory')}</h3>
-            <span id="trackHistoryNote" class="artist-insight-pill">${_htmlText(i18n, 'realAppData')}</span>
-          </div>
-          <div class="track-history-grid">
-            <div class="track-history-card">
-              <span class="track-history-label">${_htmlText(i18n, 'plays')}</span>
-              <strong id="trackPlays" class="track-history-value">0</strong>
-            </div>
-            <div class="track-history-card">
-              <span class="track-history-label">${_htmlText(i18n, 'completed')}</span>
-              <strong id="trackCompleted" class="track-history-value">0</strong>
-            </div>
-            <div class="track-history-card">
-              <span class="track-history-label">${_htmlText(i18n, 'skips')}</span>
-              <strong id="trackSkips" class="track-history-value">0</strong>
-            </div>
-            <div class="track-history-card">
-              <span class="track-history-label">${_htmlText(i18n, 'retention')}</span>
-              <strong id="trackRetention" class="track-history-value">-</strong>
-            </div>
-            <div class="track-history-card">
-              <span class="track-history-label">${_htmlText(i18n, 'lastPlayed')}</span>
-              <strong id="trackLastPlayed" class="track-history-value">-</strong>
-            </div>
-          </div>
-        </section>
-
-        <section class="artist-insights">
-          <div class="artist-head">
-            <h3>${_htmlText(i18n, 'artistData')}</h3>
-            <span id="artistInsightCount" class="artist-insight-pill">-</span>
-          </div>
-          <div class="artist-profile">
-            <div class="artist-profile-avatar-wrap">
-              <img id="artistAvatar" class="artist-profile-avatar" alt="Artist or band" />
-              <span id="artistAvatarFallback" class="artist-profile-avatar-fallback">--</span>
-            </div>
-            <div class="artist-profile-meta">
-              <div id="artistProfileName" class="artist-profile-name">${_htmlText(i18n, 'unknownArtist')}</div>
-              <div id="artistProfileType" class="artist-profile-line">${_htmlText(i18n, 'type')}: ${_htmlText(i18n, 'unknown')}</div>
-              <div id="artistProfileSource" class="artist-profile-line">${_htmlText(i18n, 'source')}: —</div>
-            </div>
-          </div>
-          <div class="artist-kpis">
-            <div class="artist-kpi">
-              <span class="artist-kpi-label">${_htmlText(i18n, 'queueTracks')}</span>
-              <strong id="artistTracksByArtist" class="artist-kpi-value">0</strong>
-            </div>
-            <div class="artist-kpi">
-              <span class="artist-kpi-label">${_htmlText(i18n, 'queuePlays')}</span>
-              <strong id="artistAlbumsCount" class="artist-kpi-value">0</strong>
-            </div>
-            <div class="artist-kpi">
-              <span class="artist-kpi-label">${_htmlText(i18n, 'queueCompletes')}</span>
-              <strong id="artistCompletedCount" class="artist-kpi-value">0</strong>
-            </div>
-            <div class="artist-kpi">
-              <span class="artist-kpi-label">${_htmlText(i18n, 'queueSkips')}</span>
-              <strong id="artistSkipCount" class="artist-kpi-value">0</strong>
-            </div>
-            <div class="artist-kpi">
-              <span class="artist-kpi-label">${_htmlText(i18n, 'queueAvg')}</span>
-              <strong id="artistTotalDuration" class="artist-kpi-value">0%</strong>
-            </div>
-          </div>
-          <div class="artist-subhead">${_htmlText(i18n, 'nextTracksByArtist')}</div>
-          <ul id="artistNextList" class="artist-next-list">
-            <li class="artist-next-empty">${_htmlText(i18n, 'noArtistDataYet')}</li>
-          </ul>
-        </section>
       </section>
 
-      <section class="card queue-panel">
-        <div class="queue-head">
-          <h2>${_htmlText(i18n, 'queue')}</h2>
-          <span id="queueCount" class="queue-count">0 ${_htmlText(i18n, 'tracks')}</span>
-        </div>
-        <div id="queueCarousel" class="queue-carousel"></div>
-        <ul id="queueList" class="queue-list"></ul>
-      </section>
+      <aside class="queue-column">
+        <section class="card queue-panel" id="queuePanel">
+          <div class="queue-head">
+            <h2>${_htmlText(i18n, 'queue')}</h2>
+            <div class="queue-head-actions">
+              <span id="queueCount" class="queue-count">0 ${_htmlText(i18n, 'tracks')}</span>
+              <button
+                id="btnQueueCompact"
+                class="queue-mobile-toggle"
+                type="button"
+                aria-controls="queueList"
+                aria-expanded="false"
+                hidden
+              >
+                <span class="queue-mobile-toggle-icon" aria-hidden="true">⌄</span>
+                <span id="queueCompactLabel">${_htmlText(i18n, 'expandQueue')}</span>
+              </button>
+            </div>
+          </div>
+          <div id="queueCarousel" class="queue-carousel"></div>
+          <ul id="queueList" class="queue-list"></ul>
+        </section>
+      </aside>
     </main>
 
-    <footer class="card dock">
-      <div class="seek-wrap">
-        <input id="seekBar" type="range" min="0" max="1000" value="0" />
-        <div class="time-row">
-          <span id="timeCurrent">00:00</span>
-          <span id="timeDuration">00:00</span>
-        </div>
-      </div>
+    <section class="card details-card" id="detailsCard">
+      <nav class="details-tabs" aria-label="Track details">
+        <button type="button" class="detail-tab is-active" data-detail-tab="info">${_htmlText(i18n, 'info')}</button>
+        <button type="button" class="detail-tab" data-detail-tab="lyrics">${_htmlText(i18n, 'lyrics')}</button>
+      </nav>
 
-      <div class="dock-controls">
-        <button id="btnPrev" class="btn">${_htmlText(i18n, 'previous')}</button>
-        <button id="btnPlayPause" class="btn btn-primary">${_htmlText(i18n, 'play')}</button>
-        <button id="btnNext" class="btn">${_htmlText(i18n, 'next')}</button>
-        <button id="btnShuffle" class="btn">${_htmlText(i18n, 'shuffle')}</button>
-        <button id="btnSeekBack" class="btn">-10s</button>
-        <button id="btnSeekFwd" class="btn">+10s</button>
-        <div class="volume-wrap">
-          <span class="small">${_htmlText(i18n, 'volume')}</span>
-          <input id="volumeBar" type="range" min="0" max="100" value="100" />
-        </div>
+      <div class="details-body">
+        <section class="detail-panel is-active" data-detail-panel="info">
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-label">${_htmlText(i18n, 'currentTime')}</div>
+              <div id="statCurrent" class="stat-value">00:00</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">${_htmlText(i18n, 'duration')}</div>
+              <div id="statDuration" class="stat-value">00:00</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">${_htmlText(i18n, 'queuePosition')}</div>
+              <div id="statQueuePos" class="stat-value">-</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">${_htmlText(i18n, 'progress')}</div>
+              <div id="statProgress" class="stat-value accent">0%</div>
+            </div>
+          </div>
+
+          <section class="track-history info-block">
+            <div class="track-history-head">
+              <h3>${_htmlText(i18n, 'trackHistory')}</h3>
+              <span id="trackHistoryNote" class="artist-insight-pill">${_htmlText(i18n, 'realAppData')}</span>
+            </div>
+            <div class="track-history-grid">
+              <div class="track-history-card">
+                <span class="track-history-label">${_htmlText(i18n, 'plays')}</span>
+                <strong id="trackPlays" class="track-history-value">0</strong>
+              </div>
+              <div class="track-history-card">
+                <span class="track-history-label">${_htmlText(i18n, 'completed')}</span>
+                <strong id="trackCompleted" class="track-history-value">0</strong>
+              </div>
+              <div class="track-history-card">
+                <span class="track-history-label">${_htmlText(i18n, 'skips')}</span>
+                <strong id="trackSkips" class="track-history-value">0</strong>
+              </div>
+              <div class="track-history-card">
+                <span class="track-history-label">${_htmlText(i18n, 'retention')}</span>
+                <strong id="trackRetention" class="track-history-value">-</strong>
+              </div>
+              <div class="track-history-card">
+                <span class="track-history-label">${_htmlText(i18n, 'lastPlayed')}</span>
+                <strong id="trackLastPlayed" class="track-history-value">-</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="artist-insights info-block">
+            <div class="artist-head">
+              <h3>${_htmlText(i18n, 'artistData')}</h3>
+              <span id="artistInsightCount" class="artist-insight-pill">-</span>
+            </div>
+            <div class="artist-profile">
+              <div class="artist-profile-avatar-wrap">
+                <img id="artistAvatar" class="artist-profile-avatar" alt="Artist or band" />
+                <span id="artistAvatarFallback" class="artist-profile-avatar-fallback">--</span>
+              </div>
+              <div class="artist-profile-meta">
+                <div id="artistProfileName" class="artist-profile-name">${_htmlText(i18n, 'unknownArtist')}</div>
+                <div id="artistProfileType" class="artist-profile-line">${_htmlText(i18n, 'type')}: ${_htmlText(i18n, 'unknown')}</div>
+                <div id="artistProfileSource" class="artist-profile-line">${_htmlText(i18n, 'source')}: —</div>
+              </div>
+            </div>
+            <div class="artist-kpis">
+              <div class="artist-kpi">
+                <span class="artist-kpi-label">${_htmlText(i18n, 'queueTracks')}</span>
+                <strong id="artistTracksByArtist" class="artist-kpi-value">0</strong>
+              </div>
+              <div class="artist-kpi">
+                <span class="artist-kpi-label">${_htmlText(i18n, 'queuePlays')}</span>
+                <strong id="artistAlbumsCount" class="artist-kpi-value">0</strong>
+              </div>
+              <div class="artist-kpi">
+                <span class="artist-kpi-label">${_htmlText(i18n, 'queueCompletes')}</span>
+                <strong id="artistCompletedCount" class="artist-kpi-value">0</strong>
+              </div>
+              <div class="artist-kpi">
+                <span class="artist-kpi-label">${_htmlText(i18n, 'queueSkips')}</span>
+                <strong id="artistSkipCount" class="artist-kpi-value">0</strong>
+              </div>
+              <div class="artist-kpi">
+                <span class="artist-kpi-label">${_htmlText(i18n, 'queueAvg')}</span>
+                <strong id="artistTotalDuration" class="artist-kpi-value">0%</strong>
+              </div>
+            </div>
+            <div class="artist-subhead">${_htmlText(i18n, 'nextTracksByArtist')}</div>
+            <ul id="artistNextList" class="artist-next-list">
+              <li class="artist-next-empty">${_htmlText(i18n, 'noArtistDataYet')}</li>
+            </ul>
+          </section>
+        </section>
+
+        <section id="lyricsPanel" class="detail-panel lyrics-panel" data-detail-panel="lyrics" hidden>
+          <div class="lyrics-panel-inner">
+            <div class="lyrics-head">
+              <span class="lyrics-mark" aria-hidden="true">♪</span>
+              <span class="lyrics-title">${_htmlText(i18n, 'lyrics')}</span>
+              <span id="lyricsLanguage" class="lyrics-language"></span>
+            </div>
+            <div class="lyrics-scroll">
+              <pre id="lyricsContent" class="lyrics-content"></pre>
+            </div>
+          </div>
+        </section>
       </div>
-    </footer>
+    </section>
 
     <audio id="audioPlayer" preload="auto" style="display:none;"></audio>
   </div>
@@ -1718,6 +1052,9 @@ String buildLocalConnectWebPage({
       trackSkips: document.getElementById("trackSkips"),
       trackRetention: document.getElementById("trackRetention"),
       trackLastPlayed: document.getElementById("trackLastPlayed"),
+      lyricsPanel: document.getElementById("lyricsPanel"),
+      lyricsLanguage: document.getElementById("lyricsLanguage"),
+      lyricsContent: document.getElementById("lyricsContent"),
       artistInsightCount: document.getElementById("artistInsightCount"),
       artistTracksByArtist: document.getElementById("artistTracksByArtist"),
       artistAlbumsCount: document.getElementById("artistAlbumsCount"),
@@ -1736,16 +1073,103 @@ String buildLocalConnectWebPage({
       btnSeekFwd: document.getElementById("btnSeekFwd"),
       volumeBar: document.getElementById("volumeBar"),
       queueCount: document.getElementById("queueCount"),
+      queuePanel: document.getElementById("queuePanel"),
+      btnQueueCompact: document.getElementById("btnQueueCompact"),
+      queueCompactLabel: document.getElementById("queueCompactLabel"),
       queueCarousel: document.getElementById("queueCarousel"),
       queueList: document.getElementById("queueList"),
       audioPlayer: document.getElementById("audioPlayer")
     };
+
+    const detailTabs = Array.from(document.querySelectorAll("[data-detail-tab]"));
+    const detailPanels = Array.from(document.querySelectorAll("[data-detail-panel]"));
+    const lyricsTab = document.querySelector('[data-detail-tab="lyrics"]');
+
+    function activateDetailTab(name) {
+      const requested = String(name || "info");
+      detailTabs.forEach((tab) => {
+        tab.classList.toggle("is-active", tab.dataset.detailTab === requested);
+      });
+      detailPanels.forEach((panel) => {
+        panel.classList.toggle("is-active", panel.dataset.detailPanel === requested);
+      });
+    }
+
+    detailTabs.forEach((tab) => {
+      tab.addEventListener("click", () => activateDetailTab(tab.dataset.detailTab));
+    });
+
+    const phoneQueueMedia = window.matchMedia("(max-width: 640px)");
+
+    function isPhoneQueueLayout() {
+      return phoneQueueMedia.matches;
+    }
+
+    function syncQueueCompactUi() {
+      if (!el.queuePanel || !el.btnQueueCompact || !el.queueCompactLabel) return;
+
+      const isPhone = isPhoneQueueLayout();
+      const canToggle = isPhone && state.queue.length > 6;
+
+      if (!isPhone || !canToggle) {
+        el.queuePanel.classList.remove("queue-expanded");
+      }
+
+      const expanded = isPhone && canToggle && el.queuePanel.classList.contains("queue-expanded");
+      el.btnQueueCompact.hidden = !canToggle;
+      el.btnQueueCompact.setAttribute("aria-expanded", expanded ? "true" : "false");
+      el.queueCompactLabel.textContent = expanded ? t("compactQueue") : t("expandQueue");
+    }
+
+    function centerActiveQueueItemOnPhone(behavior = "auto") {
+      if (!isPhoneQueueLayout() || !el.queueList || !el.queuePanel) return;
+      if (el.queuePanel.classList.contains("queue-expanded")) return;
+
+      const activeItem = el.queueList.querySelector(".queue-item.active");
+      if (!activeItem) return;
+
+      const targetTop = Math.max(
+        0,
+        activeItem.offsetTop - (el.queueList.clientHeight / 2) + (activeItem.offsetHeight / 2)
+      );
+      el.queueList.scrollTo({ top: targetTop, behavior });
+    }
+
+    if (el.btnQueueCompact) {
+      el.btnQueueCompact.addEventListener("click", () => {
+        if (!isPhoneQueueLayout() || !el.queuePanel) return;
+        const expanded = el.queuePanel.classList.toggle("queue-expanded");
+        syncQueueCompactUi();
+        if (!expanded) {
+          requestAnimationFrame(() => centerActiveQueueItemOnPhone("smooth"));
+        }
+      });
+    }
+
+    if (typeof phoneQueueMedia.addEventListener === "function") {
+      phoneQueueMedia.addEventListener("change", syncQueueCompactUi);
+    } else if (typeof phoneQueueMedia.addListener === "function") {
+      phoneQueueMedia.addListener(syncQueueCompactUi);
+    }
 
     function formatMs(ms) {
       const totalSec = Math.max(0, Math.floor((ms || 0) / 1000));
       const m = Math.floor(totalSec / 60).toString().padStart(2, "0");
       const s = (totalSec % 60).toString().padStart(2, "0");
       return m + ":" + s;
+    }
+
+    function renderLyrics(track) {
+      const lyrics = String(track?.lyrics || "").trim();
+      const language = String(track?.lyricsLanguage || "").trim();
+      const hasLyrics = lyrics.length > 0;
+      el.lyricsPanel.hidden = !hasLyrics;
+      if (lyricsTab) lyricsTab.hidden = !hasLyrics;
+      if (!hasLyrics && el.lyricsPanel.classList.contains("is-active")) {
+        activateDetailTab("info");
+      }
+      el.lyricsContent.textContent = hasLyrics ? lyrics : "";
+      el.lyricsLanguage.textContent = hasLyrics && language ? language : "";
     }
 
     function formatSpeed(value) {
@@ -2606,6 +2030,7 @@ String buildLocalConnectWebPage({
       el.title.textContent = track?.title || t("noTrack");
       el.artist.textContent = track?.artist || "—";
       el.album.textContent = buildTrackInfoLine(track);
+      renderLyrics(track);
       renderArtistProfile(track);
       renderArtistInsights(track);
 
@@ -2655,6 +2080,7 @@ String buildLocalConnectWebPage({
 
       const countLabel = state.queue.length + " " + plural(state.queue.length, "track", "tracks");
       el.queueCount.textContent = countLabel;
+      syncQueueCompactUi();
 
       if (!queueChanged && !indexChanged && !trackChanged) {
         return;
@@ -2750,6 +2176,10 @@ String buildLocalConnectWebPage({
         !isQueueInteractionActive();
       if (shouldAutoCenter) {
         activeCard.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+      }
+
+      if ((queueChanged || trackChanged || indexChanged) && !isQueueInteractionActive()) {
+        requestAnimationFrame(() => centerActiveQueueItemOnPhone("smooth"));
       }
 
       state.lastRenderedQueueSignature = signature;
@@ -3252,6 +2682,7 @@ const Map<String, String> _localConnectWebFallbacks = <String, String>{
   'queuePosition': 'Queue Position',
   'progress': 'Progress',
   'trackHistory': 'Track history',
+  'lyrics': 'Lyrics',
   'realAppData': 'Real app data',
   'noHistoryYet': 'No history yet',
   'plays': 'Plays',
@@ -3273,6 +2704,8 @@ const Map<String, String> _localConnectWebFallbacks = <String, String>{
   'noArtistInfoForTrack': 'No artist info available for this track.',
   'noMoreArtistTracks': 'No more tracks from this artist in the current queue.',
   'queue': 'Queue',
+  'expandQueue': 'Expand',
+  'compactQueue': 'Compact',
   'track': 'track',
   'tracks': 'tracks',
   'playUnit': 'play',
