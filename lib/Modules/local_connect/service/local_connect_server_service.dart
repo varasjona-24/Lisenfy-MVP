@@ -356,6 +356,68 @@ class LocalConnectServerService extends GetxService {
     };
   }
 
+  Map<String, String> _localConnectWebPalette() {
+    final scheme = Get.theme.colorScheme;
+    final accent = _neonAccent(scheme.primary, scheme.brightness);
+    final accentOn = accent.computeLuminance() > 0.45
+        ? Colors.black
+        : Colors.white;
+    return <String, String>{
+      'bg': _cssColor(scheme.surface),
+      'bgElevated': _cssColor(scheme.surfaceContainer),
+      'surface': _cssColor(scheme.surfaceContainerHigh),
+      'surface2': _cssColor(scheme.surfaceContainerHighest),
+      'surface3': _cssColor(scheme.surfaceContainer),
+      'text': _cssColor(scheme.onSurface),
+      'muted': _cssColor(scheme.onSurfaceVariant),
+      'muted2': _cssColor(scheme.outline),
+      'border': _cssColor(scheme.outlineVariant),
+      'accent': _cssColor(accent),
+      'accentRgb': _cssRgb(accent),
+      'accentOn': _cssColor(accentOn),
+      'accentSoft': _cssColor(accent, alpha: 0.15),
+      'accentBorder': _cssColor(accent, alpha: 0.46),
+      'neonBorder': _cssColor(accent, alpha: 0.7),
+      'neonGlow': _cssColor(accent, alpha: 0.24),
+    };
+  }
+
+  Color _neonAccent(Color source, Brightness brightness) {
+    final hsl = HSLColor.fromColor(source);
+    if (hsl.saturation < 0.08) {
+      return HSLColor.fromAHSL(
+        1,
+        hsl.hue,
+        0.03,
+        brightness == Brightness.dark ? 0.78 : 0.5,
+      ).toColor();
+    }
+    return hsl
+        .withSaturation(max(hsl.saturation, 0.64))
+        .withLightness(
+          brightness == Brightness.dark
+              ? max(hsl.lightness, 0.62)
+              : max(hsl.lightness, 0.5),
+        )
+        .toColor();
+  }
+
+  String _cssRgb(Color color) =>
+      '${_colorChannel(color.r)}, ${_colorChannel(color.g)}, ${_colorChannel(color.b)}';
+
+  String _cssColor(Color color, {double? alpha}) {
+    final opacity = alpha ?? color.a;
+    final hex = <int>[
+      _colorChannel(color.r),
+      _colorChannel(color.g),
+      _colorChannel(color.b),
+    ].map((channel) => channel.toRadixString(16).padLeft(2, '0')).join();
+    final alphaHex = _colorChannel(opacity).toRadixString(16).padLeft(2, '0');
+    return opacity >= 0.999 ? '#$hex' : '#$hex$alphaHex';
+  }
+
+  int _colorChannel(double value) => (value.clamp(0.0, 1.0) * 255).round();
+
   Future<void> _handleRequest(HttpRequest request) async {
     var counted = false;
     try {
@@ -404,6 +466,7 @@ class LocalConnectServerService extends GetxService {
             request,
             buildLocalConnectWebPage(
               translations: _localConnectWebTranslations(),
+              palette: _localConnectWebPalette(),
               scriptNonce: nonce,
             ),
           );

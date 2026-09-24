@@ -274,6 +274,22 @@ void main() {
     expect(html, contains(r'\u003c/script>'));
   });
 
+  test('web palette accepts valid colors and rejects CSS injection', () {
+    final html = buildLocalConnectWebPage(
+      palette: const <String, String>{
+        'accent': '#345678',
+        'accentRgb': '52, 86, 120',
+        'surface': '#102030',
+        'text': '</style><script>alert(1)</script>',
+      },
+    );
+
+    expect(html, contains('--accent: #345678;'));
+    expect(html, contains('--accent-rgb: 52, 86, 120;'));
+    expect(html, contains('--surface: #102030;'));
+    expect(html, isNot(contains('alert(1)')));
+  });
+
   test(
     'metadata cache reuses snapshots and invalidates each store independently',
     () {

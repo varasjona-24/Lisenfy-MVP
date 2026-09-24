@@ -2,9 +2,11 @@ import 'dart:convert';
 
 String buildLocalConnectWebPage({
   Map<String, String> translations = const {},
+  Map<String, String> palette = const {},
   String scriptNonce = '',
 }) {
   final i18n = <String, String>{..._localConnectWebFallbacks, ...translations};
+  final paletteCss = _localConnectPaletteCss(palette);
   final queueLabel = (i18n['queue'] ?? '').trim().toLowerCase();
   if (!translations.containsKey('expandQueue') && queueLabel == 'cola') {
     i18n['expandQueue'] = 'Expandir';
@@ -30,14 +32,19 @@ String buildLocalConnectWebPage({
       --muted: #8da198;
       --muted-2: #64766e;
       --accent: #35d8a3;
+      --accent-rgb: 53, 216, 163;
+      --accent-on: #05110d;
       --accent-soft: rgba(53, 216, 163, 0.12);
       --accent-border: rgba(53, 216, 163, 0.28);
+      --neon-border: rgba(53, 216, 163, 0.48);
+      --neon-glow: rgba(53, 216, 163, 0.14);
       --border: rgba(255, 255, 255, 0.075);
       --danger: #ff7777;
       --radius-lg: 24px;
       --radius-md: 16px;
       --radius-sm: 12px;
       --shadow: 0 22px 60px rgba(0, 0, 0, 0.34);
+      $paletteCss
     }
 
     * { box-sizing: border-box; }
@@ -49,10 +56,7 @@ String buildLocalConnectWebPage({
       min-height: 100vh;
       color: var(--text);
       font-family: "SF Pro Display", "Inter", "Segoe UI", Roboto, -apple-system, sans-serif;
-      background:
-        radial-gradient(900px 520px at 14% -10%, rgba(53, 216, 163, 0.12), transparent 58%),
-        radial-gradient(760px 480px at 92% 8%, rgba(53, 216, 163, 0.055), transparent 62%),
-        linear-gradient(180deg, #070b09 0%, var(--bg) 58%, #030504 100%);
+      background: var(--bg);
     }
 
     button, input { font: inherit; }
@@ -67,10 +71,13 @@ String buildLocalConnectWebPage({
     }
 
     .card {
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--neon-border);
       border-radius: var(--radius-lg);
-      background: linear-gradient(180deg, rgba(17, 27, 23, 0.96), rgba(10, 16, 14, 0.98));
-      box-shadow: var(--shadow);
+      background: var(--surface);
+      box-shadow:
+        0 0 0 1px rgba(var(--accent-rgb), 0.05) inset,
+        0 0 24px var(--neon-glow),
+        var(--shadow);
     }
 
     .topbar {
@@ -80,7 +87,7 @@ String buildLocalConnectWebPage({
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      background: rgba(10, 16, 14, 0.78);
+      background: var(--bg-elevated);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
       position: sticky;
@@ -104,7 +111,7 @@ String buildLocalConnectWebPage({
       border-radius: 50%;
       flex: 0 0 auto;
       background: var(--accent);
-      box-shadow: 0 0 0 5px rgba(53, 216, 163, 0.08), 0 0 24px rgba(53, 216, 163, 0.38);
+      box-shadow: 0 0 0 5px rgba(var(--accent-rgb), 0.08), 0 0 24px rgba(var(--accent-rgb), 0.38);
     }
 
     .status-pill, .queue-count, .artist-insight-pill, .track-chip, .lyrics-language {
@@ -135,9 +142,7 @@ String buildLocalConnectWebPage({
       display: grid;
       gap: 10px;
       text-align: center;
-      background:
-        radial-gradient(500px 180px at 50% 0%, rgba(53, 216, 163, 0.11), transparent 70%),
-        linear-gradient(180deg, rgba(17, 27, 23, 0.98), rgba(8, 13, 11, 0.99));
+      background: var(--surface);
     }
 
     .pairing-title { font-size: 18px; font-weight: 730; }
@@ -157,20 +162,20 @@ String buildLocalConnectWebPage({
     }
 
     .btn:hover {
-      border-color: rgba(53, 216, 163, 0.34);
-      background: rgba(53, 216, 163, 0.075);
+      border-color: rgba(var(--accent-rgb), 0.34);
+      background: rgba(var(--accent-rgb), 0.075);
     }
 
     .btn:active { transform: scale(0.98); }
 
     .btn-primary {
-      color: #05110d;
+      color: var(--accent-on);
       border-color: transparent;
       background: var(--accent);
-      box-shadow: 0 10px 28px rgba(53, 216, 163, 0.16);
+      box-shadow: 0 10px 28px rgba(var(--accent-rgb), 0.16);
     }
 
-    .btn-primary:hover { background: #48e2b0; filter: brightness(1.02); }
+    .btn-primary:hover { filter: brightness(1.12); }
 
     .btn-toggle-active {
       color: var(--accent);
@@ -191,24 +196,7 @@ String buildLocalConnectWebPage({
       padding: clamp(18px, 2.2vw, 30px);
       display: grid;
       gap: clamp(18px, 2vw, 26px);
-      position: relative;
-      isolation: isolate;
-      background:
-        radial-gradient(720px 420px at 0% 0%, rgba(53, 216, 163, 0.09), transparent 62%),
-        linear-gradient(180deg, rgba(17, 27, 23, 0.98), rgba(8, 13, 11, 0.99));
-    }
-
-    .now-panel::before {
-      content: "";
-      position: absolute;
-      inset: -20% auto auto -10%;
-      width: 420px;
-      height: 420px;
-      border-radius: 50%;
-      background: rgba(53, 216, 163, 0.055);
-      filter: blur(80px);
-      pointer-events: none;
-      z-index: -1;
+      background: var(--surface);
     }
 
     .cover-row {
@@ -224,8 +212,8 @@ String buildLocalConnectWebPage({
       aspect-ratio: 1 / 1;
       border-radius: clamp(18px, 2vw, 28px);
       overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.09);
-      background: linear-gradient(145deg, #17241f, #09100d);
+      border: 1px solid var(--accent-border);
+      background: var(--surface-3);
       box-shadow: 0 28px 58px rgba(0, 0, 0, 0.44);
     }
 
@@ -424,8 +412,8 @@ String buildLocalConnectWebPage({
 
     .queue-mobile-toggle:hover {
       color: var(--text);
-      border-color: rgba(53,216,163,.25);
-      background: rgba(53,216,163,.055);
+      border-color: rgba(var(--accent-rgb),.25);
+      background: rgba(var(--accent-rgb),.055);
     }
 
     .queue-mobile-toggle-icon {
@@ -468,13 +456,13 @@ String buildLocalConnectWebPage({
 
     .queue-cover-item:hover {
       transform: translateY(-2px);
-      border-color: rgba(53,216,163,.3);
-      background: rgba(53,216,163,.04);
+      border-color: rgba(var(--accent-rgb),.3);
+      background: rgba(var(--accent-rgb),.04);
     }
 
     .queue-cover-item.active {
       border-color: var(--accent-border);
-      box-shadow: inset 0 0 0 1px rgba(53,216,163,.08);
+      box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb),.08);
     }
 
     .queue-cover-wrap { width: 100%; aspect-ratio: 1; overflow: hidden; background: #101915; }
@@ -516,11 +504,11 @@ String buildLocalConnectWebPage({
     }
 
     .queue-item:hover { background: rgba(255,255,255,.035); }
-    .queue-item.active { background: var(--accent-soft); border-color: rgba(53,216,163,.12); }
+    .queue-item.active { background: var(--accent-soft); border-color: rgba(var(--accent-rgb),.12); }
 
     .queue-item-main { min-width: 0; flex: 1; display: flex; align-items: center; gap: 9px; }
     .queue-item-index { width: 26px; height: 26px; border-radius: 8px; display:grid; place-items:center; flex:0 0 auto; color:var(--muted-2); font-size:10px; font-weight:700; background:rgba(255,255,255,.035); font-variant-numeric:tabular-nums; }
-    .queue-item.active .queue-item-index { color: var(--accent); background: rgba(53,216,163,.11); }
+    .queue-item.active .queue-item-index { color: var(--accent); background: rgba(var(--accent-rgb),.11); }
     .queue-item-text { min-width: 0; display:grid; gap:2px; }
     .queue-item-title { font-size:13px; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .queue-item-sub { font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -569,8 +557,8 @@ String buildLocalConnectWebPage({
     .stat, .track-history-card, .artist-kpi {
       min-width: 0;
       border-radius: 14px;
-      background: rgba(255,255,255,.028);
-      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      border: 1px solid rgba(var(--accent-rgb), 0.2);
     }
 
     .stat { min-height: 86px; padding: 14px; display:grid; gap:5px; align-content:center; }
@@ -595,8 +583,8 @@ String buildLocalConnectWebPage({
       align-items:center;
       gap:12px;
       border-radius:14px;
-      background:rgba(255,255,255,.025);
-      border:1px solid var(--border);
+      background:var(--bg-elevated);
+      border:1px solid rgba(var(--accent-rgb), 0.2);
     }
 
     .artist-profile-avatar-wrap { width:60px; height:60px; flex:0 0 auto; border-radius:50%; overflow:hidden; display:grid; place-items:center; background:#122019; border:1px solid var(--accent-border); }
@@ -627,7 +615,7 @@ String buildLocalConnectWebPage({
     .lyrics-title { font-size:17px; font-weight:720; }
     .lyrics-language { margin-left:auto; padding:4px 8px; font-size:10px; text-transform:uppercase; letter-spacing:.65px; }
     .lyrics-scroll { max-height:min(48vh,520px); overflow:auto; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.14) transparent; }
-    .lyrics-content { margin:0; padding:16px 18px; border-radius:14px; background:rgba(255,255,255,.025); border:1px solid var(--border); color:var(--text); font:inherit; font-size:15px; line-height:1.82; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .lyrics-content { margin:0; padding:16px 18px; border-radius:14px; background:var(--bg-elevated); border:1px solid rgba(var(--accent-rgb), 0.2); color:var(--text); font:inherit; font-size:15px; line-height:1.82; white-space:pre-wrap; overflow-wrap:anywhere; }
 
     @media (max-width: 1180px) {
       .cover-row { grid-template-columns: clamp(250px, 31vw, 340px) minmax(0,1fr); }
@@ -650,7 +638,7 @@ String buildLocalConnectWebPage({
     }
 
     @media (max-width: 640px) {
-      body { background:linear-gradient(180deg,#070b09 0%,#030504 100%); }
+      body { background:var(--bg); }
       .shell { padding:8px; gap:9px; }
       .card { border-radius:18px; box-shadow:0 14px 36px rgba(0,0,0,.28); }
       .topbar { min-height:54px; top:6px; padding:9px 12px; border-radius:16px; }
@@ -2661,6 +2649,42 @@ String buildLocalConnectWebPage({
 
 String _htmlText(Map<String, String> i18n, String key) {
   return htmlEscape.convert(i18n[key] ?? _localConnectWebFallbacks[key] ?? key);
+}
+
+String _localConnectPaletteCss(Map<String, String> palette) {
+  const tokens = <String, String>{
+    'bg': '--bg',
+    'bgElevated': '--bg-elevated',
+    'surface': '--surface',
+    'surface2': '--surface-2',
+    'surface3': '--surface-3',
+    'text': '--text',
+    'muted': '--muted',
+    'muted2': '--muted-2',
+    'accent': '--accent',
+    'accentRgb': '--accent-rgb',
+    'accentOn': '--accent-on',
+    'border': '--border',
+    'accentSoft': '--accent-soft',
+    'accentBorder': '--accent-border',
+    'neonBorder': '--neon-border',
+    'neonGlow': '--neon-glow',
+  };
+  final hexColor = RegExp(r'^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$');
+  final rgbColor = RegExp(r'^\d{1,3},\s*\d{1,3},\s*\d{1,3}$');
+  final declarations = <String>[];
+
+  for (final entry in tokens.entries) {
+    final value = palette[entry.key]?.trim();
+    if (value == null || value.isEmpty) continue;
+    final isRgb = entry.key == 'accentRgb';
+    if ((!isRgb && !hexColor.hasMatch(value)) ||
+        (isRgb && !rgbColor.hasMatch(value))) {
+      continue;
+    }
+    declarations.add('${entry.value}: $value;');
+  }
+  return declarations.join('\n      ');
 }
 
 const Map<String, String> _localConnectWebFallbacks = <String, String>{
