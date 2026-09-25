@@ -12,8 +12,10 @@ import '../../sources/data/source_theme_topic_playlist_store.dart';
 import '../../recommendations/data/recommendation_store.dart';
 import '../../recommendations/data/recommendation_mix_store.dart';
 import '../../recommendations/data/listening_event_store.dart';
+import '../../recommendations/data/recommendation_ml_store.dart';
 import '../../recommendations/data/recommendation_feedback_store.dart';
 import '../../recommendations/application/local_recommendation_service.dart';
+import '../../recommendations/application/local_ml_recommendation_ranker.dart';
 import '../../recommendations/application/recommendation_feedback_service.dart';
 import '../../recommendations/domain/contracts/recommendation_engine.dart';
 import '../../recommendations/application/usecases/get_or_build_daily_recommendations_use_case.dart';
@@ -55,6 +57,18 @@ class HomeBinding extends Bindings {
         permanent: true,
       );
     }
+    if (!Get.isRegistered<ListeningEventStore>()) {
+      Get.put(ListeningEventStore(Get.find<GetStorage>()), permanent: true);
+    }
+    if (!Get.isRegistered<RecommendationMlStore>()) {
+      Get.put(RecommendationMlStore(Get.find<GetStorage>()), permanent: true);
+    }
+    if (!Get.isRegistered<LocalMlRecommendationRanker>()) {
+      Get.put(
+        LocalMlRecommendationRanker(store: Get.find<RecommendationMlStore>()),
+        permanent: true,
+      );
+    }
     if (!Get.isRegistered<ArtistStore>()) {
       Get.put(ArtistStore(Get.find<GetStorage>()), permanent: true);
     }
@@ -73,6 +87,8 @@ class HomeBinding extends Bindings {
       final service = LocalRecommendationService(
         store: Get.find<RecommendationStore>(),
         feedbackService: Get.find<RecommendationFeedbackService>(),
+        listeningEventStore: Get.find<ListeningEventStore>(),
+        ranker: Get.find<LocalMlRecommendationRanker>(),
         libraryLoader: () => Get.find<MediaRepository>().getLibrary(),
         artistProfileLoader: () => Get.find<ArtistStore>().readAll(),
         topicLoader: () => Get.find<SourceThemeTopicStore>().readAll(),
@@ -97,9 +113,6 @@ class HomeBinding extends Bindings {
     }
     if (!Get.isRegistered<RecommendationMixStore>()) {
       Get.put(RecommendationMixStore(Get.find<GetStorage>()), permanent: true);
-    }
-    if (!Get.isRegistered<ListeningEventStore>()) {
-      Get.put(ListeningEventStore(Get.find<GetStorage>()), permanent: true);
     }
     if (!Get.isRegistered<BuildRecommendationCollectionsUseCase>()) {
       Get.lazyPut<BuildRecommendationCollectionsUseCase>(

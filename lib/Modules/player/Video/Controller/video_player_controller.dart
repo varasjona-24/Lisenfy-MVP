@@ -12,6 +12,8 @@ import '../../../../app/models/media_item.dart';
 import '../../../../app/services/video_service.dart';
 import '../../../../app/data/local/local_library_store.dart';
 import '../../../settings/controller/playback_settings_controller.dart';
+import '../../../recommendations/data/listening_event_store.dart';
+import '../../../recommendations/domain/recommendation_models.dart';
 
 class VideoPlayerController extends GetxController {
   static const double _completedViewProgressThreshold = 0.90;
@@ -23,6 +25,10 @@ class VideoPlayerController extends GetxController {
   final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
   final PlaybackSettingsController _settings =
       Get.find<PlaybackSettingsController>();
+  final ListeningEventStore? _listeningEvents =
+      Get.isRegistered<ListeningEventStore>()
+      ? Get.find<ListeningEventStore>()
+      : null;
   final GetStorage _storage = GetStorage();
   final List<MediaItem> _initialQueue;
   final int initialIndex;
@@ -679,6 +685,18 @@ class VideoPlayerController extends GetxController {
       markSkip: forceSkip,
       markCompleted: markCompleted,
     );
+    if (_listeningEvents != null) {
+      await _listeningEvents.add(
+        ListeningEvent(
+          trackKey: key,
+          occurredAt: DateTime.now().millisecondsSinceEpoch,
+          progress: markCompleted ? 1.0 : progress,
+          completed: markCompleted,
+          skipped: forceSkip && !markCompleted,
+          mode: RecommendationMode.video,
+        ),
+      );
+    }
 
     if (markCompleted) {
       _completionLoggedTrackKey = key;

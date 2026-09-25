@@ -9,7 +9,10 @@ import '../../../app/utils/artist_credit_parser.dart';
 import '../../sources/domain/source_origin.dart';
 import '../../sources/domain/source_theme_topic.dart';
 import '../../sources/domain/source_theme_topic_playlist.dart';
+import '../data/listening_event_store.dart';
 import '../data/recommendation_store.dart';
+import '../domain/contracts/recommendation_ranker.dart';
+import '../domain/recommendation_ml_models.dart';
 import 'recommendation_feedback_service.dart';
 import '../domain/contracts/recommendation_engine.dart';
 import '../domain/recommendation_feedback_models.dart';
@@ -23,6 +26,8 @@ class LocalRecommendationService implements RecommendationEngine {
     Future<List<SourceThemeTopic>> Function()? topicLoader,
     Future<List<SourceThemeTopicPlaylist>> Function()? topicPlaylistLoader,
     RecommendationFeedbackService? feedbackService,
+    ListeningEventStore? listeningEventStore,
+    RecommendationRanker? ranker,
     DateTime Function()? now,
   }) : _store = store,
        _libraryLoader = libraryLoader,
@@ -30,6 +35,8 @@ class LocalRecommendationService implements RecommendationEngine {
        _topicLoader = topicLoader ?? _emptyTopicLoader,
        _topicPlaylistLoader = topicPlaylistLoader ?? _emptyTopicPlaylistLoader,
        _feedbackService = feedbackService,
+       _listeningEventStore = listeningEventStore,
+       _ranker = ranker,
        _now = now ?? DateTime.now;
 
   final RecommendationStore _store;
@@ -38,6 +45,8 @@ class LocalRecommendationService implements RecommendationEngine {
   final Future<List<SourceThemeTopic>> Function() _topicLoader;
   final Future<List<SourceThemeTopicPlaylist>> Function() _topicPlaylistLoader;
   final RecommendationFeedbackService? _feedbackService;
+  final ListeningEventStore? _listeningEventStore;
+  final RecommendationRanker? _ranker;
   final DateTime Function() _now;
 
   RecommendationState? _stateCache;
@@ -143,6 +152,9 @@ class LocalRecommendationService implements RecommendationEngine {
       await _store.writeState(state);
     }
     _stateCache = state;
+    try {
+      await _ranker?.reloadFromStore();
+    } catch (_) {}
   }
 
   Future<RecommendationState> _ensureState() async {
@@ -237,7 +249,34 @@ class LocalRecommendationService implements RecommendationEngine {
       previous: baseProfile,
       nowMs: nowMs,
     );
+    final listeningEvents =
+        _listeningEventStore?.readAll() ?? const <ListeningEvent>[];
+    final behavioralContext = _buildBehavioralContext(
+      candidates: candidates,
+      events: listeningEvents,
+      now: _now(),
+    );
     final coldStart = _isColdStart(candidates, profile);
+    final ranker = _ranker;
+    if (ranker != null) {
+      try {
+        await ranker.prepare(
+          mode: mode,
+          examples: _buildMlTrainingExamples(
+            mode: mode,
+            candidates: candidates,
+            events: listeningEvents,
+            now: _now(),
+          ),
+        );
+      } catch (_) {}
+    }
+    final mlState = _buildMlFeatureState(
+      mode,
+      candidates,
+      listeningEvents,
+      _now(),
+    );
     final seed = _hashToSeed(
       '$dateKey|${mode.key}|${_stateCache?.installId ?? ''}|$seedSalt',
     );
@@ -247,14 +286,25 @@ class LocalRecommendationService implements RecommendationEngine {
       final scoreData = _scoreCandidate(
         candidate: candidate,
         profile: profile,
+        behavioralContext: behavioralContext,
         coldStart: coldStart,
         feedback: feedback,
       );
       final jitter = _deterministicJitter(candidate.stableKey, seed);
+      final prediction = coldStart
+          ? null
+          : _safeMlPrediction(
+              ranker,
+              mode,
+              _buildMlFeatures(candidate, mlState, _now()),
+            );
+      final blendedScore = prediction == null
+          ? scoreData.score
+          : _blendMlScore(scoreData.score, prediction);
       scored.add(
         _ScoredCandidate(
           candidate: candidate,
-          score: scoreData.score + (jitter * 0.12),
+          score: scoreData.applyBusinessRules(blendedScore) + (jitter * 0.12),
           reasonCode: scoreData.reasonCode,
           reasonText: scoreData.reasonText,
         ),
@@ -291,6 +341,279 @@ class LocalRecommendationService implements RecommendationEngine {
       ),
     );
   }
+
+  RecommendationMlPrediction? _safeMlPrediction(
+    RecommendationRanker? ranker,
+    RecommendationMode mode,
+    RecommendationMlFeatures features,
+  ) {
+    try {
+      final prediction = ranker?.predict(mode: mode, features: features);
+      return prediction != null &&
+              prediction.score.isFinite &&
+              prediction.confidence.isFinite
+          ? prediction
+          : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  double _blendMlScore(
+    double heuristic,
+    RecommendationMlPrediction prediction,
+  ) {
+    final blend = (0.10 + (prediction.confidence * 0.60))
+        .clamp(0.10, 0.70)
+        .toDouble();
+    return ((heuristic * (1 - blend)) + (prediction.score * blend))
+        .clamp(0.0, 1.0)
+        .toDouble();
+  }
+
+  RecommendationMlFeatures _buildMlFeatures(
+    _RecommendationCandidate candidate,
+    _MlFeatureState state,
+    DateTime now,
+  ) => _buildHistoricalMlFeatures(
+    candidate,
+    state.stats.putIfAbsent(candidate.stableKey, _MlTrackHistory.new),
+    now,
+    state.genre,
+    state.artist,
+    state.region,
+    state.origin,
+    state.daypartGenre[_daypartOf(now)],
+    state.daypartArtist[_daypartOf(now)],
+  );
+
+  List<RecommendationMlTrainingExample> _buildMlTrainingExamples({
+    required RecommendationMode mode,
+    required List<_RecommendationCandidate> candidates,
+    required List<ListeningEvent> events,
+    required DateTime now,
+  }) {
+    final byKey = {
+      for (final candidate in candidates) candidate.stableKey: candidate,
+    };
+    final cutoff = now
+        .subtract(const Duration(days: 90))
+        .millisecondsSinceEpoch;
+    final chronological =
+        events
+            .where(
+              (event) =>
+                  event.mode == mode &&
+                  event.occurredAt >= cutoff &&
+                  event.occurredAt <= now.millisecondsSinceEpoch &&
+                  byKey.containsKey(event.trackKey),
+            )
+            .toList()
+          ..sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
+    final stats = <String, _MlTrackHistory>{};
+    final genre = <String, double>{},
+        artist = <String, double>{},
+        region = <String, double>{},
+        origin = <String, double>{};
+    final daypartGenre = <String, Map<String, double>>{},
+        daypartArtist = <String, Map<String, double>>{};
+    final examples = <RecommendationMlTrainingExample>[];
+    for (final event in chronological) {
+      final candidate = byKey[event.trackKey]!;
+      final history = stats.putIfAbsent(event.trackKey, _MlTrackHistory.new);
+      final occurred = DateTime.fromMillisecondsSinceEpoch(event.occurredAt);
+      final daypart = _daypartOf(occurred);
+      examples.add(
+        RecommendationMlTrainingExample(
+          stableKey: '${event.trackKey}@${event.occurredAt}',
+          trackKey: event.trackKey,
+          features: _buildHistoricalMlFeatures(
+            candidate,
+            history,
+            occurred,
+            genre,
+            artist,
+            region,
+            origin,
+            daypartGenre[daypart],
+            daypartArtist[daypart],
+          ),
+          target: event.completed
+              ? 1.0
+              : event.skipped
+              ? 0.0
+              : event.progress.clamp(0, 1).toDouble(),
+          sampleWeight: (0.75 + log(1 + history.eventCount + 1))
+              .clamp(0.75, 2.5)
+              .toDouble(),
+          sourceEventCount: 1,
+        ),
+      );
+      final target = event.completed
+          ? 1.0
+          : event.skipped
+          ? 0.0
+          : event.progress.clamp(0, 1).toDouble();
+      history.record(target, event.occurredAt, event.completed, event.skipped);
+      final affinity = max(0.0, target - 0.15);
+      void add(
+        Map<String, double> map,
+        Iterable<String> keys, [
+        double multiplier = 1,
+      ]) {
+        for (final key in keys) {
+          map[key] = (map[key] ?? 0) + affinity * multiplier;
+        }
+      }
+
+      add(genre, candidate.genres);
+      add(artist, candidate.artistKeys, .9);
+      add(region, candidate.regions, .75);
+      add(origin, [candidate.originKey], .65);
+      add(
+        daypartGenre.putIfAbsent(daypart, () => <String, double>{}),
+        candidate.genres,
+      );
+      add(
+        daypartArtist.putIfAbsent(daypart, () => <String, double>{}),
+        candidate.artistKeys,
+        .9,
+      );
+    }
+    return examples;
+  }
+
+  _MlFeatureState _buildMlFeatureState(
+    RecommendationMode mode,
+    List<_RecommendationCandidate> candidates,
+    List<ListeningEvent> events,
+    DateTime now,
+  ) {
+    final state = _MlFeatureState();
+    final cutoff = now
+        .subtract(const Duration(days: 90))
+        .millisecondsSinceEpoch;
+    final byKey = {
+      for (final candidate in candidates) candidate.stableKey: candidate,
+    };
+    for (final event
+        in events
+            .where(
+              (event) =>
+                  event.mode == mode &&
+                  event.occurredAt >= cutoff &&
+                  event.occurredAt <= now.millisecondsSinceEpoch,
+            )
+            .toList()
+          ..sort((a, b) => a.occurredAt.compareTo(b.occurredAt))) {
+      final candidate = byKey[event.trackKey];
+      if (candidate == null) continue;
+      final target = event.completed
+          ? 1.0
+          : event.skipped
+          ? 0.0
+          : event.progress.clamp(0, 1).toDouble();
+      state.stats
+          .putIfAbsent(event.trackKey, _MlTrackHistory.new)
+          .record(target, event.occurredAt, event.completed, event.skipped);
+      final affinity = max(0.0, target - .15);
+      final daypart = _daypartOf(
+        DateTime.fromMillisecondsSinceEpoch(event.occurredAt),
+      );
+      void add(
+        Map<String, double> map,
+        Iterable<String> keys, [
+        double multiplier = 1,
+      ]) {
+        for (final key in keys) {
+          map[key] = (map[key] ?? 0) + affinity * multiplier;
+        }
+      }
+
+      add(state.genre, candidate.genres);
+      add(state.artist, candidate.artistKeys, .9);
+      add(state.region, candidate.regions, .75);
+      add(state.origin, [candidate.originKey], .65);
+      add(
+        state.daypartGenre.putIfAbsent(daypart, () => <String, double>{}),
+        candidate.genres,
+      );
+      add(
+        state.daypartArtist.putIfAbsent(daypart, () => <String, double>{}),
+        candidate.artistKeys,
+        .9,
+      );
+    }
+    return state;
+  }
+
+  RecommendationMlFeatures _buildHistoricalMlFeatures(
+    _RecommendationCandidate candidate,
+    _MlTrackHistory history,
+    DateTime occurred,
+    Map<String, double> genre,
+    Map<String, double> artist,
+    Map<String, double> region,
+    Map<String, double> origin,
+    Map<String, double>? daypartGenre,
+    Map<String, double>? daypartArtist,
+  ) {
+    final total = history.completed + history.skipped;
+    final days = history.lastPlayedAt == null
+        ? 30.0
+        : max(
+            0,
+            occurred
+                    .difference(
+                      DateTime.fromMillisecondsSinceEpoch(
+                        history.lastPlayedAt!,
+                      ),
+                    )
+                    .inHours /
+                24,
+          );
+    return RecommendationMlFeatures(<double>[
+      (history.eventCount / 30).clamp(0, 1),
+      total == 0 ? 0 : history.completed / total,
+      total == 0 ? 0 : history.skipped / total,
+      history.averageProgress,
+      (days / 30).clamp(0, 1),
+      _mlAffinity(candidate.genres, genre),
+      _mlAffinity(candidate.artistKeys, artist),
+      _mlAffinity(candidate.regions, region),
+      _mlAffinity([candidate.originKey], origin),
+      _mlAffinity(candidate.artistKeys, daypartArtist ?? const {}),
+      _mlAffinity(candidate.genres, daypartGenre ?? const {}),
+      (history.recentCount(occurred) / 7).clamp(0, 1),
+      1 - min(history.eventCount / 30, 1.0),
+      _mlProfileConfidence(genre, artist, region, origin),
+    ]);
+  }
+
+  double _mlAffinity(Iterable<String> keys, Map<String, double> map) {
+    if (map.isEmpty) return 0;
+    final maxValue = map.values.fold<double>(0, max);
+    if (maxValue <= 0) return 0;
+    return keys
+        .map((key) => (map[key] ?? 0) / maxValue)
+        .fold<double>(0, max)
+        .clamp(0, 1)
+        .toDouble();
+  }
+
+  double _mlProfileConfidence(
+    Map<String, double> genre,
+    Map<String, double> artist,
+    Map<String, double> region,
+    Map<String, double> origin,
+  ) =>
+      ((genre.values.fold<double>(0, max) +
+                  artist.values.fold<double>(0, max) +
+                  region.values.fold<double>(0, max) +
+                  origin.values.fold<double>(0, max)) /
+              12)
+          .clamp(0, 1)
+          .toDouble();
 
   Future<Map<String, _SourceLabels>> _buildSourceLabelMap() async {
     final labels = <String, _SourceLabels>{};
@@ -587,9 +910,86 @@ class LocalRecommendationService implements RecommendationEngine {
     return !hasUsage || profileStrength < 0.2;
   }
 
+  /// Learns short-lived habits without persisting another profile schema.  The
+  /// aggregate profile captures long-term taste; this context captures whether
+  /// the user tends to enjoy a genre, artist or origin at this time of day.
+  _BehavioralContext _buildBehavioralContext({
+    required List<_RecommendationCandidate> candidates,
+    required List<ListeningEvent> events,
+    required DateTime now,
+  }) {
+    if (events.isEmpty) return _BehavioralContext.empty();
+
+    final byKey = <String, _RecommendationCandidate>{
+      for (final candidate in candidates) candidate.stableKey: candidate,
+    };
+    final genre = <String, double>{};
+    final artist = <String, double>{};
+    final origin = <String, double>{};
+    final recentEventCount = <String, int>{};
+    final negativeTrackWeight = <String, double>{};
+    final nowMs = now.millisecondsSinceEpoch;
+    final currentDaypart = _daypartOf(now);
+    final historyCutoff = now
+        .subtract(const Duration(days: 90))
+        .millisecondsSinceEpoch;
+    final fatigueCutoff = now
+        .subtract(const Duration(days: 14))
+        .millisecondsSinceEpoch;
+
+    for (final event in events) {
+      if (event.occurredAt < historyCutoff || event.occurredAt > nowMs) {
+        continue;
+      }
+      final candidate = byKey[event.trackKey];
+      if (candidate == null) continue;
+
+      if (event.occurredAt >= fatigueCutoff) {
+        recentEventCount[event.trackKey] =
+            (recentEventCount[event.trackKey] ?? 0) + 1;
+      }
+
+      final occurredAt = DateTime.fromMillisecondsSinceEpoch(event.occurredAt);
+      final ageDays = max(0, now.difference(occurredAt).inHours) / 24;
+      final decay = exp(-ageDays / 35).clamp(0.08, 1.0).toDouble();
+      final daypartWeight = _daypartOf(occurredAt) == currentDaypart
+          ? 1.0
+          : 0.28;
+      final outcome = event.completed
+          ? 1.20
+          : event.skipped
+          ? -0.95
+          : ((event.progress * 0.90) - 0.12);
+      final weight = outcome * decay * daypartWeight;
+
+      if (weight <= 0) {
+        negativeTrackWeight[event.trackKey] =
+            (negativeTrackWeight[event.trackKey] ?? 0) + weight.abs();
+        continue;
+      }
+      for (final key in candidate.genres) {
+        genre[key] = (genre[key] ?? 0) + weight;
+      }
+      for (final key in candidate.artistKeys) {
+        artist[key] = (artist[key] ?? 0) + (weight * 0.9);
+      }
+      origin[candidate.originKey] =
+          (origin[candidate.originKey] ?? 0) + (weight * 0.65);
+    }
+
+    return _BehavioralContext(
+      genreWeights: _normalizeWeightMap(genre),
+      artistWeights: _normalizeWeightMap(artist),
+      originWeights: _normalizeWeightMap(origin),
+      recentEventCount: recentEventCount,
+      negativeTrackWeight: negativeTrackWeight,
+    );
+  }
+
   _ScoreResult _scoreCandidate({
     required _RecommendationCandidate candidate,
     required RecommendationProfile profile,
+    required _BehavioralContext behavioralContext,
     required bool coldStart,
     required RecommendationFeedbackSnapshot feedback,
   }) {
@@ -622,6 +1022,11 @@ class LocalRecommendationService implements RecommendationEngine {
       profile.artistWeights,
     );
     final originMatch = profile.originWeights[candidate.originKey] ?? 0;
+    final contextualMatch =
+        (_bestWeight(candidate.genres, behavioralContext.genreWeights) * 0.48) +
+        (_bestWeight(candidate.artistKeys, behavioralContext.artistWeights) *
+            0.34) +
+        ((behavioralContext.originWeights[candidate.originKey] ?? 0) * 0.18);
     final semanticMatch =
         (genreMatch * 0.45) +
         (regionMatch * 0.25) +
@@ -665,10 +1070,7 @@ class LocalRecommendationService implements RecommendationEngine {
         ((1 - preferenceBlend) *
             ((0.56 * explorationPotential) + (0.44 * engagement)));
     score += (loyaltySignal * 0.08);
-
-    final recencyPenalty = _recencyPenalty(item.lastPlayedAt, nowMs);
-    score *= recencyPenalty;
-    score *= (1 - (skipSignal * 0.35)).clamp(0.45, 1.0);
+    score += contextualMatch * 0.10;
 
     if (coldStart) {
       score = (score * 0.52) + (explorationPotential * 0.48);
@@ -683,11 +1085,12 @@ class LocalRecommendationService implements RecommendationEngine {
       regions: candidate.regions,
       originKey: candidate.originKey,
     );
-    score +=
+    final businessMultiplier =
+        _recencyPenalty(item.lastPlayedAt, nowMs) *
+        (1 - (skipSignal * 0.35)).clamp(0.45, 1.0) *
+        _sessionFatiguePenalty(candidate, behavioralContext, nowMs);
+    final explicitBias =
         (explicitTrackBias * 0.22) + (artistBias * 0.14) + (tagBias * 0.08);
-    if (explicitTrackBias >= 0.5 || artistBias >= 0.45) {
-      score *= 1.06;
-    }
 
     var reason = _pickReason(
       candidate: candidate,
@@ -709,9 +1112,44 @@ class LocalRecommendationService implements RecommendationEngine {
 
     return _ScoreResult(
       score: score.clamp(0, 1).toDouble(),
+      businessMultiplier: businessMultiplier,
+      explicitBias: explicitBias,
+      explicitBoost: explicitTrackBias >= 0.5 || artistBias >= 0.45,
       reasonCode: reason.code,
       reasonText: reason.text,
     );
+  }
+
+  double _sessionFatiguePenalty(
+    _RecommendationCandidate candidate,
+    _BehavioralContext context,
+    int nowMs,
+  ) {
+    final events = context.recentEventCount[candidate.stableKey] ?? 0;
+    final negative = context.negativeTrackWeight[candidate.stableKey] ?? 0;
+    var penalty = 1.0;
+    if (events >= 7) {
+      penalty *= 0.72;
+    } else if (events >= 4) {
+      penalty *= 0.82;
+    } else if (events >= 2) {
+      penalty *= 0.92;
+    }
+    if (negative >= 1.2) penalty *= 0.78;
+    if ((candidate.item.lastPlayedAt ?? 0) > 0 &&
+        nowMs - candidate.item.lastPlayedAt! <=
+            const Duration(hours: 2).inMilliseconds) {
+      penalty *= 0.80;
+    }
+    return penalty.clamp(0.45, 1.0).toDouble();
+  }
+
+  String _daypartOf(DateTime value) {
+    final hour = value.hour;
+    if (hour < 6) return 'night';
+    if (hour < 12) return 'morning';
+    if (hour < 18) return 'afternoon';
+    return 'evening';
   }
 
   _ReasonResult _pickReason({
@@ -1459,16 +1897,95 @@ class _ScoredCandidate {
   final String reasonText;
 }
 
+class _BehavioralContext {
+  const _BehavioralContext({
+    required this.genreWeights,
+    required this.artistWeights,
+    required this.originWeights,
+    required this.recentEventCount,
+    required this.negativeTrackWeight,
+  });
+
+  factory _BehavioralContext.empty() => const _BehavioralContext(
+    genreWeights: <String, double>{},
+    artistWeights: <String, double>{},
+    originWeights: <String, double>{},
+    recentEventCount: <String, int>{},
+    negativeTrackWeight: <String, double>{},
+  );
+
+  final Map<String, double> genreWeights;
+  final Map<String, double> artistWeights;
+  final Map<String, double> originWeights;
+  final Map<String, int> recentEventCount;
+  final Map<String, double> negativeTrackWeight;
+}
+
+class _MlTrackHistory {
+  int eventCount = 0;
+  int completed = 0;
+  int skipped = 0;
+  double _progressTotal = 0;
+  int? lastPlayedAt;
+  final List<int> _recentEvents = <int>[];
+
+  double get averageProgress => eventCount == 0
+      ? 0
+      : (_progressTotal / eventCount).clamp(0, 1).toDouble();
+  void record(
+    double target,
+    int occurredAt,
+    bool wasCompleted,
+    bool wasSkipped,
+  ) {
+    eventCount++;
+    if (wasCompleted) completed++;
+    if (wasSkipped) skipped++;
+    _progressTotal += target;
+    lastPlayedAt = occurredAt;
+    _recentEvents.add(occurredAt);
+  }
+
+  int recentCount(DateTime at) {
+    final cutoff = at.subtract(const Duration(days: 14)).millisecondsSinceEpoch;
+    _recentEvents.removeWhere((timestamp) => timestamp < cutoff);
+    return _recentEvents.length;
+  }
+}
+
+class _MlFeatureState {
+  final stats = <String, _MlTrackHistory>{};
+  final genre = <String, double>{};
+  final artist = <String, double>{};
+  final region = <String, double>{};
+  final origin = <String, double>{};
+  final daypartGenre = <String, Map<String, double>>{};
+  final daypartArtist = <String, Map<String, double>>{};
+}
+
 class _ScoreResult {
   const _ScoreResult({
     required this.score,
+    required this.businessMultiplier,
+    required this.explicitBias,
+    required this.explicitBoost,
     required this.reasonCode,
     required this.reasonText,
   });
 
   final double score;
+  final double businessMultiplier;
+  final double explicitBias;
+  final bool explicitBoost;
   final RecommendationReasonCode reasonCode;
   final String reasonText;
+
+  double applyBusinessRules(double base) {
+    var result = base * businessMultiplier;
+    result += explicitBias;
+    if (explicitBoost) result *= 1.06;
+    return result.clamp(0, 1).toDouble();
+  }
 }
 
 class _ReasonResult {

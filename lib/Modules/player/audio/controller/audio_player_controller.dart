@@ -14,6 +14,7 @@ import '../../../../app/models/media_item.dart';
 import '../../../../app/services/audio_service.dart';
 import '../../../../app/services/spatial_audio_service.dart';
 import '../../../recommendations/data/listening_event_store.dart';
+import '../../../recommendations/domain/recommendation_models.dart';
 
 enum CoverStyle { square, vinyl, landscape }
 
@@ -1150,6 +1151,7 @@ class AudioPlayerController extends GetxController {
           progress: sessionProgress,
           completed: markCompleted,
           skipped: markSkip && !markCompleted,
+          mode: RecommendationMode.audio,
         ),
       );
     }

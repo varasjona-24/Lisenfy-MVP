@@ -1,5 +1,7 @@
 import 'package:get_storage/get_storage.dart';
 
+import '../domain/recommendation_models.dart';
+
 class ListeningEvent {
   const ListeningEvent({
     required this.trackKey,
@@ -7,6 +9,7 @@ class ListeningEvent {
     required this.progress,
     required this.completed,
     required this.skipped,
+    this.mode,
   });
 
   final String trackKey;
@@ -14,6 +17,9 @@ class ListeningEvent {
   final double progress;
   final bool completed;
   final bool skipped;
+
+  /// Null denotes events written before playback mode was tracked.
+  final RecommendationMode? mode;
 
   factory ListeningEvent.fromJson(Map<String, dynamic> json) {
     return ListeningEvent(
@@ -24,6 +30,9 @@ class ListeningEvent {
           .toDouble(),
       completed: json['completed'] == true,
       skipped: json['skipped'] == true,
+      mode: json['mode'] == null
+          ? null
+          : RecommendationModeX.fromKey(json['mode'] as String?),
     );
   }
 
@@ -33,6 +42,7 @@ class ListeningEvent {
     'progress': progress,
     'completed': completed,
     'skipped': skipped,
+    if (mode != null) 'mode': mode!.key,
   };
 }
 

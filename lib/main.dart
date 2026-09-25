@@ -49,7 +49,9 @@ import 'Modules/sources/data/source_theme_topic_playlist_store.dart';
 import 'Modules/recommendations/data/recommendation_store.dart';
 import 'Modules/recommendations/data/recommendation_feedback_store.dart';
 import 'Modules/recommendations/data/listening_event_store.dart';
+import 'Modules/recommendations/data/recommendation_ml_store.dart';
 import 'Modules/recommendations/application/local_recommendation_service.dart';
+import 'Modules/recommendations/application/local_ml_recommendation_ranker.dart';
 import 'Modules/recommendations/application/recommendation_feedback_service.dart';
 import 'Modules/recommendations/domain/contracts/recommendation_engine.dart';
 
@@ -155,6 +157,11 @@ Future<void> main() async {
   Get.put(RecommendationStore(Get.find<GetStorage>()), permanent: true);
   Get.put(RecommendationFeedbackStore(Get.find<GetStorage>()), permanent: true);
   Get.put(ListeningEventStore(Get.find<GetStorage>()), permanent: true);
+  Get.put(RecommendationMlStore(Get.find<GetStorage>()), permanent: true);
+  Get.put(
+    LocalMlRecommendationRanker(store: Get.find<RecommendationMlStore>()),
+    permanent: true,
+  );
   Get.put(
     RecommendationFeedbackService(
       store: Get.find<RecommendationFeedbackStore>(),
@@ -164,6 +171,8 @@ Future<void> main() async {
   final recommendationService = LocalRecommendationService(
     store: Get.find<RecommendationStore>(),
     feedbackService: Get.find<RecommendationFeedbackService>(),
+    listeningEventStore: Get.find<ListeningEventStore>(),
+    ranker: Get.find<LocalMlRecommendationRanker>(),
     libraryLoader: () => Get.find<MediaRepository>().getLibrary(),
     artistProfileLoader: () => Get.find<ArtistStore>().readAll(),
     topicLoader: () async {
