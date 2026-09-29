@@ -54,6 +54,7 @@ import 'Modules/recommendations/application/local_recommendation_service.dart';
 import 'Modules/recommendations/application/local_ml_recommendation_ranker.dart';
 import 'Modules/recommendations/application/recommendation_feedback_service.dart';
 import 'Modules/recommendations/domain/contracts/recommendation_engine.dart';
+import 'Modules/stats/application/weekly_listening_summary.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -190,6 +191,13 @@ Future<void> main() async {
   );
   Get.put<LocalRecommendationService>(recommendationService, permanent: true);
   Get.put<RecommendationEngine>(recommendationService, permanent: true);
+  final weeklySummaryBuilder = WeeklyListeningSummaryBuilder(
+    listeningEventStore: Get.find<ListeningEventStore>(),
+    libraryLoader: () => Get.find<MediaRepository>().getLibrary(),
+  );
+  Get.find<NotificationService>().configureWeeklySummaryLoader(
+    weeklySummaryBuilder.build,
+  );
 
   // 🚚 Runtime global de imports/descargas
   Get.put(DownloadTaskService(), permanent: true);
@@ -255,6 +263,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _checkPermissions();
     unawaited(Get.find<DeepLinkService>().start());
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(Get.find<NotificationService>().syncScheduledNotifications());
       Get.find<NotificationService>().flushPendingNavigation();
     });
     _notificationClickSub = aud.AudioService.notificationClicked.listen((
@@ -277,6 +286,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(Get.find<NotificationService>().syncScheduledNotifications());
+    }
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||

@@ -9,6 +9,7 @@ import '../data/local/local_library_store.dart';
 import '../data/network/backend_api_error.dart';
 import '../models/media_item.dart';
 import 'karaoke_remote_pipeline_service.dart';
+import 'notification_service.dart';
 
 enum Spatial8dTaskStage {
   preparing,
@@ -378,6 +379,12 @@ class Spatial8dGenerationService extends GetxService {
           itemJson: updated.toJson(),
         ),
       );
+      if (Get.isRegistered<NotificationService>()) {
+        await Get.find<NotificationService>().showGeneratedVariantSuccess(
+          variant: GeneratedAudioVariantKind.spatial8d,
+          mediaTitle: updated.title,
+        );
+      }
 
       return updated;
     } catch (e) {
@@ -397,6 +404,13 @@ class Spatial8dGenerationService extends GetxService {
           itemJson: currentItem.toJson(),
         ),
       );
+      if (Get.isRegistered<NotificationService>()) {
+        await Get.find<NotificationService>().showGeneratedVariantFailure(
+          variant: GeneratedAudioVariantKind.spatial8d,
+          mediaTitle: currentItem.title,
+          message: message,
+        );
+      }
       return null;
     }
   }

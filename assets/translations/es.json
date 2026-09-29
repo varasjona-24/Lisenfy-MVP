@@ -1790,6 +1790,13 @@
       "success_title": "Importación finalizada",
       "success_body": "Tu archivo se agregó correctamente a la biblioteca.",
       "failure_title": "Error de importación",
+      "variant_success_title": "Variante de audio lista",
+      "variant_success_body": "{} de {} ya está disponible.",
+      "variant_failure_title": "No se pudo generar la variante",
+      "variant_failure_body": "No se pudo generar {} para {}.\n{}",
+      "variant_failure_fallback": "Inténtalo de nuevo más tarde.",
+      "variant_instrumental": "El instrumental",
+      "variant_spatial8d": "La versión 8D",
       "channel_name": "Importaciones",
       "channel_description": "Resultados de importaciones y descargas"
     },
@@ -1811,13 +1818,19 @@
     },
     "weekly": {
       "title": "Tu resumen semanal está listo",
-      "body": "Descubre tus canciones, artistas y hábitos de escucha de esta semana.",
+      "body": "{} reproducciones · {} canciones distintas",
+      "body_with_artist": "{} reproducciones · {} canciones distintas · Artista principal: {}",
+      "body_with_time": "{} reproducciones · {} min · {} canciones distintas",
+      "body_with_time_and_artist": "{} reproducciones · {} min · {} canciones distintas · Artista principal: {}",
       "channel_name": "Resumen semanal de Listenfy",
       "channel_description": "Resumen semanal de actividad en Listenfy"
     },
     "recommendations": {
       "title": "Nuevos mixes para ti",
       "body": "Tus recomendaciones personalizadas ya están listas.",
+      "cycle_title": "Tu selección se renovó",
+      "cycle_body": "{} · {} canciones para ti",
+      "cycle_body_with_subtitle": "{} · {} canciones para ti\n{}",
       "channel_name": "Mixes personalizados",
       "channel_description": "Selección diaria de música recomendada"
     }

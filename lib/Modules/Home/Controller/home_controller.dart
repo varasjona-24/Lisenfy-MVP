@@ -14,6 +14,7 @@ import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/services/local_media_metadata_service.dart';
+import '../../../app/services/notification_service.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
 import '../../player/Video/controller/video_player_controller.dart';
@@ -1728,6 +1729,7 @@ class HomeController extends GetxController {
   }
 
   Future<void> _applyRecommendationSet(RecommendationDailySet set) async {
+    final previousCycleKey = _recommendationCycleKey(recommendationCollections);
     final isAudioMode = mode.value == HomeMode.audio;
     bool matchesMode(MediaItem item) =>
         isAudioMode ? item.hasAudioLocal : item.hasVideoLocal;
@@ -1808,7 +1810,40 @@ class HomeController extends GetxController {
     recommended.assignAll(mixedItems.take(_recommendedPreviewLimit));
     recommendationReasonsById.assignAll(reasons);
     recommendationCollections.assignAll(collections);
+    final nextCycleKey = _recommendationCycleKey(collections);
+    if (previousCycleKey != null &&
+        nextCycleKey != null &&
+        previousCycleKey != nextCycleKey) {
+      unawaited(_notifyRecommendationCycle(collections, nextCycleKey));
+    }
     _scheduleRecommendationCycleRefresh(collections);
+  }
+
+  String? _recommendationCycleKey(
+    Iterable<RecommendationCollection> collections,
+  ) {
+    final values = collections.toList(growable: false);
+    if (values.isEmpty) return null;
+    final expiresAt = values.first.expiresAt;
+    if (expiresAt == null || expiresAt <= 0) return null;
+    final mixIds = values.map((collection) => collection.id).join('|');
+    return '$expiresAt|$mixIds';
+  }
+
+  Future<void> _notifyRecommendationCycle(
+    List<RecommendationCollection> collections,
+    String cycleKey,
+  ) async {
+    if (!Get.isRegistered<NotificationService>() || collections.isEmpty) {
+      return;
+    }
+    final featured = collections.first;
+    await Get.find<NotificationService>().showRecommendationCycle(
+      cycleKey: cycleKey,
+      mixTitle: featured.title,
+      mixSubtitle: featured.subtitle,
+      trackCount: featured.items.length,
+    );
   }
 
   void _scheduleRecommendationCycleRefresh(
