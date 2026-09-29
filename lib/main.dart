@@ -2,239 +2,29 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:audio_service/audio_service.dart' as aud;
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import 'app/controllers/theme_controller.dart';
+import 'app/bindings/app_binding.dart';
+import 'app/bootstrap/app_bootstrap.dart';
 import 'app/controllers/navigation_controller.dart';
-import 'app/controllers/media_actions_controller.dart';
+import 'app/controllers/theme_controller.dart';
 import 'app/routes/app_pages.dart';
 import 'app/routes/app_routes.dart';
 import 'app/ui/themes/app_theme_factory.dart';
 import 'app/ui/widgets/player/mini_player_bar.dart';
 import 'app/ui/widgets/download/download_progress_banner.dart';
-
-import 'app/data/network/dio_client.dart';
-import 'app/data/repo/media_repository.dart';
-import 'app/data/local/local_library_store.dart';
 import 'app/services/audio_service.dart';
-import 'app/services/app_audio_handler.dart';
-import 'app/services/instrumental_generation_service.dart';
-import 'app/services/local_media_metadata_service.dart';
-import 'app/services/spatial_audio_service.dart';
-import 'app/services/spatial8d_generation_service.dart';
-import 'app/services/video_service.dart';
-import 'app/services/karaoke_remote_pipeline_service.dart';
 import 'app/services/deep_link_service.dart';
 import 'app/services/notification_service.dart';
-import 'Modules/settings/controller/settings_controller.dart';
-import 'Modules/settings/controller/playback_settings_controller.dart';
-import 'Modules/settings/controller/sleep_timer_controller.dart';
-import 'Modules/settings/controller/equalizer_controller.dart';
-import 'Modules/settings/controller/notification_settings_controller.dart';
-import 'Modules/downloads/controller/downloads_controller.dart';
-import 'Modules/downloads/data/repositories/downloads_repository_impl.dart';
-import 'Modules/downloads/domain/contracts/downloads_repository.dart';
-import 'Modules/downloads/domain/usecases/load_download_items_usecase.dart';
-import 'Modules/downloads/service/download_task_service.dart';
-import 'Modules/artists/data/artist_store.dart';
-import 'Modules/playlists/data/playlist_store.dart';
-import 'Modules/sources/data/source_theme_topic_store.dart';
-import 'Modules/sources/data/source_theme_topic_playlist_store.dart';
-import 'Modules/recommendations/data/recommendation_store.dart';
-import 'Modules/recommendations/data/recommendation_feedback_store.dart';
-import 'Modules/recommendations/data/listening_event_store.dart';
-import 'Modules/recommendations/data/recommendation_ml_store.dart';
-import 'Modules/recommendations/application/local_recommendation_service.dart';
-import 'Modules/recommendations/application/local_ml_recommendation_ranker.dart';
-import 'Modules/recommendations/application/recommendation_feedback_service.dart';
-import 'Modules/recommendations/domain/contracts/recommendation_engine.dart';
-import 'Modules/stats/application/weekly_listening_summary.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await EasyLocalization.ensureInitialized();
-  await GetStorage.init();
-
-  // Eliminado bloqueo de UI en main()
-  // ...
-
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-
-  // 🎨 Controller global de tema
-  Get.put(ThemeController(), permanent: true);
-
-  // 🧭 Controller global de navegación
-  Get.put(NavigationController(), permanent: true);
-
-  // 🔔 Notificaciones locales
-  Get.put<NotificationService>(
-    await NotificationService().init(),
-    permanent: true,
-  );
-
-  // ⚙️ Controller global de configuración
-  Get.put(SettingsController(), permanent: true);
-  Get.put(PlaybackSettingsController(), permanent: true);
-  Get.put(SleepTimerController(), permanent: true);
-  Get.put(EqualizerController(), permanent: true);
-  Get.put(NotificationSettingsController(), permanent: true);
-
-  // 🎵 Audio global (CLAVE)
-  final appAudio = AudioService();
-  Get.put<AudioService>(appAudio, permanent: true);
-  await appAudio.initializeAndroidAutoArtwork();
-
-  // 🔔 Background controls / lockscreen
-  final handler = await aud.AudioService.init(
-    builder: () => AppAudioHandler(appAudio),
-    config: const aud.AudioServiceConfig(
-      androidNotificationChannelId: 'com.jv24dev.listenfy.audio',
-      androidNotificationChannelName: 'Reproducción',
-      androidNotificationChannelDescription: 'Controles de reproducción',
-      androidNotificationOngoing: true,
-      androidNotificationIcon: 'drawable/ic_listenfy_notification',
-      preloadArtwork: true,
-    ),
-  );
-  appAudio.attachHandler(handler);
-
-  // 🎬 Video global (CLAVE)
-  Get.put<VideoService>(VideoService(), permanent: true);
-
-  // 🎧 Spatial audio (8D)
-  Get.put<SpatialAudioService>(
-    SpatialAudioService(audioService: Get.find<AudioService>()),
-    permanent: true,
-  );
-
-  // 🌐 Cliente HTTP
-  Get.lazyPut<DioClient>(() => DioClient(), fenix: true);
-
-  // 📦 GetStorage (shared)
-  Get.put<GetStorage>(GetStorage(), permanent: true);
-
-  Get.put(
-    KaraokeRemotePipelineService(client: Get.find<DioClient>()),
-    permanent: true,
-  );
-  Get.put(LocalMediaMetadataService(), permanent: true);
-
-  // 💾 Local storage
-  Get.put(LocalLibraryStore(Get.find<GetStorage>()), permanent: true);
-  if (!Get.isRegistered<PlaylistStore>()) {
-    Get.put(PlaylistStore(Get.find<GetStorage>()), permanent: true);
-  }
-  if (!Get.isRegistered<ArtistStore>()) {
-    Get.put(ArtistStore(Get.find<GetStorage>()), permanent: true);
-  }
-  Get.put(InstrumentalGenerationService(), permanent: true);
-  Get.put(Spatial8dGenerationService(), permanent: true);
-  if (!Get.isRegistered<SourceThemeTopicStore>()) {
-    Get.put(SourceThemeTopicStore(Get.find<GetStorage>()), permanent: true);
-  }
-  if (!Get.isRegistered<SourceThemeTopicPlaylistStore>()) {
-    Get.put(
-      SourceThemeTopicPlaylistStore(Get.find<GetStorage>()),
-      permanent: true,
-    );
-  }
-
-  // 🧩 Controller global de acciones de media
-  Get.put(MediaActionsController(), permanent: true);
-
-  // 📦 Repositorio de media
-  Get.lazyPut<MediaRepository>(() => MediaRepository(), fenix: true);
-
-  // 🧠 Recomendaciones locales (MVP diario)
-  Get.put(RecommendationStore(Get.find<GetStorage>()), permanent: true);
-  Get.put(RecommendationFeedbackStore(Get.find<GetStorage>()), permanent: true);
-  Get.put(ListeningEventStore(Get.find<GetStorage>()), permanent: true);
-  Get.put(RecommendationMlStore(Get.find<GetStorage>()), permanent: true);
-  Get.put(
-    LocalMlRecommendationRanker(store: Get.find<RecommendationMlStore>()),
-    permanent: true,
-  );
-  Get.put(
-    RecommendationFeedbackService(
-      store: Get.find<RecommendationFeedbackStore>(),
-    ),
-    permanent: true,
-  );
-  final recommendationService = LocalRecommendationService(
-    store: Get.find<RecommendationStore>(),
-    feedbackService: Get.find<RecommendationFeedbackService>(),
-    listeningEventStore: Get.find<ListeningEventStore>(),
-    ranker: Get.find<LocalMlRecommendationRanker>(),
-    libraryLoader: () => Get.find<MediaRepository>().getLibrary(),
-    artistProfileLoader: () => Get.find<ArtistStore>().readAll(),
-    topicLoader: () async {
-      if (!Get.isRegistered<SourceThemeTopicStore>()) {
-        return const [];
-      }
-      return Get.find<SourceThemeTopicStore>().readAll();
-    },
-    topicPlaylistLoader: () async {
-      if (!Get.isRegistered<SourceThemeTopicPlaylistStore>()) {
-        return const [];
-      }
-      return Get.find<SourceThemeTopicPlaylistStore>().readAll();
-    },
-  );
-  Get.put<LocalRecommendationService>(recommendationService, permanent: true);
-  Get.put<RecommendationEngine>(recommendationService, permanent: true);
-  final weeklySummaryBuilder = WeeklyListeningSummaryBuilder(
-    listeningEventStore: Get.find<ListeningEventStore>(),
-    libraryLoader: () => Get.find<MediaRepository>().getLibrary(),
-  );
-  Get.find<NotificationService>().configureWeeklySummaryLoader(
-    weeklySummaryBuilder.build,
-  );
-
-  // 🚚 Runtime global de imports/descargas
-  Get.put(DownloadTaskService(), permanent: true);
-
-  if (!Get.isRegistered<DownloadsRepository>()) {
-    Get.lazyPut<DownloadsRepository>(
-      () =>
-          DownloadsRepositoryImpl(mediaRepository: Get.find<MediaRepository>()),
-      fenix: true,
-    );
-  }
-
-  if (!Get.isRegistered<LoadDownloadItemsUseCase>()) {
-    Get.lazyPut<LoadDownloadItemsUseCase>(
-      () =>
-          LoadDownloadItemsUseCase(repository: Get.find<DownloadsRepository>()),
-      fenix: true,
-    );
-  }
-
-  // 📥 Imports/Downloads global (share intent listener)
-  Get.put(
-    DownloadsController(
-      loadDownloadItemsUseCase: Get.find<LoadDownloadItemsUseCase>(),
-    ),
-    permanent: true,
-  );
-  Get.put(DeepLinkService(), permanent: true);
-
-  // 🎚️ Reaplicar ecualizador cuando AudioService ya existe (no bloquear arranque)
-  if (Get.isRegistered<EqualizerController>()) {
-    try {
-      Get.find<EqualizerController>().refreshEqualizer();
-    } catch (e) {
-      // TODO: Handle error or log it
-    }
-  }
+  final bootstrap = await AppBootstrap.initialize();
+  AppBinding(bootstrap).dependencies();
 
   runApp(
     EasyLocalization(
