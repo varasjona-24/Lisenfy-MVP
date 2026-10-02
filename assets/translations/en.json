@@ -58,7 +58,7 @@
     "collections": "Collections",
     "more_options": "More options",
     "quick_access": "Quick access",
-    "listenfy_connect": "Listenfy Connect",
+    "listenfy_connect": "listenfy Connect",
     "listenfy_connect_subtitle": "Remote control and local session",
     "settings": "Settings",
     "settings_subtitle": "Preferences and tools",
@@ -102,7 +102,7 @@
     "section": {
       "selected": "Selected: {}",
       "share_external": "External share (max. 300 MB)",
-      "connect_transfer": "Listenfy Connect (max. 1 GB)",
+      "connect_transfer": "listenfy Connect (max. 1 GB)",
       "delete_selected": "Delete selected",
       "cancel_selection": "Cancel selection",
       "grid_view": "Grid view",
@@ -700,7 +700,7 @@
       "master_subtitle": "General control for all Listenfy alerts.",
       "imports_title": "Imports",
       "imports_subtitle": "Completed, failed, or blocked.",
-      "connect_title": "Listenfy Connect",
+      "connect_title": "listenfy Connect",
       "connect_subtitle": "Requests and synced devices.",
       "timers_title": "Playback and timers",
       "timers_subtitle": "Sleep timer and inactivity pause.",
@@ -834,7 +834,7 @@
           "title": "Connect and transfers",
           "subtitle": "Remote control, imports, and offline sharing.",
           "tips": {
-            "1": "Listenfy Connect opens a URL or QR so you can control playback from another device on the same network.",
+            "1": "listenfy Connect opens a URL or QR so you can control playback from another device on the same network.",
             "2": "With very large queues, Connect can feel slower because it has to sync more state.",
             "3": "If a remote track change feels delayed, pause from the phone or from Connect before choosing another song.",
             "4": "You can import URLs or files from Android's Share menu.",
@@ -860,7 +860,7 @@
     }
   },
   "connect": {
-    "title": "Listenfy Connect",
+    "title": "listenfy Connect",
     "open_computer": "Open on computer",
     "server_active": "Server active",
     "server_stopped": "Server stopped",
@@ -890,7 +890,7 @@
     "revoke": "Revoke",
     "revoke_all": "Revoke all",
     "revoke_title": "Revoke session",
-    "revoke_body": "This will close \"{}\" access to Listenfy Connect.",
+    "revoke_body": "This will close \"{}\" access to listenfy Connect.",
     "revoke_all_title": "Revoke all sessions",
     "revoke_all_body": "This will close access for every authorized client.",
     "session_revoked": "Session revoked: {}",
@@ -1089,7 +1089,7 @@
       "no_items": "No items selected."
     },
     "connect": {
-      "title": "Listenfy Connect",
+      "title": "listenfy Connect",
       "no_items": "No items selected."
     },
     "favorites": {
@@ -1276,7 +1276,7 @@
   },
   "tooltips": {
     "share_external": "External share (max. 300 MB)",
-    "share_connect": "Listenfy Connect (max. 1 GB)",
+    "share_connect": "listenfy Connect (max. 1 GB)",
     "delete_selected": "Delete selected",
     "cancel_selection": "Cancel selection",
     "grid_view": "Grid view",
@@ -1802,10 +1802,10 @@
     },
     "connect": {
       "request_title": "Connection request",
-      "request_body": "{} is requesting access to Listenfy Connect.",
+      "request_body": "{} is requesting access to listenfy Connect.",
       "approved_title": "Device connected",
       "approved_body": "{} synced successfully with Listenfy.",
-      "channel_name": "Listenfy Connect",
+      "channel_name": "listenfy Connect",
       "channel_description": "Device requests and sync"
     },
     "timers": {
@@ -1932,7 +1932,7 @@
   },
   "local_connect": {
     "web": {
-      "title": "Listenfy Local Connect",
+      "title": "listenfy Connect",
       "not_paired": "Not paired",
       "pairing_required": "Pairing required",
       "pairing_instructions": "Request access from this browser and approve on your phone.",

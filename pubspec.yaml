@@ -95,6 +95,7 @@ flutter:
     - assets/ui/ListasTemp/
     - assets/geo/land-110m.json
     - assets/logo/listenfy_logo.svg
+    - assets/logo/listenfy_connect.svg
     - assets/icons/
     - assets/hrtf/default.sofa
     - assets/translations/

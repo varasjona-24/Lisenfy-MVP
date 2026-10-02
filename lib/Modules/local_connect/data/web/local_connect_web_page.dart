@@ -21,6 +21,7 @@ String buildLocalConnectWebPage({
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${_htmlText(i18n, 'title')}</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
     :root {
       --bg: #050807;
@@ -2688,7 +2689,7 @@ String _localConnectPaletteCss(Map<String, String> palette) {
 }
 
 const Map<String, String> _localConnectWebFallbacks = <String, String>{
-  'title': 'Listenfy Local Connect',
+  'title': 'listenfy Connect',
   'notPaired': 'Not paired',
   'pairingRequired': 'Pairing required',
   'pairingInstructions':

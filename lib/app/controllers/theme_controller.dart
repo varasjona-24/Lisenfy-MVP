@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../platform/browser_favicon.dart';
+
 import '../../app/ui/themes/app_palette.dart';
 import '../../app/ui/themes/app_theme_factory.dart';
 import '../../app/ui/themes/palette.dart';
@@ -28,24 +30,29 @@ class ThemeController extends GetxController {
         ? Brightness.light
         : Brightness.dark;
 
-    themeMode.value =
-        brightness.value == Brightness.dark ? ThemeMode.dark : ThemeMode.light;
+    themeMode.value = brightness.value == Brightness.dark
+        ? ThemeMode.dark
+        : ThemeMode.light;
     _applyTheme();
   }
 
   /// 🌗 Cambiar modo de brillo
   void setBrightness(Brightness mode) {
     brightness.value = mode;
-    themeMode.value =
-        mode == Brightness.dark ? ThemeMode.dark : ThemeMode.light;
+    themeMode.value = mode == Brightness.dark
+        ? ThemeMode.dark
+        : ThemeMode.light;
     _applyTheme();
   }
 
   /// 🔁 Aplica el theme globalmente
   void _applyTheme() {
-    Get.changeTheme(
-      buildTheme(palette: palette.value, brightness: brightness.value),
+    final theme = buildTheme(
+      palette: palette.value,
+      brightness: brightness.value,
     );
+    Get.changeTheme(theme);
+    updateBrowserFaviconColor(theme.colorScheme.primary.toARGB32());
   }
 
   @override

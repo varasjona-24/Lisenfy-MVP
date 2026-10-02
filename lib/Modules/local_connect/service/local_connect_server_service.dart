@@ -7,6 +7,7 @@ import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:path/path.dart' as p;
@@ -223,7 +224,7 @@ class LocalConnectServerService extends GetxService {
     }
 
     return <String, String>{
-      'title': value('title', 'Listenfy Local Connect'),
+      'title': value('title', 'listenfy Connect'),
       'notPaired': value('not_paired', 'Not paired'),
       'pairingRequired': value('pairing_required', 'Pairing required'),
       'pairingInstructions': value(
@@ -470,6 +471,9 @@ class LocalConnectServerService extends GetxService {
               scriptNonce: nonce,
             ),
           );
+          return;
+        case 'GET /favicon.svg':
+          await _serveFavicon(request);
           return;
         case 'GET /health':
           await _writeJson(request.response, <String, dynamic>{
@@ -1213,6 +1217,27 @@ class LocalConnectServerService extends GetxService {
     if (authHeader == null) return '';
     if (!authHeader.startsWith('Bearer ')) return '';
     return authHeader.substring('Bearer '.length).trim();
+  }
+
+  Future<void> _serveFavicon(HttpRequest request) async {
+    final scheme = Get.theme.colorScheme;
+    final iconColor = scheme.primary;
+    final svg = (await rootBundle.loadString(
+      'assets/logo/listenfy_connect.svg',
+    )).replaceAll('#ffffff', _cssColor(iconColor));
+
+    request.response.statusCode = HttpStatus.ok;
+    request.response.headers
+      ..set(HttpHeaders.cacheControlHeader, 'no-store')
+      ..set(HttpHeaders.pragmaHeader, 'no-cache')
+      ..set(HttpHeaders.expiresHeader, '0');
+    request.response.headers.contentType = ContentType(
+      'image',
+      'svg+xml',
+      charset: 'utf-8',
+    );
+    request.response.write(svg);
+    await request.response.close();
   }
 
   Future<void> _serveHtml(HttpRequest request, String html) async {
