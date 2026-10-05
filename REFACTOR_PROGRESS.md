@@ -1,5 +1,14 @@
 # Registro de refactor
 
+## 2026-10-05 — Cierre, intervalos y política v1
+
+- Comandos tipados para checkpoint, pausa/resume, buffering, seek, velocidad y cierre; motivo factual separado de skipped/completed. Next/previous/selección manual antes92% = skip; desde92% = completed sin skip. Duración desconocida no se clasifica arbitrariamente.
+- Repositorio registra límites, intervalos, cierre/flags, applied_command y revisión en una transacción. Final natural/skip/error terminal añaden su evento y stop bajo el mismo command; retries no duplican hechos.
+- Intervalos parten del último evento playing confirmado: diferencias monotónicas para wall y avance sin seek para media. Inactividad excluida, discontinuidades no marcadas rechazadas. Cobertura regenerada como unión de rangos, con clipping por duración.
+- Cierre process_lost produce interrupted terminal; errores/source_lost/stop no se convierten en skip. Pruebas de92%, tiempos2x, seeks ambos sentidos, overlap, pausa, buffering, velocidad, duración desconocida y terminales.
+- Pendientes comandos específicos de variantes, loop/recovery/discontinuidad temporal; integración con recorder/motores y agregados incremental/rebuild. Esto no demuestra comportamiento real mobile ni activa cutover.
+- Verificación final:31 pruebas Flutter y12 SQL aprobadas, análisis focalizado sin issues. La ampliación detectó un error de orden de helpers en tests que se corrigió y verificó; no se oculta ese fallo intermedio.
+
 ## 2026-10-05 — Variantes, snapshots y apertura de sesión
 
 - Añadido comando tipado OpenPlaybackSession: modo/contexto, posiciones, tiempo, variante y snapshot. Solo se enviará cuando el motor esté ready+playing; aún no conectado a servicios.

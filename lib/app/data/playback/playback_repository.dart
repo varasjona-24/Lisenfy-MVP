@@ -6,6 +6,9 @@ import 'package:drift/drift.dart';
 
 import 'playback_database.dart';
 import 'playback_session_command.dart';
+import 'playback_boundary_command.dart';
+
+part 'playback_session_writer.dart';
 
 enum PlaybackFaultPoint { afterIdentityWrite, beforeCommit, afterCommit }
 
