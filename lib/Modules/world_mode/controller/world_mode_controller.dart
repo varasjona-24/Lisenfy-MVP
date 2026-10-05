@@ -52,9 +52,10 @@ class WorldModeController extends GetxController {
       final result = await _repository.getCountries();
       countries.assignAll(result);
       _applyFilter();
-      if (selectedCountry.value == null && result.isNotEmpty) {
-        await selectCountry(result.first);
-      }
+      // La exploración comienza por una decisión explícita del usuario. Así no
+      // se carga ni se presenta una estación al abrir Atlas sin una región.
+      selectedCountry.value = null;
+      stations.clear();
     } catch (e) {
       errorMessage.value = tr('world_mode.load_regions_error');
     } finally {

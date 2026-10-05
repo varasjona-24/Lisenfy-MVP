@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class AppBottomNav extends StatelessWidget {
@@ -75,6 +76,13 @@ class AppBottomNav extends StatelessWidget {
               label: tr('nav.artists'),
             ),
             BottomNavigationBarItem(
+              icon: _AtlasNavigationIcon(
+                color: scheme.onSurface.withValues(alpha: isDark ? 0.70 : 0.62),
+              ),
+              activeIcon: _AtlasNavigationIcon(color: scheme.primary),
+              label: tr('nav.atlas'),
+            ),
+            BottomNavigationBarItem(
               icon: const Icon(Icons.download_outlined),
               activeIcon: const Icon(Icons.download),
               label: tr('nav.imports'),
@@ -85,6 +93,26 @@ class AppBottomNav extends StatelessWidget {
               label: tr('nav.collections'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AtlasNavigationIcon extends StatelessWidget {
+  const _AtlasNavigationIcon({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SizedBox.square(
+        dimension: 24,
+        child: SvgPicture.asset(
+          'assets/logo/listenfy_atlas.svg',
+          fit: BoxFit.contain,
+          colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
         ),
       ),
     );

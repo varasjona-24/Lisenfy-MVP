@@ -50,13 +50,17 @@ class _WorldGlobeCanvasState extends State<WorldGlobeCanvas>
   double _velocityY = 0;
   double _zoom = 1;
   double _zoomAtGestureStart = 1;
+  double _focusRotationX = 0;
+  double _focusRotationY = 0;
+  double _focusZoom = 1;
+  bool _isFocusing = false;
   bool _dragging = false;
   List<GlobeLandShape> _landShapes = const [];
 
   @override
   void initState() {
     super.initState();
-    _centerSelectedCountry();
+    _focusSelectedCountry(immediate: true);
     _loadLandShapes();
     _ticker = createTicker(_onTick)..start();
   }
@@ -66,7 +70,7 @@ class _WorldGlobeCanvasState extends State<WorldGlobeCanvas>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedCountryCode != widget.selectedCountryCode &&
         !_dragging) {
-      _centerSelectedCountry();
+      _focusSelectedCountry();
     }
   }
 
@@ -76,13 +80,23 @@ class _WorldGlobeCanvasState extends State<WorldGlobeCanvas>
     super.dispose();
   }
 
-  void _centerSelectedCountry() {
+  void _focusSelectedCountry({bool immediate = false}) {
     final selected = _selectedCountry();
     if (selected == null) return;
-    _rotationY = -selected.longitude * math.pi / 180;
-    _rotationX = (selected.latitude * math.pi / 180).clamp(-1.18, 1.18);
+
+    _focusRotationY = -selected.longitude * math.pi / 180;
+    _focusRotationX = (selected.latitude * math.pi / 180).clamp(-1.18, 1.18);
+    _focusZoom = 1.34.clamp(widget.minZoom, widget.maxZoom);
     _velocityX = 0;
     _velocityY = 0;
+
+    if (immediate) {
+      _rotationX = _focusRotationX;
+      _rotationY = _focusRotationY;
+      _zoom = _focusZoom;
+      return;
+    }
+    _isFocusing = true;
   }
 
   CountryEntity? _selectedCountry() {
@@ -113,6 +127,24 @@ class _WorldGlobeCanvasState extends State<WorldGlobeCanvas>
     _lastElapsed = elapsed;
 
     if (deltaSeconds <= 0 || _dragging || !widget.interactive) return;
+    if (_isFocusing) {
+      final progress = (deltaSeconds * 7).clamp(0.0, 1.0);
+      setState(() {
+        _rotationX += (_focusRotationX - _rotationX) * progress;
+        _rotationY += (_focusRotationY - _rotationY) * progress;
+        _zoom += (_focusZoom - _zoom) * progress;
+        _isFocusing =
+            (_rotationX - _focusRotationX).abs() > 0.001 ||
+            (_rotationY - _focusRotationY).abs() > 0.001 ||
+            (_zoom - _focusZoom).abs() > 0.001;
+        if (!_isFocusing) {
+          _rotationX = _focusRotationX;
+          _rotationY = _focusRotationY;
+          _zoom = _focusZoom;
+        }
+      });
+      return;
+    }
     if (_velocityX.abs() < 0.0001 && _velocityY.abs() < 0.0001) return;
 
     setState(() {
@@ -131,6 +163,7 @@ class _WorldGlobeCanvasState extends State<WorldGlobeCanvas>
   void _onScaleStart(ScaleStartDetails details) {
     if (!widget.interactive) return;
     _dragging = true;
+    _isFocusing = false;
     _zoomAtGestureStart = _zoom;
     _velocityX = 0;
     _velocityY = 0;
@@ -188,7 +221,7 @@ class _WorldGlobeCanvasState extends State<WorldGlobeCanvas>
     final scheme = theme.colorScheme;
 
     return DecoratedBox(
-      decoration: const BoxDecoration(color: Colors.black),
+      decoration: const BoxDecoration(color: Colors.transparent),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final size = Size(

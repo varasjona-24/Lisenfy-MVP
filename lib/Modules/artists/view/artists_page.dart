@@ -43,16 +43,7 @@ class ArtistsPage extends GetView<ArtistsController> {
       return Scaffold(
         backgroundColor: Colors.transparent,
         extendBody: true,
-        appBar: AppTopBar(
-          title: ListenfyLogo(size: 28, color: scheme.primary),
-          extraActions: [
-            IconButton(
-              tooltip: tr('artists.atlas'),
-              icon: const Icon(Icons.public_rounded),
-              onPressed: () => Get.toNamed(AppRoutes.worldMode),
-            ),
-          ],
-        ),
+        appBar: AppTopBar(title: ListenfyLogo(size: 28, color: scheme.primary)),
         body: AppGradientBackground(
           child: Stack(
             children: [
@@ -113,9 +104,12 @@ class ArtistsPage extends GetView<ArtistsController> {
                         home.goToArtists();
                         break;
                       case 3:
-                        home.goToDownloads();
+                        home.goToAtlas();
                         break;
                       case 4:
+                        home.goToDownloads();
+                        break;
+                      case 5:
                         home.goToSources();
                         break;
                     }

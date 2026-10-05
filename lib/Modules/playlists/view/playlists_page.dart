@@ -135,9 +135,12 @@ class PlaylistsPage extends GetView<PlaylistsController> {
                         home.goToArtists();
                         break;
                       case 3:
-                        home.goToDownloads();
+                        home.goToAtlas();
                         break;
                       case 4:
+                        home.goToDownloads();
+                        break;
+                      case 5:
                         home.goToSources();
                         break;
                     }

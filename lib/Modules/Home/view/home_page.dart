@@ -1026,9 +1026,12 @@ class HomePage extends GetView<HomeController> {
                         controller.goToArtists();
                         break;
                       case 3:
-                        controller.goToDownloads();
+                        controller.goToAtlas();
                         break;
                       case 4:
+                        controller.goToDownloads();
+                        break;
+                      case 5:
                         controller.goToSources();
                         break;
                     }

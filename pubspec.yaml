@@ -96,6 +96,7 @@ flutter:
     - assets/geo/land-110m.json
     - assets/logo/listenfy_logo.svg
     - assets/logo/listenfy_connect.svg
+    - assets/logo/listenfy_atlas.svg
     - assets/icons/
     - assets/hrtf/default.sofa
     - assets/translations/

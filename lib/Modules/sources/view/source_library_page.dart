@@ -291,7 +291,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                 right: 0,
                 bottom: 0,
                 child: AppBottomNav(
-                  currentIndex: 4,
+                  currentIndex: 5,
                   onTap: (index) {
                     switch (index) {
                       case 0:
@@ -304,9 +304,12 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                         home.goToArtists();
                         break;
                       case 3:
-                        home.goToDownloads();
+                        home.goToAtlas();
                         break;
                       case 4:
+                        home.goToDownloads();
+                        break;
+                      case 5:
                         home.goToSources();
                         break;
                     }

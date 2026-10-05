@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart'
@@ -6,8 +5,13 @@ import 'package:easy_localization/easy_localization.dart'
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../app/routes/app_routes.dart';
+import '../../../../app/services/audio_service.dart';
+import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
+import '../../../../app/ui/widgets/branding/listenfy_logo.dart';
+import '../../../../app/ui/widgets/navigation/app_top_bar.dart';
+import '../../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import '../../controller/world_mode_controller.dart';
-import '../../domain/entities/country_station_entity.dart';
 import '../widgets/country_station_card.dart';
 import '../widgets/world_globe_canvas.dart';
 import '../widgets/world_map_canvas.dart';
@@ -35,31 +39,68 @@ class _ImmersiveAtlasView extends StatefulWidget {
 }
 
 class _ImmersiveAtlasViewState extends State<_ImmersiveAtlasView> {
+  static const double _collapsedSheetExtent = 0.0;
+  static const double _stationsSheetExtent = 0.40;
+
   final DraggableScrollableController _sheetCtrl =
       DraggableScrollableController();
-  StreamSubscription<List<CountryStationEntity>>? _stationsSub;
+  double _sheetExtent = _collapsedSheetExtent;
+  bool _restoreMiniPlayerWhenStationsClose = false;
 
   @override
   void initState() {
     super.initState();
-    // Cuando cargan estaciones → expandir el panel inferior automáticamente
-    _stationsSub = widget.ctrl.stations.listen((stations) {
-      if (!mounted || stations.isEmpty) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _sheetCtrl.isAttached) {
-          _sheetCtrl.animateTo(
-            0.40,
-            duration: const Duration(milliseconds: 380),
-            curve: Curves.easeOutCubic,
-          );
-        }
-      });
-    });
+    _sheetCtrl.addListener(_syncSheetExtent);
+  }
+
+  void _syncSheetExtent() {
+    if (!mounted || !_sheetCtrl.isAttached) return;
+    final nextExtent = _sheetCtrl.size;
+    if ((nextExtent - _sheetExtent).abs() < 0.01) return;
+
+    final wasOpen = _sheetExtent >= 0.20;
+    final isOpen = nextExtent >= 0.20;
+    if (!wasOpen && isOpen) {
+      _hideMiniPlayerForStations();
+    } else if (wasOpen && !isOpen) {
+      _restoreMiniPlayerAfterStations();
+    }
+    setState(() => _sheetExtent = nextExtent);
+  }
+
+  void _hideMiniPlayerForStations() {
+    if (!Get.isRegistered<AudioService>()) return;
+    final audio = Get.find<AudioService>();
+    final wasVisible =
+        !audio.miniPlayerDismissed.value &&
+        (audio.state.value != PlaybackState.stopped || audio.keepLastItem);
+    if (!wasVisible) return;
+    audio.miniPlayerDismissed.value = true;
+    _restoreMiniPlayerWhenStationsClose = true;
+  }
+
+  void _restoreMiniPlayerAfterStations() {
+    if (!_restoreMiniPlayerWhenStationsClose ||
+        !Get.isRegistered<AudioService>()) {
+      return;
+    }
+    Get.find<AudioService>().revealMiniPlayer();
+    _restoreMiniPlayerWhenStationsClose = false;
+  }
+
+  void _showAvailableStations() {
+    if (!_sheetCtrl.isAttached) return;
+    _sheetCtrl.animateTo(
+      _stationsSheetExtent,
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   @override
   void dispose() {
-    _stationsSub?.cancel();
+    _restoreMiniPlayerAfterStations();
+    _sheetCtrl.removeListener(_syncSheetExtent);
     _sheetCtrl.dispose();
     super.dispose();
   }
@@ -67,172 +108,109 @@ class _ImmersiveAtlasViewState extends State<_ImmersiveAtlasView> {
   @override
   Widget build(BuildContext context) {
     final ctrl = widget.ctrl;
-    final topPadding = MediaQuery.of(context).padding.top;
-
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // ── Mapa/globo interactivo a pantalla completa ──
-          Positioned.fill(
-            child: Obx(() {
-              final countries = ctrl.filteredCountries.toList(growable: false);
-              final selectedCode = ctrl.selectedCountry.value?.code;
-              final mode = ctrl.worldViewMode.value;
-              return AnimatedSwitcher(
-                duration: const Duration(milliseconds: 420),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: ScaleTransition(
-                      scale: Tween<double>(
-                        begin: 0.975,
-                        end: 1,
-                      ).animate(animation),
-                      child: child,
-                    ),
-                  );
-                },
-                child: mode == WorldViewMode.globe
-                    ? WorldGlobeCanvas(
-                        key: const ValueKey<String>('world-globe'),
-                        countries: countries,
-                        selectedCountryCode: selectedCode,
-                        onCountryTap: ctrl.selectCountry,
-                        interactive: true,
-                        showHint: false,
-                      )
-                    : WorldMapCanvas(
-                        key: const ValueKey<String>('world-map'),
-                        countries: countries,
-                        selectedCountryCode: selectedCode,
-                        onCountryTap: ctrl.selectCountry,
-                        interactive: true,
-                        showHint: false,
-                      ),
-              );
-            }),
-          ),
-
-          Positioned(
-            top: topPadding + 76,
-            right: 12,
-            child: Obx(
-              () => _ViewModeToggle(
-                mode: ctrl.worldViewMode.value,
-                onChanged: ctrl.setWorldViewMode,
-              ),
-            ),
-          ),
-
-          // ── Barra superior con blur ──
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: _TopBar(ctrl: ctrl, topPadding: topPadding),
-          ),
-
-          // ── Panel inferior de estaciones (draggable) ──
-          DraggableScrollableSheet(
-            controller: _sheetCtrl,
-            initialChildSize: 0.08,
-            minChildSize: 0.05,
-            maxChildSize: 0.84,
-            snap: true,
-            snapSizes: const [0.08, 0.40, 0.84],
-            builder: (ctx, scrollCtrl) {
-              return _StationsSheet(
-                ctrl: ctrl,
-                scrollController: scrollCtrl,
-                onSearchTap: () => _showSearchSheet(context),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSearchSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _SearchRegionSheet(ctrl: widget.ctrl),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BARRA SUPERIOR CON BLUR
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.ctrl, required this.topPadding});
-
-  final WorldModeController ctrl;
-  final double topPadding;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: Container(
-          padding: EdgeInsets.fromLTRB(12, topPadding + 6, 12, 12),
-          color: Colors.black.withValues(alpha: 0.38),
-          child: Row(
+      appBar: AppTopBar(
+        title: ListenfyLogo(
+          size: 28,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+      body: AppGradientBackground(
+        child: LayoutBuilder(
+          builder: (context, constraints) => Stack(
             children: [
-              // ── Botón volver ──
-              _BarButton(icon: Icons.arrow_back_rounded, onTap: Get.back),
-              const SizedBox(width: 10),
-
-              // ── Título + región seleccionada ──
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      tr('artists.atlas'),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    Obx(() {
-                      final country = ctrl.selectedCountry.value;
-                      return Text(
-                        country == null
-                            ? tr('world_mode.tap_point')
-                            : '${country.flag.isEmpty ? '' : '${country.flag} '}${country.localizedName}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.75),
-                          fontWeight: FontWeight.w500,
+              // ── Mapa/globo interactivo a pantalla completa ──
+              Positioned.fill(
+                child: Obx(() {
+                  final countries = ctrl.filteredCountries.toList(
+                    growable: false,
+                  );
+                  final selectedCode = ctrl.selectedCountry.value?.code;
+                  final mode = ctrl.worldViewMode.value;
+                  return AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 420),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(
+                            begin: 0.975,
+                            end: 1,
+                          ).animate(animation),
+                          child: child,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       );
-                    }),
-                  ],
+                    },
+                    child: mode == WorldViewMode.globe
+                        ? WorldGlobeCanvas(
+                            key: const ValueKey<String>('world-globe'),
+                            countries: countries,
+                            selectedCountryCode: selectedCode,
+                            onCountryTap: ctrl.selectCountry,
+                            interactive: true,
+                            showHint: false,
+                          )
+                        : WorldMapCanvas(
+                            key: const ValueKey<String>('world-map'),
+                            countries: countries,
+                            selectedCountryCode: selectedCode,
+                            onCountryTap: ctrl.selectCountry,
+                            interactive: true,
+                            showHint: false,
+                          ),
+                  );
+                }),
+              ),
+
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Obx(
+                  () => _ViewModeToggle(
+                    mode: ctrl.worldViewMode.value,
+                    onChanged: ctrl.setWorldViewMode,
+                  ),
                 ),
               ),
 
-              // ── Botón buscar región ──
-              _BarButton(
-                icon: Icons.search_rounded,
-                onTap: () {
-                  showModalBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => _SearchRegionSheet(ctrl: ctrl),
+              // La carga de estaciones no modifica el panel: el usuario decide
+              // cuándo abrir la lista después de enfocar una región.
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: (constraints.maxHeight * _sheetExtent) + 16,
+                child: Obx(() {
+                  final country = ctrl.selectedCountry.value;
+                  final hasStations = ctrl.stations.isNotEmpty;
+                  final isSheetOpen = _sheetExtent >= 0.20;
+                  if (country == null || !hasStations || isSheetOpen) {
+                    return const SizedBox.shrink();
+                  }
+                  return FilledButton.icon(
+                    onPressed: _showAvailableStations,
+                    icon: const Icon(Icons.radio_rounded),
+                    label: Text(tr('world_mode.view_available_stations')),
+                  );
+                }),
+              ),
+
+              // ── Panel inferior de estaciones (draggable) ──
+              DraggableScrollableSheet(
+                controller: _sheetCtrl,
+                initialChildSize: _collapsedSheetExtent,
+                minChildSize: _collapsedSheetExtent,
+                maxChildSize: 0.84,
+                snap: true,
+                // El mínimo y el máximo ya son puntos de snap implícitos.
+                // Solo añadimos la altura de lectura de las estaciones.
+                snapSizes: const [_stationsSheetExtent],
+                builder: (ctx, scrollCtrl) {
+                  return _StationsSheet(
+                    ctrl: ctrl,
+                    scrollController: scrollCtrl,
                   );
                 },
               ),
@@ -240,30 +218,31 @@ class _TopBar extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _BarButton extends StatelessWidget {
-  const _BarButton({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.14),
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Padding(
-          padding: const EdgeInsets.all(9),
-          child: Icon(icon, color: Colors.white, size: 21),
-        ),
+      bottomNavigationBar: AppBottomNav(
+        currentIndex: 3,
+        onTap: _navigateToSection,
       ),
     );
+  }
+
+  void _navigateToSection(int index) {
+    switch (index) {
+      case 0:
+        Get.offAllNamed(AppRoutes.home);
+        break;
+      case 1:
+        Get.toNamed(AppRoutes.playlists);
+        break;
+      case 2:
+        Get.toNamed(AppRoutes.artists);
+        break;
+      case 4:
+        Get.toNamed(AppRoutes.downloads);
+        break;
+      case 5:
+        Get.toNamed(AppRoutes.sources);
+        break;
+    }
   }
 }
 
@@ -352,15 +331,10 @@ class _ViewModeButton extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StationsSheet extends StatelessWidget {
-  const _StationsSheet({
-    required this.ctrl,
-    required this.scrollController,
-    required this.onSearchTap,
-  });
+  const _StationsSheet({required this.ctrl, required this.scrollController});
 
   final WorldModeController ctrl;
   final ScrollController scrollController;
-  final VoidCallback onSearchTap;
 
   @override
   Widget build(BuildContext context) {
@@ -421,15 +395,6 @@ class _StationsSheet extends StatelessWidget {
                                 color: scheme.onSurfaceVariant,
                                 fontWeight: FontWeight.w500,
                               ),
-                            ),
-                          ),
-                          // Botón buscar dentro del panel
-                          IconButton(
-                            icon: const Icon(Icons.search_rounded),
-                            onPressed: onSearchTap,
-                            tooltip: tr('world_mode.search_region'),
-                            style: IconButton.styleFrom(
-                              foregroundColor: scheme.primary,
                             ),
                           ),
                         ],
@@ -573,158 +538,6 @@ class _StationsSheet extends StatelessWidget {
             }),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BUSCADOR DE REGIÓN (bottom sheet modal)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SearchRegionSheet extends StatefulWidget {
-  const _SearchRegionSheet({required this.ctrl});
-
-  final WorldModeController ctrl;
-
-  @override
-  State<_SearchRegionSheet> createState() => _SearchRegionSheetState();
-}
-
-class _SearchRegionSheetState extends State<_SearchRegionSheet> {
-  final TextEditingController _textCtrl = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _textCtrl.text = widget.ctrl.searchQuery.value;
-  }
-
-  @override
-  void dispose() {
-    widget.ctrl.setSearchQuery('');
-    _textCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-      child: Container(
-        color: scheme.surface,
-        padding: EdgeInsets.only(bottom: bottomInset),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            // Handle
-            Center(
-              child: Container(
-                width: 42,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: scheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            // Campo de búsqueda
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                controller: _textCtrl,
-                autofocus: true,
-                onChanged: widget.ctrl.setSearchQuery,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: tr('world_mode.search_region_hint'),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  filled: true,
-                  isDense: true,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Lista de resultados
-            SizedBox(
-              height: 300,
-              child: Obx(() {
-                final countries = widget.ctrl.filteredCountries.toList(
-                  growable: false,
-                );
-                if (countries.isEmpty) {
-                  return Center(
-                    child: Text(
-                      tr('world_mode.no_results'),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  );
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: countries.length,
-                  itemBuilder: (ctx, i) {
-                    final c = countries[i];
-                    final isSelected =
-                        widget.ctrl.selectedCountry.value?.code == c.code;
-                    return ListTile(
-                      selected: isSelected,
-                      selectedTileColor: scheme.primaryContainer.withValues(
-                        alpha: 0.35,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      leading: Text(
-                        c.flag.isEmpty ? '🌍' : c.flag,
-                        style: const TextStyle(fontSize: 24),
-                      ),
-                      title: Text(
-                        c.localizedName,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: isSelected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                        ),
-                      ),
-                      subtitle: Text(
-                        tr(
-                          'world_mode.available_tracks_count',
-                          args: ['${c.discoveryCount}'],
-                        ),
-                      ),
-                      trailing: isSelected
-                          ? Icon(
-                              Icons.check_circle_rounded,
-                              color: scheme.primary,
-                              size: 20,
-                            )
-                          : null,
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        widget.ctrl.selectCountry(c);
-                      },
-                    );
-                  },
-                );
-              }),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
       ),
     );
   }

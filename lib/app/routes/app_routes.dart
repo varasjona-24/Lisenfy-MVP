@@ -35,5 +35,6 @@ abstract class AppRoutes {
   static const lyricsEntry = '/lyrics/entry';
   static const nearbyTransfer = '/transfer/nearby';
   static const localConnect = '/connect/local';
-  static const worldMode = '/world/mode';
+  static const atlas = '/atlas';
+  static const worldMode = '/world/mode'; // Legacy deep-link route.
 }
