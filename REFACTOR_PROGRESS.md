@@ -1,5 +1,13 @@
 # Registro de refactor
 
+## 2026-10-05 — Fase 1 SQLite: driver y opener staging
+
+- Resueltas dependencias Drift2.35.1/SQLite3.5.2 con Flutter3.44.1 y Dart3.12.1. Targets mobile/desktop/web encontrados, sin asumir soporte release por presencia de carpetas. iOS declara13.0; Android usa SDK mínimo Flutter.
+- Añadidos PlaybackDatabase y opener nativo en isolate que carga el asset SQL real, sin segunda copia del DDL. Solo staging: sin registro main/GetX ni cutover.
+- foreign_keys=ON, WAL, synchronous=FULL, busy_timeout=5000 y user_version1; rechazo de versión futura/bases incompletas sin borrar datos.
+- Verificación:4 pruebas Flutter aprobadas (creación/reapertura/PRAGMA/asset, futuro preservado, traversal e incompletitud);12 pruebas SQL aprobadas. Análisis focalizado sin issues. Pub get advierte plugins existentes sin Swift Package Manager; no se declara análisis global ni builds release móviles verificados.
+- Pendientes fases2–12: repository/recorder/importador/activación/consumidores y benchmarks. No se afirma soporte release mobile validado. Política92% aprobada para audio/video con motivo factual separado de clasificación.
+
 ## 2026-10-05 — Esquema candidato y contratos previos al cutover
 
 - Revisado schema_v1.sql con applied_command, journal/feedback inmutables, hashes versionados, locator tipado y restricciones de estados/flags.

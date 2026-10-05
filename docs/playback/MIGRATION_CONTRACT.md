@@ -19,8 +19,8 @@ puede eximir skip pero no acredita escucha: valid_play depende de wall activo;
 coverage revela lo efectivamente oído. completed y valid_play son independientes;
 completed=1, valid_play=0 es posible. La tolerancia mide resultado, no fabrica
 minutos. Comparar enteros position_ms*10000 >= duration_ms*9200, evitando fronteras
-float; guardar ratio para UI. Política v1 de video queda pendiente de validación
-de producto; no inferir su activación por compartir tabla. No modificar recorder
+float; guardar ratio para UI. Política v1 del92% aprobada para audio y video
+según aclaración del usuario; hecho y clasificación siguen separados. No modificar recorder
 GetStorage ahora: hacerlo al integrar repositorio para no alterar dos contratos.
 
 ## 1. Staging físico y activación

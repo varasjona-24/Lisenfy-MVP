@@ -46,6 +46,8 @@ dependencies:
   file_picker: ^10.3.8
   image_cropper: ^11.0.0
   crypto: ^3.0.3
+  drift: ^2.35.0
+  sqlite3: ^3.5.2
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
@@ -88,6 +90,7 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
+    - docs/playback/schema_v1.sql
     - assets/ui/aguja.png
     - assets/ui/vinyl.png
     - assets/ui/volumen.svg
