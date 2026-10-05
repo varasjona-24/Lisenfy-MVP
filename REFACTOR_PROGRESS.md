@@ -1,5 +1,14 @@
 # Registro de refactor
 
+## 2026-10-05 — Repositorio inicial e idempotencia
+
+- Añadido PlaybackRepository como propietario serializado de comandos tipados para registrar identidad/alias; sin SQL en controllers ni cambios al runtime activo.
+- Transacción incluye identidad, alias, applied_command y revisión durable; publicación de stream tras commit. Retry mismo ID/hash devuelve resultado previo; hash diferente produce PlaybackIdempotencyConflict sin reemplazar filas.
+- Fault injection en escritura parcial, antes del commit y commit confirmado antes de respuesta; rollback y recuperación por reapertura probados. Son excepciones simuladas, no ensayos de kill del proceso/OS ni fallo eléctrico.
+- Verificación final:10 pruebas Flutter (4 opener+6 repositorio) y12 pruebas SQL aprobadas; análisis focalizado sin issues. Se corrigieron3 infos de llaves detectadas inicialmente.
+- Alcance parcial de fase2: faltan comandos para variantes/snapshots/sesiones/journal/intervalos/feedback/importación y proyecciones. Idempotencia validada para comando inicial, no se declara cobertura de todos los flujos.
+- Sin cutover ni escritura doble; staged del collage y cambios previos de reproductores quedan fuera del commit.
+
 ## 2026-10-05 — Fase 1 SQLite: driver y opener staging
 
 - Resueltas dependencias Drift2.35.1/SQLite3.5.2 con Flutter3.44.1 y Dart3.12.1. Targets mobile/desktop/web encontrados, sin asumir soporte release por presencia de carpetas. iOS declara13.0; Android usa SDK mínimo Flutter.
