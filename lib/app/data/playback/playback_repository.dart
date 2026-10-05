@@ -7,9 +7,11 @@ import 'package:drift/drift.dart';
 import 'playback_database.dart';
 import 'playback_session_command.dart';
 import 'playback_boundary_command.dart';
+import 'playback_restoration.dart';
 
 part 'playback_session_writer.dart';
 part 'playback_aggregate_writer.dart';
+part 'playback_restoration_writer.dart';
 
 enum PlaybackFaultPoint { afterIdentityWrite, beforeCommit, afterCommit }
 

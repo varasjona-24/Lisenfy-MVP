@@ -11,6 +11,7 @@ import 'playback_database.dart';
 /// Only staging is exposed: there is deliberately no active-generation opener.
 class PlaybackDatabaseOpener {
   static const schemaAsset = 'docs/playback/schema_v1.sql';
+  static const restorationSchemaAsset = 'docs/playback/migration_v2.sql';
 
   static Future<PlaybackDatabase> openStaging({
     required String generation,
@@ -26,6 +27,9 @@ class PlaybackDatabaseOpener {
     final directory = Directory(p.join(support.path, 'playback', 'staging'));
     await directory.create(recursive: true);
     final schema = await (bundle ?? rootBundle).loadString(schemaAsset);
+    final restorationSchema = await (bundle ?? rootBundle).loadString(
+      restorationSchemaAsset,
+    );
     final tempPath = temporary.path;
     final executor = NativeDatabase.createInBackground(
       File(p.join(directory.path, '$generation.db')),
@@ -33,7 +37,7 @@ class PlaybackDatabaseOpener {
         sql.sqlite3.tempDirectory = tempPath;
         final version =
             database.select('PRAGMA user_version').single.values.single as int;
-        if (version != 0 && version != 1) {
+        if (version < 0 || version > 2) {
           throw StateError('Unsupported playback schema version: $version');
         }
         database.execute('PRAGMA foreign_keys = ON');
@@ -51,12 +55,24 @@ class PlaybackDatabaseOpener {
           }
           database.execute(schema);
         }
+        if (version < 2) {
+          // Verify v1 before changing it; never upgrade an incomplete database.
+          for (final table in PlaybackDatabase.v1Tables) {
+            if (database.select(
+              'SELECT name FROM sqlite_master WHERE type=\'table\' AND name=?',
+              [table],
+            ).isEmpty) {
+              throw StateError('Incomplete playback schema before upgrade');
+            }
+          }
+          database.execute(restorationSchema);
+        }
         final installed = database
             .select('PRAGMA user_version')
             .single
             .values
             .single;
-        if (installed != 1) {
+        if (installed != 2) {
           throw StateError('Playback schema installation failed');
         }
       },

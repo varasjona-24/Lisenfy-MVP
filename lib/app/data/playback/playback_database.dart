@@ -6,7 +6,7 @@ class PlaybackDatabase extends GeneratedDatabase {
   PlaybackDatabase(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   Iterable<TableInfo<Table, Object?>> get allTables => const [];
@@ -23,21 +23,11 @@ class PlaybackDatabase extends GeneratedDatabase {
   );
 
   Future<void> verify() async {
-    const requiredTables = {
-      'media_identity',
-      'media_alias',
-      'media_variant',
-      'metadata_snapshot',
-      'applied_command',
-      'playback_session',
-      'playback_event',
-      'playback_interval',
-      'playback_aggregate',
-      'migration_state',
-      'migration_reject',
-      'legacy_metrics',
-      'feedback_event',
-      'repository_state',
+    final requiredTables = {
+      ...v1Tables,
+      'playback_restoration',
+      'playback_resume',
+      'restoration_import',
     };
     final tables = await customSelect(
       "SELECT name FROM sqlite_master WHERE type='table'",
@@ -56,4 +46,21 @@ class PlaybackDatabase extends GeneratedDatabase {
       throw StateError('Playback database contains invalid foreign keys');
     }
   }
+
+  static const v1Tables = {
+    'media_identity',
+    'media_alias',
+    'media_variant',
+    'metadata_snapshot',
+    'applied_command',
+    'playback_session',
+    'playback_event',
+    'playback_interval',
+    'playback_aggregate',
+    'migration_state',
+    'migration_reject',
+    'legacy_metrics',
+    'feedback_event',
+    'repository_state',
+  };
 }

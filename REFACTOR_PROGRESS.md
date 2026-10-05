@@ -1,5 +1,14 @@
 # Registro de refactor
 
+## 2026-10-05 — Restauración SQLite: almacenamiento e importación
+
+- Añadido esquema v2 separado del journal: playback_restoration, playback_resume y restoration_import. Upgrade v1 transaccional con validación previa; versiones futuras rechazadas sin reinicializar.
+- Repositorio serializado para snapshots audio/video y posiciones por modo, con revisiones postcommit. Los cambios operativos no crean sesiones ni eventos ni minutos.
+- Captura legacy congelada y hash SHA256; importación atómica de ambos modos y recibo idempotente. Retry no sobrescribe posiciones nuevas; fuente cambiada genera conflicto y rollback conserva todo.
+- Alcance parcial explícito: runtime aún usa GetStorage para restauración. Faltan snapshot durable/bootstrap de migración, activación por manifest, conexión de lectores/escritores/prompts, consumidores y backup. La fuente única SQLite todavía no está activada.
+- Detalles y siguiente secuencia en docs/playback/RESTORATION_SQLITE.md. No se borraron datos legacy ni se mezclaron archivos staged ajenos.
+- Verificación:52 pruebas Flutter y12 SQL aprobadas. Se corrigió el matcher de rechazo de base incompleta: Drift envuelve la excepción del isolate, por lo que se verifica la causa reportada. También se corrigieron4 infos nuevas de llaves; análisis focalizado final sin issues.
+
 ## 2026-10-05 — Adaptador y conexión opt-in a motores
 
 - Añadidos EngineHistoryRecorder y SqliteEngineHistoryRecorder; AudioService/VideoService eligen un único recorder inyectado, legacy por defecto. main solo permite SQLite staging con opt-in debug, sin cutover ni doble escritura.

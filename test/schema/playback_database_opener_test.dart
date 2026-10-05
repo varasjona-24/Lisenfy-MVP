@@ -30,13 +30,13 @@ void main() {
               "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
             )
             .get(),
-        hasLength(14),
+        hasLength(17),
       );
       for (final entry in {
         'foreign_keys': 1,
         'synchronous': 2,
         'busy_timeout': 5000,
-        'user_version': 1,
+        'user_version': 2,
       }.entries) {
         expect(
           (await db.customSelect('PRAGMA ${entry.key}').get())
@@ -70,7 +70,7 @@ void main() {
     await staging.create(recursive: true);
     final raw = sqlite3.open('${staging.path}/future.db');
     raw.execute('CREATE TABLE keep_data(value TEXT)');
-    raw.execute('PRAGMA user_version=2');
+    raw.execute('PRAGMA user_version=3');
     raw.close();
     await expectLater(
       PlaybackDatabaseOpener.openStaging(
@@ -81,7 +81,7 @@ void main() {
       throwsA(anything),
     );
     final check = sqlite3.open('${staging.path}/future.db');
-    expect(check.select('PRAGMA user_version').single.values.single, 2);
+    expect(check.select('PRAGMA user_version').single.values.single, 3);
     expect(
       check.select("SELECT name FROM sqlite_master WHERE name='keep_data'"),
       hasLength(1),
@@ -110,7 +110,11 @@ void main() {
         supportDirectory: directory,
         temporaryDirectory: directory,
       ),
-      throwsA(isA<StateError>()),
+      throwsA(
+        predicate<Object>(
+          (error) => error.toString().contains('Incomplete playback schema'),
+        ),
+      ),
     );
   });
 }
