@@ -70,6 +70,14 @@ Unicode UTF8, sin escapes alternativos). Campos en orden fijo, no map arbitrario
 Snapshot conserva originales; normalización solo hashing. Colisión/hash igual con
 contenido distinto es conflicto, no deduplicación silenciosa. Implementar vectors
 Dart/Python equivalentes antes de cutover, incluida NFC.
+
+Implementación inicial: snapshots usan canonicalization_version2, mismo array
+con marcador2, texto exacto sin NFC/trim/case folding. Motivo concreto: Dart no
+provee NFC en esta capa y aún no se validó un normalizador compartido. Así se
+evita afirmar equivalencia Unicode no comprobada. Formas Unicode equivalentes
+pueden producir snapshots separados, nunca colisiones semánticas o pérdida de
+metadata; v1 NFC queda reservada, no se ha emitido desde Flutter. Esta decisión
+no cambia identidades ni políticas de conteo.
 Archivo variante/artwork: SHA256 bytes sin normalización, hash_version1.
 Snapshot migración: SHA256 bytes congelados, canonicalization_version1 significa
 raw bytes del formato versionado, NO mismo dominio que snapshot. Backup manifiesto

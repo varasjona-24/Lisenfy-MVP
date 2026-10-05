@@ -1,5 +1,14 @@
 # Registro de refactor
 
+## 2026-10-05 — Variantes, snapshots y apertura de sesión
+
+- Añadido comando tipado OpenPlaybackSession: modo/contexto, posiciones, tiempo, variante y snapshot. Solo se enviará cuando el motor esté ready+playing; aún no conectado a servicios.
+- Variante/snapshot/sesión/play/applied_command/revisión se confirman conjuntamente; retry devuelve resultado durable, conflictos y FK hacen rollback.
+- Sesión abierta inicia final_variant=initial_variant y no cuenta minutos/reproducción válida por sí sola. Audio/video guardan modo real.
+- Snapshots deduplicados e inmutables con hash versionado2 de texto exacto. NFC v1 no implementada ni fingida; justificación documentada en contrato.
+- Verificación final:18 pruebas Flutter y12 SQL aprobadas; análisis focalizado limpio. Las8 pruebas nuevas cubren apertura/retry, conflicto, audio/video, deduplicación, FK, rollback fault, velocidad inválida y preservación del snapshot anterior.
+- Pendientes cierre de sesión, intervalos, proyección de agregados, recorder/importador y cutover. Otros cambios staged excluidos.
+
 ## 2026-10-05 — Repositorio inicial e idempotencia
 
 - Añadido PlaybackRepository como propietario serializado de comandos tipados para registrar identidad/alias; sin SQL en controllers ni cambios al runtime activo.
