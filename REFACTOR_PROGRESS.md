@@ -1,5 +1,16 @@
 # Registro de refactor
 
+## 2026-10-05 — Adaptador y conexión opt-in a motores
+
+- Añadidos EngineHistoryRecorder y SqliteEngineHistoryRecorder; AudioService/VideoService eligen un único recorder inyectado, legacy por defecto. main solo permite SQLite staging con opt-in debug, sin cutover ni doble escritura.
+- Engine states/posición, variante, buffering, fin natural, seek antes/después, motivos manuales y errores reales conectados; autoplay video conserva natural_end separado de manual_next. Repetición audio tiene señal asociada a LoopMode.one, no solo salto de posición.
+- Adaptador serializa clocks capturados al observar, abre únicamente ready+playing, checkpoint5s, excluye inactividad/seek y aplica92% por repositorio. Factory de sesión exige mapping canónico provisto por composición/importador, sin inferencia por title/path.
+- Error de persistencia se propaga en flush y bloquea recorder; cleanup del motor reporta historyPersistenceFailure sin impedir pause/stop. Falta retry automático del adaptador y validación de plugins/background mobile.
+- Conexión opt-in documentada en docs/playback/ENGINE_CONNECTION.md. Composición staging implementada; quedan pendientes importador/manifest y composición de producción, además de discontinuidad temporal y pruebas reales de cola/reload.
+- Verificación final:46 pruebas Flutter y12 SQL aprobadas. Análisis focalizado de composición/adapter/tests limpio; análisis ampliado sin errores ni warnings, con12 infos conocidas de video_service (print/network deprecado). Se corrigieron4 infos nuevas de @override. No se han probado plugins en dispositivos reales.
+- El commit de conexión incorpora la base legacy del recorder y sus dependencias de eventos/registro en main que estaban pendientes, además de retirar contadores duplicados de los controllers; no incluye staged del collage/traducciones ni backup. Se preserva GetStorage como predeterminado y hay un solo writer por motor.
+- Composición debug mediante LISTENFY_SQLITE_STAGING_HISTORY=true (siempre desactivada en release): opener staging, recuperación previa, factory y repositorio compartido. UUID/alias local scoped, variantes locales por hash streaming de bytes, modo real y contexto unknown; sin importar legacy ni activar manifest. UI continúa leyendo legacy en estas pruebas.
+
 ## 2026-10-05 — Agregados y recuperación inicial
 
 - Apertura y boundaries refrescan proyección por identidad/modo dentro de su transacción; incluye contadores, wall/media, ratios y recencia. Solo independent/post_cutover son aditivos; legacy y baseline_covered no se suman dos veces.

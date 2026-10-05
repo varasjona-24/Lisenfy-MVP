@@ -10,25 +10,17 @@ import 'package:video_player/video_player.dart' as vp;
 
 import '../../../../app/models/media_item.dart';
 import '../../../../app/services/video_service.dart';
-import '../../../../app/data/local/local_library_store.dart';
+import '../../../../app/data/playback/playback_boundary_command.dart';
 import '../../../settings/controller/playback_settings_controller.dart';
-import '../../../recommendations/data/listening_event_store.dart';
-import '../../../recommendations/domain/recommendation_models.dart';
 
 class VideoPlayerController extends GetxController {
-  static const double _completedViewProgressThreshold = 0.90;
   static const double _resumeProgressThreshold = 0.05;
   static const _resumeEligibleDuration = Duration(seconds: 150);
   static const _trustedResumeWatchThreshold = Duration(seconds: 8);
 
   final VideoService videoService;
-  final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
   final PlaybackSettingsController _settings =
       Get.find<PlaybackSettingsController>();
-  final ListeningEventStore? _listeningEvents =
-      Get.isRegistered<ListeningEventStore>()
-      ? Get.find<ListeningEventStore>()
-      : null;
   final GetStorage _storage = GetStorage();
   final List<MediaItem> _initialQueue;
   final int initialIndex;
@@ -42,9 +34,6 @@ class VideoPlayerController extends GetxController {
   Worker? _queueWorker;
   Worker? _indexWorker;
   Worker? _progressWorker;
-  double _sessionMaxProgress = 0;
-  String _sessionTrackKey = '';
-  String _completionLoggedTrackKey = '';
   int _trustedResumeWatchMs = 0;
   Duration _lastTrustedResumePosition = Duration.zero;
   int _lastTrustedResumeTick = 0;
@@ -123,16 +112,10 @@ class VideoPlayerController extends GetxController {
     );
     _progressWorker = ever<Duration>(position, (_) {
       _captureTrustedResumeWatch();
-      _captureSessionProgress();
-      unawaited(_recordCompletionIfThresholdReached());
     });
 
     _completedWorker = ever<int>(videoService.completedTick, (_) async {
-      await _recordSessionForCurrent(
-        markCompleted: true,
-        forceProgress: 1.0,
-        resetSessionAfterRecord: true,
-      );
+      await videoService.flushPlaybackHistory();
       if (!_settings.autoPlayNext.value) return;
       await next(recordSkip: false);
     });
@@ -212,7 +195,9 @@ class VideoPlayerController extends GetxController {
   // PLAYBACK CONTROL
   // ===========================================================================
 
-  Future<void> _playCurrent() async {
+  Future<void> _playCurrent({
+    PlaybackTermination reason = PlaybackTermination.manualSelection,
+  }) async {
     error.value = null;
 
     final item = currentItemOrNull;
@@ -222,10 +207,14 @@ class VideoPlayerController extends GetxController {
       return;
     }
 
-    await _playItem(item, variant);
+    await _playItem(item, variant, reason: reason);
   }
 
-  Future<void> _playItem(MediaItem item, MediaVariant variant) async {
+  Future<void> _playItem(
+    MediaItem item,
+    MediaVariant variant, {
+    PlaybackTermination reason = PlaybackTermination.manualSelection,
+  }) async {
     // Validar variante
     if (!variant.isValid) {
       error.value = tr('player.invalid_video_variant');
@@ -239,19 +228,15 @@ class VideoPlayerController extends GetxController {
       if (!sameTrackLoaded) {
         _resetTrustedResumeWatch(item);
       }
-      await videoService.play(item, variant);
+      await videoService.play(item, variant, replacementReason: reason);
       if (!sameTrackLoaded) {
         await _resumeIfAny(item);
-        await _trackPlay(item);
+        await videoService.flushPlaybackHistory();
       }
       error.value = null;
     } catch (e) {
       error.value = 'Error al reproducir: $e';
     }
-  }
-
-  Future<void> _trackPlay(MediaItem item) async {
-    await _applyPlaybackMetrics(item, incrementPlay: true);
   }
 
   Future<void> togglePlay() async {
@@ -265,20 +250,28 @@ class VideoPlayerController extends GetxController {
   Future<void> next({bool recordSkip = true}) async {
     if (currentIndex.value < queue.length - 1) {
       if (recordSkip) {
-        await _recordTransitionSkipIfNeeded();
+        await videoService.flushPlaybackHistory();
       }
       currentIndex.value++;
-      await _playCurrent();
+      await _playCurrent(
+        reason: recordSkip
+            ? PlaybackTermination.manualNext
+            : PlaybackTermination.naturalEnd,
+      );
     }
   }
 
   Future<void> previous({bool recordSkip = true}) async {
     if (currentIndex.value > 0) {
       if (recordSkip) {
-        await _recordTransitionSkipIfNeeded();
+        await videoService.flushPlaybackHistory();
       }
       currentIndex.value--;
-      await _playCurrent();
+      await _playCurrent(
+        reason: recordSkip
+            ? PlaybackTermination.manualPrevious
+            : PlaybackTermination.explicitStop,
+      );
     }
   }
 
@@ -286,7 +279,7 @@ class VideoPlayerController extends GetxController {
     if (index < 0 || index >= queue.length) return;
     if (index == currentIndex.value) return;
     if (recordSkip) {
-      await _recordTransitionSkipIfNeeded();
+      await videoService.flushPlaybackHistory();
     }
     currentIndex.value = index;
     await _playCurrent();
@@ -539,7 +532,7 @@ class VideoPlayerController extends GetxController {
 
   @override
   void onClose() {
-    unawaited(_recordSessionForCurrent(resetSessionAfterRecord: true));
+    unawaited(videoService.flushPlaybackHistory());
     _persistQueue();
     _persistPosition(position.value);
     _positionWorker?.dispose();
@@ -548,187 +541,5 @@ class VideoPlayerController extends GetxController {
     _indexWorker?.dispose();
     _progressWorker?.dispose();
     super.onClose();
-  }
-
-  String _stableTrackKey(MediaItem item) {
-    final publicId = item.publicId.trim();
-    if (publicId.isNotEmpty) return publicId;
-    return item.id.trim();
-  }
-
-  double _currentProgressRatio() {
-    final totalMs = duration.value.inMilliseconds;
-    if (totalMs <= 0) {
-      final sec = currentItemOrNull?.effectiveDurationSeconds ?? 0;
-      if (sec <= 0) return 0;
-      final fallbackTotalMs = sec * 1000;
-      return (position.value.inMilliseconds / fallbackTotalMs).clamp(0.0, 1.0);
-    }
-    return (position.value.inMilliseconds / totalMs).clamp(0.0, 1.0);
-  }
-
-  void _captureSessionProgress() {
-    final item = currentItemOrNull;
-    if (item == null) {
-      _sessionTrackKey = '';
-      _sessionMaxProgress = 0;
-      return;
-    }
-
-    final key = _stableTrackKey(item);
-    if (_sessionTrackKey != key) {
-      _sessionTrackKey = key;
-      _sessionMaxProgress = 0;
-      _completionLoggedTrackKey = '';
-    }
-
-    final progress = _currentProgressRatio();
-    if (progress > _sessionMaxProgress) {
-      _sessionMaxProgress = progress;
-    }
-  }
-
-  Future<void> _recordCompletionIfThresholdReached() async {
-    final item = currentItemOrNull;
-    if (item == null) return;
-
-    final key = _stableTrackKey(item);
-    if (_completionLoggedTrackKey == key) return;
-    if (_sessionMaxProgress < _completedViewProgressThreshold) return;
-
-    await _recordSessionForCurrent(
-      markCompleted: true,
-      forceProgress: 1.0,
-      resetSessionAfterRecord: true,
-    );
-  }
-
-  int _playbackSamples(MediaItem item) {
-    final byEvents = item.fullListenCount + item.skipCount;
-    final byPlays = item.playCount;
-    var samples = byEvents > byPlays ? byEvents : byPlays;
-    if (samples <= 0 && item.avgListenProgress > 0) {
-      samples = 1;
-    }
-    return samples;
-  }
-
-  Future<void> _applyPlaybackMetrics(
-    MediaItem seed, {
-    bool incrementPlay = false,
-    double? sessionProgress,
-    bool markSkip = false,
-    bool markCompleted = false,
-  }) async {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final all = await _store.readAll();
-    final publicId = seed.publicId.trim();
-    final related = all
-        .where((existing) {
-          if (existing.id == seed.id) return true;
-          return publicId.isNotEmpty && existing.publicId.trim() == publicId;
-        })
-        .toList(growable: false);
-    final targets = related.isEmpty ? <MediaItem>[seed] : related;
-
-    for (final existing in targets) {
-      final prevAvg = existing.avgListenProgress.clamp(0, 1).toDouble();
-      final prevSamples = _playbackSamples(existing);
-      final hasSessionSample = sessionProgress != null;
-      final sample = (sessionProgress ?? prevAvg).clamp(0.0, 1.0).toDouble();
-      final nextSamples = hasSessionSample ? (prevSamples + 1) : prevSamples;
-      final nextAvg = hasSessionSample && nextSamples > 0
-          ? (((prevAvg * prevSamples) + sample) / nextSamples)
-                .clamp(0.0, 1.0)
-                .toDouble()
-          : prevAvg;
-
-      final updated = existing.copyWith(
-        playCount: existing.playCount + (incrementPlay ? 1 : 0),
-        lastPlayedAt: incrementPlay ? now : existing.lastPlayedAt,
-        skipCount: existing.skipCount + ((markSkip && !markCompleted) ? 1 : 0),
-        fullListenCount: existing.fullListenCount + (markCompleted ? 1 : 0),
-        avgListenProgress: nextAvg,
-        lastCompletedAt: markCompleted ? now : existing.lastCompletedAt,
-      );
-      await _store.upsert(updated);
-    }
-  }
-
-  Future<void> _recordSessionForCurrent({
-    bool markCompleted = false,
-    bool forceSkip = false,
-    double? forceProgress,
-    bool resetSessionAfterRecord = false,
-  }) async {
-    final item = currentItemOrNull;
-    if (item == null) return;
-
-    final key = _stableTrackKey(item);
-    if (markCompleted && _completionLoggedTrackKey == key) return;
-
-    _captureSessionProgress();
-    final progress = (forceProgress ?? _sessionMaxProgress).clamp(0.0, 1.0);
-    final hasDuration =
-        duration.value > Duration.zero ||
-        ((currentItemOrNull?.effectiveDurationSeconds ?? 0) > 0);
-    final shouldPersist =
-        markCompleted ||
-        forceSkip ||
-        progress >= 0.03 ||
-        (hasDuration && position.value >= const Duration(seconds: 3));
-    if (!shouldPersist) return;
-
-    await _applyPlaybackMetrics(
-      item,
-      sessionProgress: markCompleted ? 1.0 : progress,
-      markSkip: forceSkip,
-      markCompleted: markCompleted,
-    );
-    if (_listeningEvents != null) {
-      await _listeningEvents.add(
-        ListeningEvent(
-          trackKey: key,
-          occurredAt: DateTime.now().millisecondsSinceEpoch,
-          progress: markCompleted ? 1.0 : progress,
-          completed: markCompleted,
-          skipped: forceSkip && !markCompleted,
-          mode: RecommendationMode.video,
-        ),
-      );
-    }
-
-    if (markCompleted) {
-      _completionLoggedTrackKey = key;
-    }
-
-    if (resetSessionAfterRecord || markCompleted || forceSkip) {
-      _sessionMaxProgress = 0;
-    }
-  }
-
-  Future<void> _recordTransitionSkipIfNeeded() async {
-    final item = currentItemOrNull;
-    if (item == null) return;
-
-    _captureSessionProgress();
-    final progress = _sessionMaxProgress.clamp(0.0, 1.0).toDouble();
-    final hasDuration =
-        duration.value > Duration.zero ||
-        ((currentItemOrNull?.effectiveDurationSeconds ?? 0) > 0);
-    final hasProgress =
-        progress >= 0.03 ||
-        (hasDuration && position.value >= const Duration(seconds: 3));
-    if (!hasProgress) return;
-
-    final shouldMarkCompleted = progress >= _completedViewProgressThreshold;
-    final shouldSkip = !shouldMarkCompleted;
-
-    await _recordSessionForCurrent(
-      markCompleted: shouldMarkCompleted,
-      forceSkip: shouldSkip,
-      forceProgress: shouldMarkCompleted ? 1.0 : progress,
-      resetSessionAfterRecord: true,
-    );
   }
 }

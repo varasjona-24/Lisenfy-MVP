@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:audio_service/audio_service.dart' as aud;
 import 'package:easy_localization/easy_localization.dart'
@@ -23,6 +24,10 @@ import 'app/data/network/dio_client.dart';
 import 'app/data/repo/media_repository.dart';
 import 'app/data/local/local_library_store.dart';
 import 'app/services/audio_service.dart';
+import 'app/services/sqlite_engine_history_factory.dart';
+import 'app/data/playback/playback_database_opener.dart';
+import 'app/data/playback/playback_repository.dart';
+import 'package:uuid/uuid.dart';
 import 'app/services/app_audio_handler.dart';
 import 'app/services/instrumental_generation_service.dart';
 import 'app/services/local_media_metadata_service.dart';
@@ -89,7 +94,30 @@ Future<void> main() async {
   Get.put(NotificationSettingsController(), permanent: true);
 
   // 🎵 Audio global (CLAVE)
-  final appAudio = AudioService();
+  Get.put<GetStorage>(GetStorage(), permanent: true);
+  Get.put(LocalLibraryStore(Get.find<GetStorage>()), permanent: true);
+  Get.put(ListeningEventStore(Get.find<GetStorage>()), permanent: true);
+  SqliteEngineHistoryFactory? sqliteHistory;
+  // Test-only staging connection. Release builds always retain the legacy owner.
+  if (kDebugMode &&
+      const bool.fromEnvironment('LISTENFY_SQLITE_STAGING_HISTORY')) {
+    final storage = Get.find<GetStorage>();
+    var scope = storage.read<String>('playback_staging_installation');
+    if (scope == null) {
+      scope = const Uuid().v4();
+      await storage.write('playback_staging_installation', scope);
+    }
+    final repository = PlaybackRepository(
+      await PlaybackDatabaseOpener.openStaging(generation: 'debug-$scope'),
+    );
+    await repository.recoverInterruptedSessions();
+    Get.put(repository, permanent: true);
+    sqliteHistory = SqliteEngineHistoryFactory(
+      repository: repository,
+      installationScope: scope,
+    );
+  }
+  final appAudio = AudioService(historyRecorder: sqliteHistory?.create());
   Get.put<AudioService>(appAudio, permanent: true);
   await appAudio.initializeAndroidAutoArtwork();
 
@@ -108,7 +136,10 @@ Future<void> main() async {
   appAudio.attachHandler(handler);
 
   // 🎬 Video global (CLAVE)
-  Get.put<VideoService>(VideoService(), permanent: true);
+  Get.put<VideoService>(
+    VideoService(historyRecorder: sqliteHistory?.create()),
+    permanent: true,
+  );
 
   // 🎧 Spatial audio (8D)
   Get.put<SpatialAudioService>(
@@ -120,7 +151,6 @@ Future<void> main() async {
   Get.lazyPut<DioClient>(() => DioClient(), fenix: true);
 
   // 📦 GetStorage (shared)
-  Get.put<GetStorage>(GetStorage(), permanent: true);
 
   Get.put(
     KaraokeRemotePipelineService(client: Get.find<DioClient>()),
@@ -129,7 +159,6 @@ Future<void> main() async {
   Get.put(LocalMediaMetadataService(), permanent: true);
 
   // 💾 Local storage
-  Get.put(LocalLibraryStore(Get.find<GetStorage>()), permanent: true);
   if (!Get.isRegistered<PlaylistStore>()) {
     Get.put(PlaylistStore(Get.find<GetStorage>()), permanent: true);
   }
@@ -157,7 +186,6 @@ Future<void> main() async {
   // 🧠 Recomendaciones locales (MVP diario)
   Get.put(RecommendationStore(Get.find<GetStorage>()), permanent: true);
   Get.put(RecommendationFeedbackStore(Get.find<GetStorage>()), permanent: true);
-  Get.put(ListeningEventStore(Get.find<GetStorage>()), permanent: true);
   Get.put(RecommendationMlStore(Get.find<GetStorage>()), permanent: true);
   Get.put(
     LocalMlRecommendationRanker(store: Get.find<RecommendationMlStore>()),

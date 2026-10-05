@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:get_storage/get_storage.dart';
+import '../../../app/models/media_item.dart';
 
 import '../domain/recommendation_models.dart';
 
@@ -10,6 +12,9 @@ class ListeningEvent {
     required this.completed,
     required this.skipped,
     this.mode,
+    this.sessionId,
+    this.playedSeconds,
+    this.mediaSnapshot,
   });
 
   final String trackKey;
@@ -20,6 +25,9 @@ class ListeningEvent {
 
   /// Null denotes events written before playback mode was tracked.
   final RecommendationMode? mode;
+  final String? sessionId;
+  final double? playedSeconds;
+  final MediaItem? mediaSnapshot;
 
   factory ListeningEvent.fromJson(Map<String, dynamic> json) {
     return ListeningEvent(
@@ -30,6 +38,13 @@ class ListeningEvent {
           .toDouble(),
       completed: json['completed'] == true,
       skipped: json['skipped'] == true,
+      sessionId: json['sessionId'] as String?,
+      playedSeconds: (json['playedSeconds'] as num?)?.toDouble(),
+      mediaSnapshot: json['mediaSnapshot'] is Map
+          ? MediaItem.fromJson(
+              Map<String, dynamic>.from(json['mediaSnapshot'] as Map),
+            )
+          : null,
       mode: json['mode'] == null
           ? null
           : RecommendationModeX.fromKey(json['mode'] as String?),
@@ -43,6 +58,9 @@ class ListeningEvent {
     'completed': completed,
     'skipped': skipped,
     if (mode != null) 'mode': mode!.key,
+    if (sessionId != null) 'sessionId': sessionId,
+    if (playedSeconds != null) 'playedSeconds': playedSeconds,
+    if (mediaSnapshot != null) 'mediaSnapshot': mediaSnapshot!.toJson(),
   };
 }
 
@@ -54,7 +72,7 @@ class ListeningEventStore {
 
   static const storageKey = 'listening_events_v1';
   static const _retention = Duration(days: 120);
-  static const _maxEvents = 4000;
+  Future<void> _pendingWrite = Future<void>.value();
 
   final GetStorage? _box;
   List<Map<String, dynamic>> _memory = [];
@@ -70,17 +88,52 @@ class ListeningEventStore {
         .toList(growable: false);
   }
 
-  Future<void> add(ListeningEvent event) async {
+  Future<void> add(ListeningEvent event) {
+    final operation = _pendingWrite.then((_) => _save(event));
+    _pendingWrite = operation.catchError((Object _) {});
+    return operation;
+  }
+
+  Future<void> flush() => _pendingWrite;
+
+  Future<void> _save(ListeningEvent event) async {
     final cutoff =
         DateTime.now().millisecondsSinceEpoch - _retention.inMilliseconds;
     final events = readAll()
         .where((existing) => existing.occurredAt >= cutoff)
         .toList();
-    events.add(event);
-    final trimmed = events.length <= _maxEvents
-        ? events
-        : events.sublist(events.length - _maxEvents);
-    _memory = trimmed.map((entry) => entry.toJson()).toList();
+    final index = event.sessionId == null
+        ? -1
+        : events.indexWhere(
+            (existing) => existing.sessionId == event.sessionId,
+          );
+    if (index < 0) {
+      events.add(event);
+    } else {
+      events[index] = event;
+    }
+    _memory = events.map((entry) => entry.toJson()).toList();
     await _box?.write(storageKey, _memory);
+  }
+
+  List<Map<String, dynamic>> exportBackupPayload() =>
+      readAll().map((e) => e.toJson()).toList();
+
+  Future<void> restoreBackupPayload(List raw) async {
+    for (final entry in raw.whereType<Map>()) {
+      final event = ListeningEvent.fromJson(Map<String, dynamic>.from(entry));
+      if (event.trackKey.isEmpty || event.occurredAt <= 0) continue;
+      if (event.sessionId == null &&
+          readAll().any(
+            (existing) =>
+                existing.trackKey == event.trackKey &&
+                existing.occurredAt == event.occurredAt &&
+                existing.mode == event.mode &&
+                existing.progress == event.progress,
+          )) {
+        continue;
+      }
+      await add(event);
+    }
   }
 }

@@ -14,10 +14,66 @@ import 'package:just_audio/just_audio.dart';
 import '../config/api_config.dart';
 import '../controllers/theme_controller.dart';
 import '../models/media_item.dart';
+import 'playback_history_recorder.dart';
+import 'engine_history_recorder.dart';
+import '../data/playback/playback_boundary_command.dart';
+import '../data/local/local_library_store.dart';
+import '../../Modules/recommendations/data/listening_event_store.dart';
+import '../../Modules/recommendations/domain/recommendation_models.dart';
 
 enum PlaybackState { stopped, loading, playing, paused }
 
-class AudioService extends GetxService {
+class AudioService extends GetxService with WidgetsBindingObserver {
+  AudioService({EngineHistoryRecorder? historyRecorder})
+    : _providedHistory = historyRecorder;
+  final EngineHistoryRecorder? _providedHistory;
+  late final EngineHistoryRecorder _history =
+      _providedHistory ??
+      PlaybackHistoryRecorder(
+        events: Get.find<ListeningEventStore>(),
+        library: Get.find<LocalLibraryStore>(),
+        mode: RecommendationMode.audio,
+      );
+  Future<void> flushPlaybackHistory() => _history.flush();
+  final Rxn<Object> historyPersistenceFailure = Rxn<Object>();
+  StreamSubscription<PlayerException>? _historyErrorSubscription;
+  Future<void> _flushEngineHistory() async {
+    try {
+      await _history.flush();
+    } catch (error) {
+      historyPersistenceFailure.value = error;
+      debugPrint('Audio history persistence failed: $error');
+    }
+  }
+
+  Duration _lastEngineHistoryPosition = Duration.zero;
+  bool _historySeekInProgress = false;
+  String? _lastEngineHistoryTrack;
+  MediaVariant? _lastEngineHistoryVariant;
+  bool _consumeEngineLoop() {
+    final position = _player.position;
+    final duration = _player.duration;
+    final sameSource =
+        _lastEngineHistoryTrack == currentItem.value?.id &&
+        _lastEngineHistoryVariant?.sameIdentityAs(
+              currentVariant.value ?? _lastEngineHistoryVariant!,
+            ) ==
+            true;
+    final looped =
+        sameSource &&
+        !_historySeekInProgress &&
+        _player.loopMode == LoopMode.one &&
+        duration != null &&
+        duration > Duration.zero &&
+        _lastEngineHistoryPosition.inMilliseconds * 10000 >=
+            duration.inMilliseconds * 9200 &&
+        position < _lastEngineHistoryPosition;
+    _lastEngineHistoryPosition = position;
+    _lastEngineHistoryTrack = currentItem.value?.id;
+    _lastEngineHistoryVariant = currentVariant.value;
+    return looped;
+  }
+
   static const _defaultAndroidAutoArtworkAuthority =
       'com.jv24dev.listenfy.android_auto_artwork';
   static const MethodChannel _androidAutoArtworkChannel = MethodChannel(
@@ -210,6 +266,7 @@ class AudioService extends GetxService {
   @override
   Future<void> onInit() async {
     super.onInit();
+    WidgetsBinding.instance.addObserver(this);
 
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
@@ -225,7 +282,22 @@ class AudioService extends GetxService {
     crossfadeSeconds.value = storedCrossfade.clamp(0, 12);
     _restoreLastItem();
 
+    _historyErrorSubscription = _player.errorStream.listen((error) {
+      _history.intent(PlaybackTermination.engineError);
+      _history.select(null);
+      unawaited(_flushEngineHistory());
+    });
     _player.playerStateStream.listen((ps) {
+      _history.select(currentItem.value, variant: currentVariant.value);
+      _history.update(
+        position: _player.position,
+        duration: _player.duration ?? Duration.zero,
+        playing: ps.playing && ps.processingState == ProcessingState.ready,
+        speed: _player.speed,
+        buffering: ps.processingState == ProcessingState.buffering,
+        completed: ps.processingState == ProcessingState.completed,
+        looped: _consumeEngineLoop(),
+      );
       final loading =
           ps.processingState == ProcessingState.loading ||
           ps.processingState == ProcessingState.buffering;
@@ -254,6 +326,11 @@ class AudioService extends GetxService {
       if (idx >= _queueVariants.length) return;
 
       final changedTrack = idx != _activeIndex;
+      _history.select(
+        _queueItems[idx],
+        variant: _queueVariants[idx],
+        occurrenceChanged: idx != _activeIndex,
+      );
       if (changedTrack) {
         _beginTrackPositionLifecycle(Duration.zero);
       }
@@ -278,6 +355,11 @@ class AudioService extends GetxService {
 
   @override
   void onClose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _history.intent(PlaybackTermination.appShutdown);
+    _history.select(null);
+    unawaited(_historyErrorSubscription?.cancel());
+    unawaited(_flushEngineHistory());
     _flushPendingLastItem();
     _lastItemPersistTimer?.cancel();
     _homeWidgetUpdateTimer?.cancel();
@@ -289,6 +371,11 @@ class AudioService extends GetxService {
     super.onClose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) unawaited(_flushEngineHistory());
+  }
+
   void attachHandler(dynamic handler) {
     _handler = handler;
     _lastHandlerQueueRevision = -1;
@@ -296,6 +383,17 @@ class AudioService extends GetxService {
   }
 
   void _publishPosition(Duration position) {
+    _history.select(currentItem.value, variant: currentVariant.value);
+    _history.update(
+      position: _player.position,
+      duration: _player.duration ?? Duration.zero,
+      playing:
+          _player.playing && _player.processingState == ProcessingState.ready,
+      speed: _player.speed,
+      buffering: _player.processingState == ProcessingState.buffering,
+      completed: _player.processingState == ProcessingState.completed,
+      looped: _consumeEngineLoop(),
+    );
     if (_position.value == position) return;
     _position.value = position;
   }
@@ -377,6 +475,14 @@ class AudioService extends GetxService {
     Duration initialPosition = Duration.zero,
   }) async {
     _showMiniPlayerForPlayback();
+
+    final oldItem = currentItem.value;
+    if (oldItem != null && !_sameItem(oldItem, item)) {
+      _history.intent(PlaybackTermination.manualSelection);
+    } else if (oldItem != null &&
+        currentVariant.value?.sameIdentityAs(variant) == false) {
+      _history.intent(PlaybackTermination.explicitStop);
+    }
 
     final incomingQueue = queue;
     if (forceReload &&
@@ -621,6 +727,9 @@ class AudioService extends GetxService {
   }
 
   Future<void> stop() async {
+    _history.intent(PlaybackTermination.explicitStop);
+    await _flushEngineHistory();
+    _history.select(null);
     _hiddenSessionSnapshotPreserved = false;
     _clearPendingLastItem();
     await _player.stop();
@@ -642,6 +751,9 @@ class AudioService extends GetxService {
   }
 
   Future<void> stopAndHidePreservingSession() async {
+    _history.intent(PlaybackTermination.explicitStop);
+    await _flushEngineHistory();
+    _history.select(null);
     final shouldPersist = hasSourceLoaded && _player.playing;
 
     miniPlayerDismissed.value = true;
@@ -723,8 +835,18 @@ class AudioService extends GetxService {
 
   Future<void> seek(Duration position) async {
     if (!hasSourceLoaded) return;
+    _historySeekInProgress = true;
+    _history.beforeSeek(position);
     _beginSeekPositionLifecycle(position);
-    await _player.seek(position);
+    try {
+      await _player.seek(position);
+    } finally {
+      _historySeekInProgress = false;
+      _history.afterSeek(
+        playing:
+            _player.playing && _player.processingState == ProcessingState.ready,
+      );
+    }
     _beginSeekPositionLifecycle(position);
     _persistSessionSnapshot();
   }
@@ -733,6 +855,7 @@ class AudioService extends GetxService {
     if (_queueItems.isEmpty) return;
     final target = currentQueueIndex + 1;
     if (target < 0 || target >= _queueItems.length) return;
+    _history.intent(PlaybackTermination.manualNext);
     if (withTransition) {
       await _transitionToIndex(target, autoPlay: true);
       return;
@@ -744,6 +867,7 @@ class AudioService extends GetxService {
     if (_queueItems.isEmpty) return;
     final target = currentQueueIndex - 1;
     if (target < 0 || target >= _queueItems.length) return;
+    _history.intent(PlaybackTermination.manualPrevious);
     if (withTransition) {
       await _transitionToIndex(target, autoPlay: true);
       return;
@@ -757,6 +881,7 @@ class AudioService extends GetxService {
   }) async {
     if (_queueItems.isEmpty) return;
     if (index < 0 || index >= _queueItems.length) return;
+    _history.intent(PlaybackTermination.manualSelection);
     await _transitionToIndex(
       index,
       autoPlay: true,
