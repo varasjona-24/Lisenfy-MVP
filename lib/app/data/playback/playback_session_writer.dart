@@ -292,6 +292,10 @@ extension PlaybackSessionWriter on PlaybackRepository {
           c.sessionId,
         ],
       );
+      await _refreshAggregate(
+        session.read<String>('media_id'),
+        session.read<String>('mode'),
+      );
       await faultInjector?.call(PlaybackFaultPoint.beforeCommit);
       changed = true;
       return PlaybackBoundaryResult(

@@ -9,6 +9,7 @@ import 'playback_session_command.dart';
 import 'playback_boundary_command.dart';
 
 part 'playback_session_writer.dart';
+part 'playback_aggregate_writer.dart';
 
 enum PlaybackFaultPoint { afterIdentityWrite, beforeCommit, afterCommit }
 
@@ -264,6 +265,7 @@ class PlaybackRepository {
           0,
         ],
       );
+      await _refreshAggregate(c.mediaId, c.variant.mode.name);
       await faultInjector?.call(PlaybackFaultPoint.beforeCommit);
       changed = true;
       return PlaybackSessionResult(

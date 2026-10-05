@@ -1,5 +1,14 @@
 # Registro de refactor
 
+## 2026-10-05 — Agregados y recuperación inicial
+
+- Apertura y boundaries refrescan proyección por identidad/modo dentro de su transacción; incluye contadores, wall/media, ratios y recencia. Solo independent/post_cutover son aditivos; legacy y baseline_covered no se suman dos veces.
+- rebuildAggregates reconstruye desde materializaciones de sesión sin leer los agregados anteriores. Comparación exacta contra proyección actual probada. Aún no es replay completo de journal ni benchmark de proyección por delta.
+- recoverInterruptedSessions se ejecutará antes de conectar motores: usa último evento durable y process_lost, no agrega tiempo desde ese checkpoint al nuevo arranque. Reapertura y segunda recuperación verificadas.
+- Se inspeccionaron streams audio y timer video. Conexión efectiva a motores todavía pendiente: recorder legacy no transporta intenciones manuales frente a avance automático, variantes y errores con el contrato SQL. No se activó doble escritura ni cutover.
+- Verificación final tras añadir reapertura:33 pruebas Flutter y12 SQL aprobadas; análisis focalizado limpio.
+- Este grupo implementa2 de los3 puntos solicitados. Falta el adaptador del recorder y su conexión explícita/opt-in a los motores, más cobertura de recuperación con kills y fallos reales.
+
 ## 2026-10-05 — Cierre, intervalos y política v1
 
 - Comandos tipados para checkpoint, pausa/resume, buffering, seek, velocidad y cierre; motivo factual separado de skipped/completed. Next/previous/selección manual antes92% = skip; desde92% = completed sin skip. Duración desconocida no se clasifica arbitrariamente.
