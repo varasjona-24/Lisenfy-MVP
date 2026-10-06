@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import '../../../app/data/local/domain_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:dio/dio.dart' as dio;
@@ -41,7 +42,7 @@ class LauncherIconOption {
 /// - [EqualizerController] — ecualizador completo
 /// - [BackupRestoreController] — export/import de librería
 class SettingsController extends GetxController with WidgetsBindingObserver {
-  final GetStorage _storage = GetStorage();
+  final GetStorage _storage = domainStorage(GetStorage());
   static const MethodChannel _appIconChannel = MethodChannel(
     'listenfy/app_icon',
   );

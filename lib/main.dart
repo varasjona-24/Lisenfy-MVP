@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'app/data/local/catalog_storage.dart';
+import 'app/data/local/domain_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:audio_service/audio_service.dart' as aud;
 import 'package:easy_localization/easy_localization.dart'
@@ -89,11 +90,6 @@ Future<void> main() async {
   );
 
   // ⚙️ Controller global de configuración
-  Get.put(SettingsController(), permanent: true);
-  Get.put(PlaybackSettingsController(), permanent: true);
-  Get.put(SleepTimerController(), permanent: true);
-  Get.put(EqualizerController(), permanent: true);
-  Get.put(NotificationSettingsController(), permanent: true);
 
   // 🎵 Audio global (CLAVE)
   Get.put<GetStorage>(GetStorage(), permanent: true);
@@ -119,6 +115,10 @@ Future<void> main() async {
       await CatalogStorage.open(repository, storage, scope),
       permanent: true,
     );
+    Get.put<DomainStorage>(
+      await DomainStorage.open(repository, storage, scope),
+      permanent: true,
+    );
     final library = LocalLibraryStore(
       storage,
       metricsLoader: repository.queryLibraryMetrics,
@@ -136,6 +136,12 @@ Future<void> main() async {
       'SQLite DEBUG: legacy imported, restoration loaded, history consumers connected; scope=$scope',
     );
   }
+  // Settings must read after SQL projections are loaded, not stale legacy data.
+  Get.put(SettingsController(), permanent: true);
+  Get.put(PlaybackSettingsController(), permanent: true);
+  Get.put(SleepTimerController(), permanent: true);
+  Get.put(EqualizerController(), permanent: true);
+  Get.put(NotificationSettingsController(), permanent: true);
   final appAudio = AudioService(historyRecorder: sqliteHistory?.create());
   Get.put<AudioService>(appAudio, permanent: true);
   await appAudio.initializeAndroidAutoArtwork();

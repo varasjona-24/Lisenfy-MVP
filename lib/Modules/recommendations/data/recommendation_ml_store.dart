@@ -1,8 +1,9 @@
 import 'package:get_storage/get_storage.dart';
+import '../../../app/data/local/domain_storage.dart';
 import '../domain/recommendation_ml_models.dart';
 
 class RecommendationMlStore {
-  RecommendationMlStore(this._box);
+  RecommendationMlStore(GetStorage box) : _box = domainStorage(box);
   RecommendationMlStore.memory([Map<String, dynamic>? state])
     : _box = null,
       _memory = state;
@@ -10,7 +11,7 @@ class RecommendationMlStore {
   final GetStorage? _box;
   Map<String, dynamic>? _memory;
   Future<RecommendationMlState> readState() async {
-    final raw = _box?.read(storageKey) ?? _memory;
+    final raw = _box != null ? _box.read(storageKey) : _memory;
     if (raw is! Map) return RecommendationMlState.empty();
     try {
       return RecommendationMlState.fromJson(Map<String, dynamic>.from(raw));
@@ -20,7 +21,8 @@ class RecommendationMlStore {
   }
 
   Future<void> writeState(RecommendationMlState state) async {
-    _memory = state.toJson();
-    await _box?.write(storageKey, _memory);
+    final json = state.toJson();
+    await _box?.write(storageKey, json);
+    _memory = json;
   }
 }

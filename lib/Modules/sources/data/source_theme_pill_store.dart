@@ -1,4 +1,5 @@
 import 'package:get_storage/get_storage.dart';
+import '../../../app/data/local/domain_storage.dart';
 
 import '../domain/source_theme_pill.dart';
 
@@ -6,7 +7,7 @@ class SourceThemePillStore {
   // ============================
   // 💾 STORAGE
   // ============================
-  SourceThemePillStore(this._box);
+  SourceThemePillStore(GetStorage box) : _box = domainStorage(box);
 
   final GetStorage _box;
   static const _key = 'source_theme_pills';

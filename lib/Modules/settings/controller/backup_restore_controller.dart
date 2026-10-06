@@ -16,6 +16,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive_io.dart';
 
 import '../../../app/data/local/local_library_store.dart';
+import '../../../app/data/local/domain_storage.dart';
+import '../../../app/data/local/domain_backup_codec.dart';
+import '../../../app/data/local/catalog_storage.dart';
+import '../../../app/services/instrumental_generation_service.dart';
+import '../../../app/services/spatial8d_generation_service.dart';
 import '../../../app/data/playback/playback_repository.dart';
 import '../../../app/data/playback/playback_state_storage.dart';
 import '../../../app/services/audio_service.dart';
@@ -1323,6 +1328,7 @@ class BackupRestoreController extends GetxController {
 
         final rel = _safeBackupRelPath(_relativeBackupPath(appDir.path, clean));
         if (rel == null) return null;
+        if (fileManifestByRel.containsKey(rel)) return rel;
         final dest = File(p.join(filesDir.path, rel));
         await dest.parent.create(recursive: true);
         await src.copy(dest.path);
@@ -1553,7 +1559,24 @@ class BackupRestoreController extends GetxController {
       };
 
       final manifestFile = File(p.join(tempDir.path, 'manifest.json'));
+      if (Get.isRegistered<DomainStorage>()) {
+        final storage = Get.find<DomainStorage>();
+        await storage.flush();
+        final data = {
+          for (final key in DomainBackupCodec.keys) key: storage.read(key),
+        };
+        await File(p.join(tempDir.path, 'app_domains_v1.json')).writeAsString(
+          jsonEncode({
+            'version': 1,
+            'values': await DomainBackupCodec.encode(data, copyToBackup),
+          }),
+          flush: true,
+        );
+      }
       if (Get.isRegistered<PlaybackRepository>()) {
+        if (Get.isRegistered<CatalogStorage>()) {
+          await Get.find<CatalogStorage>().flush();
+        }
         await Get.find<AudioService>().flushPlaybackHistory();
         await Get.find<VideoService>().flushPlaybackHistory();
         await Get.find<PlaybackStateStorage>().flush();
@@ -1563,6 +1586,10 @@ class BackupRestoreController extends GetxController {
           p.join(tempDir.path, 'playback_sqlite_debug.json'),
         ).writeAsString(jsonEncode(payload), flush: true);
       }
+      manifest['backupFiles'] = fileManifestByRel.values
+          .map((entry) => entry.toJson())
+          .toList();
+      backupSummary['files'] = fileManifestByRel.length;
       await manifestFile.writeAsString(jsonEncode(manifest), flush: true);
       final appearanceFile = File(p.join(tempDir.path, 'appearance.json'));
       await appearanceFile.writeAsString(
@@ -1630,6 +1657,12 @@ class BackupRestoreController extends GetxController {
     if (isExporting.value || isImporting.value) return;
 
     try {
+      if ((Get.isRegistered<InstrumentalGenerationService>() &&
+              Get.find<InstrumentalGenerationService>().hasRunningJobs) ||
+          (Get.isRegistered<Spatial8dGenerationService>() &&
+              Get.find<Spatial8dGenerationService>().hasRunningJobs)) {
+        throw StateError(tr('backup.processing_busy'));
+      }
       String path = (zipPath ?? '').trim();
       if (path.isEmpty) {
         FilePickerResult? res;
@@ -2078,6 +2111,7 @@ class BackupRestoreController extends GetxController {
           title: data['sourceTitle']?.toString(),
           sourceId: data['sourceId']?.toString(),
         );
+        await captureStore.registerCaptureFile(restoredPath);
       }
 
       if (useStreamingManifest) {
@@ -2171,6 +2205,44 @@ class BackupRestoreController extends GetxController {
         ) async {
           await Get.find<ListeningEventStore>().restoreBackupPayload([data]);
         });
+      }
+      if (Get.isRegistered<DomainStorage>()) {
+        final domainEntry = zipIndex.find('app_domains_v1.json');
+        if (domainEntry != null) {
+          final target = File(p.join(tempDir.path, 'app_domains_v1.json'));
+          await _extractZipBackupEntry(
+            zipPath: path,
+            entry: domainEntry,
+            outputPath: target.path,
+          );
+          final payload = jsonDecode(await target.readAsString()) as Map;
+          if (payload['version'] != 1 || payload['values'] is! Map) {
+            throw FormatException('Unsupported durable backup');
+          }
+          final raw = Map<String, dynamic>.from(payload['values'] as Map);
+          if (raw.keys.any((key) => !DomainBackupCodec.keys.contains(key))) {
+            throw FormatException('Unexpected durable backup domain');
+          }
+          final decoded = await DomainBackupCodec.decode(raw, (rel) async {
+            await restoreFile(rel);
+            final resolved = resolveRel(rel);
+            if (zipIndex.find(p.posix.join('files', rel)) == null ||
+                resolved == null ||
+                !await File(resolved).exists()) {
+              return null;
+            }
+            return resolved;
+          });
+          await Get.find<DomainStorage>().restoreValues(
+            Map<String, dynamic>.from(decoded as Map),
+          );
+          if (Get.isRegistered<InstrumentalGenerationService>()) {
+            Get.find<InstrumentalGenerationService>().reloadDurableTasks();
+          }
+          if (Get.isRegistered<Spatial8dGenerationService>()) {
+            Get.find<Spatial8dGenerationService>().reloadDurableTasks();
+          }
+        }
       }
       if (!useStreamingManifest && manifest != null) {
         final listeningEvents = manifest['listeningEvents'];

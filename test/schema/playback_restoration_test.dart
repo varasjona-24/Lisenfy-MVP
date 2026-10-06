@@ -196,7 +196,7 @@ void main() {
           .data
           .values
           .single,
-      3,
+      4,
     );
     await upgraded.close();
     repository = await open();

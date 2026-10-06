@@ -30,13 +30,13 @@ void main() {
               "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
             )
             .get(),
-        hasLength(24),
+        hasLength(28),
       );
       for (final entry in {
         'foreign_keys': 1,
         'synchronous': 2,
         'busy_timeout': 5000,
-        'user_version': 3,
+        'user_version': 4,
       }.entries) {
         expect(
           (await db.customSelect('PRAGMA ${entry.key}').get())
@@ -70,7 +70,7 @@ void main() {
     await staging.create(recursive: true);
     final raw = sqlite3.open('${staging.path}/future.db');
     raw.execute('CREATE TABLE keep_data(value TEXT)');
-    raw.execute('PRAGMA user_version=4');
+    raw.execute('PRAGMA user_version=5');
     raw.close();
     await expectLater(
       PlaybackDatabaseOpener.openStaging(
@@ -81,7 +81,7 @@ void main() {
       throwsA(anything),
     );
     final check = sqlite3.open('${staging.path}/future.db');
-    expect(check.select('PRAGMA user_version').single.values.single, 4);
+    expect(check.select('PRAGMA user_version').single.values.single, 5);
     expect(
       check.select("SELECT name FROM sqlite_master WHERE name='keep_data'"),
       hasLength(1),
@@ -127,7 +127,7 @@ void main() {
               .data
               .values
               .single,
-          3,
+          4,
         );
         expect(
           (await upgraded
@@ -147,6 +147,40 @@ void main() {
       }
     },
   );
+  test('v3 upgrade preserves catalog records', () async {
+    final staging = Directory('${directory.path}/playback/staging');
+    await staging.create(recursive: true);
+    final raw = sqlite3.open('${staging.path}/v3.db');
+    for (final asset in [
+      PlaybackDatabaseOpener.schemaAsset,
+      PlaybackDatabaseOpener.restorationSchemaAsset,
+      PlaybackDatabaseOpener.catalogSchemaAsset,
+    ]) {
+      raw.execute(await File(asset).readAsString());
+    }
+    raw.execute("INSERT INTO library_record VALUES ('kept',0,'{}')");
+    raw.close();
+    final upgraded = await PlaybackDatabaseOpener.openStaging(
+      generation: 'v3',
+      supportDirectory: directory,
+      temporaryDirectory: directory,
+    );
+    try {
+      expect(
+        (await upgraded
+                .customSelect('SELECT id FROM library_record')
+                .getSingle())
+            .read<String>('id'),
+        'kept',
+      );
+      expect(
+        await upgraded.customSelect('SELECT * FROM app_domain_state').get(),
+        isEmpty,
+      );
+    } finally {
+      await upgraded.close();
+    }
+  });
   test('version alone cannot validate an incomplete schema', () async {
     final staging = Directory('${directory.path}/playback/staging');
     await staging.create(recursive: true);

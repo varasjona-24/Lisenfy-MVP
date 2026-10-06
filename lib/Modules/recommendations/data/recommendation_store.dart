@@ -1,9 +1,10 @@
 import 'package:get_storage/get_storage.dart';
+import '../../../app/data/local/domain_storage.dart';
 
 import '../domain/recommendation_models.dart';
 
 class RecommendationStore {
-  RecommendationStore(this._box);
+  RecommendationStore(GetStorage box) : _box = domainStorage(box);
   RecommendationStore.memory([Map<String, dynamic>? initialState])
     : _box = null,
       _memoryState = initialState;
@@ -14,7 +15,7 @@ class RecommendationStore {
   static const stateStorageKey = 'recommendation_state_v1';
 
   Future<RecommendationState> readState() async {
-    final raw = _box?.read(stateStorageKey) ?? _memoryState;
+    final raw = _box != null ? _box.read(stateStorageKey) : _memoryState;
     if (raw is! Map) return RecommendationState.empty();
     try {
       return RecommendationState.fromJson(Map<String, dynamic>.from(raw));
@@ -24,10 +25,10 @@ class RecommendationStore {
   }
 
   Future<void> writeState(RecommendationState state) async {
-    _memoryState = state.toJson();
     if (_box != null) {
       await _box.write(stateStorageKey, state.toJson());
     }
+    _memoryState = state.toJson();
   }
 
   Future<Map<String, dynamic>> exportBackupPayload() async {

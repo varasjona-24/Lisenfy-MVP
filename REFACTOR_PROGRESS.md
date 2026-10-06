@@ -1,5 +1,14 @@
 # Registro de refactor
 
+## 2026-10-06 — Dominios durables SQL v4 y backup complementario
+
+- Conectados Collections/sources, capturas/fondos, recomendaciones, Atlas y trabajos instrumental/8D mediante DomainStorage. Preferencias y caché de estaciones siguen en GetStorage; archivos físicos en disco y referencias SQL. Bootstrap carga la proyección antes de Settings y motores.
+- Migración automática debug desde snapshot congelado, hash y recibo atómico; originales preservados, rollback ante datos inválidos, sin fallback legacy. Actualización v1/v2/v3 a v4 conserva datos existentes. Escrituras y restore del adaptador serializados, cache publicada después del commit y fallos bloquean nuevas escrituras hasta recuperación.
+- Registro inicial de capturas sin etiquetas y actualización al crear/renombrar/eliminar; fondos registrados por rutas. Atlas SQL sin tope de 1.200 eventos y trabajos terminales sin purga legacy de 24 horas. Escrituras nuevas de tareas excluyen progress/message efímeros; resultados/variantes conservan el owner del catálogo.
+- Backup añade ocho dominios complementarios, copia/reconstruye rutas relativas de archivos, actualiza inventario/hashes y evita recopia inconsistente. Restauración rechaza trabajos activos al inicio y recarga tareas durables sin lanzarlas automáticamente. Texto nuevo de bloqueo traducido en ES/EN.
+- Verificación final: 132 pruebas schema/stats/Connect/Atlas/recommendations aprobadas; análisis focalizado de 19 targets sin issues y diff sin errores de whitespace. Incluye actualización v3→v4, rollback/recuperación fail-closed, capturas, más de 1.200 eventos de Atlas y codec de backup. Persisten avisos de plugins y traducciones en fixtures sin catálogo. No se declara suite global ni validación en teléfono.
+- Alcance transitorio: registros JSON por entidad, relaciones internas sin normalización completa, proyección síncrona completa y concurrencia read-modify-write pendiente. Disco+SQL y backup global NO atómicos; falta lease global de restauración, pruebas físicas y cutover. Solo debug con LISTENFY_SQLITE_STAGING_HISTORY; release/default legacy sin cambio.
+
 ## 2026-10-06 — Regla global de datos y primer catálogo SQL v3
 
 - Criterio aprobado documentado en docs/playback/APP_DATA_MIGRATION.md: datos durables y registros de archivos en SQLite; archivos físicos en disco; preferencias en GetStorage; estado efímero en memoria. Procesamiento sigue la misma regla: trabajos/estado recuperable/resultados SQL, preferencias GetStorage y progreso instantáneo en memoria.

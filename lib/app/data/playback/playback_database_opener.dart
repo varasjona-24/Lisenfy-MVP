@@ -13,6 +13,7 @@ class PlaybackDatabaseOpener {
   static const schemaAsset = 'docs/playback/schema_v1.sql';
   static const restorationSchemaAsset = 'docs/playback/migration_v2.sql';
   static const catalogSchemaAsset = 'docs/playback/migration_v3.sql';
+  static const domainSchemaAsset = 'docs/playback/migration_v4.sql';
 
   static Future<PlaybackDatabase> openStaging({
     required String generation,
@@ -32,6 +33,9 @@ class PlaybackDatabaseOpener {
       restorationSchemaAsset,
     );
     final tempPath = temporary.path;
+    final domainSchema = await (bundle ?? rootBundle).loadString(
+      domainSchemaAsset,
+    );
     final catalogSchema = await (bundle ?? rootBundle).loadString(
       catalogSchemaAsset,
     );
@@ -41,7 +45,7 @@ class PlaybackDatabaseOpener {
         sql.sqlite3.tempDirectory = tempPath;
         final version =
             database.select('PRAGMA user_version').single.values.single as int;
-        if (version < 0 || version > 3) {
+        if (version < 0 || version > 4) {
           throw StateError('Unsupported playback schema version: $version');
         }
         database.execute('PRAGMA foreign_keys = ON');
@@ -89,12 +93,23 @@ class PlaybackDatabaseOpener {
           }
           database.execute(catalogSchema);
         }
+        if (version < 4) {
+          for (final table in PlaybackDatabase.catalogTables) {
+            if (database.select(
+              'SELECT name FROM sqlite_master WHERE type=\'table\' AND name=?',
+              [table],
+            ).isEmpty) {
+              throw StateError('Incomplete catalog before domain upgrade');
+            }
+          }
+          database.execute(domainSchema);
+        }
         final installed = database
             .select('PRAGMA user_version')
             .single
             .values
             .single;
-        if (installed != 3) {
+        if (installed != 4) {
           throw StateError('Playback schema installation failed');
         }
       },

@@ -15,6 +15,7 @@ part 'playback_aggregate_writer.dart';
 part 'playback_restoration_writer.dart';
 part 'playback_debug_transfer.dart';
 part 'catalog_writer.dart';
+part 'domain_writer.dart';
 
 enum PlaybackFaultPoint { afterIdentityWrite, beforeCommit, afterCommit }
 

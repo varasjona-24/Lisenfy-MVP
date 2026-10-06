@@ -1288,6 +1288,7 @@
     "shuffle": "Shuffle playback"
   },
   "backup": {
+    "processing_busy": "Wait for processing jobs to finish before restoring a backup.",
     "sqlite_legacy_empty_required": "Importing this legacy backup requires an empty SQLite history. Potentially overlapping metrics will not be merged.",
     "sqlite_debug_required": "SQLite debug mode requires a backup created in the same mode. Older data is imported automatically on the first debug startup.",
     "title": "Backup",

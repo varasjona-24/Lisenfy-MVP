@@ -59,18 +59,51 @@ instancia registrada. Export/import mantiene el formato lógico de entidades
 existente; no se afirma que un restore completo de todos los módulos sea una
 única transacción. Ese protocolo y la activación siguen pendientes.
 
+## Bloque implementado: dominios v4 en SQLite debug
+
+Collections (sources), etiquetas/asociaciones y registro de capturas, fondos,
+estado/mixes/modelo/feedback de recomendaciones, memoria/actividad de Atlas y
+trabajos instrumental/8D usan DomainStorage registrado antes de sus consumidores.
+Las 19 claves declaradas se importan desde una copia congelada con hash y recibo
+transaccional. El original GetStorage no se elimina ni se usa como fallback de
+lectura cuando SQL es propietario. Preferencias y caché de estaciones se delegan
+al proveedor existente; la selección del fondo es preferencia, sus archivos son
+registros SQL. Se indexan capturas físicas antiguas aunque no tengan etiquetas.
+
+v4 añade app_domain_state, app_domain_record, app_domain_file y app_domain_import.
+Es una transición por registros JSON ordenados, NO la normalización completa de
+miembros/relaciones de cada módulo ni un journal inmutable de feedback. Las
+relaciones internas se conservan en payloads. La proyección síncrona sigue completa
+en memoria; operaciones por entidad, paginación y read-modify-write concurrente
+siguen pendientes. Las escrituras/restauraciones se serializan y publican después
+del commit; un fallo bloquea escrituras hasta reconstruir el adaptador.
+
+Atlas SQL no aplica el corte legacy de 1.200 eventos. Trabajos terminados SQL no
+se purgan automáticamente a las 24 horas; escrituras nuevas omiten progress y
+message efímeros, conservando etapa, sesión remota, resultado y referencias.
+La recuperación de tareas sigue el ciclo existente; no se promete atomicidad
+entre archivos, workers y SQL ni ausencia de pérdida ante cualquier crash.
+
+Backup mantiene el manifiesto lógico existente y añade app_domains_v1.json para
+ocho namespaces complementarios (mixes/ML, Atlas, trabajos). Sus rutas de archivo
+se exportan como referencias relativas verificadas y se reconstruyen al restaurar;
+archivos ausentes no se presentan como disponibles. Se bloquea la restauración
+si existen trabajos activos al iniciarla. No hay lease global que impida que un
+worker nuevo arranque durante toda la operación. El restore global sigue siendo
+varias transacciones y operaciones de disco, NO una transacción única. Backups
+antiguos conservan el camino de importación lógico.
+
+Los archivos siguen en disco. Capturas continúan contrastando la carpeta física
+con el registro; rename/delete de disco y SQL requieren un protocolo de recuperación
+para ser atómicos frente a interrupciones. No se elimina evidencia de playback.
+
 ## Estado y orden pendiente
 
 1. Biblioteca, playlists y artistas: implementados en SQLite debug, pendientes
    pruebas físicas de importación/edición/exportación/restauración.
-2. Collections: migrar fuentes, temas, colecciones, miembros y jerarquía.
-3. Capturas y fondos: registrar archivos, asociaciones, etiquetas, selección de
-   fondos y referencias; mantener preferencias de carrusel separadas.
-4. Recomendaciones: migrar estado durable/feedback, distinguir modelos y mixes
-   regenerables. No convertir feedback histórico en eventos con fecha inventada.
-5. Atlas: estaciones/cache frente a actividad, descubrimientos y memoria durable.
-6. Procesamiento: trabajos/reintentos/resultados SQL; configuración GetStorage;
-   progreso efímero en memoria. Referenciar variantes/archivos generados.
+2. Collections, capturas/fondos, recomendaciones, Atlas y procesamiento:
+   conectados en debug v4; pendientes pruebas físicas, normalización y protocolos
+   de concurrencia/recuperación detallados arriba. No se inventan fechas de feedback.
 7. Preferencias de reproducción y backup global: revisar propietarios y restaurar
    transaccionalmente cada conjunto consistente, incluyendo backups antiguos.
 8. Activación real: manifest/generación verificada según MIGRATION_CONTRACT,

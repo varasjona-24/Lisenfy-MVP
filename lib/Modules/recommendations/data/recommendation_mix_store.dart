@@ -1,9 +1,10 @@
 import 'package:get_storage/get_storage.dart';
+import '../../../app/data/local/domain_storage.dart';
 
 import '../domain/recommendation_mix_models.dart';
 
 class RecommendationMixStore {
-  RecommendationMixStore(this._box);
+  RecommendationMixStore(GetStorage box) : _box = domainStorage(box);
   RecommendationMixStore.memory([Map<String, dynamic>? initial])
     : _box = null,
       _memory = initial;
@@ -14,7 +15,7 @@ class RecommendationMixStore {
   Map<String, dynamic>? _memory;
 
   Future<RecommendationMixState> read() async {
-    final raw = _box?.read(storageKey) ?? _memory;
+    final raw = _box != null ? _box.read(storageKey) : _memory;
     if (raw is! Map) return RecommendationMixState.empty();
     try {
       return RecommendationMixState.fromJson(Map<String, dynamic>.from(raw));
@@ -24,8 +25,8 @@ class RecommendationMixStore {
   }
 
   Future<void> write(RecommendationMixState state) async {
-    _memory = state.toJson();
     await _box?.write(storageKey, state.toJson());
+    _memory = state.toJson();
   }
 
   Future<void> markOpened(String mixId, int openedAt) async {
