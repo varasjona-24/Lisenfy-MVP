@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-06 — Acceso para retomar video desde Home
+
+- Home en modo video muestra Continuar video y el título actual cuando VideoService conserva un último item. La acción abre videoPlayer sin argumentos: reutiliza la sesión o restaura la cola/índice persistidos mediante el binding, sin sustituirlos por Últimas importaciones.
+- La selección de un archivo en Home mantiene su comportamiento de iniciar la lista de esa sección. No se modifica la política existente de reanudación de posición ni se añade un segundo escritor de estado.
+- Texto propio home.actions.resume_video en español e inglés. El acceso observa currentItem y desaparece si no hay item disponible.
+- Verificación: 11 pruebas de integración SQLite aprobadas; diff sin errores de whitespace. Análisis del Home sin errores/warnings, con 13 infos fuera del bloque añadido. Tests emiten aviso Drift de múltiples instancias durante escenarios de reapertura. El nuevo acceso visual y su navegación requieren comprobación en teléfono; estas pruebas verifican la persistencia, no el tap de UI.
+
 ## 2026-10-06 — Cola de video y crossfade sin bypass legacy
 
 - VideoPlayerBinding resuelve playbackStateStorage durante dependencies, en vez de inyectar GetStorage directo al restaurar cola/índice sin argumentos. SQLite debug pasa a ser la fuente de ese camino; release/sin flag mantienen el fallback legacy.

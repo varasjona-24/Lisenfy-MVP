@@ -9,6 +9,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:listenfy/Modules/Home/Controller/home_controller.dart';
 import 'package:listenfy/Modules/recommendations/domain/recommendation_collection.dart';
 import '../../../app/models/media_item.dart';
+import '../../../app/services/video_service.dart';
 import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import '../../../app/ui/widgets/dialogs/sort_options_sheet.dart';
@@ -176,6 +177,32 @@ class HomePage extends GetView<HomeController> {
                           child: CustomScrollView(
                             physics: const AlwaysScrollableScrollPhysics(),
                             slivers: [
+                              if (mode == HomeMode.video &&
+                                  Get.isRegistered<VideoService>())
+                                SliverToBoxAdapter(
+                                  child: Obx(() {
+                                    final item = Get.find<VideoService>()
+                                        .currentItem.value;
+                                    if (item == null) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return ListTile(
+                                      leading: const Icon(
+                                        Icons.play_circle_outline_rounded,
+                                      ),
+                                      title: Text(tr('home.actions.resume_video')),
+                                      subtitle: Text(
+                                        item.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      trailing: const Icon(Icons.chevron_right),
+                                      onTap: () => Get.toNamed(
+                                        AppRoutes.videoPlayer,
+                                      ),
+                                    );
+                                  }),
+                                ),
                               SliverPadding(
                                 padding: EdgeInsets.only(
                                   top: AppSpacing.md,

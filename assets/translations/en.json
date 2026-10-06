@@ -70,6 +70,7 @@
     "temporary_playlists": "Temporary playlists",
     "actions": {
       "edit_home": "Edit home",
+      "resume_video": "Continue video",
       "change_view": "Change view",
       "remove": "Remove"
     },
