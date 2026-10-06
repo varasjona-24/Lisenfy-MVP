@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-06 — Tarjeta Continuar viendo compartida
+
+- Sustituido el acceso básico por ContinueVideoCard: portada local/remota con fallback, título, acción de reproducción y colores de ColorScheme. La tarjeta reactiva desaparece sin último video y no modifica el estado del motor.
+- Integrada únicamente en Home en modo video y en la pantalla principal Collections (SourcesPage). La navegación sigue sin argumentos de cola, conservando el camino de restauración existente. Sin cambios en otros módulos de música.
+- Etiqueta propia traducida a Continuar viendo / Continue watching. Componente compartido para evitar duplicar presentación y navegación.
+- Verificación: 11 pruebas de integración SQLite y 2 de widget aprobadas. Análisis del componente/test sin issues; Home/Collections sin errores ni warnings, con los 13 infos del Home ya registrados. El test de widget sin catálogo cargado avisa de la clave traducida; los JSON de producción contienen la clave. Aviso Drift en tests de reapertura persiste. Validación de aspecto/navegación en teléfono pendiente.
+
 ## 2026-10-06 — Mini reproductor oculto en Home video
 
 - MiniPlayerBar observa el modo de Home y se oculta únicamente en la ruta Home cuando el modo es video. Volver a audio restituye su visibilidad conforme a las condiciones existentes.

@@ -13,6 +13,7 @@ import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/routes/app_routes.dart';
+import '../../../app/ui/widgets/player/continue_video_card.dart';
 
 // ============================
 // 🧭 PAGE: SOURCES
@@ -63,6 +64,7 @@ class SourcesPage extends GetView<SourcesController> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const ContinueVideoCard(),
                         _header(theme: theme, scheme: scheme),
                         const SizedBox(height: AppSpacing.lg),
 
