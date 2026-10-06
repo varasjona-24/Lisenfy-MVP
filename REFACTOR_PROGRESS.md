@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-06 — Release temporal para restauración aislada
+
+- Variable opt-in LISTENFY_RESTORE_SANDBOX=1: paquete com.jv24dev.listenfy.restoretest, launcher Listenfy Restore Test y firma debug en APK release. Sin variable se conserva ID/nombre/firma normal.
+- Labels de aplicación/aliases comparten placeholder; artwork usa authority por applicationId y widgets mantienen broadcasts explícitos privados. SQLite/GetStorage/archivos privados quedan separados por paquete.
+- Procedimiento en docs/playback/TEMPORARY_RESTORE_TEST.md. No se desinstaló la app original ni se restauró el ZIP; retiro posterior de la temporal requiere autorización.
+- Verificación: build release temporal aprobado (104.5 MB), tres pruebas launcher/provider aprobadas y aapt confirma paquete .restoretest/nombre distintivo. APK separado listenfy-restore-test-release.apk; instalación ADB paralela completada con Success. Restauración y comparación de datos pendientes del usuario.
+
 ## 2026-10-06 — SQLite predeterminado en debug y release
 
 - Por autorización del usuario, el bootstrap de producción pasa a ser el camino normal: no requiere dart-define al compilar release. Biblioteca, playlists/artistas, historial/restauración y dominios conectados usan sus owners SQL; preferencias/cachés siguen en GetStorage y archivos físicos en disco.

@@ -9,6 +9,8 @@ plugins {
 }
 
 val keystoreProperties = Properties()
+// Temporary opt-in release sandbox; normal builds retain their identity.
+val restoreSandbox = providers.environmentVariable("LISTENFY_RESTORE_SANDBOX").orNull == "1"
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
@@ -32,6 +34,10 @@ android {
     defaultConfig {
         // Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.jv24dev.listenfy"
+        if (restoreSandbox) {
+            applicationIdSuffix = ".restoretest"
+        }
+        manifestPlaceholders["listenfyAppLabel"] = if (restoreSandbox) "Listenfy Restore Test" else "Listenfy"
 
         // Flutter defaults
         minSdk = flutter.minSdkVersion
@@ -64,7 +70,7 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName(if (restoreSandbox) "debug" else "release")
         }
     }
 

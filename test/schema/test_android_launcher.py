@@ -17,6 +17,15 @@ def is_launcher(intent):
 
 
 class LauncherManifestTest(unittest.TestCase):
+    def test_restore_sandbox_labels_and_provider_are_package_scoped(self):
+        source = ET.parse(ROOT / "android/app/src/main/AndroidManifest.xml")
+        app = source.find("application")
+        self.assertEqual(app.get(ANDROID + "label"), "${listenfyAppLabel}")
+        for alias in app.findall("activity-alias"):
+            self.assertEqual(alias.get(ANDROID + "label"), "${listenfyAppLabel}")
+        provider = app.find("provider")
+        self.assertEqual(provider.get(ANDROID + "authorities"), "${applicationId}.android_auto_artwork")
+
     def test_flutter_source_discovery(self):
         source = ET.parse(ROOT / "android/app/src/main/AndroidManifest.xml")
         main = source.find("application/activity")

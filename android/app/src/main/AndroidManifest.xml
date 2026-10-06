@@ -57,7 +57,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 
     <application
-        android:label="Listenfy"
+        android:label="${listenfyAppLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher_original"
         android:networkSecurityConfig="@xml/network_security_config">
@@ -197,7 +197,7 @@
             android:enabled="true"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_original"
-            android:label="Listenfy"
+            android:label="${listenfyAppLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -209,7 +209,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_graffiti"
-            android:label="Listenfy"
+            android:label="${listenfyAppLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -221,7 +221,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_mythological"
-            android:label="Listenfy"
+            android:label="${listenfyAppLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -233,7 +233,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_crystal"
-            android:label="Listenfy"
+            android:label="${listenfyAppLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -245,7 +245,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_venom"
-            android:label="Listenfy"
+            android:label="${listenfyAppLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -257,7 +257,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_tropical"
-            android:label="Listenfy"
+            android:label="${listenfyAppLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -269,7 +269,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_asphalt"
-            android:label="Listenfy"
+            android:label="${listenfyAppLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -281,7 +281,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_pastel"
-            android:label="Listenfy"
+            android:label="${listenfyAppLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -293,7 +293,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_pixel"
-            android:label="Listenfy"
+            android:label="${listenfyAppLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -305,7 +305,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_vintage"
-            android:label="Listenfy"
+            android:label="${listenfyAppLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -317,7 +317,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_paper"
-            android:label="Listenfy"
+            android:label="${listenfyAppLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -329,7 +329,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_vip"
-            android:label="Listenfy"
+            android:label="${listenfyAppLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -342,7 +342,7 @@
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_cyberpunk"
-            android:label="Listenfy"
+            android:label="${listenfyAppLabel}"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
