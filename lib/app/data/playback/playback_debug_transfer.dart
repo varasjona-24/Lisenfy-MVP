@@ -432,12 +432,24 @@ extension PlaybackDebugTransfer on PlaybackRepository {
   ) => _restorationTask(
     () => _database.transaction(() async {
       if (bundle['formatVersion'] != 1 ||
-          bundle['databaseSchemaVersion'] != _database.schemaVersion ||
+          ![
+            4,
+            _database.schemaVersion,
+          ].contains(bundle['databaseSchemaVersion']) ||
           bundle['scope'] != 'all_application_tables' ||
           bundle['tables'] is! Map) {
         throw FormatException('Unsupported complete database backup');
       }
       final tables = Map<String, dynamic>.from(bundle['tables'] as Map);
+      final upgradeRelations = bundle['databaseSchemaVersion'] == 4;
+      if (upgradeRelations) {
+        for (final name in PlaybackDatabase.artistRelationTables) {
+          if (tables.containsKey(name)) {
+            throw FormatException('Unexpected v4 relation table');
+          }
+          tables[name] = <dynamic>[];
+        }
+      }
       final installed =
           (await _database
                   .customSelect(
@@ -498,6 +510,7 @@ extension PlaybackDebugTransfer on PlaybackRepository {
           );
         }
       }
+      if (upgradeRelations) await _rebuildArtistRelations();
       if ((await _database.customSelect('PRAGMA foreign_key_check').get())
           .isNotEmpty) {
         throw FormatException('Invalid restored foreign keys');

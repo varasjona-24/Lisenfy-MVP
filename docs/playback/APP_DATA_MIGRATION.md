@@ -99,6 +99,12 @@ para ser atómicos frente a interrupciones. No se elimina evidencia de playback.
 
 ## Estado y orden pendiente
 
+Relaciones de artistas: esquema v5 implementado; ver ARTIST_RELATIONSHIPS.md para
+roles persistidos, membresías, ambigüedades, reconstrucción y límites. El catálogo
+JSON continúa como entrada de edición compatible; agrupación y detalle de artistas
+leen roles SQL cuando la proyección coincide con el crédito original. Nuevos
+backups contienen las tablas de relaciones; restore completo admite v4 con backfill.
+
 ### Exportación SQL completa (2026-10-06)
 
 Cuando PlaybackRepository está registrado, el ZIP añade sqlite_complete_v1.json:

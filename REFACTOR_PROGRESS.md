@@ -1,5 +1,13 @@
 # Registro de refactor
 
+## 2026-10-06 — Créditos e integrantes materializados en SQL v5
+
+- Revisadas agrupación, categorías propias/invitados/solistas de integrantes, edición/renombrado, parser y serialización artist/subtitle. Contrato en docs/playback/ARTIST_RELATIONSHIPS.md. No se transfiere autoría del solista al grupo ni del grupo a cada integrante.
+- Añadidas identidades de artista, crédito original/interpretación, roles principal/invitado ordenados y membresías explícitas con FK. Los créditos ambiguos sin ft/feat no se separan; se marcan sin inventar coprotagonistas. Identidades mínimas preservan referencias sin fabricar biografías.
+- Migración v4→v5 y reconstrucción desde catálogo SQL; writes de catálogo actualizan relaciones en la misma transacción. Agrupación/detalle consultan proyección persistida, con parser legacy/edición no guardada. Backup completo incluye tablas nuevas y restaura ZIP v4 con backfill.
+- Alcance transitorio: JSON actual es entrada de edición y roles/membresías son materialización; sin editor de coprincipales ni fechas biográficas. Claves siguen normalizadas por nombre, reconstrucción completa, renombrados multientidad y corte release pendientes. No se instaló ni modificó la base del teléfono.
+- Verificación final: 137 pruebas schema/stats/Connect/Atlas/recommendations aprobadas y análisis focalizado de 12 targets limpio. Pruebas nuevas cubren roles, ambigüedad, no transferencia grupo/integrante, edición/eliminación, upgrade v4→v5 y restore completo v4. Una ejecución previa tuvo un MissingPluginException asíncrono en fixture de Atlas/path_provider; se registró y la repetición completa pasó. Persisten avisos de plugins/traducciones. Validación física de actualización pendiente.
+
 ## 2026-10-06 — Restauración del snapshot SQL completo
 
 - Conectado sqlite_complete_v1.json al restore ZIP. Sustituye el merge playback previo cuando está presente; reemplaza todas las tablas en una transacción, con validación de formato/esquema/cobertura/columnas y FK, orden de dependencias y rollback SQL. Restore completo reemplaza datos, no los fusiona.

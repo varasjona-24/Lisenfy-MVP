@@ -8,6 +8,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../playback/playback_repository.dart';
+import '../../utils/artist_credit_parser.dart';
 
 GetStorage catalogStorage(GetStorage legacy) =>
     Get.isRegistered<CatalogStorage>() ? Get.find<CatalogStorage>() : legacy;
@@ -18,6 +19,12 @@ class CatalogStorage implements GetStorage {
   CatalogStorage._(this.repository, this._values);
   final PlaybackRepository repository;
   final Map<String, List<dynamic>> _values;
+  Map<String, ArtistCredits> _credits = {};
+  ArtistCredits? creditsFor(String id, String raw) {
+    final credits = _credits[id];
+    return credits?.rawArtist == raw ? credits : null;
+  }
+
   Future<void> _tail = Future<void>.value();
   Object? failure;
 
@@ -58,15 +65,23 @@ class CatalogStorage implements GetStorage {
       sourceHash: sha256.convert(utf8.encode(bytes)).toString(),
       data: {for (final key in catalogKeys) key: decoded[key] as List},
     );
-    return CatalogStorage._(repository, await repository.readCatalog());
+    await repository.rebuildArtistRelations();
+    final storage = CatalogStorage._(
+      repository,
+      await repository.readCatalog(),
+    );
+    storage._credits = await repository.readArtistCredits();
+    return storage;
   }
 
   Future<void> reload() async {
     await flush();
     final loaded = await repository.readCatalog();
+    final credits = await repository.readArtistCredits();
     _values
       ..clear()
       ..addAll(loaded);
+    _credits = credits;
   }
 
   @override
@@ -89,7 +104,10 @@ class CatalogStorage implements GetStorage {
         throw StateError('Catalog persistence failed: $failure');
       }
       await repository.replaceCatalog(key, snapshot);
-      _values[key] = snapshot; // Publish only after SQL commit.
+      final credits = await repository.readArtistCredits();
+      final catalog = await repository.readCatalog();
+      _values[key] = catalog[key]!; // Publish only after SQL commit.
+      _credits = credits;
     });
     _tail = operation.catchError((Object error) {
       failure = error;

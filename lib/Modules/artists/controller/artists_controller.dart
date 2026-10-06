@@ -14,6 +14,7 @@ import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
 import '../data/artist_store.dart';
 import '../domain/artist_profile.dart';
+import '../domain/artist_relationship_resolver.dart';
 
 enum ArtistSort { name, count, plays, recent, country, region, random }
 
@@ -123,7 +124,7 @@ class ArtistsController extends GetxController {
 
       final Map<String, _ArtistBucket> grouped = {};
       for (final item in items) {
-        final credits = ArtistCreditParser.parse(item.subtitle);
+        final credits = resolveArtistCredits(item);
         final artistNames = credits.allArtists;
 
         if (artistNames.isEmpty) {
@@ -411,7 +412,7 @@ class ArtistsController extends GetxController {
 
     final all = await _store.readAll();
     for (final item in all) {
-      final credits = ArtistCreditParser.parse(item.subtitle);
+      final credits = resolveArtistCredits(item);
       if (!credits.containsArtistKey(normalizedCurrentKey)) continue;
 
       final nextArtistField = ArtistCreditParser.replaceArtistName(
@@ -453,7 +454,7 @@ class ArtistsController extends GetxController {
 
   Future<void> removeLocalArtist(ArtistGroup artist) async {
     for (final item in artist.items) {
-      final credits = ArtistCreditParser.parse(item.subtitle);
+      final credits = resolveArtistCredits(item);
       if (!credits.isPrimaryArtistKey(artist.key)) continue;
       for (final v in item.variants) {
         await _deleteFile(v.localPath);

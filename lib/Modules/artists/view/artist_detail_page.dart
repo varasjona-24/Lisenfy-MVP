@@ -9,12 +9,12 @@ import 'package:get_storage/get_storage.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
-import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
 import 'package:listenfy/Modules/Home/Controller/home_controller.dart';
 import '../../../app/routes/app_routes.dart';
 import '../controller/artists_controller.dart';
 import '../domain/artist_profile.dart';
+import '../domain/artist_relationship_resolver.dart';
 import '../../edit/controller/edit_entity_controller.dart';
 import '../../../app/ui/widgets/dialogs/sort_options_sheet.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
@@ -82,13 +82,13 @@ class ArtistDetailPage extends GetView<ArtistsController> {
 
       final primarySongs = resolved.items
           .where((item) {
-            final credits = ArtistCreditParser.parse(item.subtitle);
+            final credits = resolveArtistCredits(item);
             return credits.isPrimaryArtistKey(resolved.key);
           })
           .toList(growable: false);
       final collaborationSongs = resolved.items
           .where((item) {
-            final credits = ArtistCreditParser.parse(item.subtitle);
+            final credits = resolveArtistCredits(item);
             return credits.isCollaborationForArtistKey(resolved.key);
           })
           .toList(growable: false);
@@ -106,7 +106,7 @@ class ArtistDetailPage extends GetView<ArtistsController> {
           memberArtists.expand((entry) => entry.items),
         );
         for (final item in memberPool) {
-          final credits = ArtistCreditParser.parse(item.subtitle);
+          final credits = resolveArtistCredits(item);
           if (credits.containsArtistKey(resolved.key)) continue;
 
           final memberAsPrimary = memberKeySet.any(credits.isPrimaryArtistKey);

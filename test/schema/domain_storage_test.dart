@@ -102,7 +102,7 @@ void main() {
       tables.keys.toSet(),
       installed.map((row) => row.read<String>('name')).toSet(),
     );
-    expect(tables.length, 28);
+    expect(tables.length, 32);
     expect(tables['app_domain_import'], hasLength(1));
     expect(tables['app_domain_record'], isNotEmpty);
     expect(tables.containsKey('playback_interval'), isTrue);
@@ -145,6 +145,81 @@ void main() {
         throwsFormatException,
       );
       expect(await repository.exportCompleteDatabase(), original);
+    },
+  );
+  test(
+    'artist roles preserve group versus member and ambiguous credits',
+    () async {
+      await repository.replaceCatalog('artist_profiles', [
+        {
+          'key': 'blackpink',
+          'displayName': 'BLACKPINK',
+          'kind': 'band',
+          'memberKeys': ['jennie'],
+        },
+        {
+          'key': 'jennie',
+          'displayName': 'Jennie',
+          'kind': 'singer',
+          'memberKeys': [],
+        },
+      ]);
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'spot', 'artist': 'ZICO feat. JENNIE', 'variants': []},
+        {'id': 'band-song', 'artist': 'BLACKPINK', 'variants': []},
+        {'id': 'solo', 'artist': 'Jennie', 'variants': []},
+        {'id': 'ambiguous', 'artist': 'Judy & Mary', 'variants': []},
+        {'id': 'multiple', 'artist': 'LiSA ft Uru & Ayase', 'variants': []},
+      ]);
+      final credits = await repository.readArtistCredits();
+      expect(credits['spot']!.isPrimaryArtistKey('zico'), isTrue);
+      expect(credits['spot']!.isCollaborationForArtistKey('jennie'), isTrue);
+      expect(credits['spot']!.containsArtistKey('blackpink'), isFalse);
+      expect(credits['solo']!.containsArtistKey('blackpink'), isFalse);
+      expect(credits['band-song']!.containsArtistKey('jennie'), isFalse);
+      expect(credits['multiple']!.collaborators, ['Uru', 'Ayase']);
+      expect(credits['ambiguous']!.primaryArtist, 'Judy & Mary');
+      expect(credits['ambiguous']!.collaborators, isEmpty);
+      expect(
+        (await db
+                .customSelect(
+                  "SELECT interpretation FROM library_credit_state WHERE item_id='ambiguous'",
+                )
+                .getSingle())
+            .read<String>('interpretation'),
+        'ambiguous',
+      );
+      expect(
+        await db.customSelect('SELECT * FROM artist_membership').get(),
+        hasLength(1),
+      );
+      expect(await db.customSelect('PRAGMA foreign_key_check').get(), isEmpty);
+      final bundle = await repository.exportCompleteDatabase();
+      bundle['databaseSchemaVersion'] = 4;
+      for (final name in PlaybackDatabase.artistRelationTables) {
+        (bundle['tables'] as Map).remove(name);
+      }
+      await repository.restoreCompleteDatabase(bundle);
+      expect((await repository.readArtistCredits())['spot']!.collaborators, [
+        'Jennie',
+      ]);
+    },
+  );
+  test(
+    'credit edit and removal refresh relations without stale links',
+    () async {
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'song', 'artist': 'LiSA ft Uru', 'variants': []},
+      ]);
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'song', 'artist': 'LiSA', 'variants': []},
+      ]);
+      expect(
+        (await repository.readArtistCredits())['song']!.collaborators,
+        isEmpty,
+      );
+      await repository.replaceCatalog('local_library_items', []);
+      expect(await repository.readArtistCredits(), isEmpty);
     },
   );
   tearDown(() async {

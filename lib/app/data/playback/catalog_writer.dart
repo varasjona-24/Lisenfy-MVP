@@ -52,6 +52,7 @@ extension CatalogPersistence on PlaybackRepository {
         for (final key in catalogKeys) {
           await _replaceCatalog(key, data[key] ?? []);
         }
+        await _rebuildArtistRelations();
         await _database.customStatement(
           'INSERT INTO catalog_import VALUES (?,?,?)',
           [sourceId, sourceHash, DateTime.now().millisecondsSinceEpoch],
@@ -62,7 +63,10 @@ extension CatalogPersistence on PlaybackRepository {
 
   Future<void> replaceCatalog(String key, List<dynamic> data) =>
       _catalogCommand(
-        () => _database.transaction(() => _replaceCatalog(key, data)),
+        () => _database.transaction(() async {
+          await _replaceCatalog(key, data);
+          await _rebuildArtistRelations();
+        }),
       );
 
   Future<void> _replaceCatalog(String key, List<dynamic> data) async {
@@ -181,6 +185,17 @@ extension CatalogPersistence on PlaybackRepository {
                         )
                         .get())
                     .map((v) => v.read<String>('item_key'))
+                    .toList();
+          }
+          if (key == 'artist_profiles' && json['kind'] == 'band') {
+            json['memberKeys'] =
+                (await _database
+                        .customSelect(
+                          'SELECT member_key FROM artist_membership WHERE band_key=? ORDER BY ordinal',
+                          variables: [Variable(id)],
+                        )
+                        .get())
+                    .map((r) => r.read<String>('member_key'))
                     .toList();
           }
           list.add(json);

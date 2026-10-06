@@ -30,13 +30,13 @@ void main() {
               "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
             )
             .get(),
-        hasLength(28),
+        hasLength(32),
       );
       for (final entry in {
         'foreign_keys': 1,
         'synchronous': 2,
         'busy_timeout': 5000,
-        'user_version': 4,
+        'user_version': 5,
       }.entries) {
         expect(
           (await db.customSelect('PRAGMA ${entry.key}').get())
@@ -70,7 +70,7 @@ void main() {
     await staging.create(recursive: true);
     final raw = sqlite3.open('${staging.path}/future.db');
     raw.execute('CREATE TABLE keep_data(value TEXT)');
-    raw.execute('PRAGMA user_version=5');
+    raw.execute('PRAGMA user_version=6');
     raw.close();
     await expectLater(
       PlaybackDatabaseOpener.openStaging(
@@ -81,7 +81,7 @@ void main() {
       throwsA(anything),
     );
     final check = sqlite3.open('${staging.path}/future.db');
-    expect(check.select('PRAGMA user_version').single.values.single, 5);
+    expect(check.select('PRAGMA user_version').single.values.single, 6);
     expect(
       check.select("SELECT name FROM sqlite_master WHERE name='keep_data'"),
       hasLength(1),
@@ -127,7 +127,7 @@ void main() {
               .data
               .values
               .single,
-          4,
+          5,
         );
         expect(
           (await upgraded
@@ -175,6 +175,47 @@ void main() {
       );
       expect(
         await upgraded.customSelect('SELECT * FROM app_domain_state').get(),
+        isEmpty,
+      );
+    } finally {
+      await upgraded.close();
+    }
+  });
+  test('v4 upgrade installs artist relations without losing library', () async {
+    final staging = Directory('${directory.path}/playback/staging');
+    await staging.create(recursive: true);
+    final raw = sqlite3.open('${staging.path}/v4.db');
+    for (final asset in [
+      PlaybackDatabaseOpener.schemaAsset,
+      PlaybackDatabaseOpener.restorationSchemaAsset,
+      PlaybackDatabaseOpener.catalogSchemaAsset,
+      PlaybackDatabaseOpener.domainSchemaAsset,
+    ]) {
+      raw.execute(await File(asset).readAsString());
+    }
+    raw.execute("INSERT INTO library_record VALUES ('kept',0,'{}')");
+    raw.close();
+    final upgraded = await PlaybackDatabaseOpener.openStaging(
+      generation: 'v4',
+      supportDirectory: directory,
+      temporaryDirectory: directory,
+    );
+    try {
+      expect(
+        (await upgraded.customSelect('PRAGMA user_version').getSingle())
+            .data
+            .values
+            .single,
+        5,
+      );
+      expect(
+        await upgraded.customSelect('SELECT * FROM library_record').get(),
+        hasLength(1),
+      );
+      expect(
+        await upgraded
+            .customSelect('SELECT * FROM library_artist_credit')
+            .get(),
         isEmpty,
       );
     } finally {
