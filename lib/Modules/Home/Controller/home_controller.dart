@@ -34,6 +34,7 @@ import '../../sources/data/source_theme_topic_playlist_store.dart';
 import '../../sources/domain/source_theme_topic.dart';
 import '../../sources/domain/source_theme_topic_playlist.dart';
 import '../domain/home_layout_models.dart';
+import '../domain/home_artist_targets.dart';
 
 class HomeController extends GetxController {
   final GetStorage _layoutStorage = GetStorage();
@@ -881,14 +882,25 @@ class HomeController extends GetxController {
     final profiles = <String, ArtistProfile>{
       for (final profile
           in _artistStore?.readAllSync() ?? const <ArtistProfile>[])
-        ArtistCreditParser.normalizeKey(profile.key): profile,
+        profile.key: profile,
     };
     for (final item in _allItems) {
       if (!item.variants.any((v) => v.kind == MediaVariantKind.audio)) {
         continue;
       }
-      for (final name in ArtistCreditParser.parse(item.subtitle).allArtists) {
-        final key = ArtistCreditParser.normalizeKey(name);
+      final storage = catalogStorage(_layoutStorage);
+      final credits = storage is CatalogStorage
+          ? storage.creditsFor(item.id, item.subtitle)
+          : null;
+      final names =
+          (credits ?? ArtistCreditParser.parse(item.subtitle)).allArtists;
+      for (var i = 0; i < names.length; i++) {
+        final name = names[i];
+        final ids = credits?.artistKeys;
+        final key = ids != null && i < ids.length
+            ? ids[i]
+            : _artistStore?.getByKeySync(name)?.key ??
+                  ArtistCreditParser.normalizeKey(name);
         if (key.isEmpty || key == 'unknown') continue;
         final current = buckets[key];
         buckets[key] = (
@@ -950,14 +962,24 @@ class HomeController extends GetxController {
     if (section.kind == HomeCustomSectionKind.smart) {
       return _resolveSmartSectionItems(section.targetId);
     }
-    final target = ArtistCreditParser.normalizeKey(section.targetId);
+    final targets = resolveHomeArtistTargets(section.targetId, artistChoices());
     return _allItems
         .where((item) {
           if (!item.variants.any((v) => v.kind == MediaVariantKind.audio)) {
             return false;
           }
+          final storage = catalogStorage(_layoutStorage);
+          final credits = storage is CatalogStorage
+              ? storage.creditsFor(item.id, item.subtitle)
+              : null;
+          if (credits?.artistKeys != null) {
+            return credits!.artistKeys!.any(targets.contains);
+          }
           return ArtistCreditParser.parse(item.subtitle).allArtists.any(
-            (name) => ArtistCreditParser.normalizeKey(name) == target,
+            (name) => targets.contains(
+              _artistStore?.getByKeySync(name)?.key ??
+                  ArtistCreditParser.normalizeKey(name),
+            ),
           );
         })
         .toList(growable: false);
@@ -969,13 +991,10 @@ class HomeController extends GetxController {
     if (section.kind != HomeCustomSectionKind.artist) {
       return const <HomeArtistChoice>[];
     }
-    final keys = section.targetId
-        .split('|')
-        .map(ArtistCreditParser.normalizeKey)
-        .where((e) => e.isNotEmpty && e != 'unknown')
-        .toSet();
+    final choices = artistChoices();
+    final keys = resolveHomeArtistTargets(section.targetId, choices);
     if (keys.isEmpty) return const <HomeArtistChoice>[];
-    return artistChoices()
+    return choices
         .where((artist) => keys.contains(artist.key))
         .toList(growable: false);
   }

@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-06 — Accesos de artistas del inicio compatibles con SQLite
+
+- Home agrupaba por nombre normalizado y buscaba perfiles por esa misma clave, mientras los perfiles restaurados ya usan IDs estables: accesos/portadas podían perder su asociación. Playlists usan IDs y no cambian.
+- Las opciones de artistas ahora utilizan los IDs de créditos SQL y enlazan perfiles por ID; fallback legacy mediante ArtistStore. Los accesos guardados por nombre se resuelven únicamente si hay una coincidencia no ambigua; IDs explícitos se conservan para homónimos.
+- La selección de canciones de secciones de artistas consulta créditos SQL y soporta varios targets, en vez de comparar un ID o lista de IDs con nombres de subtítulos.
+- Validación: dos tests aprobados (accesos legacy/IDs y homónimos); análisis sin errores/warnings, conserva cinco infos avoid_print en HomeController. Pendiente recompilar y verificar visualmente los accesos tras restaurar; no se modificaron datos del teléfono.
+
 ## 2026-10-06 — Progreso de restauración sin retrocesos periódicos
 
 - Eliminado i % 500: la fase de biblioteca avanza entre 40–70% con el total real de elementos del manifest en memoria. El porcentaje se actualiza después de restaurar cada elemento.
