@@ -1,5 +1,11 @@
 # Registro de refactor
 
+## 2026-10-06 — Restauración ZIP sin extracción/verificación repetida
+
+- restoreFile comparte una pasada por ruta relativa validada durante cada importación. Biblioteca, portadas, capturas/fondos y locators del snapshot SQLite reutilizan el archivo extraído y verificado en esa misma operación.
+- Se conservan validación de rutas, presencia de archivos completos, tamaño/hash disponibles y validación transaccional SQLite. No se omite integridad ni se reutiliza caché entre ZIPs; fallos no se memorizan como éxitos y referencias concurrentes esperan la misma operación.
+- Validación: tres pruebas aprobadas (una extracción/verificación por ruta, fallo/reintento y concurrencia); análisis focalizado limpio. No se recompiló/instaló APK ni se repitió la restauración física de 5,33 GB en este paso.
+
 ## 2026-10-06 — Reanudación y recuperación de escrituras operativas
 
 - Corregido un camino que podía persistir índice/posición desde callbacks del motor antes de guardar la cola nueva. Audio compara revisión de cola persistida y escribe el snapshot estructural completo antes del estado incremental.

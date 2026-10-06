@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import '../application/backup_file_restore_pass.dart';
 
 import 'package:crypto/crypto.dart';
 import 'package:easy_localization/easy_localization.dart'
@@ -1839,6 +1840,7 @@ class BackupRestoreController extends GetxController {
         progress.value = 0.3;
       }
       final expectedFilesByRel = _backupFilesByRel(manifest);
+      final fileRestorePass = BackupFileRestorePass();
 
       String? resolveRel(String? rel) {
         final safe = _safeBackupRelPath(rel);
@@ -1859,21 +1861,23 @@ class BackupRestoreController extends GetxController {
         final destPath = resolveRel(safe);
         if (destPath == null) return;
         final dest = File(destPath);
-        await _extractZipBackupEntry(
-          zipPath: path,
-          entry: entry,
-          outputPath: dest.path,
-        );
-        final expectedFile = expectedFilesByRel[safe];
-        if (expectedFile != null) {
-          final valid = await _verifyRestoredFile(dest, expectedFile);
-          if (!valid) {
-            try {
-              if (await dest.exists()) await dest.delete();
-            } catch (_) {}
-            throw Exception('Backup file integrity check failed: $safe');
+        await fileRestorePass.run(safe, () async {
+          await _extractZipBackupEntry(
+            zipPath: path,
+            entry: entry,
+            outputPath: dest.path,
+          );
+          final expectedFile = expectedFilesByRel[safe];
+          if (expectedFile != null) {
+            final valid = await _verifyRestoredFile(dest, expectedFile);
+            if (!valid) {
+              try {
+                if (await dest.exists()) await dest.delete();
+              } catch (_) {}
+              throw Exception('Backup file integrity check failed: $safe');
+            }
           }
-        }
+        });
       }
 
       Map<String, dynamic>? appearancePayload;
