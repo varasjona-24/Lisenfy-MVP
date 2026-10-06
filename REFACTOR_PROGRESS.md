@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-06 — Retirada del paquete temporal de restauración
+
+- Eliminados los flags SANDBOX/INSPECT, el sufijo .restoretest y la firma debug condicional. Release utiliza com.jv24dev.listenfy, nombre Listenfy, firma release y isDebuggable=false.
+- Retirado el override debuggable del manifest; se conservan los fixes de launcher, SQLite, restauración, artistas y aislamiento del modo de Home. El procedimiento temporal queda documentado como histórico.
+- Validación: cuatro pruebas de launcher aprobadas y flutter build apk --release exitoso (104.5 MB). Inspección del APK confirma paquete/nombre originales y snapshot AOT arm64; apksigner verify aprobado.
+- No se instaló ni desinstaló ninguna app. La prueba física del release y restauración queda pendiente; conservar el backup fuera de los datos privados antes de resolver cualquier conflicto de firmas con debug.
+
 ## 2026-10-06 — Modo de Home aislado de navegación y filtros externos
 
 - openMedia no consulta HomeMode: recibe una preferencia explícita (audio por defecto), verifica variantes válidas y filtra la cola al tipo elegido conservando el elemento seleccionado. Audio-only/video-only usan su reproductor real incluso si la pantalla prefiere el otro tipo.

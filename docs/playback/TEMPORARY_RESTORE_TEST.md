@@ -1,4 +1,12 @@
-# Prueba temporal de restauración release
+# Configuración temporal retirada
+
+La variante `.restoretest` y sus flags de inspección fueron retirados del build.
+Los comandos históricos de abajo ya no seleccionan una app independiente.
+Para el paquete original ejecutar `flutter build apk --release`.
+No instalar sobre debug con firma diferente ni desinstalar ninguna app sin
+preservar antes el backup fuera de sus datos privados.
+
+## Procedimiento histórico de prueba temporal
 
 ```sh
 LISTENFY_RESTORE_SANDBOX=1 flutter build apk --release

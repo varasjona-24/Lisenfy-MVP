@@ -17,16 +17,18 @@ def is_launcher(intent):
 
 
 class LauncherManifestTest(unittest.TestCase):
-    def test_inspection_does_not_switch_flutter_release_to_debug_assets(self):
+    def test_release_uses_original_identity_and_signing_without_inspection(self):
         source = ET.parse(ROOT / "android/app/src/main/AndroidManifest.xml")
-        self.assertEqual(source.find("application").get(ANDROID + "debuggable"),
-                         "${listenfyDebuggable}")
+        self.assertIsNone(source.find("application").get(ANDROID + "debuggable"))
         gradle = (ROOT / "android/app/build.gradle.kts").read_text()
-        self.assertIn('manifestPlaceholders["listenfyDebuggable"] = restoreSandbox && restoreInspection', gradle)
+        self.assertIn('applicationId = "com.jv24dev.listenfy"', gradle)
+        self.assertIn('signingConfig = signingConfigs.getByName("release")', gradle)
+        self.assertIn('manifestPlaceholders["listenfyAppLabel"] = "Listenfy"', gradle)
         self.assertIn('isDebuggable = false', gradle)
-        self.assertNotIn('isDebuggable = restoreSandbox', gradle)
+        self.assertNotIn('LISTENFY_RESTORE_', gradle)
+        self.assertNotIn('applicationIdSuffix', gradle)
 
-    def test_restore_sandbox_labels_and_provider_are_package_scoped(self):
+    def test_labels_and_provider_are_package_scoped(self):
         source = ET.parse(ROOT / "android/app/src/main/AndroidManifest.xml")
         app = source.find("application")
         self.assertEqual(app.get(ANDROID + "label"), "${listenfyAppLabel}")
