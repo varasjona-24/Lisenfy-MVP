@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
@@ -8,7 +9,7 @@ import 'package:sqlite3/sqlite3.dart' as sql;
 
 import 'playback_database.dart';
 
-/// Only staging is exposed: there is deliberately no active-generation opener.
+/// Staging is isolated; production reads only the manifest-selected generation.
 class PlaybackDatabaseOpener {
   static const schemaAsset = 'docs/playback/schema_v1.sql';
   static const restorationSchemaAsset = 'docs/playback/migration_v2.sql';
@@ -22,13 +23,58 @@ class PlaybackDatabaseOpener {
     Directory? supportDirectory,
     Directory? temporaryDirectory,
     AssetBundle? bundle,
+  }) => _open(
+    generation: generation,
+    supportDirectory: supportDirectory,
+    temporaryDirectory: temporaryDirectory,
+    bundle: bundle,
+    active: false,
+  );
+
+  static Future<PlaybackDatabase> openActive({
+    required String generation,
+    required Directory supportDirectory,
+    Directory? temporaryDirectory,
+  }) async {
+    final manifest =
+        jsonDecode(
+              await File(
+                '${supportDirectory.path}/playback/active.json',
+              ).readAsString(),
+            )
+            as Map;
+    if (manifest['version'] != 1 ||
+        manifest['schemaVersion'] != 6 ||
+        manifest['generation'] != generation) {
+      throw StateError('Generation is not selected by the active manifest');
+    }
+    return _open(
+      generation: generation,
+      supportDirectory: supportDirectory,
+      temporaryDirectory: temporaryDirectory,
+      active: true,
+    );
+  }
+
+  static Future<PlaybackDatabase> _open({
+    required String generation,
+    required bool active,
+    Directory? supportDirectory,
+    Directory? temporaryDirectory,
+    AssetBundle? bundle,
   }) async {
     if (!RegExp(r'^[a-zA-Z0-9_-]{1,80}$').hasMatch(generation)) {
       throw ArgumentError.value(generation, 'generation', 'Invalid generation');
     }
     final support = supportDirectory ?? await getApplicationSupportDirectory();
     final temporary = temporaryDirectory ?? await getTemporaryDirectory();
-    final directory = Directory(p.join(support.path, 'playback', 'staging'));
+    final directory = Directory(
+      p.join(support.path, 'playback', active ? 'generations' : 'staging'),
+    );
+    if (active &&
+        !await File(p.join(directory.path, '$generation.db')).exists()) {
+      throw StateError('Active playback generation is missing');
+    }
     await directory.create(recursive: true);
     final schema = await (bundle ?? rootBundle).loadString(schemaAsset);
     final restorationSchema = await (bundle ?? rootBundle).loadString(

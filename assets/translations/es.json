@@ -1,4 +1,15 @@
 {
+  "storage_startup": {
+    "title": "Preparando tus datos",
+    "capturing": "Guardando una copia segura de los datos anteriores…",
+    "importing": "Migrando biblioteca, historial y actividad…",
+    "verifying": "Verificando los datos migrados…",
+    "activating": "Activando el almacenamiento verificado…",
+    "opening": "Abriendo tus datos…",
+    "failed": "No se pudo preparar el almacenamiento",
+    "preserved": "Tus datos anteriores se conservan. Puedes reintentar sin borrar la aplicación.",
+    "retry": "Reintentar"
+  },
   "artist_identity": {
     "collision_title": "Nombre compartido",
     "collision_message": "Hay otros artistas con este nombre. Puedes mantenerlos separados o fusionar explícitamente con uno de ellos. La fusión conservará los datos del destino y trasladará las relaciones.",

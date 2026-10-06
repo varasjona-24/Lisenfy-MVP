@@ -38,6 +38,18 @@ class CatalogStorage implements GetStorage {
     }
   }
 
+  static Future<CatalogStorage> loadExisting(
+    PlaybackRepository repository,
+  ) async {
+    final storage = CatalogStorage._(
+      repository,
+      await repository.readCatalog(),
+    );
+    storage._credits = await repository.readArtistCredits();
+    storage._names = await repository.readArtistCandidates();
+    return storage;
+  }
+
   static Future<CatalogStorage> open(
     PlaybackRepository repository,
     GetStorage legacy,

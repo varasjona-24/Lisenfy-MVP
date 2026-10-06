@@ -133,7 +133,8 @@ mapa de locators en otro dispositivo. No se afirma que sus portadas históricas
 ya funcionen allí. Las etapas lógicas/disco previas siguen fuera de la transacción:
 un fallo global no revierte todos los archivos o cambios lógicos anteriores.
 La restauración SQL completa reemplaza, no fusiona, datos posteriores al backup.
-El protocolo de activación/global recovery sigue pendiente. Release sin
+La activación inicial por generación está implementada en PRODUCTION_ACTIVATION.md;
+la recuperación global de restauración ZIP sigue pendiente. Release sin
 repositorio registrado no genera este suplemento. No se declara backup global
 atómico ni recuperación total ya validada en instalación vacía.
 
@@ -148,6 +149,8 @@ atómico ni recuperación total ya validada en instalación vacía.
    recuperación tras interrupción y targets soportados. No abrir una migración
    parcial automáticamente en release.
 
-Esta implementación continúa detrás de LISTENFY_SQLITE_STAGING_HISTORY en debug.
-Sin flag y en release sigue el propietario legacy. No es una migración global
+El staging debug mantiene LISTENFY_SQLITE_STAGING_HISTORY. El bootstrap de producción
+es opt-in mediante LISTENFY_SQLITE_RELEASE_MIGRATION; un manifest activo tiene
+prioridad incluso sin flag. Sin flag ni manifest sigue el propietario legacy.
+No es una migración global
 terminada ni elimina todas las dependencias de GetStorage.

@@ -1,5 +1,14 @@
 # Registro de refactor
 
+## 2026-10-06 — Bootstrap de producción y activación verificada opt-in
+
+- Añadido PlaybackProductionBootstrap: fuente congelada/hash, plan persistente, generación candidata, verificación, checkpoint/cierre y manifest activo publicado con flush/rename. Reintento antes/después de activación sin reimportar GetStorage obsoleto; origen conservado.
+- Si hay SQLite debug, se conserva su snapshot completo como fuente actual. Opener activo exige selección por manifest y rechaza bases ausentes; catálogo/dominios cargan SQL sin ejecutar importadores legacy al reabrir.
+- main conecta la generación activa antes de motores/consumidores. Pantalla ES/EN de fases y errores con reintento. Bandera explícita LISTENFY_SQLITE_RELEASE_MIGRATION para pruebas; rollout público no activado por defecto. Manifest existente mantiene el owner SQL aunque se omita flag.
+- Pruebas de activación, interrupción durante importación y antes/después del manifest, fuente corrupta, generación ausente/no seleccionada y preservación de SQLite debug frente a legacy obsoleto.
+- Conservado el scope de aliases de reproducción al adoptar debug, sin confundirlo con el ID de generación. Se verifican también conteos de sesiones legacy; 150 pruebas focalizadas aprobadas y análisis de seis targets limpio.
+- Pendientes: validación física release/firmas/targets, durabilidad fsync de directorio, benchmarks y restore ZIP por generaciones. No se declara atomicidad global archivos+SQL ni se borra GetStorage. Instrucciones en docs/playback/PRODUCTION_ACTIVATION.md.
+
 ## 2026-10-06 — Corrección del arranque con perfiles legacy sin identidad
 
 - Confirmado por ADB: FOREIGN KEY constraint failed al insertar el alias no doubt con la clave antigua; excepción antes de runApp dejaba pantalla negra.

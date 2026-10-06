@@ -29,6 +29,7 @@ import 'app/services/audio_service.dart';
 import 'app/services/sqlite_engine_history_factory.dart';
 import 'app/data/playback/playback_repository.dart';
 import 'app/data/playback/playback_debug_bootstrap.dart';
+import 'app/data/playback/playback_production_bootstrap.dart';
 import 'app/data/playback/playback_state_storage.dart';
 import 'package:uuid/uuid.dart';
 import 'app/services/app_audio_handler.dart';
@@ -96,8 +97,110 @@ Future<void> main() async {
   Get.put(LocalLibraryStore(Get.find<GetStorage>()), permanent: true);
   Get.put(ListeningEventStore(Get.find<GetStorage>()), permanent: true);
   SqliteEngineHistoryFactory? sqliteHistory;
-  // Test-only staging connection. Release builds always retain the legacy owner.
-  if (kDebugMode &&
+  final productionStorage =
+      const bool.fromEnvironment('LISTENFY_SQLITE_RELEASE_MIGRATION') ||
+      await PlaybackProductionBootstrap.hasActive();
+  if (productionStorage) {
+    final progress = ValueNotifier<String>('capturing');
+    final failed = ValueNotifier<bool>(false);
+    Completer<void>? retry;
+    runApp(
+      EasyLocalization(
+        supportedLocales: const [Locale('es'), Locale('en')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('es'),
+        child: Builder(
+          builder: (context) => MaterialApp(
+            localizationsDelegates: context.localizationDelegates,
+            supportedLocales: context.supportedLocales,
+            locale: context.locale,
+            home: Scaffold(
+              body: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: failed,
+                    builder: (context, error, _) => Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!error) const CircularProgressIndicator(),
+                        const SizedBox(height: 20),
+                        Text(
+                          tr(
+                            error
+                                ? 'storage_startup.failed'
+                                : 'storage_startup.title',
+                            context: context,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ValueListenableBuilder<String>(
+                          valueListenable: progress,
+                          builder: (context, stage, _) => Text(
+                            tr('storage_startup.$stage', context: context),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        if (error)
+                          TextButton(
+                            onPressed: () {
+                              if (retry != null && !retry.isCompleted) {
+                                retry.complete();
+                              }
+                            },
+                            child: Text(
+                              tr('storage_startup.retry', context: context),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    PlaybackProductionState? active;
+    while (active == null) {
+      try {
+        failed.value = false;
+        active = await PlaybackProductionBootstrap.open(
+          Get.find<GetStorage>(),
+          onProgress: (stage) => progress.value = stage,
+        );
+      } catch (error, stack) {
+        debugPrint('SQLite activation failed: $error\n$stack');
+        retry = Completer<void>();
+        progress.value = 'preserved';
+        failed.value = true;
+        await retry.future;
+      }
+    }
+    Get.put(active.repository, permanent: true);
+    Get.put<PlaybackStateStorage>(active.restoration, permanent: true);
+    Get.put<CatalogStorage>(active.catalog, permanent: true);
+    Get.put<DomainStorage>(active.domains, permanent: true);
+    final library = LocalLibraryStore(
+      Get.find<GetStorage>(),
+      metricsLoader: active.repository.queryLibraryMetrics,
+    );
+    await library.readAll();
+    Get.replace<LocalLibraryStore>(library);
+    Get.replace<ListeningEventStore>(
+      ListeningEventStore.sqlite(
+        querySqlite: active.repository.queryListeningEvents,
+      ),
+    );
+    sqliteHistory = SqliteEngineHistoryFactory(
+      repository: active.repository,
+      installationScope: active.installationScope,
+    );
+  }
+  // Test-only staging remains available when no production generation is active.
+  if (!productionStorage &&
+      kDebugMode &&
       const bool.fromEnvironment('LISTENFY_SQLITE_STAGING_HISTORY')) {
     final storage = Get.find<GetStorage>();
     var scope = storage.read<String>('playback_staging_installation');

@@ -19,6 +19,12 @@ class DomainStorage implements GetStorage {
   Future<void> _tail = Future<void>.value();
   Object? failure;
 
+  static Future<DomainStorage> loadExisting(
+    PlaybackRepository repository,
+    GetStorage preferences,
+  ) async =>
+      DomainStorage._(repository, preferences, await repository.readDomains());
+
   static Future<DomainStorage> open(
     PlaybackRepository repository,
     GetStorage legacy,

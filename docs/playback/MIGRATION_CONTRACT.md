@@ -3,6 +3,10 @@
 2026-10-05. Sustituye decisiones contradictorias del diseño anterior. Esquema
 preparado para implementar y probar el repositorio; cutover NO autorizado todavía.
 
+Actualización 2026-10-06: bootstrap de producción opt-in implementado; contrato
+operativo y límites de validación en PRODUCTION_ACTIVATION.md. No implica rollout
+público automático ni restauración global por generaciones ya terminada.
+
 ## Regla de progreso aprobada para canciones
 
 Interpretación comunicada: abandono manual con progreso <92% = skip; >=92%

@@ -1,4 +1,15 @@
 {
+  "storage_startup": {
+    "title": "Preparing your data",
+    "capturing": "Saving a safe copy of your previous data…",
+    "importing": "Migrating your library, history and activity…",
+    "verifying": "Verifying migrated data…",
+    "activating": "Activating verified storage…",
+    "opening": "Opening your data…",
+    "failed": "Storage could not be prepared",
+    "preserved": "Your previous data is preserved. You can retry without deleting the app.",
+    "retry": "Retry"
+  },
   "artist_identity": {
     "collision_title": "Shared artist name",
     "collision_message": "Other artists have this name. Keep them separate or explicitly merge with one of them. Merging preserves the target profile and transfers relationships.",
