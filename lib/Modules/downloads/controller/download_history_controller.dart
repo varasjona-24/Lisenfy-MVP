@@ -11,7 +11,6 @@ import 'package:listenfy/app/core/presentation/getx_state_controller.dart';
 import 'package:listenfy/app/core/presentation/view_status.dart';
 
 import '../../../app/models/media_item.dart';
-import '../../Home/Controller/home_controller.dart';
 
 // ============================
 // 📅 BLOC: HISTORIAL DE IMPORTS
@@ -20,14 +19,10 @@ class DownloadHistoryController
     extends GetxStateController<DownloadHistoryState> {
   DownloadHistoryController({
     required LoadDownloadHistoryItemsUseCase loadHistoryItemsUseCase,
-    HomeController? homeController,
   }) : _loadHistoryItemsUseCase = loadHistoryItemsUseCase,
-       _homeController = homeController,
        super(DownloadHistoryState.initial());
 
   final LoadDownloadHistoryItemsUseCase _loadHistoryItemsUseCase;
-  final HomeController? _homeController;
-  Worker? _homeWorker;
   final GetStorage _storage = GetStorage();
   final RxBool gridView = true.obs;
   final Rx<DateTime> selectedDate = Rx<DateTime>(DateTime.now());
@@ -45,20 +40,7 @@ class DownloadHistoryController
   void onInit() {
     super.onInit();
     gridView.value = _storage.read('download_history_grid_view') ?? true;
-    final home = _homeController;
-    if (home != null) {
-      _syncFilterWithHome();
-      _homeWorker = ever<HomeMode>(home.mode, (_) {
-        _syncFilterWithHome();
-      });
-    }
     loadHistory();
-  }
-
-  @override
-  void onClose() {
-    _homeWorker?.dispose();
-    super.onClose();
   }
 
   // ============================
@@ -202,15 +184,6 @@ class DownloadHistoryController
 
   String selectedDateLabel() {
     return _dayLabel(selectedDate.value, DateTime.now());
-  }
-
-  void _syncFilterWithHome() {
-    final home = _homeController;
-    if (home == null) return;
-    final desired = home.mode.value == HomeMode.audio
-        ? DownloadHistoryFilter.audio
-        : DownloadHistoryFilter.video;
-    setFilter(desired);
   }
 
   // ============================

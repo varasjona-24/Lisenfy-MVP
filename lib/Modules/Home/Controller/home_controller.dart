@@ -35,6 +35,7 @@ import '../../sources/domain/source_theme_topic.dart';
 import '../../sources/domain/source_theme_topic_playlist.dart';
 import '../domain/home_layout_models.dart';
 import '../domain/home_artist_targets.dart';
+import '../../../app/utils/playback_kind.dart';
 
 class HomeController extends GetxController {
   final GetStorage _layoutStorage = GetStorage();
@@ -1527,21 +1528,50 @@ class HomeController extends GetxController {
   }
 
   void onSearch() {
-    Get.toNamed(AppRoutes.homeSearch);
+    Get.toNamed(
+      AppRoutes.homeSearch,
+      arguments: {
+        'mediaKind': mode.value == HomeMode.video
+            ? MediaVariantKind.video
+            : MediaVariantKind.audio,
+      },
+    );
   }
 
   Future<void> openMedia(
     MediaItem item,
     int index,
-    List<MediaItem> list,
-  ) async {
-    final route = mode.value == HomeMode.audio
+    List<MediaItem> list, {
+    MediaVariantKind preferredKind = MediaVariantKind.audio,
+  }) async {
+    final kind = playbackKindFor(item, preferred: preferredKind);
+    final route = kind == MediaVariantKind.audio
         ? AppRoutes.audioPlayer
         : AppRoutes.videoPlayer;
 
-    await Get.toNamed(route, arguments: {'queue': list, 'index': index});
+    final queue = list
+        .where(
+          (entry) => entry.variants.any((v) => v.kind == kind && v.isValid),
+        )
+        .toList();
+    var selected = queue.indexWhere((entry) => entry.id == item.id);
+    if (selected < 0) {
+      queue.insert(0, item);
+      selected = 0;
+    }
+    await Get.toNamed(route, arguments: {'queue': queue, 'index': selected});
     await loadHome();
   }
+
+  Future<void> openHomeMedia(MediaItem item, int index, List<MediaItem> list) =>
+      openMedia(
+        item,
+        index,
+        list,
+        preferredKind: mode.value == HomeMode.audio
+            ? MediaVariantKind.audio
+            : MediaVariantKind.video,
+      );
 
   Future<void> deleteLocalItem(MediaItem item) async {
     try {

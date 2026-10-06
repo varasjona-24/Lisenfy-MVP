@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-06 — Modo de Home aislado de navegación y filtros externos
+
+- openMedia no consulta HomeMode: recibe una preferencia explícita (audio por defecto), verifica variantes válidas y filtra la cola al tipo elegido conservando el elemento seleccionado. Audio-only/video-only usan su reproductor real incluso si la pantalla prefiere el otro tipo.
+- openHomeMedia conserva la preferencia local de Home; callbacks de sus widgets usan esa entrada. Secciones abiertas capturan el tipo mediante su presentación y búsqueda recibe un contexto explícito en lugar de seguir el modo global.
+- Artists y otros callers externos dejan de heredar Home; Collections elige video sin modificar HomeMode. SourceLibraryPage tiene selector local. Historial e imports eliminan workers/dependencia de Home en controllers/bindings y usan su filtro propio para reproducir.
+- Validación: cinco tests de resolución audio/video y accesos de artistas aprobados. Análisis focalizado sin errores/warnings, mantiene cinco infos avoid_print en HomeController; análisis ampliado de vistas conserva infos de estilo existentes. No se modificó SQLite ni se instaló APK: prueba física de Honey pendiente de recompilar.
+
 ## 2026-10-06 — Accesos de artistas del inicio compatibles con SQLite
 
 - Home agrupaba por nombre normalizado y buscaba perfiles por esa misma clave, mientras los perfiles restaurados ya usan IDs estables: accesos/portadas podían perder su asociación. Playlists usan IDs y no cambian.

@@ -56,7 +56,14 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
 
           void openItem(MediaItem item, List<MediaItem> list) {
             final idx = list.indexWhere((e) => e.id == item.id);
-            home.openMedia(item, idx < 0 ? 0 : idx, list);
+            home.openMedia(
+              item,
+              idx < 0 ? 0 : idx,
+              list,
+              preferredKind: vm.filter.name == 'video'
+                  ? MediaVariantKind.video
+                  : MediaVariantKind.audio,
+            );
           }
 
           void showActions(MediaItem item, List<MediaItem> list) {
@@ -78,6 +85,9 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                               ? (initialIndex < 0 ? 0 : initialIndex)
                               : index,
                           list,
+                          preferredKind: vm.filter.name == 'video'
+                              ? MediaVariantKind.video
+                              : MediaVariantKind.audio,
                         ),
                     'onItemLongPress':
                         (

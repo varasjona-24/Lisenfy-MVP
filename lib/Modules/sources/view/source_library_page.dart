@@ -54,6 +54,7 @@ class SourceLibraryPage extends StatefulWidget {
 }
 
 class _SourceLibraryPageState extends State<SourceLibraryPage> {
+  final _localMode = HomeMode.audio.obs;
   final SourcesController _sources = Get.find<SourcesController>();
   final MediaActionsController _actions = Get.find<MediaActionsController>();
   final GetStorage _storage = GetStorage();
@@ -144,7 +145,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
     }
 
     return Obx(() {
-      final homeMode = home.mode.value;
+      final homeMode = _localMode.value;
       // Biblioteca offline: siempre en modo video
       final displayMode = widget.onlyOffline
           ? HomeMode.video
@@ -169,7 +170,9 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
           // Sin toggle cuando es offline (solo video) o forceKind fijo
           onToggleMode: (widget.onlyOffline || widget.forceKind != null)
               ? null
-              : home.toggleMode,
+              : () => _localMode.value = _localMode.value == HomeMode.audio
+                    ? HomeMode.video
+                    : HomeMode.audio,
           showLocalConnectAction: false,
           mode: displayMode == HomeMode.audio
               ? AppMediaMode.audio

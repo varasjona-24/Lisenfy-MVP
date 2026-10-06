@@ -759,13 +759,7 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
     final idx = list.indexWhere((e) => e.id == item.id);
     final safeIdx = idx == -1 ? 0 : idx;
 
-    if (item.hasVideoLocal && !item.hasAudioLocal) {
-      home.mode.value = HomeMode.video;
-    } else if (item.hasAudioLocal && !item.hasVideoLocal) {
-      home.mode.value = HomeMode.audio;
-    }
-
-    home.openMedia(item, safeIdx, list);
+    home.openMedia(item, safeIdx, list, preferredKind: MediaVariantKind.video);
   }
 
   Future<List<MediaItem>> _candidateItems() async {

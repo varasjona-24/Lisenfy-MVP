@@ -6,7 +6,6 @@ import 'package:listenfy/app/models/history_group.dart';
 import 'package:listenfy/Modules/history/domain/entities/history_kind_filter.dart';
 import 'package:listenfy/Modules/history/domain/usecases/load_history_items_usecase.dart';
 import 'package:listenfy/Modules/history/state/history_state.dart';
-import 'package:listenfy/Modules/Home/Controller/home_controller.dart';
 import 'package:listenfy/app/core/presentation/getx_state_controller.dart';
 import 'package:listenfy/app/core/presentation/view_status.dart';
 import 'package:listenfy/app/models/media_item.dart';
@@ -15,16 +14,11 @@ import 'package:listenfy/app/models/media_item.dart';
 // 🎛️ CONTROLLER: HISTORIAL
 // ============================
 class HistoryController extends GetxStateController<HistoryState> {
-  HistoryController({
-    required LoadHistoryItemsUseCase loadHistoryItemsUseCase,
-    HomeController? homeController,
-  }) : _loadHistoryItemsUseCase = loadHistoryItemsUseCase,
-       _homeController = homeController,
-       super(HistoryState.initial());
+  HistoryController({required LoadHistoryItemsUseCase loadHistoryItemsUseCase})
+    : _loadHistoryItemsUseCase = loadHistoryItemsUseCase,
+      super(HistoryState.initial());
 
   final LoadHistoryItemsUseCase _loadHistoryItemsUseCase;
-  final HomeController? _homeController;
-  Worker? _homeWorker;
   final GetStorage _storage = GetStorage();
   final RxBool gridView = true.obs;
 
@@ -35,20 +29,7 @@ class HistoryController extends GetxStateController<HistoryState> {
   void onInit() {
     super.onInit();
     gridView.value = _storage.read('history_grid_view') ?? true;
-    final home = _homeController;
-    if (home != null) {
-      _syncFilterWithHome();
-      _homeWorker = ever<HomeMode>(home.mode, (_) {
-        _syncFilterWithHome();
-      });
-    }
     loadHistory();
-  }
-
-  @override
-  void onClose() {
-    _homeWorker?.dispose();
-    super.onClose();
   }
 
   // ============================
@@ -110,16 +91,6 @@ class HistoryController extends GetxStateController<HistoryState> {
   void toggleGridView() {
     gridView.value = !gridView.value;
     _storage.write('history_grid_view', gridView.value);
-  }
-
-  // Sincroniza el filtro de historial con el modo actual del Home.
-  void _syncFilterWithHome() {
-    final home = _homeController;
-    if (home == null) return;
-    final desired = home.mode.value == HomeMode.audio
-        ? HistoryKindFilter.audio
-        : HistoryKindFilter.video;
-    setFilter(desired);
   }
 
   // 🧩 HELPERS DE TRANSFORMACIÓN

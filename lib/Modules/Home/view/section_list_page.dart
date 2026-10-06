@@ -647,7 +647,14 @@ class _SectionListPageState extends State<SectionListPage> {
     final sourceId = widget.sourceId;
     final home = _homeController;
     if (sourceId != null && home != null) {
-      await home.openMedia(item, index, _items);
+      await home.openMedia(
+        item,
+        index,
+        _items,
+        preferredKind: widget.rectangularGrid
+            ? MediaVariantKind.video
+            : MediaVariantKind.audio,
+      );
       return;
     }
     await widget.onItemTap(item, index);

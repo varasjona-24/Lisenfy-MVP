@@ -226,7 +226,7 @@ class HomePage extends GetView<HomeController> {
                                             ),
                                             'items': controller.fullFavorites,
                                             'onItemTap': (item, index) =>
-                                                controller.openMedia(
+                                                controller.openHomeMedia(
                                                   item,
                                                   index,
                                                   controller.fullFavorites,
@@ -253,7 +253,7 @@ class HomePage extends GetView<HomeController> {
                                                       onStartMultiSelect,
                                                 ),
                                             'onShuffle': (queue) =>
-                                                controller.openMedia(
+                                                controller.openHomeMedia(
                                                   queue.first,
                                                   0,
                                                   queue,
@@ -261,7 +261,7 @@ class HomePage extends GetView<HomeController> {
                                           },
                                         ),
                                         onItemTap: (item, index) =>
-                                            controller.openMedia(
+                                            controller.openHomeMedia(
                                               item,
                                               index,
                                               controller.fullFavorites,
@@ -288,7 +288,7 @@ class HomePage extends GetView<HomeController> {
                                                 'items':
                                                     controller.fullFavorites,
                                                 'onItemTap': (item, index) =>
-                                                    controller.openMedia(
+                                                    controller.openHomeMedia(
                                                       item,
                                                       index,
                                                       controller.fullFavorites,
@@ -317,7 +317,7 @@ class HomePage extends GetView<HomeController> {
                                                           onStartMultiSelect,
                                                     ),
                                                 'onShuffle': (queue) =>
-                                                    controller.openMedia(
+                                                    controller.openHomeMedia(
                                                       queue.first,
                                                       0,
                                                       queue,
@@ -359,7 +359,7 @@ class HomePage extends GetView<HomeController> {
                                             'itemHintBuilder': controller
                                                 .recommendationHintFor,
                                             'onItemTap': (item, index) =>
-                                                controller.openMedia(
+                                                controller.openHomeMedia(
                                                   item,
                                                   index,
                                                   controller.fullRecommended,
@@ -386,7 +386,7 @@ class HomePage extends GetView<HomeController> {
                                                       onStartMultiSelect,
                                                 ),
                                             'onShuffle': (queue) =>
-                                                controller.openMedia(
+                                                controller.openHomeMedia(
                                                   queue.first,
                                                   0,
                                                   queue,
@@ -430,7 +430,7 @@ class HomePage extends GetView<HomeController> {
                                                 'itemHintBuilder': controller
                                                     .recommendationHintFor,
                                                 'onItemTap': (item, index) =>
-                                                    controller.openMedia(
+                                                    controller.openHomeMedia(
                                                       item,
                                                       index,
                                                       collection.items,
@@ -458,7 +458,7 @@ class HomePage extends GetView<HomeController> {
                                                           onStartMultiSelect,
                                                     ),
                                                 'onShuffle': (queue) =>
-                                                    controller.openMedia(
+                                                    controller.openHomeMedia(
                                                       queue.first,
                                                       0,
                                                       queue,
@@ -491,7 +491,7 @@ class HomePage extends GetView<HomeController> {
                                                 (MediaItem item, int _) =>
                                                     _PlayCountPill(item: item),
                                             'onItemTap': (item, index) =>
-                                                controller.openMedia(
+                                                controller.openHomeMedia(
                                                   item,
                                                   index,
                                                   controller.fullMostPlayed,
@@ -518,7 +518,7 @@ class HomePage extends GetView<HomeController> {
                                                       onStartMultiSelect,
                                                 ),
                                             'onShuffle': (queue) =>
-                                                controller.openMedia(
+                                                controller.openHomeMedia(
                                                   queue.first,
                                                   0,
                                                   queue,
@@ -530,7 +530,7 @@ class HomePage extends GetView<HomeController> {
                                       _MostPlayedRow(
                                         items: controller.mostPlayed,
                                         onTap: (item, index) =>
-                                            controller.openMedia(
+                                            controller.openHomeMedia(
                                               item,
                                               index,
                                               controller.fullMostPlayed,
@@ -562,7 +562,7 @@ class HomePage extends GetView<HomeController> {
                                                           item: item,
                                                         ),
                                                 'onItemTap': (item, index) =>
-                                                    controller.openMedia(
+                                                    controller.openHomeMedia(
                                                       item,
                                                       index,
                                                       controller.fullMostPlayed,
@@ -591,7 +591,7 @@ class HomePage extends GetView<HomeController> {
                                                           onStartMultiSelect,
                                                     ),
                                                 'onShuffle': (queue) =>
-                                                    controller.openMedia(
+                                                    controller.openHomeMedia(
                                                       queue.first,
                                                       0,
                                                       queue,
@@ -627,7 +627,7 @@ class HomePage extends GetView<HomeController> {
                                             'items':
                                                 controller.fullRecentlyPlayed,
                                             'onItemTap': (item, index) =>
-                                                controller.openMedia(
+                                                controller.openHomeMedia(
                                                   item,
                                                   index,
                                                   controller.fullRecentlyPlayed,
@@ -654,7 +654,7 @@ class HomePage extends GetView<HomeController> {
                                                       onStartMultiSelect,
                                                 ),
                                             'onShuffle': (queue) =>
-                                                controller.openMedia(
+                                                controller.openHomeMedia(
                                                   queue.first,
                                                   0,
                                                   queue,
@@ -662,7 +662,7 @@ class HomePage extends GetView<HomeController> {
                                           },
                                         ),
                                         onItemTap: (item, index) =>
-                                            controller.openMedia(
+                                            controller.openHomeMedia(
                                               item,
                                               index,
                                               controller.fullRecentlyPlayed,
@@ -689,7 +689,7 @@ class HomePage extends GetView<HomeController> {
                                                 'items': controller
                                                     .fullRecentlyPlayed,
                                                 'onItemTap': (item, index) =>
-                                                    controller.openMedia(
+                                                    controller.openHomeMedia(
                                                       item,
                                                       index,
                                                       controller
@@ -719,7 +719,7 @@ class HomePage extends GetView<HomeController> {
                                                           onStartMultiSelect,
                                                     ),
                                                 'onShuffle': (queue) =>
-                                                    controller.openMedia(
+                                                    controller.openHomeMedia(
                                                       queue.first,
                                                       0,
                                                       queue,
@@ -757,7 +757,7 @@ class HomePage extends GetView<HomeController> {
                                             ),
                                             'items': controller.fullFeatured,
                                             'onItemTap': (item, index) =>
-                                                controller.openMedia(
+                                                controller.openHomeMedia(
                                                   item,
                                                   index,
                                                   controller.fullFeatured,
@@ -784,7 +784,7 @@ class HomePage extends GetView<HomeController> {
                                                       onStartMultiSelect,
                                                 ),
                                             'onShuffle': (queue) =>
-                                                controller.openMedia(
+                                                controller.openHomeMedia(
                                                   queue.first,
                                                   0,
                                                   queue,
@@ -797,7 +797,7 @@ class HomePage extends GetView<HomeController> {
                                       _FeaturedList(
                                         items: controller.featured,
                                         onTap: (item, index) =>
-                                            controller.openMedia(
+                                            controller.openHomeMedia(
                                               item,
                                               index,
                                               controller.fullFeatured,
@@ -824,7 +824,7 @@ class HomePage extends GetView<HomeController> {
                                                   'items':
                                                       controller.fullFeatured,
                                                   'onItemTap': (item, index) =>
-                                                      controller.openMedia(
+                                                      controller.openHomeMedia(
                                                         item,
                                                         index,
                                                         controller.fullFeatured,
@@ -854,7 +854,7 @@ class HomePage extends GetView<HomeController> {
                                                             onStartMultiSelect,
                                                       ),
                                                   'onShuffle': (queue) =>
-                                                      controller.openMedia(
+                                                      controller.openHomeMedia(
                                                         queue.first,
                                                         0,
                                                         queue,
@@ -891,7 +891,7 @@ class HomePage extends GetView<HomeController> {
                                             'items':
                                                 controller.fullLatestDownloads,
                                             'onItemTap': (item, index) =>
-                                                controller.openMedia(
+                                                controller.openHomeMedia(
                                                   item,
                                                   index,
                                                   controller
@@ -919,7 +919,7 @@ class HomePage extends GetView<HomeController> {
                                                       onStartMultiSelect,
                                                 ),
                                             'onShuffle': (queue) =>
-                                                controller.openMedia(
+                                                controller.openHomeMedia(
                                                   queue.first,
                                                   0,
                                                   queue,
@@ -927,7 +927,7 @@ class HomePage extends GetView<HomeController> {
                                           },
                                         ),
                                         onItemTap: (item, index) =>
-                                            controller.openMedia(
+                                            controller.openHomeMedia(
                                               item,
                                               index,
                                               controller.fullLatestDownloads,
@@ -954,7 +954,7 @@ class HomePage extends GetView<HomeController> {
                                                 'items': controller
                                                     .fullLatestDownloads,
                                                 'onItemTap': (item, index) =>
-                                                    controller.openMedia(
+                                                    controller.openHomeMedia(
                                                       item,
                                                       index,
                                                       controller
@@ -984,7 +984,7 @@ class HomePage extends GetView<HomeController> {
                                                           onStartMultiSelect,
                                                     ),
                                                 'onShuffle': (queue) =>
-                                                    controller.openMedia(
+                                                    controller.openHomeMedia(
                                                       queue.first,
                                                       0,
                                                       queue,
@@ -1142,7 +1142,7 @@ class _HomeOrderedSections extends StatelessWidget {
             const SizedBox(height: 10),
             _MostPlayedRow(
               items: mostPlayedItems.take(12).toList(),
-              onTap: (item, index) => controller.openMedia(
+              onTap: (item, index) => controller.openHomeMedia(
                 item,
                 mostPlayedItems.indexOf(item),
                 mostPlayedItems,
@@ -1201,7 +1201,7 @@ class _HomeOrderedSections extends StatelessWidget {
         items: full,
         onHeaderTap: () =>
             _openList(context, title: title, items: full, sourceId: id),
-        onTap: (item, index) => controller.openMedia(item, index, full),
+        onTap: (item, index) => controller.openHomeMedia(item, index, full),
         onLongPress: (item, index) {
           actions.showItemActions(
             context,
@@ -1231,7 +1231,7 @@ class _HomeOrderedSections extends StatelessWidget {
           : null,
       onHeaderTap: () =>
           _openList(context, title: title, items: full, sourceId: id),
-      onItemTap: (item, index) => controller.openMedia(item, index, full),
+      onItemTap: (item, index) => controller.openHomeMedia(item, index, full),
       onItemLongPress: (item, _, {onStartMultiSelect}) {
         actions.showItemActions(
           context,
@@ -1262,7 +1262,8 @@ class _HomeOrderedSections extends StatelessWidget {
         title: title,
         items: items,
         itemHintBuilder: controller.recommendationHintFor,
-        onItemTap: (item, index) => controller.openMedia(item, index, items),
+        onItemTap: (item, index) =>
+            controller.openHomeMedia(item, index, items),
         onItemLongPress: (item, _, {onStartMultiSelect}) =>
             actions.showItemActions(
               context,
@@ -1274,7 +1275,7 @@ class _HomeOrderedSections extends StatelessWidget {
               ),
               onStartMultiSelect: onStartMultiSelect,
             ),
-        onShuffle: (queue) => controller.openMedia(queue.first, 0, queue),
+        onShuffle: (queue) => controller.openHomeMedia(queue.first, 0, queue),
       ),
     );
   }
@@ -1296,7 +1297,8 @@ class _HomeOrderedSections extends StatelessWidget {
         if (sourceId == HomeWidgetId.mostPlayed)
           'itemTrailingBuilder': (MediaItem item, int _) =>
               _PlayCountPill(item: item),
-        'onItemTap': (item, index) => controller.openMedia(item, index, items),
+        'onItemTap': (item, index) =>
+            controller.openHomeMedia(item, index, items),
         'onItemLongPress': (item, _, {onStartMultiSelect}) =>
             actions.showItemActions(
               context,
@@ -1308,7 +1310,7 @@ class _HomeOrderedSections extends StatelessWidget {
               ),
               onStartMultiSelect: onStartMultiSelect,
             ),
-        'onShuffle': (queue) => controller.openMedia(queue.first, 0, queue),
+        'onShuffle': (queue) => controller.openHomeMedia(queue.first, 0, queue),
         if (initialSelectionItem != null) ...{
           'startInSelectionMode': true,
           'initialSelectionItemId': initialSelectionItem.id,
@@ -1425,7 +1427,7 @@ class _CustomHomeSections extends StatelessWidget {
           itemsRefreshBuilder: () =>
               controller.resolveCustomSectionItems(section),
         ),
-        onTap: (item, index) => controller.openMedia(item, index, items),
+        onTap: (item, index) => controller.openHomeMedia(item, index, items),
         onLongPress: (item, index) => actions.showItemActions(
           context,
           item,
@@ -1455,7 +1457,7 @@ class _CustomHomeSections extends StatelessWidget {
         itemsRefreshBuilder: () =>
             controller.resolveCustomSectionItems(section),
       ),
-      onItemTap: (item, index) => controller.openMedia(item, index, items),
+      onItemTap: (item, index) => controller.openHomeMedia(item, index, items),
       onItemLongPress: (item, _, {onStartMultiSelect}) {
         actions.showItemActions(
           context,
@@ -1688,7 +1690,8 @@ class _CustomHomeSections extends StatelessWidget {
       arguments: {
         'title': title,
         'items': items,
-        'onItemTap': (item, index) => controller.openMedia(item, index, items),
+        'onItemTap': (item, index) =>
+            controller.openHomeMedia(item, index, items),
         'onItemLongPress': (item, _, {onStartMultiSelect}) =>
             actions.showItemActions(
               context,

@@ -35,7 +35,17 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
   late _SongLibrarySort _sort;
   late bool _sortAscending;
 
-  bool get _isVideoMode => _home.mode.value == HomeMode.video;
+  late final MediaVariantKind _searchKind =
+      (Get.arguments is Map &&
+          (Get.arguments as Map)['mediaKind'] == MediaVariantKind.video)
+      ? MediaVariantKind.video
+      : MediaVariantKind.audio;
+  bool get _isVideoMode => _searchKind == MediaVariantKind.video;
+  Future<void> _openSearchMedia(
+    MediaItem item,
+    int index,
+    List<MediaItem> list,
+  ) => _home.openMedia(item, index, list, preferredKind: _searchKind);
 
   @override
   void initState() {
@@ -170,7 +180,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
   }
 
   List<MediaItem> _filteredItems() {
-    final isAudioMode = _home.mode.value == HomeMode.audio;
+    final isAudioMode = !_isVideoMode;
     final q = _query.toLowerCase();
 
     final items = _home.allItems.where((item) {
@@ -413,7 +423,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
           item: item,
           videoStyle: _isVideoMode,
           carded: true,
-          onTap: () => _home.openMedia(item, index, list),
+          onTap: () => _openSearchMedia(item, index, list),
           onLongPress: () => _openItemActions(context, item, list),
           onMore: () => _openItemActions(context, item, list),
         );
@@ -436,7 +446,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
         AppSpacing.lg,
       ),
       videoStyle: _isVideoMode,
-      onTap: (item, index) => _home.openMedia(item, index, list),
+      onTap: (item, index) => _openSearchMedia(item, index, list),
       onLongPress: (item, index) => _openItemActions(context, item, list),
     );
   }
@@ -459,7 +469,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
             'title': tr('home.search.results_title'),
             'items': list,
             'onItemTap': (MediaItem tapped, int tapIndex) =>
-                _home.openMedia(tapped, tapIndex < 0 ? 0 : tapIndex, list),
+                _openSearchMedia(tapped, tapIndex < 0 ? 0 : tapIndex, list),
             'onItemLongPress':
                 (MediaItem target, int _, {VoidCallback? onStartMultiSelect}) =>
                     _actions.showItemActions(
