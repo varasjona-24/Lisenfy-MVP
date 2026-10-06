@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-06 — Exportación de todas las tablas SQLite
+
+- ZIP incorpora sqlite_complete_v1.json cuando SQL está registrado: snapshot transaccional serializado de todas las tablas de aplicación, sin whitelist de módulos ni corte temporal. Se conserva la exportación lógica anterior para compatibilidad.
+- Inventario adicional copia referencias de catálogo/dominios y archivos de payloads JSON, incluidas portadas históricas. Rutas originales se mapean a entradas relativas; referencias ausentes se declaran en missingFiles. La copia completa incluye instrumentales referenciados aunque el manifiesto legacy los excluya.
+- Prueba compara cobertura contra sqlite_master y confirma inclusión automática de una tabla futura. Pendiente restore íntegro de este suplemento, preferencias completas y snapshot global coordinado con archivos; el restore actual continúa por los formatos lógicos anteriores. Solo SQL debug registrado; no cutover release.
+- Verificación: 133 pruebas schema/stats/Connect/Atlas/recommendations aprobadas; análisis focalizado de tres archivos sin issues y diff sin errores de whitespace. Persisten avisos conocidos de plugins/traducciones; exportación física y restauración en teléfono pendientes.
+
 ## 2026-10-06 — Dominios durables SQL v4 y backup complementario
 
 - Conectados Collections/sources, capturas/fondos, recomendaciones, Atlas y trabajos instrumental/8D mediante DomainStorage. Preferencias y caché de estaciones siguen en GetStorage; archivos físicos en disco y referencias SQL. Bootstrap carga la proyección antes de Settings y motores.

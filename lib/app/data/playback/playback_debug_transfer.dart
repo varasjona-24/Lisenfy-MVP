@@ -379,6 +379,36 @@ extension PlaybackDebugTransfer on PlaybackRepository {
     'playback_resume',
     'restoration_import',
   ];
+
+  /// Complete SQL snapshot. Logical restore remains versioned independently.
+  /// Enumerate installed tables so future durable tables cannot be omitted.
+  Future<Map<String, dynamic>> exportCompleteDatabase() => _restorationTask(
+    () => _database.transaction(() async {
+      final names =
+          (await _database
+                  .customSelect(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+                  )
+                  .get())
+              .map((row) => row.read<String>('name'))
+              .toList();
+      final tables = <String, dynamic>{};
+      for (final name in names) {
+        final quoted = name.replaceAll('"', '""');
+        tables[name] =
+            (await _database.customSelect('SELECT * FROM "$quoted"').get())
+                .map((row) => row.data)
+                .toList();
+      }
+      return <String, dynamic>{
+        'formatVersion': 1,
+        'databaseSchemaVersion': _database.schemaVersion,
+        'scope': 'all_application_tables',
+        'tables': tables,
+      };
+    }),
+  );
+
   Future<Map<String, dynamic>> exportDebugBundle() => _restorationTask(
     () => _database.transaction(
       () async => {

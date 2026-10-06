@@ -1580,6 +1580,59 @@ class BackupRestoreController extends GetxController {
         await Get.find<AudioService>().flushPlaybackHistory();
         await Get.find<VideoService>().flushPlaybackHistory();
         await Get.find<PlaybackStateStorage>().flush();
+        final complete = await Get.find<PlaybackRepository>()
+            .exportCompleteDatabase();
+        final completeTables = complete['tables'] as Map;
+        final references = <String>{};
+        void collectFiles(dynamic value, [String? field]) {
+          if (value is Map) {
+            for (final entry in value.entries) {
+              collectFiles(entry.value, entry.key.toString());
+            }
+          } else if (value is List) {
+            for (final entry in value) {
+              collectFiles(entry);
+            }
+          } else if (value is String && value.isNotEmpty) {
+            if (DomainBackupCodec.fileFields.contains(field)) {
+              references.add(value);
+            } else if (field == 'artwork_ref' && value.startsWith('local:')) {
+              references.add(value.substring(6));
+            } else if (field != null && field.endsWith('_json')) {
+              collectFiles(jsonDecode(value));
+            }
+          }
+        }
+
+        collectFiles(completeTables);
+        for (final raw in (completeTables['catalog_file_reference'] as List)) {
+          final row = raw as Map;
+          if (row['locator_kind'] == 'local_path') {
+            references.add(row['locator'] as String);
+          }
+        }
+        for (final raw in (completeTables['app_domain_file'] as List)) {
+          references.add((raw as Map)['locator'] as String);
+        }
+        final files = <String, String?>{};
+        for (final reference in references) {
+          files[reference] = await copyToBackup(reference);
+        }
+        complete['fileLocators'] = files;
+        complete['missingFiles'] = files.entries
+            .where((entry) => entry.value == null)
+            .map((entry) => entry.key)
+            .toList();
+        await File(
+          p.join(tempDir.path, 'sqlite_complete_v1.json'),
+        ).writeAsString(jsonEncode(complete), flush: true);
+        manifest['sqliteSnapshot'] = <String, dynamic>{
+          'entry': 'sqlite_complete_v1.json',
+          'scope': 'all_application_tables',
+          'tableCount': completeTables.length,
+          'missingFileCount': (complete['missingFiles'] as List).length,
+          'restoreMode': 'logical_compatibility',
+        };
         final payload = await Get.find<PlaybackRepository>()
             .exportDebugBundle();
         await File(

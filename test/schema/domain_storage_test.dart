@@ -87,6 +87,34 @@ void main() {
     legacy = _Legacy();
     await open();
   });
+  test('complete SQL export includes every installed table', () async {
+    await load();
+    final bundle =
+        jsonDecode(jsonEncode(await repository.exportCompleteDatabase()))
+            as Map;
+    final tables = bundle['tables'] as Map;
+    final installed = await db
+        .customSelect(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+        )
+        .get();
+    expect(
+      tables.keys.toSet(),
+      installed.map((row) => row.read<String>('name')).toSet(),
+    );
+    expect(tables.length, 28);
+    expect(tables['app_domain_import'], hasLength(1));
+    expect(tables['app_domain_record'], isNotEmpty);
+    expect(tables.containsKey('playback_interval'), isTrue);
+    expect(tables.containsKey('legacy_metrics'), isTrue);
+    expect(bundle['scope'], 'all_application_tables');
+    await db.customStatement('CREATE TABLE future_data(value TEXT)');
+    await db.customStatement("INSERT INTO future_data VALUES ('preserved')");
+    final future = await repository.exportCompleteDatabase();
+    expect((future['tables'] as Map)['future_data'], [
+      {'value': 'preserved'},
+    ]);
+  });
   tearDown(() async {
     Get.reset();
     await repository.close();

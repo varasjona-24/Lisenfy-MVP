@@ -99,6 +99,26 @@ para ser atómicos frente a interrupciones. No se elimina evidencia de playback.
 
 ## Estado y orden pendiente
 
+### Exportación SQL completa (2026-10-06)
+
+Cuando PlaybackRepository está registrado, el ZIP añade sqlite_complete_v1.json:
+una transacción de lectura serializada exporta todas las tablas de aplicación
+instaladas (no sqlite_*), incluso tablas futuras, sin filtro temporal de historial.
+Incluye filas originales y versión real del esquema. Se copian referencias locales
+del catálogo/dominios y campos de archivos dentro de payloads JSON, incluidas
+portadas históricas; fileLocators relaciona rutas originales y entradas relativas,
+missingFiles declara referencias no copiadas. Este contenido incluye variantes
+referenciadas aunque la opción legacy excluya instrumentales del manifiesto lógico.
+
+El snapshot SQL es consistente internamente, NO simultáneo con el manifiesto lógico
+y todos los archivos. Preferencias mantienen el alcance existente (apariencia/layout),
+no se exporta indiscriminadamente GetStorage ni credenciales. Cachés/temporales físicos
+no se recorren como contenido durable. La restauración actual sigue leyendo los
+archivos lógicos anteriores; NO aplica sqlite_complete_v1.json como reemplazo íntegro.
+El protocolo de restore completo/rebase/activación queda pendiente. Release sin
+repositorio registrado no genera este suplemento. No se declara backup global
+atómico ni recuperación total ya validada en instalación vacía.
+
 1. Biblioteca, playlists y artistas: implementados en SQLite debug, pendientes
    pruebas físicas de importación/edición/exportación/restauración.
 2. Collections, capturas/fondos, recomendaciones, Atlas y procesamiento:
