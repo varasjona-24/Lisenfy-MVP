@@ -1287,6 +1287,7 @@
     "shuffle": "Reproducción aleatoria"
   },
   "backup": {
+    "sqlite_legacy_empty_required": "Para importar este respaldo antiguo, el historial SQLite debe estar vacío. No se combinarán métricas que puedan duplicarse.",
     "sqlite_debug_required": "El modo SQLite debug requiere un respaldo creado en ese mismo modo. Los datos antiguos se importan automáticamente en el primer arranque debug.",
     "title": "Copia de seguridad",
     "estimate_error": "No se pudo calcular el tamaño estimado",

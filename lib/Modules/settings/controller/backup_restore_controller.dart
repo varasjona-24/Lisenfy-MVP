@@ -1687,10 +1687,6 @@ class BackupRestoreController extends GetxController {
       if (manifestEntry == null) {
         throw Exception('Manifest not found');
       }
-      if (Get.isRegistered<PlaybackRepository>() &&
-          zipIndex.find('playback_sqlite_debug.json') == null) {
-        throw StateError(tr('backup.sqlite_debug_required'));
-      }
 
       currentOperation.value = tr('backup.operations.extracting_manifest');
       await _extractZipBackupEntry(
@@ -1704,6 +1700,21 @@ class BackupRestoreController extends GetxController {
       final manifestFile = File(p.join(tempDir.path, 'manifest.json'));
       if (!await manifestFile.exists()) {
         throw Exception('Manifest not found');
+      }
+      final legacySqliteBackup =
+          Get.isRegistered<PlaybackRepository>() &&
+          zipIndex.find('playback_sqlite_debug.json') == null;
+      String? legacySourceHash;
+      if (legacySqliteBackup) {
+        legacySourceHash = (await sha256.bind(manifestFile.openRead()).first)
+            .toString();
+        try {
+          await Get.find<PlaybackRepository>().validateLegacyBackupTarget(
+            legacySourceHash,
+          );
+        } on StateError {
+          throw StateError(tr('backup.sqlite_legacy_empty_required'));
+        }
       }
 
       currentOperation.value = tr('backup.operations.reading_manifest');
@@ -1843,6 +1854,7 @@ class BackupRestoreController extends GetxController {
       final libraryStore = Get.find<LocalLibraryStore>();
       var restoredItems = 0;
       final itemsToRestore = <MediaItem>[];
+      final legacySqliteItems = <Map<String, dynamic>>[];
       Future<void> restoreItem(Map<String, dynamic> data, int i) async {
         if (i % 10 == 0) {
           await _yieldUi();
@@ -1874,6 +1886,7 @@ class BackupRestoreController extends GetxController {
         data['variants'] = updatedVariants;
 
         final item = MediaItem.fromJson(data);
+        if (legacySqliteBackup) legacySqliteItems.add(item.toJson());
         itemsToRestore.add(item);
         restoredItems++;
       }
@@ -2105,27 +2118,52 @@ class BackupRestoreController extends GetxController {
 
       if (Get.isRegistered<PlaybackRepository>()) {
         final entry = zipIndex.find('playback_sqlite_debug.json');
-        if (entry == null) {
-          throw StateError(tr('backup.sqlite_debug_required'));
-        }
         await Get.find<AudioService>().stop();
         await Get.find<VideoService>().stop();
         await Get.find<AudioService>().flushPlaybackHistory();
         await Get.find<VideoService>().flushPlaybackHistory();
         await Get.find<PlaybackStateStorage>().flush();
-        final target = File(p.join(tempDir.path, 'playback_sqlite_debug.json'));
-        await _extractZipBackupEntry(
-          zipPath: path,
-          entry: entry,
-          outputPath: target.path,
-        );
-        await Get.find<PlaybackRepository>().restoreDebugBundle(
-          Map<String, dynamic>.from(
-            jsonDecode(await target.readAsString()) as Map,
-          ),
-        );
+        if (entry == null) {
+          final events = <Map<String, dynamic>>[];
+          if (useStreamingManifest) {
+            await _forEachManifestObject(manifestFile, 'listeningEvents', (
+              data,
+              index,
+            ) async {
+              events.add(Map<String, dynamic>.from(data));
+            });
+          } else {
+            for (final raw
+                in manifest?['listeningEvents'] as List? ?? const []) {
+              events.add(Map<String, dynamic>.from(raw as Map));
+            }
+          }
+          await Get.find<PlaybackRepository>().importLegacyHistory(
+            library: legacySqliteItems,
+            events: events,
+            scope: GetStorage().read<String>('playback_staging_installation')!,
+            sourceHash: legacySourceHash!,
+            migrationId: 'legacy-zip-$legacySourceHash',
+            nowUtcMs: DateTime.now().millisecondsSinceEpoch,
+          );
+        } else {
+          final target = File(
+            p.join(tempDir.path, 'playback_sqlite_debug.json'),
+          );
+          await _extractZipBackupEntry(
+            zipPath: path,
+            entry: entry,
+            outputPath: target.path,
+          );
+          await Get.find<PlaybackRepository>().restoreDebugBundle(
+            Map<String, dynamic>.from(
+              jsonDecode(await target.readAsString()) as Map,
+            ),
+          );
+        }
         await Get.find<PlaybackRepository>().recoverInterruptedSessions();
         await Get.find<PlaybackStateStorage>().reload();
+        await libraryStore.readAll();
       } else if (useStreamingManifest) {
         await _forEachManifestObject(manifestFile, 'listeningEvents', (
           data,

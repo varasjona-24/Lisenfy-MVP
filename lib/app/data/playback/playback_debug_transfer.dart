@@ -2,6 +2,28 @@ part of 'playback_repository.dart';
 
 /// Debug transfer/query APIs. Imports facts without manufacturing listen ranges.
 extension PlaybackDebugTransfer on PlaybackRepository {
+  /// Legacy ZIPs are a baseline, not additive history. Permit an empty target
+  /// or an exact retry, never sum an overlapping backup into existing history.
+  Future<void> validateLegacyBackupTarget(String sourceHash) =>
+      _restorationTask(() async {
+        final receipt = await _database
+            .customSelect(
+              'SELECT migration_id FROM migration_state WHERE migration_id=?',
+              variables: [Variable('legacy-zip-$sourceHash')],
+            )
+            .getSingleOrNull();
+        if (receipt != null) return;
+        final row = await _database
+            .customSelect(
+              'SELECT (SELECT COUNT(*) FROM legacy_metrics) + '
+              '(SELECT COUNT(*) FROM playback_session) AS total',
+            )
+            .getSingle();
+        if (row.read<int>('total') != 0) {
+          throw StateError('legacy_backup_requires_empty_history');
+        }
+      });
+
   Future<Map<String, Map<String, dynamic>>> queryLibraryMetrics({
     String? mode,
   }) => _restorationTask(() async {
@@ -44,8 +66,9 @@ extension PlaybackDebugTransfer on PlaybackRepository {
     required String scope,
     required String sourceHash,
     required int nowUtcMs,
+    String? migrationId,
   }) => _restorationTask(() async {
-    final source = 'debug-legacy-$scope';
+    final source = migrationId ?? 'debug-legacy-$scope';
     await _database.transaction(() async {
       final previous = await _database
           .customSelect(
@@ -58,6 +81,17 @@ extension PlaybackDebugTransfer on PlaybackRepository {
           throw PlaybackIdempotencyConflict(source);
         }
         return;
+      }
+      if (migrationId?.startsWith('legacy-zip-') == true) {
+        final occupied = await _database
+            .customSelect(
+              'SELECT (SELECT COUNT(*) FROM legacy_metrics) + '
+              '(SELECT COUNT(*) FROM playback_session) AS total',
+            )
+            .getSingle();
+        if (occupied.read<int>('total') != 0) {
+          throw StateError('legacy_backup_requires_empty_history');
+        }
       }
       await _database.customStatement(
         "INSERT INTO migration_state(migration_id,source_id,source_hash,hash_algorithm,canonicalization_version,target_schema_version,cutover_at_utc_ms,state) VALUES(?,?,?,'sha256',1,2,?,'staging')",

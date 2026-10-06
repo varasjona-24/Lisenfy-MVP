@@ -1,5 +1,13 @@
 # Registro de refactor
 
+## 2026-10-06 — Restauración de ZIP legacy en debug vacío
+
+- Eliminado el requisito de bundle SQL para ZIP antiguos. Se importa la biblioteca remapeada y listeningEvents al repositorio SQL usando la identidad de instalación actual.
+- Hash SHA256 del manifest leído por stream y recibo específico separan esta importación del bootstrap vacío. Reintentar el mismo manifest conserva métricas y sesiones sin duplicarlas; otro baseline sobre historial existente se rechaza antes de restaurar archivos, con texto localizado.
+- Importación SQL transaccional con segunda comprobación de destino vacío; no fabrica fechas ni divide métricas ambiguas entre audio/video. Lectura grande conserva el parser por stream, pero acumula el lote de eventos en memoria: no se declara escalabilidad ilimitada.
+- Se mantienen archivos, biblioteca, preferencias y relaciones del flujo ZIP existente. El ZIP legacy no contiene un snapshot SQL operativo; no se inventa una cola/posición ausente. Transacción SQL no garantiza rollback global de archivos/metadatos; prueba del ZIP real en dispositivo pendiente.
+- Verificación:68 pruebas Flutter schema/stats aprobadas, incluidos destino vacío, retry idempotente y rechazo de baseline superpuesto; análisis focalizado sin issues. Pruebas de repositorio no sustituyen una restauración end-to-end del ZIP real en dispositivo.
+
 ## 2026-10-06 — Detección del launcher Android por Flutter
 
 - Flutter 3.44.1 busca MAIN/LAUNCHER en activity y no reconoce los activity-alias usados por los iconos personalizados. El manifest no faltaba.

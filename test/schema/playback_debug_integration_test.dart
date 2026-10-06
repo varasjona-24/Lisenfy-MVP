@@ -83,6 +83,51 @@ void main() {
     await repository.close();
     await directory.delete(recursive: true);
   });
+  test('legacy ZIP refuses overlapping baseline before import', () async {
+    await expectLater(
+      repository.validateLegacyBackupTarget('other'),
+      throwsStateError,
+    );
+    expect((await repository.queryLibraryMetrics())['song']!['playCount'], 10);
+  });
+  test(
+    'legacy ZIP imports into empty SQL and retries without duplicate facts',
+    () async {
+      final target = PlaybackRepository(
+        await PlaybackDatabaseOpener.openStaging(
+          generation: 'legacy-zip-test',
+          supportDirectory: directory,
+          temporaryDirectory: directory,
+        ),
+      );
+      try {
+        await target.validateLegacyBackupTarget('zip-hash');
+        Future<void> import() => target.importLegacyHistory(
+          library: (legacy.values['local_library_items'] as List)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList(),
+          events: (legacy.values['listening_events_v1'] as List)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList(),
+          scope: 'install',
+          sourceHash: 'zip-hash',
+          migrationId: 'legacy-zip-zip-hash',
+          nowUtcMs: 5000,
+        );
+        await import();
+        await target.validateLegacyBackupTarget('zip-hash');
+        await import();
+        expect((await target.queryLibraryMetrics())['song']!['playCount'], 10);
+        expect(await target.queryListeningEvents(), hasLength(1));
+        await expectLater(
+          target.validateLegacyBackupTarget('different'),
+          throwsStateError,
+        );
+      } finally {
+        await target.close();
+      }
+    },
+  );
   test(
     'bootstrap imports facts and preserves baseline without dated inventions',
     () async {

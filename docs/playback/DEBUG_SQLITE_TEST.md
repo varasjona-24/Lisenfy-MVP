@@ -46,9 +46,11 @@ Si la migración falla, no crea motores ni cambia silenciosamente a otro store.
 - Los totales legacy no tienen fechas demostrables: se conservan como baseline,
   no se convierten en sesiones semanales inventadas. Modo ambiguo permanece
   unknown; el collage no lo atribuye automáticamente a audio o video.
-- Restore debug acepta backups SQLite debug. Backups legacy se rechazan antes
-  de modificar datos; su historial se importa desde GetStorage en el primer
-  bootstrap. Restauración cross-device, merge de lineages y activación segura por
+- Restore debug acepta backups SQLite debug y ZIP legacy sobre historial SQL
+  vacío. Un hash del manifest identifica el recibo: repetir el mismo respaldo no
+  duplica hechos. Un respaldo legacy distinto se rechaza si ya existe historial.
+  Los paths de biblioteca se remapean antes de importar; los snapshots históricos
+  embebidos pueden conservar locators antiguos. Restauración cross-device, merge de lineages y activación segura por
   generación siguen siendo gates de producción, no se declaran implementados.
 - El importador y backup debug usan memoria por lote completo; no demuestran
   streaming/chunks de grandes bases ni benchmarks de100k/1M eventos.
