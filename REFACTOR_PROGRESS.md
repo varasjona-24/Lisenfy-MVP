@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-06 — Inspección excepcional del release temporal
+
+- Usuario autoriza por esta vez actualizar .restoretest para consultar su SQLite después de restaurar y reproducir Te amare. LISTENFY_RESTORE_INSPECT=1 habilita debuggable Android solo junto a SANDBOX; Flutter se compila en release.
+- Misma firma/paquete y actualización -r, sin desinstalar ni borrar datos; app original fuera de alcance. Builds normales y temporales sin INSPECT conservan inspección desactivada.
+- Verificación: build aprobado, tres tests launcher aprobados y actualización ADB sin desinstalar. La copia flutter-apk estaba obsoleta; se instaló el APK nuevo de outputs/apk/release y run-as confirmó acceso. Copia local DB+WAL: integrity_check=ok y foreign_key_check sin filas; 639 items, 10 playlists, 16 sesiones, 378 eventos y 49 intervalos.
+- Te amare / Huey Dunbar: una reproducción válida, 26.698 ms de contenido y 27.152 ms de reloj en la sesión principal; una segunda sesión corta no válida. Detectadas dos identidades para el mismo library_id: alias restaurado del scope anterior y alias nuevo de la instalación temporal. No se modificaron datos para fusionarlas: corrección pendiente de autorización.
+
 ## 2026-10-06 — Release temporal para restauración aislada
 
 - Variable opt-in LISTENFY_RESTORE_SANDBOX=1: paquete com.jv24dev.listenfy.restoretest, launcher Listenfy Restore Test y firma debug en APK release. Sin variable se conserva ID/nombre/firma normal.

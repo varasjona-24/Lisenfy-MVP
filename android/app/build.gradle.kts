@@ -11,6 +11,8 @@ plugins {
 val keystoreProperties = Properties()
 // Temporary opt-in release sandbox; normal builds retain their identity.
 val restoreSandbox = providers.environmentVariable("LISTENFY_RESTORE_SANDBOX").orNull == "1"
+val restoreInspection = providers.environmentVariable("LISTENFY_RESTORE_INSPECT").orNull == "1"
+require(!restoreInspection || restoreSandbox) { "Restore inspection requires the isolated sandbox" }
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
@@ -70,6 +72,7 @@ android {
 
     buildTypes {
         release {
+            isDebuggable = restoreSandbox && restoreInspection
             signingConfig = signingConfigs.getByName(if (restoreSandbox) "debug" else "release")
         }
     }

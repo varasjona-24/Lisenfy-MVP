@@ -23,3 +23,16 @@ de instalar; no confundir la temporal con el APK definitivo. Después de validar
 retirar el soporte temporal mediante un cambio aparte y desinstalar únicamente
 com.jv24dev.listenfy.restoretest con aprobación. Eso borra sus datos privados,
 no los de la app original. No eliminar el ZIP ni desinstalar la app original.
+
+## Inspección excepcional autorizada
+
+```sh
+LISTENFY_RESTORE_SANDBOX=1 LISTENFY_RESTORE_INSPECT=1 flutter build apk --release
+```
+
+Solo con autorización: mantiene Flutter/AOT en release y habilita debuggable de
+Android para run-as en el paquete temporal. Se instala mediante adb install -r,
+misma firma y paquete, sin desinstalar ni borrar datos. INSPECT sin SANDBOX se
+rechaza; builds normales y sandbox sin INSPECT quedan no depurables.
+No distribuir este APK de inspección. La autorización es para esta comprobación,
+no para habilitar inspección de la app original ni futuras instalaciones.
