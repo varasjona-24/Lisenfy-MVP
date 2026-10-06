@@ -184,9 +184,26 @@ extension ArtistRelationPersistence on PlaybackRepository {
     }
     Future<String> identity(String name) => _artistIdentity(name);
 
-    final profiles = await _database
+    var profiles = await _database
         .customSelect('SELECT * FROM artist_record ORDER BY ordinal')
         .get();
+    // Profiles in older catalogs may never have been materialized in v5.
+    var requiresCanonicalization = false;
+    for (final row in profiles) {
+      if (await identity(row.read<String>('artist_key')) !=
+          row.read<String>('artist_key')) {
+        requiresCanonicalization = true;
+      }
+    }
+    if (requiresCanonicalization) {
+      await _replaceCatalog('artist_profiles', [
+        for (final row in profiles)
+          jsonDecode(row.read<String>('metadata_json')),
+      ]);
+      profiles = await _database
+          .customSelect('SELECT * FROM artist_record ORDER BY ordinal')
+          .get();
+    }
     for (final row in profiles) {
       final profile = jsonDecode(row.read<String>('metadata_json')) as Map;
       await identity(row.read<String>('artist_key'));

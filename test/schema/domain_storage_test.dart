@@ -87,6 +87,47 @@ void main() {
     legacy = _Legacy();
     await open();
   });
+  test(
+    'repairs unmapped legacy profiles before rebuilding foreign keys',
+    () async {
+      await db.customStatement('INSERT INTO artist_record VALUES (?,?,?)', [
+        'no doubt',
+        0,
+        jsonEncode({
+          'key': 'no doubt',
+          'displayName': 'No Doubt',
+          'kind': 'band',
+          'memberKeys': ['gwen stefani'],
+          'coverLocalPath': '/cover.jpg',
+        }),
+      ]);
+      await db.customStatement(
+        'INSERT INTO catalog_file_reference VALUES (?,?,?,?,?)',
+        ['artist', 'no doubt', 'coverLocalPath', 'local_path', '/cover.jpg'],
+      );
+      await repository.rebuildArtistRelations();
+      final profile =
+          (await repository.readCatalog())['artist_profiles']!.single;
+      expect(profile['key'], startsWith('artist-'));
+      expect((profile['memberKeys'] as List).single, startsWith('artist-'));
+      expect(
+        (await repository.readArtistCandidates())['no doubt']!.single['id'],
+        profile['key'],
+      );
+      expect(
+        (await db
+                .customSelect('SELECT owner_id FROM catalog_file_reference')
+                .get())
+            .single
+            .read<String>('owner_id'),
+        profile['key'],
+      );
+      expect(await db.customSelect('PRAGMA foreign_key_check').get(), isEmpty);
+      final before = await repository.exportCompleteDatabase();
+      await repository.rebuildArtistRelations();
+      expect(await repository.exportCompleteDatabase(), before);
+    },
+  );
   test('complete SQL export includes every installed table', () async {
     await load();
     final bundle =

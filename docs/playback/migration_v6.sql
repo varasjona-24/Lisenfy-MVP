@@ -11,6 +11,10 @@ CREATE TABLE artist_redirect (
  CHECK(source_id<>target_id)
 );
 CREATE TEMP TABLE artist_id_upgrade (old_key TEXT PRIMARY KEY, new_id TEXT NOT NULL UNIQUE);
+-- A catalog upgraded through v5 may not have materialized identities yet.
+INSERT OR IGNORE INTO catalog_artist_identity
+ SELECT artist_key,coalesce(json_extract(metadata_json,'$.displayName'),artist_key)
+ FROM artist_record;
 INSERT INTO artist_id_upgrade SELECT artist_key,'artist-'||lower(hex(randomblob(16))) FROM catalog_artist_identity;
 INSERT INTO artist_name_alias SELECT old_key,new_id FROM artist_id_upgrade;
 UPDATE library_artist_credit SET artist_key=(SELECT new_id FROM artist_id_upgrade WHERE old_key=artist_key);

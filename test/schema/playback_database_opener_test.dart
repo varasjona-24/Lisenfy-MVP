@@ -194,6 +194,10 @@ void main() {
       raw.execute(await File(asset).readAsString());
     }
     raw.execute("INSERT INTO library_record VALUES ('kept',0,'{}')");
+    raw.execute(
+      '''INSERT INTO artist_record VALUES ('no doubt',0,
+      '{"key":"no doubt","displayName":"No Doubt","kind":"band","memberKeys":[]}')''',
+    );
     raw.close();
     final upgraded = await PlaybackDatabaseOpener.openStaging(
       generation: 'v4',
@@ -216,6 +220,23 @@ void main() {
         await upgraded
             .customSelect('SELECT * FROM library_artist_credit')
             .get(),
+        isEmpty,
+      );
+      final profile = await upgraded
+          .customSelect('SELECT artist_key FROM artist_record')
+          .getSingle();
+      expect(profile.read<String>('artist_key'), startsWith('artist-'));
+      final alias = await upgraded
+          .customSelect(
+            "SELECT artist_id FROM artist_name_alias WHERE name_key='no doubt'",
+          )
+          .getSingle();
+      expect(
+        alias.read<String>('artist_id'),
+        profile.read<String>('artist_key'),
+      );
+      expect(
+        await upgraded.customSelect('PRAGMA foreign_key_check').get(),
         isEmpty,
       );
     } finally {

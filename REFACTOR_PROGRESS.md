@@ -1,5 +1,13 @@
 # Registro de refactor
 
+## 2026-10-06 — Corrección del arranque con perfiles legacy sin identidad
+
+- Confirmado por ADB: FOREIGN KEY constraint failed al insertar el alias no doubt con la clave antigua; excepción antes de runApp dejaba pantalla negra.
+- La reconstrucción canoniza primero los perfiles antiguos y sus referencias de archivos/integrantes dentro de la transacción. La migración v6 incorpora identidades de perfiles no materializados antes de mapear sus claves.
+- Regresión con No Doubt sin identidad, portada y miembro: FK válidas, referencias conservadas e idempotencia. Fixture de upgrade v4→v6 ampliado con perfil preexistente sin identidad.
+- Validación: 142 pruebas schema/stats/Connect/Atlas/recommendations aprobadas y análisis focalizado de los tres archivos Dart sin issues; arranque físico pendiente del reinicio del usuario.
+- No se borraron datos ni se escribió en la base del teléfono. Para ejecutar la corrección se necesita reiniciar el arranque de Flutter, no solo hot reload.
+
 ## 2026-10-06 — Identidad estable y edición atómica de artistas SQL v6
 
 - IDs independientes del nombre, aliases no únicos y redirects de fusiones; upgrade automático v5→v6 y compatibilidad de snapshots completos v4/v5/v6.
