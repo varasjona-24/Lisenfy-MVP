@@ -19,8 +19,8 @@ pendiente después del cambio.
 Conexión opt-in implementada mediante EngineHistoryRecorder. AudioService y
 VideoService aceptan historyRecorder en constructor; null crea únicamente el
 legacy. No registrar ambos recorders para un motor ni realizar shadow writes
-en la fuente activa. main conserva legacy por defecto si no hay manifest activo;
-release puede probar el bootstrap mediante LISTENFY_SQLITE_RELEASE_MIGRATION.
+en la fuente activa. main usa SQLite por defecto en debug y release; la bandera
+LISTENFY_SQLITE_RELEASE_MIGRATION=false solo permite diagnóstico legacy sin manifest activo.
 Modo debug opt-in: `flutter run --dart-define=LISTENFY_SQLITE_STAGING_HISTORY=true`.
 Abre generación debug por instalación, congela e importa datos legacy, recupera
 antes de crear motores e inyecta dos recorders con UN repositorio. En ese modo

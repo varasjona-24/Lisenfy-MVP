@@ -1,16 +1,20 @@
-# Activación de SQLite para pruebas de producción
+# Activación de SQLite en producción
 
-La preparación está implementada, pero el rollout público sigue deshabilitado por
-defecto. Para probar la actualización en release:
+SQLite es el propietario durable por defecto en debug y release por decisión del
+usuario (app aún no publicada). Para compilar release ya no hace falta bandera:
 
 ```sh
-flutter build apk --release --dart-define=LISTENFY_SQLITE_RELEASE_MIGRATION=true
+flutter build apk --release
 ```
 
 Instalar como actualización, con el mismo applicationId y firma, sin desinstalar.
-El flag también funciona en debug para probar primero el nuevo bootstrap.
+LISTENFY_SQLITE_RELEASE_MIGRATION tiene defaultValue=true. false es únicamente
+una salida diagnóstica para instalaciones sin generación activa.
 Una vez creado active.json, los siguientes arranques siguen usando SQL aunque se
 omita el flag. No hay fallback automático al GetStorage desactualizado.
+La activación por defecto no demuestra por sí sola que el backup ZIP ya haya sido
+validado físicamente en una instalación vacía. Archivos siguen en disco; SQLite
+guarda sus referencias y los datos durables, GetStorage preferencias/cachés.
 
 ## Protocolo implementado
 

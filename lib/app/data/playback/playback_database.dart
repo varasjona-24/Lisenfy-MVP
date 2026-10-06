@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-/// Internal persistence handle. Not registered in GetX until cutover is tested.
+/// Internal persistence handle owned by the selected playback repository.
 /// Tables are installed from the bundled SQL, not a second Dart schema.
 class PlaybackDatabase extends GeneratedDatabase {
   PlaybackDatabase(super.executor);

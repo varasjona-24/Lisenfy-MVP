@@ -98,8 +98,7 @@ Future<void> main() async {
   Get.put(ListeningEventStore(Get.find<GetStorage>()), permanent: true);
   SqliteEngineHistoryFactory? sqliteHistory;
   final productionStorage =
-      const bool.fromEnvironment('LISTENFY_SQLITE_RELEASE_MIGRATION') ||
-      await PlaybackProductionBootstrap.hasActive();
+      await PlaybackProductionBootstrap.shouldUseProduction();
   if (productionStorage) {
     final progress = ValueNotifier<String>('capturing');
     final failed = ValueNotifier<bool>(false);

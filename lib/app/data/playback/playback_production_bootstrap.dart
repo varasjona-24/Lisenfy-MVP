@@ -30,6 +30,16 @@ class PlaybackProductionState {
 
 /// Engines must remain stopped until this owner has been activated.
 class PlaybackProductionBootstrap {
+  static const enabledByDefault = bool.fromEnvironment(
+    'LISTENFY_SQLITE_RELEASE_MIGRATION',
+    defaultValue: true,
+  );
+
+  static Future<bool> shouldUseProduction({
+    bool enabled = enabledByDefault,
+    Directory? supportDirectory,
+  }) async => enabled || await hasActive(supportDirectory: supportDirectory);
+
   static Future<bool> hasActive({Directory? supportDirectory}) async {
     final support = supportDirectory ?? await getApplicationSupportDirectory();
     return File('${support.path}/playback/active.json').exists();

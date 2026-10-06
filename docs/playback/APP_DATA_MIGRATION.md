@@ -150,7 +150,8 @@ atómico ni recuperación total ya validada en instalación vacía.
    parcial automáticamente en release.
 
 El staging debug mantiene LISTENFY_SQLITE_STAGING_HISTORY. El bootstrap de producción
-es opt-in mediante LISTENFY_SQLITE_RELEASE_MIGRATION; un manifest activo tiene
-prioridad incluso sin flag. Sin flag ni manifest sigue el propietario legacy.
+está activo por defecto en builds normales mediante LISTENFY_SQLITE_RELEASE_MIGRATION
+con defaultValue=true; un manifest activo tiene prioridad incluso con flag=false.
+El propietario legacy solo queda como ruta diagnóstica explícita sin manifest.
 No es una migración global
 terminada ni elimina todas las dependencias de GetStorage.

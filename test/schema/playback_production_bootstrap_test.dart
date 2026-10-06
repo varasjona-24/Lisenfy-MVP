@@ -147,6 +147,35 @@ void main() {
     );
   });
 
+  test(
+    'normal builds use SQLite and active data cannot fall back to legacy',
+    () async {
+      expect(PlaybackProductionBootstrap.enabledByDefault, isTrue);
+      expect(
+        await PlaybackProductionBootstrap.shouldUseProduction(
+          supportDirectory: directory,
+        ),
+        isTrue,
+      );
+      expect(
+        await PlaybackProductionBootstrap.shouldUseProduction(
+          enabled: false,
+          supportDirectory: directory,
+        ),
+        isFalse,
+      );
+      final state = await open();
+      await state.repository.close();
+      expect(
+        await PlaybackProductionBootstrap.shouldUseProduction(
+          enabled: false,
+          supportDirectory: directory,
+        ),
+        isTrue,
+      );
+    },
+  );
+
   test('interruption before manifest retries the same candidate', () async {
     await expectLater(
       open(

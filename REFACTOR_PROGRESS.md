@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-06 — SQLite predeterminado en debug y release
+
+- Por autorización del usuario, el bootstrap de producción pasa a ser el camino normal: no requiere dart-define al compilar release. Biblioteca, playlists/artistas, historial/restauración y dominios conectados usan sus owners SQL; preferencias/cachés siguen en GetStorage y archivos físicos en disco.
+- LISTENFY_SQLITE_RELEASE_MIGRATION defaultValue=true; false solo sirve para diagnóstico sin manifest. Una generación activa siempre gana para no regresar a datos legacy obsoletos.
+- Regresión de selección predeterminada y protección de owner activo ante flag=false. No se borraron claves legacy, se instaló APK ni se restauró un backup en el teléfono. Prueba física de ZIP en instalación vacía sigue pendiente.
+- Validación: 151 pruebas schema/stats/Connect/Atlas/recommendations aprobadas y análisis focalizado sin issues. No se generó un build release en este paso.
+
 ## 2026-10-06 — Bootstrap de producción y activación verificada opt-in
 
 - Añadido PlaybackProductionBootstrap: fuente congelada/hash, plan persistente, generación candidata, verificación, checkpoint/cierre y manifest activo publicado con flush/rename. Reintento antes/después de activación sin reimportar GetStorage obsoleto; origen conservado.

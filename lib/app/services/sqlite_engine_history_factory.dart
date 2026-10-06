@@ -7,7 +7,7 @@ import '../data/playback/playback_session_command.dart';
 import '../models/media_item.dart';
 import 'sqlite_engine_history_recorder.dart';
 
-/// Composition for explicitly enabled staging runs, never automatic cutover.
+/// History composition for the selected SQLite owner, after verified activation.
 class SqliteEngineHistoryFactory {
   SqliteEngineHistoryFactory({
     required this.repository,

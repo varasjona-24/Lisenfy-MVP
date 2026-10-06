@@ -47,7 +47,8 @@ desde el catálogo SQL actual, sin reimportar cambios viejos de GetStorage. Nuev
 backups completos incluyen identidades, créditos, membresías, aliases y redirects.
 Restore completo v4 crea relaciones y v5 adapta sus claves a IDs estables; v6
 conserva sus IDs. Bundle playback histórico mantiene
-su formato. Solo está activo con SQLite debug, no cutover release.
+su formato. SQL es ahora predeterminado en debug y release; activación y gates
+de validación física documentados en PRODUCTION_ACTIVATION.md.
 
 ## Identidad, homónimos y edición atómica
 
