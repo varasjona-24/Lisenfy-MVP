@@ -1,5 +1,13 @@
 # Registro de refactor
 
+## 2026-10-06 — Pausa temporal y visibilidad por contexto de video
+
+- NavigationController centraliza contexto: Home video (incluidas sus listas), todas las rutas Sources/Collections y reproductor/cola de video ocultan audio y pausan el motor sin stop ni eliminación de sesión. Home sincroniza su modo al iniciar y alternarlo.
+- AudioContextPolicy serializa transiciones y recuerda únicamente una pausa automática. Retorna a audio solo si conserva la intención anterior y una fuente cargada; pausa previa del usuario, stop, cierre o selección nueva invalidan esa reanudación. Mientras video esté reproduciéndose mantiene la pausa; al cesar se vuelve a evaluar la ruta. El token es temporal en memoria, no una nueva fuente persistente ni una promesa de autorreanudar tras reiniciar la app.
+- AudioService distingue pauseForVideoContext de órdenes de usuario mediante revisión de intención. No se borra cola, posición ni historial al cambiar de contexto. El motor y sus recorders existentes siguen siendo los escritores; no se agrega un recorder de navegación.
+- PlaybackNavigationObserver mantiene la pila de páginas y popups (push/pop/remove/replace), reemplazando indicadores Get no reactivos para visibilidad modal. Edición, creación, capturas y listas compartidas heredan contexto si se abren desde video/Collections. Overlays manuales tienen profundidad para no liberarse al cerrar solo una ventana anidada.
+- Verificación: suite schema/stats/Connect de 104 pruebas aprobada; tras cubrir pantallas compartidas se repitieron las 8 pruebas de política/navegación, todas aprobadas. Análisis focalizado de nuevos componentes/test limpio; análisis ampliado sin errores/warnings, con 5 infos avoid_print del Home. Persisten avisos de traducción en tests sin catálogo y compatibilidad Swift Package Manager de plugins. Validación real de transiciones, controles externos y audio/video en teléfono pendiente.
+
 ## 2026-10-06 — Tarjeta Continuar viendo compartida
 
 - Sustituido el acceso básico por ContinueVideoCard: portada local/remota con fallback, título, acción de reproducción y colores de ColorScheme. La tarjeta reactiva desaparece sin último video y no modifica el estado del motor.

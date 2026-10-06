@@ -296,6 +296,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  final PlaybackNavigationObserver _playbackNavigationObserver =
+      PlaybackNavigationObserver();
   StreamSubscription<bool>? _notificationClickSub;
 
   @override
@@ -367,12 +369,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         supportedLocales: context.supportedLocales,
         localizationsDelegates: context.localizationDelegates,
 
-        routingCallback: (routing) {
-          final current = routing?.current;
-          if (current != null) {
-            Get.find<NavigationController>().setRoute(current);
-          }
-        },
+        navigatorObservers: [_playbackNavigationObserver],
 
         builder: (context, child) {
           if (child == null) {

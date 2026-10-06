@@ -602,6 +602,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
     _showMiniPlayerForPlayback();
 
     final oldItem = currentItem.value;
+    playbackIntentRevision++;
     if (oldItem != null && !_sameItem(oldItem, item)) {
       _history.intent(PlaybackTermination.manualSelection);
     } else if (oldItem != null &&
@@ -824,6 +825,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
   }
 
   Future<void> toggle() async {
+    playbackIntentRevision++;
     if (_player.playing) {
       await _player.pause();
       return;
@@ -834,9 +836,18 @@ class AudioService extends GetxService with WidgetsBindingObserver {
     }
   }
 
-  Future<void> pause() => _player.pause();
+  int playbackIntentRevision = 0;
+
+  /// Context pauses do not revoke the user's pre-existing play intent.
+  Future<void> pauseForVideoContext() => _player.pause();
+
+  Future<void> pause() {
+    playbackIntentRevision++;
+    return _player.pause();
+  }
 
   Future<void> pauseAndHideMiniPlayer() async {
+    playbackIntentRevision++;
     miniPlayerDismissed.value = true;
     if (hasSourceLoaded && _player.playing) {
       await _player.pause();
@@ -850,12 +861,14 @@ class AudioService extends GetxService with WidgetsBindingObserver {
   }
 
   Future<void> resume() async {
+    playbackIntentRevision++;
     if (!hasSourceLoaded) return;
     _showMiniPlayerForPlayback();
     _playWithoutBlocking();
   }
 
   Future<void> stop() async {
+    playbackIntentRevision++;
     _observeEngineHistory();
     _history.intent(PlaybackTermination.explicitStop);
     await _flushEngineHistory();
@@ -881,6 +894,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
   }
 
   Future<void> stopAndHidePreservingSession() async {
+    playbackIntentRevision++;
     _observeEngineHistory();
     _history.intent(PlaybackTermination.explicitStop);
     await _flushEngineHistory();

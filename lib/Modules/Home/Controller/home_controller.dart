@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+import '../../../app/controllers/navigation_controller.dart';
 
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
@@ -133,6 +134,11 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setHomeVideoMode(
+        mode.value == HomeMode.video,
+      );
+    }
     _restoreHomeLayout();
     loadHome();
   }
@@ -1451,6 +1457,11 @@ class HomeController extends GetxController {
 
   void toggleMode() {
     mode.value = mode.value == HomeMode.audio ? HomeMode.video : HomeMode.audio;
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setHomeVideoMode(
+        mode.value == HomeMode.video,
+      );
+    }
     _splitHomeSections(_allItems);
     if (mode.value == HomeMode.audio) {
       _loadRecommendationsForCurrentMode();
