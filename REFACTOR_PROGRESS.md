@@ -1,5 +1,13 @@
 # Registro de refactor
 
+## 2026-10-06 — Cola de video y crossfade sin bypass legacy
+
+- VideoPlayerBinding resuelve playbackStateStorage durante dependencies, en vez de inyectar GetStorage directo al restaurar cola/índice sin argumentos. SQLite debug pasa a ser la fuente de ese camino; release/sin flag mantienen el fallback legacy.
+- PlaybackSettingsController usa la misma fachada que AudioService. Carga inicial, cambios y reset de audio_crossfade_seconds van a SQL cuando está activo; ya no sobrescriben el crossfade SQL con un valor legacy diferente.
+- Volumen predeterminado, autoplay, descarga/datos y etiquetas siguen delegándose a preferencias GetStorage porque no son claves operativas SQL. No se amplió la migración a esas preferencias.
+- Regresiones comparan crossfade SQL8 frente a legacy1, aplicación al motor (doble sin plugin), cambio4/reset0 conservando legacy1; cola video SQL frente a snapshot legacy distinto y autoplay delegándose a preferencias. Verificación en dispositivo de navegación de video/ajustes pendiente.
+- Verificación final: 94 pruebas Flutter de schema/stats/Connect aprobadas y análisis focalizado de los dos archivos de producción y su test sin issues. La prueba de Connect emite un aviso de traducción ausente; no se amplió este cambio a traducciones ni a compatibilidad Swift Package Manager.
+
 ## 2026-10-06 — Reconciliación conservadora de anclas de audio
 
 - Prueba real posterior guardó5 intervalos, pero el log mostró17.177→24.660ms en447ms y se bloqueó otra vez. Se conserva el hallazgo: el arreglo previo no estaba validado en dispositivo.

@@ -1,6 +1,9 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:get/get.dart';
+import 'package:listenfy/Modules/settings/controller/playback_settings_controller.dart';
+import 'package:listenfy/Modules/player/Video/Controller/video_player_controller.dart';
 import 'package:listenfy/app/data/playback/playback_debug_bootstrap.dart';
 import 'package:listenfy/app/data/playback/playback_database_opener.dart';
 import 'package:listenfy/app/data/playback/playback_repository.dart';
@@ -9,7 +12,24 @@ import 'package:listenfy/app/data/playback/playback_restoration.dart';
 import 'package:listenfy/app/data/local/local_library_store.dart';
 import 'package:listenfy/Modules/recommendations/data/listening_event_store.dart';
 import 'package:listenfy/app/services/sqlite_engine_history_factory.dart';
+import 'package:listenfy/app/services/audio_service.dart';
 import 'package:listenfy/app/models/media_item.dart';
+
+class _CrossfadeAudio extends AudioService {
+  final appliedCrossfade = <int>[];
+  @override
+  // This test double must not initialize native audio plugins.
+  // ignore: must_call_super
+  Future<void> onInit() async {}
+  @override
+  void onClose() {}
+  @override
+  Future<void> setVolume(double value) async {}
+  @override
+  Future<void> setCrossfadeSeconds(int seconds) async {
+    appliedCrossfade.add(seconds);
+  }
+}
 
 class _Legacy implements GetStorage {
   final values = <String, dynamic>{
@@ -79,10 +99,82 @@ void main() {
     );
   });
   tearDown(() async {
+    Get.reset();
     await storage.flush();
     await repository.close();
     await directory.delete(recursive: true);
   });
+  test(
+    'playback settings read SQL crossfade and leave legacy preferences separate',
+    () async {
+      legacy.values['audio_crossfade_seconds'] = 1;
+      await storage.write('audio_crossfade_seconds', 8);
+      await storage.flush();
+      Get.put<PlaybackStateStorage>(storage);
+      final audio = Get.put<AudioService>(_CrossfadeAudio()) as _CrossfadeAudio;
+      final settings = PlaybackSettingsController();
+      settings.onInit();
+      expect(settings.crossfadeSeconds.value, 8);
+      expect(audio.appliedCrossfade, [8]);
+      await settings.setCrossfadeSeconds(4);
+      await storage.flush();
+      expect(
+        (await repository.readRestoration(
+          RestorationMode.audio,
+        ))!.crossfadeSeconds,
+        4,
+      );
+      expect(legacy.values['audio_crossfade_seconds'], 1);
+      settings.setAutoPlayNext(false);
+      expect(legacy.values['autoPlayNext'], false);
+      await settings.resetPlaybackSettings();
+      await storage.flush();
+      expect(
+        (await repository.readRestoration(
+          RestorationMode.audio,
+        ))!.crossfadeSeconds,
+        0,
+      );
+      expect(legacy.values['audio_crossfade_seconds'], 1);
+      settings.onClose();
+      expect(audio.appliedCrossfade, [8, 4, 0]);
+    },
+  );
+  test(
+    'video restoration uses SQL queue rather than stale legacy snapshot',
+    () async {
+      final item = MediaItem.fromJson({
+        'id': 'sql-video',
+        'title': 'SQL video',
+        'artist': '',
+        'source': 'local',
+        'origin': 'device',
+        'variants': [],
+      });
+      await storage.write('video_queue_items', [item.toJson()]);
+      await storage.write('video_queue_index', 0);
+      await storage.flush();
+      legacy.values['video_queue_items'] = [
+        {'id': 'old-video', 'title': 'Old'},
+      ];
+      Get.put<PlaybackStateStorage>(storage);
+      final queue = VideoPlayerController.restorePersistedQueue(
+        storage: playbackStateStorage(),
+      );
+      expect(queue.single.id, 'sql-video');
+      expect(
+        VideoPlayerController.restorePersistedIndex(
+          queueLength: queue.length,
+          storage: playbackStateStorage(),
+        ),
+        0,
+      );
+      expect(
+        (legacy.values['video_queue_items'] as List).single['id'],
+        'old-video',
+      );
+    },
+  );
   test('legacy ZIP refuses overlapping baseline before import', () async {
     await expectLater(
       repository.validateLegacyBackupTarget('other'),

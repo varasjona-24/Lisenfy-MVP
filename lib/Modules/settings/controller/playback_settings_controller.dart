@@ -3,13 +3,14 @@ import 'package:get_storage/get_storage.dart';
 
 import '../../../app/services/audio_service.dart';
 import '../../../app/services/video_service.dart';
+import '../../../app/data/playback/playback_state_storage.dart';
 
 /// Gestiona: volumen, autoplay, crossfade, calidad de descarga y uso de datos.
 class PlaybackSettingsController extends GetxController {
   static const hideVideoStatusLabelsKey = 'hide_video_status_labels';
   static const hideShortVideoStatusLabelsKey = 'hide_short_video_status_labels';
 
-  final GetStorage _storage = GetStorage();
+  final GetStorage _storage = playbackStateStorage();
 
   // 🔊 Volumen por defecto (0-100)
   final RxDouble defaultVolume = 100.0.obs;
@@ -82,7 +83,7 @@ class PlaybackSettingsController extends GetxController {
   Future<void> setCrossfadeSeconds(int seconds) async {
     final safe = seconds.clamp(0, 12).toInt();
     crossfadeSeconds.value = safe;
-    _storage.write('audio_crossfade_seconds', safe);
+    await _storage.write('audio_crossfade_seconds', safe);
     if (Get.isRegistered<AudioService>()) {
       await Get.find<AudioService>().setCrossfadeSeconds(safe);
     }
