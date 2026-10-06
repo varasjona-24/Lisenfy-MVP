@@ -1195,6 +1195,7 @@
     }
   },
   "player": {
+    "audio_load_failed": "Playback could not start. Please try again.",
     "queue_title": "Playback queue",
     "queue_empty": "The queue is empty",
     "queue_audio_summary": "{} tracks • Total: {}",

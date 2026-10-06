@@ -151,7 +151,12 @@ class AudioPlayerController extends GetxController {
   }
 
   void applyRouteArgs(dynamic args) {
-    unawaited(_applyRouteArgs(args));
+    unawaited(
+      _applyRouteArgs(args).catchError((Object error, StackTrace stack) {
+        debugPrint('Audio route playback failed: $error\n$stack');
+        Get.snackbar(tr('common.error'), tr('player.audio_load_failed'));
+      }),
+    );
   }
 
   Future<void> _applyRouteArgs(dynamic args) async {

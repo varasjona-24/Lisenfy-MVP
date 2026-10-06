@@ -17,6 +17,7 @@ import '../models/media_item.dart';
 import 'playback_history_recorder.dart';
 import 'engine_history_recorder.dart';
 import 'audio_history_position_clock.dart';
+import 'audio_effect_load_guard.dart';
 import '../data/playback/playback_boundary_command.dart';
 import '../data/playback/playback_state_storage.dart';
 import '../data/local/local_library_store.dart';
@@ -151,13 +152,28 @@ class AudioService extends GetxService with WidgetsBindingObserver {
     _history.beforeSeek(initialPosition);
     var loaded = false;
     try {
-      await _player.setAudioSources(
-        sources,
-        initialIndex: initialIndex,
-        initialPosition: initialPosition,
+      await loadWithEqualizerFallback(
+        equalizerAvailable: eqSupported,
+        load: () async {
+          await _player.setAudioSources(
+            sources,
+            initialIndex: initialIndex,
+            initialPosition: initialPosition,
+          );
+        },
+        disableEqualizer: () async {
+          _equalizerUnavailable = true;
+          // Keep the same player and its subscriptions. stop releases the
+          // failed platform; the next load creates it without native effects.
+          _audioPipeline.androidAudioEffects.clear();
+          await _player.stop();
+        },
       );
       loaded = true;
     } catch (_) {
+      isLoading.value = false;
+      isPlaying.value = false;
+      state.value = PlaybackState.stopped;
       _history.intent(PlaybackTermination.engineError);
       _history.select(null);
       rethrow;
@@ -225,11 +241,13 @@ class AudioService extends GetxService with WidgetsBindingObserver {
   late final AndroidEqualizer? _androidEqualizer = Platform.isAndroid
       ? AndroidEqualizer()
       : null;
-  late final AudioPlayer _player = AudioPlayer(
-    audioPipeline: _androidEqualizer == null
-        ? null
-        : AudioPipeline(androidAudioEffects: [_androidEqualizer]),
+  bool _equalizerUnavailable = false;
+  late final AudioPipeline _audioPipeline = AudioPipeline(
+    androidAudioEffects: <AndroidAudioEffect>[
+      if (_androidEqualizer != null) _androidEqualizer,
+    ],
   );
+  late final AudioPlayer _player = AudioPlayer(audioPipeline: _audioPipeline);
   final GetStorage _storage = playbackStateStorage();
 
   Future<void> initializeAndroidAutoArtwork() async {
@@ -331,7 +349,8 @@ class AudioService extends GetxService with WidgetsBindingObserver {
     );
   }
 
-  bool get eqSupported => Platform.isAndroid && _androidEqualizer != null;
+  bool get eqSupported =>
+      Platform.isAndroid && !_equalizerUnavailable && _androidEqualizer != null;
   Stream<void> get equalizerRefreshRequests =>
       _equalizerRefreshController.stream;
   int? get androidAudioSessionId => _player.androidAudioSessionId;

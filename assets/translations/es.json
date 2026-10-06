@@ -1195,6 +1195,7 @@
     }
   },
   "player": {
+    "audio_load_failed": "No se pudo iniciar la reproducción. Inténtalo nuevamente.",
     "queue_title": "Cola de reproducción",
     "queue_empty": "La cola está vacía",
     "queue_audio_summary": "{} pistas • Total: {}",

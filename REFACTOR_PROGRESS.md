@@ -1,5 +1,13 @@
 # Registro de refactor
 
+## 2026-10-06 — Recuperación ante fallo nativo del ecualizador
+
+- ADB confirmó un PlatformException al activar AndroidEqualizer: getNumberOfBands sobre referencia nula; la carga de Te amare quedaba bloqueada antes de reproducir. No se atribuye este fallo a SQLite ni a corrupción del archivo.
+- AudioService reintenta una vez la misma cola/índice/posición tras retirar los efectos del pipeline y detener el motor nativo fallido. Conserva el mismo player y subscriptions; eqSupported queda deshabilitado durante esa sesión. Solo se aplica al error nativo de Equalizer observado, no a archivos o SQL.
+- Los fallos de carga limpian los indicadores y estado loading; la apertura por ruta captura el error y muestra un mensaje propio traducido ES/EN.
+- Corregido el uso incorrecto de .tr() en el controller, que usa tr(key) de easy_localization. Análisis focalizado sin issues; análisis global: cero errores, cero warnings y 132 infos de estilo/deprecaciones. Seis pruebas aprobadas (fallback y reloj de historial); no constituyen validación nativa en el teléfono.
+- Compilación anterior detenida; no se generó ni instaló un nuevo APK con este cambio. Pendiente compilar y validar reproducción real y ecualizador en release.
+
 ## 2026-10-06 — Retirada del paquete temporal de restauración
 
 - Eliminados los flags SANDBOX/INSPECT, el sufijo .restoretest y la firma debug condicional. Release utiliza com.jv24dev.listenfy, nombre Listenfy, firma release y isDebuggable=false.
