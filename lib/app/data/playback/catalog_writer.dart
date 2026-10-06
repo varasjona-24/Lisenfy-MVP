@@ -76,7 +76,22 @@ extension CatalogPersistence on PlaybackRepository {
       'artist_profiles' => ('artist_record', 'artist', 'key'),
       _ => throw ArgumentError.value(key, 'key'),
     };
-    await _database.customStatement('DELETE FROM $table');
+    if (key == 'local_library_items') {
+      final ids = data.whereType<Map>().map((r) => r['id']).toSet();
+      for (final row
+          in await _database
+              .customSelect('SELECT id FROM library_record')
+              .get()) {
+        if (!ids.contains(row.read<String>('id'))) {
+          await _database.customStatement(
+            'DELETE FROM library_record WHERE id=?',
+            [row.read<String>('id')],
+          );
+        }
+      }
+    } else {
+      await _database.customStatement('DELETE FROM $table');
+    }
     await _database.customStatement(
       'DELETE FROM catalog_file_reference WHERE owner_kind=?',
       [owner],
@@ -95,23 +110,38 @@ extension CatalogPersistence on PlaybackRepository {
       );
     }
 
+    final seenIds = <String>{};
     for (var ordinal = 0; ordinal < data.length; ordinal++) {
       final raw = data[ordinal];
       if (raw is! Map) throw FormatException('Invalid catalog row');
       final json = Map<String, dynamic>.from(raw);
+      if (key == 'artist_profiles') {
+        json['key'] = await _artistIdentity(json['key'] as String);
+        final members = <String>[];
+        for (final member in json['memberKeys'] as List? ?? []) {
+          members.add(await _artistIdentity(member as String));
+        }
+        json['memberKeys'] = members;
+      }
       final id = json[idField];
       if (id is! String || id.isEmpty) {
         throw FormatException('Missing catalog identity');
       }
+      if (!seenIds.add(id)) throw FormatException('Duplicate catalog identity');
       final variants = key == 'local_library_items'
           ? json.remove('variants')
           : null;
       final members = key == 'playlists' ? json.remove('itemIds') : null;
-      await _database.customStatement('INSERT INTO $table VALUES (?,?,?)', [
-        id,
-        ordinal,
-        jsonEncode(json),
-      ]);
+      if (key == 'local_library_items') {
+        await _database.customStatement(
+          'DELETE FROM library_variant WHERE item_id=?',
+          [id],
+        );
+      }
+      await _database.customStatement(
+        'INSERT INTO $table VALUES (?,?,?) ${key == 'local_library_items' ? 'ON CONFLICT(id) DO UPDATE SET ordinal=excluded.ordinal,metadata_json=excluded.metadata_json' : ''}',
+        [id, ordinal, jsonEncode(json)],
+      );
       await file(
         id,
         'thumbnailLocalPath',

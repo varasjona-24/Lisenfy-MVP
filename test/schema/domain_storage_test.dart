@@ -102,7 +102,7 @@ void main() {
       tables.keys.toSet(),
       installed.map((row) => row.read<String>('name')).toSet(),
     );
-    expect(tables.length, 32);
+    expect(tables.length, 34);
     expect(tables['app_domain_import'], hasLength(1));
     expect(tables['app_domain_record'], isNotEmpty);
     expect(tables.containsKey('playback_interval'), isTrue);
@@ -196,6 +196,8 @@ void main() {
       expect(await db.customSelect('PRAGMA foreign_key_check').get(), isEmpty);
       final bundle = await repository.exportCompleteDatabase();
       bundle['databaseSchemaVersion'] = 4;
+      (bundle['tables'] as Map).remove('artist_name_alias');
+      (bundle['tables'] as Map).remove('artist_redirect');
       for (final name in PlaybackDatabase.artistRelationTables) {
         (bundle['tables'] as Map).remove(name);
       }
@@ -220,6 +222,192 @@ void main() {
       );
       await repository.replaceCatalog('local_library_items', []);
       expect(await repository.readArtistCredits(), isEmpty);
+    },
+  );
+  test('stable id survives rename and imports using an old alias', () async {
+    await repository.replaceCatalog('artist_profiles', [
+      {
+        'key': 'adam lev',
+        'displayName': 'Adam Lev',
+        'kind': 'singer',
+        'memberKeys': [],
+      },
+    ]);
+    await repository.replaceCatalog('local_library_items', [
+      {'id': 'one', 'artist': 'Adam Lev', 'variants': []},
+    ]);
+    final id =
+        (await repository.readArtistCandidates())['adam lev']!.single['id']
+            as String;
+    await repository.updateArtistAtomically(
+      sourceId: id,
+      profile: {
+        'displayName': 'Adam Levine',
+        'kind': 'singer',
+        'memberKeys': [],
+      },
+    );
+    expect(
+      (await repository.readArtistCandidates())['adam lev']!.single['id'],
+      id,
+    );
+    expect((await repository.readArtistCredits())['one']!.artistKeys, [id]);
+    await repository.replaceCatalog('local_library_items', [
+      {'id': 'one', 'artist': 'Adam Levine', 'variants': []},
+      {'id': 'two', 'artist': 'Adam Lev', 'variants': []},
+    ]);
+    expect((await repository.readArtistCredits())['two']!.artistKeys, [id]);
+    expect(
+      (await repository.readCatalog())['artist_profiles']!.single['key'],
+      id,
+    );
+  });
+  test(
+    'homonyms stay separate and ambiguous imports require a choice',
+    () async {
+      await repository.replaceCatalog('artist_profiles', [
+        {
+          'key': 'lisa',
+          'displayName': 'LiSA',
+          'kind': 'singer',
+          'country': 'Japan',
+          'memberKeys': [],
+        },
+      ]);
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'jp', 'artist': 'LiSA', 'variants': []},
+        {'id': 'kr', 'artist': 'LISA', 'variants': []},
+      ]);
+      final first =
+          (await repository.readArtistCredits())['jp']!.artistKeys!.single;
+      await repository.assignArtistCredits('kr', [{}]);
+      final second =
+          (await repository.readArtistCredits())['kr']!.artistKeys!.single;
+      expect(second, isNot(first));
+      await repository.updateArtistAtomically(
+        sourceId: second,
+        profile: {
+          'displayName': 'LISA',
+          'kind': 'singer',
+          'country': 'South Korea',
+          'memberKeys': [],
+        },
+      );
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'jp', 'artist': 'LiSA', 'variants': []},
+        {'id': 'kr', 'artist': 'LISA', 'variants': []},
+        {'id': 'new', 'artist': 'lisa', 'variants': []},
+      ]);
+      final credits = await repository.readArtistCredits();
+      expect(credits['jp']!.artistKeys, [first]);
+      expect(credits['kr']!.artistKeys, [second]);
+      expect(credits['new']!.artistKeys, isEmpty);
+      await repository.assignArtistCredits('new', [
+        {'id': second},
+      ]);
+      expect((await repository.readArtistCredits())['new']!.artistKeys, [
+        second,
+      ]);
+      final bundle = await repository.exportCompleteDatabase();
+      await repository.restoreCompleteDatabase(bundle);
+      expect(await repository.exportCompleteDatabase(), bundle);
+    },
+  );
+  test(
+    'explicit fusion preserves target profile and redirects source id',
+    () async {
+      await repository.replaceCatalog('artist_profiles', [
+        {
+          'key': 'adam lev',
+          'displayName': 'Adam Lev',
+          'kind': 'singer',
+          'country': 'Other',
+          'memberKeys': [],
+        },
+        {
+          'key': 'adam levine',
+          'displayName': 'Adam Levine',
+          'kind': 'singer',
+          'country': 'United States',
+          'memberKeys': [],
+        },
+        {
+          'key': 'maroon 5',
+          'displayName': 'Maroon 5',
+          'kind': 'band',
+          'memberKeys': ['adam lev', 'adam levine'],
+        },
+      ]);
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'one', 'artist': 'Adam Lev', 'variants': []},
+        {'id': 'two', 'artist': 'Adam Levine', 'variants': []},
+      ]);
+      final names = await repository.readArtistCandidates();
+      final source = names['adam lev']!.single['id'] as String;
+      final target = names['adam levine']!.single['id'] as String;
+      await repository.updateArtistAtomically(
+        sourceId: source,
+        profile: {
+          'displayName': 'Adam Levine',
+          'kind': 'singer',
+          'country': 'Other',
+          'memberKeys': [],
+        },
+        mergeTargetId: target,
+      );
+      final profiles = (await repository.readCatalog())['artist_profiles']!;
+      expect(profiles.where((p) => p['key'] == source), isEmpty);
+      expect(
+        profiles.singleWhere((p) => p['key'] == target)['country'],
+        'United States',
+      );
+      expect(profiles.singleWhere((p) => p['kind'] == 'band')['memberKeys'], [
+        target,
+      ]);
+      expect((await repository.readArtistCredits())['one']!.artistKeys, [
+        target,
+      ]);
+      expect(
+        (await repository.readArtistCandidates())['adam lev']!.single['id'],
+        target,
+      );
+      expect(
+        await db.customSelect('SELECT * FROM artist_redirect').get(),
+        hasLength(1),
+      );
+      expect(await db.customSelect('PRAGMA foreign_key_check').get(), isEmpty);
+    },
+  );
+  test(
+    'failed artist edit rolls back aliases credits profiles and memberships',
+    () async {
+      await repository.replaceCatalog('artist_profiles', [
+        {
+          'key': 'original',
+          'displayName': 'Original',
+          'kind': 'singer',
+          'memberKeys': [],
+        },
+      ]);
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'one', 'artist': 'Original', 'variants': []},
+      ]);
+      final id =
+          (await repository.readArtistCandidates())['original']!.single['id']
+              as String;
+      final before = await repository.exportCompleteDatabase();
+      await expectLater(
+        repository.updateArtistAtomically(
+          sourceId: id,
+          profile: {
+            'displayName': 'Renamed',
+            'kind': 'band',
+            'memberKeys': [123],
+          },
+        ),
+        throwsA(anything),
+      );
+      expect(await repository.exportCompleteDatabase(), before);
     },
   );
   tearDown(() async {

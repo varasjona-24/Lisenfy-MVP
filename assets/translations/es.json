@@ -1,4 +1,14 @@
 {
+  "artist_identity": {
+    "collision_title": "Nombre compartido",
+    "collision_message": "Hay otros artistas con este nombre. Puedes mantenerlos separados o fusionar explícitamente con uno de ellos. La fusión conservará los datos del destino y trasladará las relaciones.",
+    "keep_separate": "Mantener separados",
+    "merge_with": "Fusionar con {}",
+    "resolve": "Identificar artistas",
+    "select": "Selecciona el artista para {}",
+    "create_separate": "Crear otro artista con este nombre",
+    "failed": "No se pudo actualizar la identidad del artista."
+  },
   "app": {
     "name": "Listenfy"
   },

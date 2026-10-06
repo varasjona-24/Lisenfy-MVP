@@ -1,4 +1,14 @@
 {
+  "artist_identity": {
+    "collision_title": "Shared artist name",
+    "collision_message": "Other artists have this name. Keep them separate or explicitly merge with one of them. Merging preserves the target profile and transfers relationships.",
+    "keep_separate": "Keep separate",
+    "merge_with": "Merge with {}",
+    "resolve": "Identify artists",
+    "select": "Select the artist for {}",
+    "create_separate": "Create another artist with this name",
+    "failed": "The artist identity could not be updated."
+  },
   "app": {
     "name": "Listenfy"
   },

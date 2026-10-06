@@ -1,5 +1,14 @@
 # Registro de refactor
 
+## 2026-10-06 — Identidad estable y edición atómica de artistas SQL v6
+
+- IDs independientes del nombre, aliases no únicos y redirects de fusiones; upgrade automático v5→v6 y compatibilidad de snapshots completos v4/v5/v6.
+- Renombrado y fusión explícita serializados en una transacción: perfiles, créditos, membresías y referencias. Caché publicada después del commit; rollback probado. Renombrar no cambia el ID ni fusiona homónimos automáticamente.
+- UI traducida para mantener separado/fusionar y resolver créditos ambiguos eligiendo una identidad o creando otra. Asociaciones confirmadas sobreviven a reconstrucciones y nuevas importaciones; país/región de recomendaciones y Atlas se resuelve por ID.
+- Backup completo conserva las tablas nuevas y restauración evita superponer perfiles por nombre antes del snapshot SQL. Archivos y preferencias no forman una transacción global con SQLite.
+- Validación: 141 pruebas schema/stats/Connect/Atlas/recommendations aprobadas, incluidos IDs tras renombrado, LiSA/LISA separadas, alias/importación, fusión, rollback y roundtrip de backup. Análisis focalizado limpio. Persisten avisos de fixtures de traducción/plugins; no se declara validación física ni suite global.
+- Solo SQLite debug con LISTENFY_SQLITE_STAGING_HISTORY; sin cutover release ni modificaciones en el teléfono. Parser principal/invitado y features lexicales ML mantienen su contrato; sin editor de coprincipales. Contrato actualizado en docs/playback/ARTIST_RELATIONSHIPS.md.
+
 ## 2026-10-06 — Créditos e integrantes materializados en SQL v5
 
 - Revisadas agrupación, categorías propias/invitados/solistas de integrantes, edición/renombrado, parser y serialización artist/subtitle. Contrato en docs/playback/ARTIST_RELATIONSHIPS.md. No se transfiere autoría del solista al grupo ni del grupo a cada integrante.

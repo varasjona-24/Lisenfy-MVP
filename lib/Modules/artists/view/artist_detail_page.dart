@@ -7,6 +7,8 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 import '../../../app/models/media_item.dart';
+import '../../../app/data/local/catalog_storage.dart';
+import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/utils/country_catalog.dart';
@@ -26,6 +28,38 @@ class ArtistDetailPage extends GetView<ArtistsController> {
   const ArtistDetailPage({super.key, required this.artistKey});
 
   final String artistKey;
+  Future<void> _identify(MediaItem item) async {
+    final storage = Get.find<CatalogStorage>();
+    final choices = <Map<String, dynamic>>[];
+    for (final name in ArtistCreditParser.parse(item.subtitle).allArtists) {
+      final selected = await Get.dialog<Map<String, dynamic>>(
+        SimpleDialog(
+          title: Text(tr('artist_identity.select', args: [name])),
+          children: [
+            for (final candidate in storage.candidatesFor(name))
+              SimpleDialogOption(
+                onPressed: () => Get.back(result: candidate),
+                child: Text(
+                  '${candidate['name']} — ${candidate['country'] ?? ''}',
+                ),
+              ),
+            SimpleDialogOption(
+              onPressed: () => Get.back(result: <String, dynamic>{}),
+              child: Text(tr('artist_identity.create_separate')),
+            ),
+          ],
+        ),
+      );
+      if (selected == null) return;
+      choices.add(selected);
+    }
+    try {
+      await storage.assignArtistCredits(item.id, choices);
+      await controller.load();
+    } catch (_) {
+      Get.snackbar(tr('edit.entity_type.artist'), tr('artist_identity.failed'));
+    }
+  }
 
   String _localizedCountry(ArtistGroup artist, BuildContext context) {
     final byCode = CountryCatalog.countryNameFromCodeForLocale(
@@ -83,7 +117,8 @@ class ArtistDetailPage extends GetView<ArtistsController> {
       final primarySongs = resolved.items
           .where((item) {
             final credits = resolveArtistCredits(item);
-            return credits.isPrimaryArtistKey(resolved.key);
+            return resolved.key.startsWith('pending:') ||
+                credits.isPrimaryArtistKey(resolved.key);
           })
           .toList(growable: false);
       final collaborationSongs = resolved.items
@@ -146,13 +181,36 @@ class ArtistDetailPage extends GetView<ArtistsController> {
           foregroundColor: theme.colorScheme.onSurface,
           elevation: 0,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.more_vert),
-              onPressed: () => Get.toNamed(
-                AppRoutes.editEntity,
-                arguments: EditEntityArgs.artist(resolved),
+            if (Get.isRegistered<CatalogStorage>())
+              IconButton(
+                tooltip: tr('artist_identity.resolve'),
+                icon: const Icon(Icons.person_search),
+                onPressed: resolved.items.length == 1
+                    ? () => _identify(resolved.items.single)
+                    : () => Get.dialog(
+                        SimpleDialog(
+                          title: Text(tr('artist_identity.resolve')),
+                          children: [
+                            for (final item in resolved.items)
+                              SimpleDialogOption(
+                                onPressed: () {
+                                  Get.back();
+                                  _identify(item);
+                                },
+                                child: Text(item.title),
+                              ),
+                          ],
+                        ),
+                      ),
               ),
-            ),
+            if (!resolved.key.startsWith('pending:'))
+              IconButton(
+                icon: const Icon(Icons.more_vert),
+                onPressed: () => Get.toNamed(
+                  AppRoutes.editEntity,
+                  arguments: EditEntityArgs.artist(resolved),
+                ),
+              ),
           ],
         ),
         body: AppGradientBackground(

@@ -43,6 +43,14 @@ class ArtistStore {
     final target = ArtistCreditParser.normalizeKey(key);
     if (target.isEmpty || target == 'unknown') return null;
     final list = readAllSync();
+    if (_box is CatalogStorage) {
+      final candidates = _box.candidatesFor(key);
+      if (candidates.length == 1) {
+        for (final profile in list) {
+          if (profile.key == candidates.single['id']) return profile;
+        }
+      }
+    }
     for (final profile in list) {
       if (ArtistCreditParser.normalizeKey(profile.key) == target) {
         return profile;
@@ -52,6 +60,13 @@ class ArtistStore {
   }
 
   Future<void> upsert(ArtistProfile profile) async {
+    if (_box is CatalogStorage && !profile.key.startsWith('artist-')) {
+      final candidates = _box.candidatesFor(profile.key);
+      if (candidates.length > 1) throw StateError('Ambiguous artist identity');
+      if (candidates.length == 1) {
+        profile = profile.copyWith(key: candidates.single['id'] as String);
+      }
+    }
     final list = await readAll();
     final idx = list.indexWhere((e) => e.key == profile.key);
     if (idx == -1) {
@@ -64,6 +79,18 @@ class ArtistStore {
 
   Future<void> upsertAll(List<ArtistProfile> profiles) async {
     if (profiles.isEmpty) return;
+    if (_box is CatalogStorage) {
+      profiles = profiles.map((profile) {
+        if (profile.key.startsWith('artist-')) return profile;
+        final candidates = _box.candidatesFor(profile.key);
+        if (candidates.length > 1) {
+          throw StateError('Ambiguous artist identity');
+        }
+        return candidates.length == 1
+            ? profile.copyWith(key: candidates.single['id'] as String)
+            : profile;
+      }).toList();
+    }
 
     final existing = await readAll();
     final incomingKeys = profiles.map((e) => e.key).toSet();

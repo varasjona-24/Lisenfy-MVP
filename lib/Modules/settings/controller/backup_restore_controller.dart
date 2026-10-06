@@ -2049,7 +2049,10 @@ class BackupRestoreController extends GetxController {
           await restoreArtist(Map<String, dynamic>.from(raw), i);
         }
       }
-      await artistStore.upsertAll(artistsToRestore);
+      if (!Get.isRegistered<PlaybackRepository>() ||
+          zipIndex.find('sqlite_complete_v1.json') == null) {
+        await artistStore.upsertAll(artistsToRestore);
+      }
       artistsToRestore.clear();
 
       currentOperation.value = tr('backup.operations.restoring_sources');

@@ -434,6 +434,7 @@ extension PlaybackDebugTransfer on PlaybackRepository {
       if (bundle['formatVersion'] != 1 ||
           ![
             4,
+            5,
             _database.schemaVersion,
           ].contains(bundle['databaseSchemaVersion']) ||
           bundle['scope'] != 'all_application_tables' ||
@@ -448,6 +449,56 @@ extension PlaybackDebugTransfer on PlaybackRepository {
             throw FormatException('Unexpected v4 relation table');
           }
           tables[name] = <dynamic>[];
+        }
+      }
+      final upgradeIds =
+          bundle['databaseSchemaVersion'] != _database.schemaVersion;
+      if (upgradeIds) {
+        if (tables.containsKey('artist_name_alias') ||
+            tables.containsKey('artist_redirect')) {
+          throw FormatException('Unexpected old identity tables');
+        }
+        tables['artist_name_alias'] = <dynamic>[];
+        tables['artist_redirect'] = <dynamic>[];
+        final mapping = <String, String>{};
+        for (final raw in tables['catalog_artist_identity'] as List) {
+          final row = raw as Map;
+          final old = row['artist_key'] as String;
+          final id = 'artist-${const Uuid().v4()}';
+          mapping[old] = id;
+          row['artist_key'] = id;
+          (tables['artist_name_alias'] as List).add({
+            'name_key': old,
+            'artist_id': id,
+          });
+        }
+        for (final raw in tables['artist_record'] as List) {
+          final row = raw as Map;
+          final old = row['artist_key'] as String;
+          final id = mapping[old];
+          if (id == null) continue;
+          final metadata = jsonDecode(row['metadata_json'] as String) as Map;
+          metadata['key'] = id;
+          metadata['memberKeys'] = (metadata['memberKeys'] as List? ?? [])
+              .map((key) => mapping[key] ?? key)
+              .toList();
+          row['artist_key'] = id;
+          row['metadata_json'] = jsonEncode(metadata);
+        }
+        for (final raw in tables['library_artist_credit'] as List) {
+          final row = raw as Map;
+          row['artist_key'] = mapping[row['artist_key']] ?? row['artist_key'];
+        }
+        for (final raw in tables['artist_membership'] as List) {
+          final row = raw as Map;
+          row['band_key'] = mapping[row['band_key']] ?? row['band_key'];
+          row['member_key'] = mapping[row['member_key']] ?? row['member_key'];
+        }
+        for (final raw in tables['catalog_file_reference'] as List) {
+          final row = raw as Map;
+          if (row['owner_kind'] == 'artist') {
+            row['owner_id'] = mapping[row['owner_id']] ?? row['owner_id'];
+          }
         }
       }
       final installed =
@@ -510,7 +561,18 @@ extension PlaybackDebugTransfer on PlaybackRepository {
           );
         }
       }
-      if (upgradeRelations) await _rebuildArtistRelations();
+      if (upgradeRelations) {
+        final profiles =
+            (await _database
+                    .customSelect(
+                      'SELECT metadata_json FROM artist_record ORDER BY ordinal',
+                    )
+                    .get())
+                .map((r) => jsonDecode(r.read<String>('metadata_json')))
+                .toList();
+        await _replaceCatalog('artist_profiles', profiles);
+        await _rebuildArtistRelations();
+      }
       if ((await _database.customSelect('PRAGMA foreign_key_check').get())
           .isNotEmpty) {
         throw FormatException('Invalid restored foreign keys');

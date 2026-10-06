@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import '../../../app/data/local/catalog_storage.dart';
 import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:path/path.dart' as p;
@@ -908,6 +910,39 @@ class EditEntityController extends GetxController {
       }
     }
 
+    String? mergeTargetId;
+    if (Get.isRegistered<CatalogStorage>()) {
+      final candidates = Get.find<CatalogStorage>()
+          .candidatesFor(trimmed)
+          .where((candidate) => candidate['id'] != artist.key)
+          .toList();
+      if (candidates.isNotEmpty) {
+        final choice = await Get.dialog<String>(
+          SimpleDialog(
+            title: Text(tr('artist_identity.collision_title')),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(tr('artist_identity.collision_message')),
+              ),
+              SimpleDialogOption(
+                onPressed: () => Get.back(result: 'separate'),
+                child: Text(tr('artist_identity.keep_separate')),
+              ),
+              for (final candidate in candidates)
+                SimpleDialogOption(
+                  onPressed: () => Get.back(result: candidate['id']),
+                  child: Text(
+                    '${tr('artist_identity.merge_with', args: [candidate['name'] as String])} — ${candidate['country'] ?? ''}',
+                  ),
+                ),
+            ],
+          ),
+        );
+        if (choice == null) return false;
+        if (choice != 'separate') mergeTargetId = choice;
+      }
+    }
     await _artists.updateArtist(
       key: artist.key,
       newName: trimmed,
@@ -918,6 +953,7 @@ class EditEntityController extends GetxController {
       memberKeys: memberKeys,
       thumbnail: nextThumb,
       thumbnailLocalPath: nextLocal,
+      mergeTargetId: mergeTargetId,
     );
 
     return true;

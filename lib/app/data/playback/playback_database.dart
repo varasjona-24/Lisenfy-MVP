@@ -6,7 +6,7 @@ class PlaybackDatabase extends GeneratedDatabase {
   PlaybackDatabase(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   Iterable<TableInfo<Table, Object?>> get allTables => const [];
@@ -31,6 +31,8 @@ class PlaybackDatabase extends GeneratedDatabase {
       ...catalogTables,
       ...domainTables,
       ...artistRelationTables,
+      'artist_name_alias',
+      'artist_redirect',
     };
     final tables = await customSelect(
       "SELECT name FROM sqlite_master WHERE type='table'",

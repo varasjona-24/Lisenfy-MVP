@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 
 import '../../artists/domain/artist_profile.dart';
+import '../../artists/domain/artist_relationship_resolver.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 import '../../sources/domain/source_origin.dart';
@@ -663,6 +664,11 @@ class LocalRecommendationService implements RecommendationEngine {
     }
 
     final map = <String, _ArtistLocale>{};
+    final nameCounts = <String, int>{};
+    for (final profile in profiles) {
+      final name = ArtistCreditParser.normalizeKey(profile.displayName);
+      nameCounts[name] = (nameCounts[name] ?? 0) + 1;
+    }
     for (final profile in profiles) {
       final key = ArtistCreditParser.normalizeKey(profile.key);
       if (key.isEmpty || key == 'unknown') continue;
@@ -677,6 +683,8 @@ class LocalRecommendationService implements RecommendationEngine {
         mainRegionKey: mainRegionKey,
         isMainRegionExplicit: profile.mainRegion != ArtistMainRegion.none,
       );
+      final name = ArtistCreditParser.normalizeKey(profile.displayName);
+      if (nameCounts[name] == 1) map[name] = map[key]!;
     }
     return map;
   }
@@ -699,7 +707,7 @@ class LocalRecommendationService implements RecommendationEngine {
       ...?labelById?.playlists,
     ].join(' ');
 
-    final parsed = ArtistCreditParser.parse(item.displaySubtitle);
+    final parsed = resolveArtistCredits(item);
     final artistNames = parsed.allArtists.isNotEmpty
         ? parsed.allArtists
         : _fallbackArtists(item.displaySubtitle);
@@ -754,10 +762,15 @@ class LocalRecommendationService implements RecommendationEngine {
       artistCountries.add(countryDisplay);
     }
 
-    if (primaryArtistKey.isNotEmpty && primaryArtistKey != 'unknown') {
+    if (parsed.artistKeys != null) {
+      for (final key in parsed.artistKeys!) {
+        addCountryByArtistKey(key);
+      }
+    } else if (primaryArtistKey.isNotEmpty && primaryArtistKey != 'unknown') {
       addCountryByArtistKey(primaryArtistKey);
     }
-    for (final artistKey in artistMap.keys) {
+    for (final artistKey
+        in parsed.artistKeys == null ? artistMap.keys : const <String>[]) {
       if (artistKey == primaryArtistKey) continue;
       addCountryByArtistKey(artistKey);
     }

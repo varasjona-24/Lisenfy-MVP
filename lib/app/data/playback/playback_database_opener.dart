@@ -15,6 +15,7 @@ class PlaybackDatabaseOpener {
   static const catalogSchemaAsset = 'docs/playback/migration_v3.sql';
   static const domainSchemaAsset = 'docs/playback/migration_v4.sql';
   static const artistSchemaAsset = 'docs/playback/migration_v5.sql';
+  static const artistIdSchemaAsset = 'docs/playback/migration_v6.sql';
 
   static Future<PlaybackDatabase> openStaging({
     required String generation,
@@ -34,6 +35,9 @@ class PlaybackDatabaseOpener {
       restorationSchemaAsset,
     );
     final tempPath = temporary.path;
+    final artistIdSchema = await (bundle ?? rootBundle).loadString(
+      artistIdSchemaAsset,
+    );
     final artistSchema = await (bundle ?? rootBundle).loadString(
       artistSchemaAsset,
     );
@@ -49,7 +53,7 @@ class PlaybackDatabaseOpener {
         sql.sqlite3.tempDirectory = tempPath;
         final version =
             database.select('PRAGMA user_version').single.values.single as int;
-        if (version < 0 || version > 5) {
+        if (version < 0 || version > 6) {
           throw StateError('Unsupported playback schema version: $version');
         }
         database.execute('PRAGMA foreign_keys = ON');
@@ -119,12 +123,13 @@ class PlaybackDatabaseOpener {
           }
           database.execute(artistSchema);
         }
+        if (version < 6) database.execute(artistIdSchema);
         final installed = database
             .select('PRAGMA user_version')
             .single
             .values
             .single;
-        if (installed != 5) {
+        if (installed != 6) {
           throw StateError('Playback schema installation failed');
         }
       },

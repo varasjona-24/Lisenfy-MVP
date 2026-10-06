@@ -20,6 +20,9 @@ class CatalogStorage implements GetStorage {
   final PlaybackRepository repository;
   final Map<String, List<dynamic>> _values;
   Map<String, ArtistCredits> _credits = {};
+  Map<String, List<Map<String, dynamic>>> _names = {};
+  List<Map<String, dynamic>> candidatesFor(String name) =>
+      _names[ArtistCreditParser.normalizeKey(name)] ?? [];
   ArtistCredits? creditsFor(String id, String raw) {
     final credits = _credits[id];
     return credits?.rawArtist == raw ? credits : null;
@@ -71,6 +74,7 @@ class CatalogStorage implements GetStorage {
       await repository.readCatalog(),
     );
     storage._credits = await repository.readArtistCredits();
+    storage._names = await repository.readArtistCandidates();
     return storage;
   }
 
@@ -78,10 +82,12 @@ class CatalogStorage implements GetStorage {
     await flush();
     final loaded = await repository.readCatalog();
     final credits = await repository.readArtistCredits();
+    final names = await repository.readArtistCandidates();
     _values
       ..clear()
       ..addAll(loaded);
     _credits = credits;
+    _names = names;
   }
 
   @override
@@ -105,9 +111,11 @@ class CatalogStorage implements GetStorage {
       }
       await repository.replaceCatalog(key, snapshot);
       final credits = await repository.readArtistCredits();
+      final names = await repository.readArtistCandidates();
       final catalog = await repository.readCatalog();
       _values[key] = catalog[key]!; // Publish only after SQL commit.
       _credits = credits;
+      _names = names;
     });
     _tail = operation.catchError((Object error) {
       failure = error;
@@ -117,6 +125,58 @@ class CatalogStorage implements GetStorage {
 
   @override
   Future<void> remove(String key) => write(key, <dynamic>[]);
+  Future<void> updateArtistAtomically(
+    String sourceId,
+    Map<String, dynamic> profile, {
+    String? mergeTargetId,
+  }) {
+    final operation = _tail.then((_) async {
+      if (failure != null) {
+        throw StateError('Catalog persistence failed: $failure');
+      }
+      await repository.updateArtistAtomically(
+        sourceId: sourceId,
+        profile: profile,
+        mergeTargetId: mergeTargetId,
+      );
+      final catalog = await repository.readCatalog();
+      final credits = await repository.readArtistCredits();
+      final names = await repository.readArtistCandidates();
+      _values
+        ..clear()
+        ..addAll(catalog);
+      _credits = credits;
+      _names = names;
+    });
+    _tail = operation.catchError((Object error) {
+      failure = error;
+    });
+    return operation;
+  }
+
+  Future<void> assignArtistCredits(
+    String itemId,
+    List<Map<String, dynamic>> choices,
+  ) {
+    final operation = _tail.then((_) async {
+      if (failure != null) {
+        throw StateError('Catalog persistence failed: $failure');
+      }
+      await repository.assignArtistCredits(itemId, choices);
+      final catalog = await repository.readCatalog();
+      final credits = await repository.readArtistCredits();
+      final names = await repository.readArtistCandidates();
+      _values
+        ..clear()
+        ..addAll(catalog);
+      _credits = credits;
+      _names = names;
+    });
+    _tail = operation.catchError((Object error) {
+      failure = error;
+    });
+    return operation;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>

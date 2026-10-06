@@ -96,6 +96,7 @@ flutter:
     - docs/playback/migration_v3.sql
     - docs/playback/migration_v4.sql
     - docs/playback/migration_v5.sql
+    - docs/playback/migration_v6.sql
     - assets/ui/aguja.png
     - assets/ui/vinyl.png
     - assets/ui/volumen.svg

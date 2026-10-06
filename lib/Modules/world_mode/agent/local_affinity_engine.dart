@@ -2,6 +2,7 @@ import '../../../app/models/media_item.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
 import '../../artists/data/artist_store.dart';
+import '../../artists/domain/artist_relationship_resolver.dart';
 import '../domain/entities/world_station_type.dart';
 
 class LocalAffinityEngine {
@@ -87,11 +88,15 @@ class LocalAffinityEngine {
     final artistMap = _artistCountryByKey();
     if (artistMap.isEmpty) return null;
 
-    final credits = ArtistCreditParser.parse(item.displaySubtitle);
+    final credits = resolveArtistCredits(item);
     final keyCandidates = <String>{
-      ArtistCreditParser.normalizeKey(credits.primaryArtist),
-      ArtistCreditParser.normalizeKey(item.displaySubtitle),
-      ...credits.allArtists.map(ArtistCreditParser.normalizeKey),
+      if (credits.artistKeys != null)
+        ...credits.artistKeys!
+      else ...[
+        ArtistCreditParser.normalizeKey(credits.primaryArtist),
+        ArtistCreditParser.normalizeKey(item.displaySubtitle),
+        ...credits.allArtists.map(ArtistCreditParser.normalizeKey),
+      ],
     }..removeWhere((key) => key.isEmpty || key == 'unknown');
 
     for (final key in keyCandidates) {
@@ -118,6 +123,11 @@ class LocalAffinityEngine {
     }
 
     final map = <String, String>{};
+    final nameCounts = <String, int>{};
+    for (final profile in profiles) {
+      final name = ArtistCreditParser.normalizeKey(profile.displayName);
+      nameCounts[name] = (nameCounts[name] ?? 0) + 1;
+    }
     for (final profile in profiles) {
       final code =
           _resolveCountryCodeFromRaw(profile.countryCode) ??
@@ -126,7 +136,9 @@ class LocalAffinityEngine {
 
       final keys = <String>{
         ArtistCreditParser.normalizeKey(profile.key),
-        ArtistCreditParser.normalizeKey(profile.displayName),
+        if (nameCounts[ArtistCreditParser.normalizeKey(profile.displayName)] ==
+            1)
+          ArtistCreditParser.normalizeKey(profile.displayName),
       }..removeWhere((key) => key.isEmpty || key == 'unknown');
 
       for (final key in keys) {

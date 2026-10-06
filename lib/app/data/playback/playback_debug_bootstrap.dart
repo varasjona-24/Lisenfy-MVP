@@ -69,7 +69,7 @@ class PlaybackDebugBootstrap {
       final pending = File('${directory.path}/verified.pending');
       await pending.writeAsString(
         jsonEncode({
-          'schemaVersion': 5,
+          'schemaVersion': 6,
           'sourceHash': hash,
           'generation': 'debug-$scope',
         }),
