@@ -256,4 +256,41 @@ void main() {
       );
     },
   );
+  test(
+    'small stream corrections preserve intervals and paused playback',
+    () async {
+      recorder.select(item, variant: variant);
+      sample(0, 64);
+      sample(1, 0);
+      sample(5000, 5000);
+      sample(5010, 4900);
+      sample(10000, 10000);
+      sample(28000, 28000, playing: false);
+      sample(28001, 27950, playing: false);
+      await recorder.flush();
+      final row =
+          (await db.customSelect('SELECT * FROM playback_session').getSingle())
+              .data;
+      expect(row['wall_ms'], 28000);
+      expect(row['media_ms'], 27936);
+      expect(row['valid_play'], 1);
+      expect(row['skipped'], 0);
+      expect(
+        await db
+            .customSelect("SELECT * FROM playback_event WHERE type='pause'")
+            .get(),
+        hasLength(1),
+      );
+    },
+  );
+  test('large backwards jump still fails closed', () async {
+    recorder.select(item, variant: variant);
+    sample(0, 10000);
+    sample(100, 9000);
+    await expectLater(recorder.flush(), throwsStateError);
+    expect(
+      await db.customSelect('SELECT * FROM playback_interval').get(),
+      isEmpty,
+    );
+  });
 }

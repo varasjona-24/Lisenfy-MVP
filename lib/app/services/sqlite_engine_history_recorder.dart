@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import '../models/media_item.dart';
 import '../data/playback/playback_repository.dart';
 import '../data/playback/playback_session_command.dart';
@@ -56,6 +57,7 @@ class SqliteEngineHistoryRecorder implements EngineHistoryRecorder {
         await work();
       } catch (error) {
         _failure = error;
+        debugPrint('SQLite engine history stopped: $error');
       }
     });
   }
@@ -113,6 +115,7 @@ class SqliteEngineHistoryRecorder implements EngineHistoryRecorder {
     bool completed = false,
     bool looped = false,
   }) {
+    final observedPosition = position;
     final utc = _clock().toUtc().millisecondsSinceEpoch,
         mono = _monotonicClock?.call() ?? _watch.elapsedMilliseconds;
     _enqueue(() async {
@@ -164,14 +167,26 @@ class SqliteEngineHistoryRecorder implements EngineHistoryRecorder {
         _lastCheckpoint = mono;
         return;
       }
+      // Player-state and position streams can report slightly different engine
+      // estimates (including a small correction backwards). Keep a monotonic
+      // anchor for that bounded jitter; real seeks still require explicit hooks.
+      var trustedPosition = observedPosition;
+      final backwardsMs = (_position - observedPosition).inMilliseconds;
+      if (backwardsMs > 0 && backwardsMs <= 250) {
+        trustedPosition = _position;
+      }
       // Reject implicit position jumps. The explicit seek hook supplies destination.
       if (_playing &&
-          (position < _position ||
-              (position - _position).inMilliseconds >
+          (trustedPosition < _position ||
+              (trustedPosition - _position).inMilliseconds >
                   (mono - _mono) * _speed + 1000)) {
-        throw StateError('Unreported seek/loop/discontinuity from engine');
+        throw StateError(
+          'Unreported seek/loop/discontinuity from engine: '
+          'previous=${_position.inMilliseconds}ms observed=${observedPosition.inMilliseconds}ms '
+          'elapsed=${mono - _mono}ms speed=$_speed',
+        );
       }
-      _position = position;
+      _position = trustedPosition;
       _utc = utc;
       _mono = mono;
       if (completed) {

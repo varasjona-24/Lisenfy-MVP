@@ -1,5 +1,13 @@
 # Registro de refactor
 
+## 2026-10-06 — Correcciones pequeñas de posición del motor
+
+- Verificada SQLite real de Honey: baseline31 intacto, posición de restauración28,6s y resume27s, pero sesión abierta sin intervalos. El log del proceso confirma bloqueo por Unreported seek/loop/discontinuity from engine.
+- La validación rechazaba cualquier retroceso de posición. Se toleran correcciones de hasta250ms conservando el ancla monotónica de contenido; no se aumenta media_ms por el jitter. Retrocesos mayores y saltos hacia delante imposibles siguen bloqueando el recorder; seek/loop continúan usando señales explícitas.
+- Añadido diagnóstico inmediato del primer error con posición previa/observada, tiempo monotónico y velocidad para distinguir jitter de una discontinuidad real. El log antiguo no incluye esos valores, por lo que no se afirma que el jitter sea la única causa posible del fallo observado.
+- Pruebas de regresión: reproducción28s con correcciones64ms/100ms, pausa y flush conserva28s de reloj,27,936s de contenido y valid_play; retroceso grande sigue fallando sin inventar intervalos.10 pruebas del recorder aprobadas y análisis focalizado sin issues.
+- Verificación ampliada:70 pruebas Flutter schema/stats aprobadas. No se alteró la base del teléfono ni se reconstruyó el intervalo perdido. Requiere reinicio completo con el código nuevo y repetir Honey para confirmar el comportamiento real.
+
 ## 2026-10-06 — Restauración de ZIP legacy en debug vacío
 
 - Eliminado el requisito de bundle SQL para ZIP antiguos. Se importa la biblioteca remapeada y listeningEvents al repositorio SQL usando la identidad de instalación actual.
