@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-06 — Progreso de restauración sin retrocesos periódicos
+
+- Eliminado i % 500: la fase de biblioteca avanza entre 40–70% con el total real de elementos del manifest en memoria. El porcentaje se actualiza después de restaurar cada elemento.
+- Manifest por streaming sin total: barra indeterminada y contador existente, con texto ES/EN propio; no se inventa porcentaje ni se añade una lectura completa para contar. Al finalizar la fase se retoma el rango de las etapas siguientes.
+- Reabrir el diálogo tras confirmar la inspección conserva el progreso, sin reiniciarlo a cero. Una operación nueva sí reinicia sus indicadores.
+- Validación: tres pruebas aprobadas, incluyendo monotonicidad con 10.000 elementos, streaming y límites; análisis focalizado sin issues. No se compiló/instaló APK ni se interrumpió la restauración del teléfono.
+
 ## 2026-10-06 — Restauración ZIP sin extracción/verificación repetida
 
 - restoreFile comparte una pasada por ruta relativa validada durante cada importación. Biblioteca, portadas, capturas/fondos y locators del snapshot SQLite reutilizan el archivo extraído y verificado en esa misma operación.

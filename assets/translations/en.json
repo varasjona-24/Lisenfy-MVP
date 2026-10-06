@@ -1382,6 +1382,7 @@
     "inspect_fast_integrity_warning": "Fast backup: file sizes can be checked, but SHA-256 verification is not available.",
     "progress_percent": "{}% completed",
     "preparing_process": "Preparing process...",
+    "progress_indeterminate": "Processing library...",
     "operations": {
       "starting": "Starting...",
       "processing_songs": "Processing songs ({}/{})",

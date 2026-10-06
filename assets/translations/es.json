@@ -1382,6 +1382,7 @@
     "inspect_fast_integrity_warning": "Respaldo rápido: se pueden revisar tamaños, pero no hay verificación SHA-256.",
     "progress_percent": "{}% completado",
     "preparing_process": "Preparando proceso...",
+    "progress_indeterminate": "Procesando biblioteca...",
     "operations": {
       "starting": "Iniciando...",
       "processing_songs": "Procesando canciones ({}/{})",

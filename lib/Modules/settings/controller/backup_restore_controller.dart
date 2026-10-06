@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import '../application/backup_file_restore_pass.dart';
+import '../application/backup_restore_progress.dart';
 
 import 'package:crypto/crypto.dart';
 import 'package:easy_localization/easy_localization.dart'
@@ -439,6 +440,7 @@ class BackupRestoreController extends GetxController {
   final RxBool isExporting = false.obs;
   final RxBool isImporting = false.obs;
   final RxDouble progress = 0.0.obs;
+  final RxBool progressIndeterminate = false.obs;
   final RxString currentOperation = ''.obs;
 
   Future<void> _yieldUi([int ms = 1]) async {
@@ -650,9 +652,12 @@ class BackupRestoreController extends GetxController {
     );
   }
 
-  void _showProgressDialog(String title) {
-    progress.value = 0.0;
-    currentOperation.value = tr('backup.operations.starting');
+  void _showProgressDialog(String title, {bool resetProgress = true}) {
+    if (resetProgress) {
+      progress.value = 0.0;
+      progressIndeterminate.value = false;
+      currentOperation.value = tr('backup.operations.starting');
+    }
     final isExport = title.toLowerCase().contains('respaldo');
     final icon = isExport ? Icons.archive_rounded : Icons.restore_rounded;
     final accent = isExport ? Colors.orange : Colors.teal;
@@ -672,7 +677,7 @@ class BackupRestoreController extends GetxController {
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
                 child: Obx(() {
                   final raw = progress.value;
-                  final hasProgress = raw > 0;
+                  final hasProgress = raw > 0 && !progressIndeterminate.value;
                   final value = raw.clamp(0.0, 1.0).toDouble();
                   final percent = (value * 100).round();
 
@@ -709,7 +714,11 @@ class BackupRestoreController extends GetxController {
                                           'backup.progress_percent',
                                           args: ['$percent'],
                                         )
-                                      : tr('backup.preparing_process'),
+                                      : tr(
+                                          progressIndeterminate.value
+                                              ? 'backup.progress_indeterminate'
+                                              : 'backup.preparing_process',
+                                        ),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: scheme.onSurfaceVariant,
                                   ),
@@ -1834,7 +1843,10 @@ class BackupRestoreController extends GetxController {
           await tempDir.delete(recursive: true);
           return;
         }
-        _showProgressDialog(tr('backup.restore_progress_title'));
+        _showProgressDialog(
+          tr('backup.restore_progress_title'),
+          resetProgress: false,
+        );
         await _yieldUi(50);
         currentOperation.value = tr('backup.operations.reading_manifest');
         progress.value = 0.3;
@@ -1940,6 +1952,10 @@ class BackupRestoreController extends GetxController {
 
       currentOperation.value = tr('backup.operations.restoring_songs');
       progress.value = 0.4;
+      final libraryTotal = useStreamingManifest
+          ? null
+          : ((manifest!['items'] as List?) ?? const []).length;
+      progressIndeterminate.value = libraryTotal == null;
 
       final libraryStore = Get.find<LocalLibraryStore>();
       var restoredItems = 0;
@@ -1952,7 +1968,6 @@ class BackupRestoreController extends GetxController {
             'backup.operations.restoring_songs_progress',
             args: ['${i + 1}'],
           );
-          progress.value = (0.4 + (0.3 * ((i % 500) / 500))).clamp(0.4, 0.7);
         }
 
         final thumbRel = (data['thumbnailLocalPath'] as String?)?.trim();
@@ -1979,6 +1994,11 @@ class BackupRestoreController extends GetxController {
         if (legacySqliteBackup) legacySqliteItems.add(item.toJson());
         itemsToRestore.add(item);
         restoredItems++;
+        final completedProgress = libraryRestoreProgress(
+          completed: i + 1,
+          total: libraryTotal,
+        );
+        if (completedProgress != null) progress.value = completedProgress;
       }
 
       if (useStreamingManifest) {
@@ -1998,6 +2018,7 @@ class BackupRestoreController extends GetxController {
       currentOperation.value = tr('backup.operations.saving_restored_songs');
       await libraryStore.upsertAll(itemsToRestore);
       itemsToRestore.clear();
+      progressIndeterminate.value = false;
 
       currentOperation.value = tr(
         'backup.operations.restoring_playlists_artists',
@@ -2556,6 +2577,7 @@ class BackupRestoreController extends GetxController {
       debugPrint('importLibrary error: $e');
     } finally {
       isImporting.value = false;
+      progressIndeterminate.value = false;
       progress.value = 0.0;
     }
   }
