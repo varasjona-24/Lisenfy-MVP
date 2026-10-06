@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import '../../../app/controllers/navigation_controller.dart';
+import '../../../app/data/local/catalog_storage.dart';
 
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
@@ -1180,7 +1181,7 @@ class HomeController extends GetxController {
   }
 
   List<MediaItem> _resolvePlaylistItems(String playlistId) {
-    final rawPlaylists = _layoutStorage.read<List>('playlists');
+    final rawPlaylists = catalogStorage(_layoutStorage).read<List>('playlists');
     Playlist? playlist;
     for (final raw in rawPlaylists ?? const <dynamic>[]) {
       if (raw is! Map) continue;

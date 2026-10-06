@@ -94,8 +94,8 @@ extension PlaybackDebugTransfer on PlaybackRepository {
         }
       }
       await _database.customStatement(
-        "INSERT INTO migration_state(migration_id,source_id,source_hash,hash_algorithm,canonicalization_version,target_schema_version,cutover_at_utc_ms,state) VALUES(?,?,?,'sha256',1,2,?,'staging')",
-        [source, source, sourceHash, nowUtcMs],
+        "INSERT INTO migration_state(migration_id,source_id,source_hash,hash_algorithm,canonicalization_version,target_schema_version,cutover_at_utc_ms,state) VALUES(?,?,?,'sha256',1,?,?,'staging')",
+        [source, source, sourceHash, _database.schemaVersion, nowUtcMs],
       );
       const uuid = Uuid();
       const namespace = '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
@@ -383,6 +383,9 @@ extension PlaybackDebugTransfer on PlaybackRepository {
     () => _database.transaction(
       () async => {
         'schemaVersion': 2,
+        // This envelope exports the playback subset, not the entire app DB.
+        'databaseSchemaVersion': _database.schemaVersion,
+        'scope': 'playback_history_and_restoration',
         'tables': {
           for (final table in transferTables)
             table: (await _database.customSelect('SELECT * FROM $table').get())

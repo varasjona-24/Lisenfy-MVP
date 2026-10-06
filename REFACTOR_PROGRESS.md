@@ -1,5 +1,14 @@
 # Registro de refactor
 
+## 2026-10-06 — Regla global de datos y primer catálogo SQL v3
+
+- Criterio aprobado documentado en docs/playback/APP_DATA_MIGRATION.md: datos durables y registros de archivos en SQLite; archivos físicos en disco; preferencias en GetStorage; estado efímero en memoria. Procesamiento sigue la misma regla: trabajos/estado recuperable/resultados SQL, preferencias GetStorage y progreso instantáneo en memoria.
+- Primer bloque implementado: biblioteca, variantes, playlists/miembros, artistas y referencias de archivos en tablas v3. Importación congelada, hash y recibo transaccional; rollback ante datos inválidos; reintento no pisa cambios posteriores. Los datos originales no se borran y los archivos ausentes se conservan como referencias sin inventar disponibilidad.
+- CatalogStorage adapta los contratos síncronos existentes a una proyección cargada desde SQL; publica tras commit y bloquea escrituras tras fallo. Stores construidos en bindings/Connect/backup reutilizan ese owner. Corregida la lectura directa de playlists del Home para no consultar el snapshot legacy.
+- La actualización v1/v2→v3 conserva historial/restauración. Exportación del subset playback conserva formato v2 y declara por separado versión real de DB y alcance; backup lógico del catálogo sigue usando los modelos existentes. No se declara restore global transaccional ni cutover activo completo.
+- Verificación final: 111 pruebas schema/stats/Connect aprobadas (6 nuevas de catálogo y una de actualización v2); análisis focalizado de 12 archivos sin issues y diff sin errores de whitespace. Persisten avisos conocidos de plugins y traducciones de tests. Pruebas físicas de importación/edición/exportación/restauración del catálogo pendientes.
+- Alcance todavía incompleto: Collections, capturas/fondos, recomendaciones, Atlas y trabajos de procesamiento siguen pendientes. También paginación/operaciones por entidad para retirar proyección completa y resolver read-modify-write concurrente, separación de preferencias de reproducción y protocolo global de backup/activación. Solo está conectado en SQLite debug con flag; release y modo legacy permanecen sin cambio.
+
 ## 2026-10-06 — Pausa temporal y visibilidad por contexto de video
 
 - NavigationController centraliza contexto: Home video (incluidas sus listas), todas las rutas Sources/Collections y reproductor/cola de video ocultan audio y pausan el motor sin stop ni eliminación de sesión. Home sincroniza su modo al iniciar y alternarlo.

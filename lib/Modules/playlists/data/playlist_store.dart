@@ -1,9 +1,10 @@
 import 'package:get_storage/get_storage.dart';
 
 import '../domain/playlist.dart';
+import '../../../app/data/local/catalog_storage.dart';
 
 class PlaylistStore {
-  PlaylistStore(this._box);
+  PlaylistStore(GetStorage box) : _box = catalogStorage(box);
 
   final GetStorage _box;
   static const _key = 'playlists';

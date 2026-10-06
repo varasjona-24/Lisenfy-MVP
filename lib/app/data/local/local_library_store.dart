@@ -1,8 +1,10 @@
 import 'package:get_storage/get_storage.dart';
 import '../../models/media_item.dart';
+import 'catalog_storage.dart';
 
 class LocalLibraryStore {
-  LocalLibraryStore(this._box, {this.metricsLoader});
+  LocalLibraryStore(GetStorage box, {this.metricsLoader})
+    : _box = catalogStorage(box);
   final Future<Map<String, Map<String, dynamic>>> Function()? metricsLoader;
   Map<String, Map<String, dynamic>> _metrics = {};
   Object? _preservedSnapshot;

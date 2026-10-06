@@ -12,6 +12,7 @@ import 'playback_database.dart';
 class PlaybackDatabaseOpener {
   static const schemaAsset = 'docs/playback/schema_v1.sql';
   static const restorationSchemaAsset = 'docs/playback/migration_v2.sql';
+  static const catalogSchemaAsset = 'docs/playback/migration_v3.sql';
 
   static Future<PlaybackDatabase> openStaging({
     required String generation,
@@ -31,13 +32,16 @@ class PlaybackDatabaseOpener {
       restorationSchemaAsset,
     );
     final tempPath = temporary.path;
+    final catalogSchema = await (bundle ?? rootBundle).loadString(
+      catalogSchemaAsset,
+    );
     final executor = NativeDatabase.createInBackground(
       File(p.join(directory.path, '$generation.db')),
       setup: (database) {
         sql.sqlite3.tempDirectory = tempPath;
         final version =
             database.select('PRAGMA user_version').single.values.single as int;
-        if (version < 0 || version > 2) {
+        if (version < 0 || version > 3) {
           throw StateError('Unsupported playback schema version: $version');
         }
         database.execute('PRAGMA foreign_keys = ON');
@@ -67,12 +71,30 @@ class PlaybackDatabaseOpener {
           }
           database.execute(restorationSchema);
         }
+        if (version < 3) {
+          for (final table in {
+            ...PlaybackDatabase.v1Tables,
+            'playback_restoration',
+            'playback_resume',
+            'restoration_import',
+          }) {
+            if (database.select(
+              'SELECT name FROM sqlite_master WHERE type=\'table\' AND name=?',
+              [table],
+            ).isEmpty) {
+              throw StateError(
+                'Incomplete playback schema before catalog upgrade',
+              );
+            }
+          }
+          database.execute(catalogSchema);
+        }
         final installed = database
             .select('PRAGMA user_version')
             .single
             .values
             .single;
-        if (installed != 2) {
+        if (installed != 3) {
           throw StateError('Playback schema installation failed');
         }
       },

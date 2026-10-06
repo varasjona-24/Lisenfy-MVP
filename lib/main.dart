@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'app/data/local/catalog_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:audio_service/audio_service.dart' as aud;
 import 'package:easy_localization/easy_localization.dart'
@@ -114,6 +115,10 @@ Future<void> main() async {
     );
     Get.put(repository, permanent: true);
     Get.put<PlaybackStateStorage>(restoration, permanent: true);
+    Get.put<CatalogStorage>(
+      await CatalogStorage.open(repository, storage, scope),
+      permanent: true,
+    );
     final library = LocalLibraryStore(
       storage,
       metricsLoader: repository.queryLibraryMetrics,

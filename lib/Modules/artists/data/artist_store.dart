@@ -2,9 +2,10 @@ import 'package:get_storage/get_storage.dart';
 
 import '../../../app/utils/artist_credit_parser.dart';
 import '../domain/artist_profile.dart';
+import '../../../app/data/local/catalog_storage.dart';
 
 class ArtistStore {
-  ArtistStore(this._box);
+  ArtistStore(GetStorage box) : _box = catalogStorage(box);
 
   final GetStorage _box;
   static const _key = 'artist_profiles';
