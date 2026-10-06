@@ -20,5 +20,8 @@ abstract interface class EngineHistoryRecorder {
   void intent(PlaybackTermination reason);
   void beforeSeek([Duration? target]);
   void afterSeek({bool playing = false});
+
+  /// Exclude an uncertain engine-observation gap without inventing media time.
+  void reconcileEnginePosition(Duration position, {required bool playing});
   Future<void> flush();
 }

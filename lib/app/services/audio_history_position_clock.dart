@@ -10,6 +10,7 @@ class AudioHistoryPositionClock {
     _anchorMs = _publishedMs = positionMs;
     _anchorTime = monotonicMs;
     _playing = false;
+    _durationMs = null;
   }
 
   void observe({
@@ -19,6 +20,10 @@ class AudioHistoryPositionClock {
     required double speed,
     int? durationMs,
   }) {
+    if (positionMs == _anchorMs && playing == _playing && speed == _speed) {
+      _durationMs = durationMs;
+      return;
+    }
     // A confirmed anchor may lag an extrapolated sample without being a seek.
     // Do not turn that correction into a backwards observation. A backwards
     // ENGINE anchor is different: retain it for the recorder's seek validation.

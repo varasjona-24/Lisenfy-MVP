@@ -205,4 +205,9 @@ class PlaybackHistoryRecorder implements EngineHistoryRecorder {
   void intent(PlaybackTermination reason) {}
   @override
   void afterSeek({bool playing = false}) {}
+  @override
+  void reconcileEnginePosition(Duration position, {required bool playing}) {
+    beforeSeek(position);
+    afterSeek(playing: playing);
+  }
 }

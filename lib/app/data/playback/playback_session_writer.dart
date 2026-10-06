@@ -164,6 +164,7 @@ extension PlaybackSessionWriter on PlaybackRepository {
         'positionMs': endPosition,
         'from': c.positionMs,
         'to': c.seekTargetMs,
+        if (c.seekReason != null) 'seekReason': c.seekReason,
         'reason': c.termination?.stored,
         'progress': ratio,
         'durationMs': duration,

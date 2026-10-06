@@ -54,6 +54,7 @@ class RecordPlaybackBoundary {
     this.seekTargetMs,
     this.newSpeed,
     this.termination,
+    this.seekReason,
   });
   final String commandId, sessionId, eventId, clockEpoch;
   final PlaybackBoundary boundary;
@@ -62,6 +63,7 @@ class RecordPlaybackBoundary {
   final int? intervalStartSequence, seekTargetMs;
   final double? newSpeed;
   final PlaybackTermination? termination;
+  final String? seekReason;
   List<Object?> get canonical => [
     'boundary',
     1,
@@ -77,8 +79,14 @@ class RecordPlaybackBoundary {
     seekTargetMs,
     newSpeed,
     termination?.stored,
+    if (seekReason != null) seekReason,
   ];
   void validate() {
+    if (seekReason != null &&
+        (boundary != PlaybackBoundary.seek ||
+            seekReason != 'engine_anchor_correction')) {
+      throw ArgumentError('Invalid seek provenance');
+    }
     if ([commandId, sessionId, eventId, clockEpoch].any((s) => s.isEmpty) ||
         positionMs < 0 ||
         monotonicMs < 0) {

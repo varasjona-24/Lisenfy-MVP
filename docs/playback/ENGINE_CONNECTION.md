@@ -1,5 +1,21 @@
 # Conexión de motores al historial SQLite
 
+## Correcciones de ancla de audio
+
+El historial no consume la animación de UI/Connect. AudioHistoryPositionClock
+mantiene el ancla del motor y tiempo monotónico; repetir el mismo ancla con el
+mismo estado/velocidad no reinicia ese tiempo. Seek, reload y loop declarados
+restablecen el presupuesto de observación.
+
+Una discontinuidad inesperada se reconcilia conservadoramente: pausa en la
+última observación confiable, seek técnico con
+`seekReason=engine_anchor_correction`, y reanudación en el instante actual si
+el motor reproduce. El salto y el intervalo incierto no suman escucha ni crean
+skip manual. El journal previo se conserva; un fallo SQL sigue bloqueando el
+recorder y se propaga en flush. No es recuperación de actividad perdida ni una
+medición exacta continua del decoder. Validación física/background/Connect
+pendiente después del cambio.
+
 Conexión opt-in implementada mediante EngineHistoryRecorder. AudioService y
 VideoService aceptan historyRecorder en constructor; null crea únicamente el
 legacy. No registrar ambos recorders para un motor ni realizar shadow writes

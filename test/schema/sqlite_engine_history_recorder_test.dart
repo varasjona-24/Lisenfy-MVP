@@ -295,6 +295,66 @@ void main() {
     );
   });
   test(
+    'late engine anchor rebase excludes jump and uncertain gap, keeps recording',
+    () async {
+      recorder.select(item, variant: variant);
+      sample(0, 0);
+      sample(22442, 17177);
+      now = 22889;
+      recorder.reconcileEnginePosition(
+        const Duration(milliseconds: 24660),
+        playing: true,
+      );
+      sample(22889, 24660);
+      sample(27889, 29660, playing: false);
+      await recorder.flush();
+      final row =
+          (await db.customSelect('SELECT * FROM playback_session').getSingle())
+              .data;
+      expect(row['wall_ms'], 27442);
+      expect(row['media_ms'], 22177);
+      expect(row['valid_play'], 1);
+      expect(row['skipped'], 0);
+      final event = await db
+          .customSelect(
+            "SELECT payload_json FROM playback_event WHERE type='seek'",
+          )
+          .getSingle();
+      expect(
+        event.read<String>('payload_json'),
+        contains('engine_anchor_correction'),
+      );
+    },
+  );
+  test(
+    'backwards engine rebase during pause does not add listening or skip',
+    () async {
+      recorder.select(item, variant: variant);
+      sample(0, 0);
+      sample(10000, 10000);
+      now = 10500;
+      recorder.reconcileEnginePosition(
+        const Duration(seconds: 2),
+        playing: false,
+      );
+      sample(10500, 2000, playing: false);
+      sample(20000, 2000, playing: false);
+      sample(21000, 2000);
+      sample(26000, 7000, playing: false);
+      await recorder.flush();
+      final row =
+          (await db.customSelect('SELECT * FROM playback_session').getSingle())
+              .data;
+      expect(row['wall_ms'], 15000);
+      expect(row['media_ms'], 15000);
+      expect(row['skipped'], 0);
+      expect(
+        row['valid_play'],
+        0,
+      ); // Normal play still requires the existing 20s threshold.
+    },
+  );
+  test(
     'Honey engine anchor correction after extrapolation keeps listening time',
     () async {
       final clock = AudioHistoryPositionClock();

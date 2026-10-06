@@ -223,6 +223,7 @@ class SqliteEngineHistoryRecorder implements EngineHistoryRecorder {
     PlaybackTermination? reason,
     int? target,
     double? newSpeed,
+    String? seekReason,
   }) async {
     final active = _active;
     if (active == null) {
@@ -251,6 +252,7 @@ class SqliteEngineHistoryRecorder implements EngineHistoryRecorder {
         seekTargetMs: target,
         newSpeed: newSpeed,
         termination: reason,
+        seekReason: seekReason,
       ),
     );
     _sequence = result.sequence;
@@ -288,6 +290,32 @@ class SqliteEngineHistoryRecorder implements EngineHistoryRecorder {
       _utc = utc;
       _mono = mono;
       if (playing && _active != null) {
+        await _boundary(PlaybackBoundary.resume);
+        _playing = true;
+      }
+    });
+  }
+
+  @override
+  void reconcileEnginePosition(Duration position, {required bool playing}) {
+    final utc = _clock().toUtc().millisecondsSinceEpoch;
+    final mono = _monotonicClock?.call() ?? _watch.elapsedMilliseconds;
+    _enqueue(() async {
+      if (_active == null) return;
+      // Stop at the last trusted observation, not at the jumped position.
+      // The interval between that observation and this correction is unknown.
+      if (_playing) {
+        await _boundary(PlaybackBoundary.pause);
+        _playing = false;
+      }
+      await _boundary(
+        PlaybackBoundary.seek,
+        target: position.inMilliseconds,
+        seekReason: 'engine_anchor_correction',
+      );
+      _utc = utc;
+      _mono = mono;
+      if (playing) {
         await _boundary(PlaybackBoundary.resume);
         _playing = true;
       }

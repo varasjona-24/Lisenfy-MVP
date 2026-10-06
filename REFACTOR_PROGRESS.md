@@ -1,5 +1,16 @@
 # Registro de refactor
 
+## 2026-10-06 — Reconciliación conservadora de anclas de audio
+
+- Prueba real posterior guardó5 intervalos, pero el log mostró17.177→24.660ms en447ms y se bloqueó otra vez. Se conserva el hallazgo: el arreglo previo no estaba validado en dispositivo.
+- Anclas idénticas con mismo estado/velocidad ya no reinician el origen monotónico; reset limpia duración anterior. Se evita que una posición stale repetida congele o retrase artificialmente la estimación.
+- El adaptador identifica discontinuidades fuera del presupuesto temporal y solicita reconcileEnginePosition. Se cierra en la última observación confiable, se escribe seek técnico con seekReason=engine_anchor_correction y se continúa en el instante actual; el salto y el hueco incierto no se suman como escucha. No se simula un seek manual ni se clasifica como skip.
+- Nuevo campo opcional de procedencia en comando/payload, sin cambiar esquema SQL. Canonical de comandos previos sin procedencia se mantiene; errores SQL continúan bloqueando el recorder y propagándose en flush. Reconciliar observaciones no borra ni reescribe journal anterior.
+- Seek explícito, reload, cambio de ocurrencia y loop limpian el presupuesto del adaptador para no reconciliar dos veces una transición declarada. UI/Connect mantienen su posición y protocolo; no se añade un writer remoto.
+- Regresiones: anclas stale repetidas, ajuste tardío exacto de Honey con447ms excluidos, retroceso durante pausa/reanudación. El caso15s conserva valid_play=0 según umbral20s existente; se corrigió la expectativa del test, no la política.
+- Verificación final:92 pruebas Flutter schema/stats/Connect y12 invariantes SQL aprobadas; análisis focalizado de8 grupos sin issues. Connect se valida con dobles del motor, no como reproducción remota física.
+- Reinicio y repetición en teléfono/Connect siguen pendientes; no se declara blindaje absoluto ni recuperación de segundos perdidos. Las discontinuidades reducen conservadoramente el tiempo registrado en vez de inventarlo.
+
 ## 2026-10-06 — Observaciones de historial independientes de UI/Connect
 
 - Log real de Honey mostró401→128ms: la tolerancia250ms no bastaba. just_audio0.10.5 extrapola position con DateTime mientras ready+playing; la UI mezclaba esa estimación con correcciones del motor.

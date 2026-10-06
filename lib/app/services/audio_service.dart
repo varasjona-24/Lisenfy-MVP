@@ -61,6 +61,9 @@ class AudioService extends GetxService with WidgetsBindingObserver {
   StreamSubscription<PlayerEvent>? _historyObservationSubscription;
   Timer? _historyObservationTimer;
   String? _historyClockSource;
+  int? _historyLastSampleTime;
+  int _historyLastSamplePosition = 0;
+  double _historyLastSampleSpeed = 1;
 
   void _observeEngineHistory({bool engineEvent = false}) {
     if (_historySourceReload || _historySeekInProgress) return;
@@ -81,6 +84,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
     final occurrenceChanged =
         _historyClockSource != null && _historyClockSource != source;
     if (_historyClockSource != source || looped) {
+      _historyLastSampleTime = null;
       _historyPositionClock.reset(event.updatePosition.inMilliseconds, mono);
       _historyClockSource = source;
     }
@@ -98,8 +102,27 @@ class AudioService extends GetxService with WidgetsBindingObserver {
       variant: variant,
       occurrenceChanged: occurrenceChanged,
     );
+    final positionMs = _historyPositionClock.sample(mono);
+    final previousTime = _historyLastSampleTime;
+    if (previousTime != null &&
+        !looped &&
+        (positionMs < _historyLastSamplePosition - 250 ||
+            positionMs - _historyLastSamplePosition >
+                (mono - previousTime) * _historyLastSampleSpeed + 1000)) {
+      debugPrint(
+        'Audio history engine anchor correction: '
+        '$_historyLastSamplePosition -> $positionMs; uncertain gap excluded',
+      );
+      _history.reconcileEnginePosition(
+        Duration(milliseconds: positionMs),
+        playing: playing,
+      );
+    }
+    _historyLastSampleTime = mono;
+    _historyLastSamplePosition = positionMs;
+    _historyLastSampleSpeed = _player.speed;
     _history.update(
-      position: Duration(milliseconds: _historyPositionClock.sample(mono)),
+      position: Duration(milliseconds: positionMs),
       duration: event.duration ?? Duration.zero,
       playing: playing,
       speed: _player.speed,
@@ -147,6 +170,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
       );
       _historySourceReload = false;
       _historySeekInProgress = false;
+      _historyLastSampleTime = null;
       _lastEngineHistoryPosition = _player.position;
       _lastEngineHistoryTrack = item.id;
       _lastEngineHistoryVariant = variant;
@@ -954,6 +978,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
         position.inMilliseconds,
         _historyMonotonic.elapsedMilliseconds,
       );
+      _historyLastSampleTime = null;
       _history.afterSeek(
         playing:
             _player.playing && _player.processingState == ProcessingState.ready,
