@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-06 — Detección del launcher Android por Flutter
+
+- Flutter 3.44.1 busca MAIN/LAUNCHER en activity y no reconoce los activity-alias usados por los iconos personalizados. El manifest no faltaba.
+- Añadido filtro de descubrimiento a MainActivity en el manifest fuente; overlays debug/profile/release lo eliminan del manifest fusionado. LauncherOriginal y los demás aliases siguen gestionando los iconos, sin launcher duplicado.
+- Verificadas tareas Gradle processDebugMainManifest, processProfileMainManifest y processReleaseMainManifest. Profile necesitó descargar una dependencia ausente en caché offline; sin compilar ni instalar APK.
+- Añadida prueba de descubrimiento y manifests fusionados: comprueba aliases, ausencia de launcher directo y conservación de seis filtros de enlaces/compartir. Arranque físico pendiente de ejecutar flutter run.
+
 ## 2026-10-06 — Conexión integral debug SQLite
 
 - Con autorización explícita se integran también los staged relacionados de collage, traducciones y backup. Release y arranque sin flag conservan legacy.

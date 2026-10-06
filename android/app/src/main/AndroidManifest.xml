@@ -145,6 +145,13 @@
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
 
+            <!-- Flutter discovers activities, not aliases. Build-type overlays
+                 remove this filter so only icon aliases appear in the launcher. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
             <!-- Deep links internos de Listenfy (QR / Open with Listenfy) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
