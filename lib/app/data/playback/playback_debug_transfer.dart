@@ -426,6 +426,85 @@ extension PlaybackDebugTransfer on PlaybackRepository {
     ),
   );
 
+  /// Explicit complete restore replaces SQL contents in one transaction.
+  Future<void> restoreCompleteDatabase(
+    Map<String, dynamic> bundle,
+  ) => _restorationTask(
+    () => _database.transaction(() async {
+      if (bundle['formatVersion'] != 1 ||
+          bundle['databaseSchemaVersion'] != _database.schemaVersion ||
+          bundle['scope'] != 'all_application_tables' ||
+          bundle['tables'] is! Map) {
+        throw FormatException('Unsupported complete database backup');
+      }
+      final tables = Map<String, dynamic>.from(bundle['tables'] as Map);
+      final installed =
+          (await _database
+                  .customSelect(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+                  )
+                  .get())
+              .map((row) => row.read<String>('name'))
+              .toSet();
+      if (tables.keys.toSet().difference(installed).isNotEmpty ||
+          installed.difference(tables.keys.toSet()).isNotEmpty) {
+        throw FormatException('Incomplete database backup');
+      }
+      String quote(String name) => '"${name.replaceAll('"', '""')}"';
+      final parents = <String, Set<String>>{};
+      for (final table in installed) {
+        final columns =
+            (await _database
+                    .customSelect('PRAGMA table_info(${quote(table)})')
+                    .get())
+                .map((row) => row.read<String>('name'))
+                .toSet();
+        if (tables[table] is! List) throw FormatException('Invalid table rows');
+        for (final raw in tables[table] as List) {
+          if (raw is! Map ||
+              raw.keys.toSet().difference(columns).isNotEmpty ||
+              columns.difference(raw.keys.toSet()).isNotEmpty) {
+            throw FormatException('Invalid complete backup columns');
+          }
+        }
+        parents[table] =
+            (await _database
+                    .customSelect('PRAGMA foreign_key_list(${quote(table)})')
+                    .get())
+                .map((row) => row.read<String>('table'))
+                .where((name) => name != table)
+                .toSet();
+      }
+      final order = <String>[];
+      while (order.length < installed.length) {
+        final ready = installed
+            .where(
+              (name) =>
+                  !order.contains(name) && parents[name]!.every(order.contains),
+            )
+            .toList();
+        if (ready.isEmpty) throw FormatException('Cyclic backup dependencies');
+        order.addAll(ready);
+      }
+      for (final table in order.reversed) {
+        await _database.customStatement('DELETE FROM ${quote(table)}');
+      }
+      for (final table in order) {
+        for (final raw in tables[table] as List) {
+          final row = Map<String, dynamic>.from(raw as Map);
+          await _database.customStatement(
+            'INSERT INTO ${quote(table)} (${row.keys.map(quote).join(',')}) VALUES (${row.keys.map((_) => '?').join(',')})',
+            row.values.toList(),
+          );
+        }
+      }
+      if ((await _database.customSelect('PRAGMA foreign_key_check').get())
+          .isNotEmpty) {
+        throw FormatException('Invalid restored foreign keys');
+      }
+    }),
+  );
+
   /// Exact merge only. Conflicting rows roll back, never overwrite live history.
   Future<void> restoreDebugBundle(
     Map<String, dynamic> bundle,

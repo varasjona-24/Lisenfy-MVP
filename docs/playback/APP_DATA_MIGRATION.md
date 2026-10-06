@@ -113,9 +113,21 @@ referenciadas aunque la opción legacy excluya instrumentales del manifiesto ló
 El snapshot SQL es consistente internamente, NO simultáneo con el manifiesto lógico
 y todos los archivos. Preferencias mantienen el alcance existente (apariencia/layout),
 no se exporta indiscriminadamente GetStorage ni credenciales. Cachés/temporales físicos
-no se recorren como contenido durable. La restauración actual sigue leyendo los
-archivos lógicos anteriores; NO aplica sqlite_complete_v1.json como reemplazo íntegro.
-El protocolo de restore completo/rebase/activación queda pendiente. Release sin
+no se recorren como contenido durable. Los archivos lógicos anteriores se mantienen
+para restaurar archivos/preferencias y para compatibilidad con backups antiguos.
+La restauración completa SQL ya está conectada: al encontrar el suplemento se
+omite el merge del bundle playback anterior y, después de restaurar el contenido
+lógico/archivos, se reemplazan todas las tablas SQL en una transacción. Exige versión
+y conjunto de tablas compatibles, columnas completas y FK válidas; ordena borrado
+e inserción por dependencias. El fallo de esa transacción revierte el reemplazo SQL.
+Se reconstruyen rutas en catálogo, dominios y restauración operativa y se recargan
+proyecciones/tareas/recomendaciones. Journal y evidencia hasheada no se reescriben;
+sus referencias históricas originales pueden necesitar resolución mediante el
+mapa de locators en otro dispositivo. No se afirma que sus portadas históricas
+ya funcionen allí. Las etapas lógicas/disco previas siguen fuera de la transacción:
+un fallo global no revierte todos los archivos o cambios lógicos anteriores.
+La restauración SQL completa reemplaza, no fusiona, datos posteriores al backup.
+El protocolo de activación/global recovery sigue pendiente. Release sin
 repositorio registrado no genera este suplemento. No se declara backup global
 atómico ni recuperación total ya validada en instalación vacía.
 

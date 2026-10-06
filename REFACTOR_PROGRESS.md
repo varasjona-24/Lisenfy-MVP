@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-06 — Restauración del snapshot SQL completo
+
+- Conectado sqlite_complete_v1.json al restore ZIP. Sustituye el merge playback previo cuando está presente; reemplaza todas las tablas en una transacción, con validación de formato/esquema/cobertura/columnas y FK, orden de dependencias y rollback SQL. Restore completo reemplaza datos, no los fusiona.
+- Rebase de rutas disponibles en catálogo/dominios/restauración operativa; journal y evidencia hasheada permanecen originales. Recarga de CatalogStorage, DomainStorage, restauración, tareas y recomendaciones tras commit. Backups sin suplemento conservan flujo anterior.
+- Cobertura de igualdad de todas las tablas, reintento y rollback ante FK inválida/tabla faltante. Limitación: manifiesto/disco previos no son parte de la transacción global; referencias históricas originales requieren resolver locators en otro dispositivo. No hay lease global ni validación física de instalación vacía; preferencias completas y cutover release pendientes.
+- Verificación: 134 pruebas schema/stats/Connect/Atlas/recommendations aprobadas, análisis focalizado de cinco archivos sin issues y diff sin errores de whitespace. Avisos conocidos de plugins/traducciones persisten; no se ejecutó restauración sobre datos del teléfono.
+
 ## 2026-10-06 — Exportación de todas las tablas SQLite
 
 - ZIP incorpora sqlite_complete_v1.json cuando SQL está registrado: snapshot transaccional serializado de todas las tablas de aplicación, sin whitelist de módulos ni corte temporal. Se conserva la exportación lógica anterior para compatibilidad.

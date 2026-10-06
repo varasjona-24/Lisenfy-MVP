@@ -90,6 +90,14 @@ class DomainStorage implements GetStorage {
       ? _values[key] as T?
       : preferences.read<T>(key);
 
+  Future<void> reload() async {
+    await flush();
+    final loaded = await repository.readDomains();
+    _values
+      ..clear()
+      ..addAll(loaded);
+  }
+
   Future<void> flush() async {
     await _tail;
     if (failure != null) throw StateError('Durable storage failed: $failure');

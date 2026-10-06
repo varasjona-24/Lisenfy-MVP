@@ -61,6 +61,14 @@ class CatalogStorage implements GetStorage {
     return CatalogStorage._(repository, await repository.readCatalog());
   }
 
+  Future<void> reload() async {
+    await flush();
+    final loaded = await repository.readCatalog();
+    _values
+      ..clear()
+      ..addAll(loaded);
+  }
+
   @override
   T? read<T>(String key) {
     if (!catalogKeys.contains(key)) throw ArgumentError.value(key, 'key');

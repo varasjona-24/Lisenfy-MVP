@@ -115,6 +115,38 @@ void main() {
       {'value': 'preserved'},
     ]);
   });
+  test(
+    'complete restore replaces all tables and invalid restore rolls back',
+    () async {
+      final storage = await load();
+      final original = await repository.exportCompleteDatabase();
+      await storage.write('world_mode_country_discovery_v1', {'JP': 99});
+      await repository.restoreCompleteDatabase(original);
+      expect(await repository.exportCompleteDatabase(), original);
+      await repository.restoreCompleteDatabase(original);
+      expect(await repository.exportCompleteDatabase(), original);
+      final invalid = Map<String, dynamic>.from(
+        jsonDecode(jsonEncode(original)) as Map,
+      );
+      ((invalid['tables'] as Map)['app_domain_file'] as List).add({
+        'namespace': 'missing',
+        'record_key': 'missing',
+        'slot': 'file',
+        'locator': '/bad',
+      });
+      await expectLater(
+        repository.restoreCompleteDatabase(invalid),
+        throwsA(anything),
+      );
+      expect(await repository.exportCompleteDatabase(), original);
+      (invalid['tables'] as Map).remove('legacy_metrics');
+      await expectLater(
+        repository.restoreCompleteDatabase(invalid),
+        throwsFormatException,
+      );
+      expect(await repository.exportCompleteDatabase(), original);
+    },
+  );
   tearDown(() async {
     Get.reset();
     await repository.close();

@@ -2210,7 +2210,9 @@ class BackupRestoreController extends GetxController {
         await Get.find<AudioService>().flushPlaybackHistory();
         await Get.find<VideoService>().flushPlaybackHistory();
         await Get.find<PlaybackStateStorage>().flush();
-        if (entry == null) {
+        if (zipIndex.find('sqlite_complete_v1.json') != null) {
+          // The complete snapshot is applied after logical file restoration.
+        } else if (entry == null) {
           final events = <Map<String, dynamic>>[];
           if (useStreamingManifest) {
             await _forEachManifestObject(manifestFile, 'listeningEvents', (
@@ -2397,6 +2399,109 @@ class BackupRestoreController extends GetxController {
         );
       }
 
+      final completeEntry = zipIndex.find('sqlite_complete_v1.json');
+      if (completeEntry != null && Get.isRegistered<PlaybackRepository>()) {
+        final target = File(p.join(tempDir.path, 'sqlite_complete_v1.json'));
+        await _extractZipBackupEntry(
+          zipPath: path,
+          entry: completeEntry,
+          outputPath: target.path,
+        );
+        final bundle = Map<String, dynamic>.from(
+          jsonDecode(await target.readAsString()) as Map,
+        );
+        final locators = Map<String, dynamic>.from(
+          bundle['fileLocators'] as Map,
+        );
+        final rebased = <String, String>{};
+        for (final entry in locators.entries) {
+          final rel = entry.value;
+          if (rel == null) continue;
+          if (rel is! String || _safeBackupRelPath(rel) != rel) {
+            throw FormatException('Invalid complete backup locator');
+          }
+          await restoreFile(rel);
+          final resolved = resolveRel(rel);
+          if (resolved == null || !await File(resolved).exists()) {
+            throw FormatException('Missing complete backup file');
+          }
+          rebased[entry.key] = resolved;
+        }
+        dynamic rebase(dynamic value) {
+          if (value is Map) {
+            return {
+              for (final entry in value.entries)
+                rebased[entry.key] ?? entry.key: rebase(entry.value),
+            };
+          }
+          if (value is List) return value.map(rebase).toList();
+          if (value is String) return rebased[value] ?? value;
+          return value;
+        }
+
+        final tables = bundle['tables'] as Map;
+        // Journal payloads and hashed evidence are never rewritten.
+        for (final name in [
+          'library_record',
+          'library_variant',
+          'playlist_record',
+          'playlist_member',
+          'artist_record',
+          'catalog_file_reference',
+          'app_domain_record',
+          'app_domain_file',
+          'playback_restoration',
+          'playback_resume',
+        ]) {
+          final rows = tables[name];
+          if (rows is! List) {
+            throw FormatException('Missing complete backup table');
+          }
+          for (final raw in rows) {
+            final row = raw as Map;
+            for (final column in row.keys.toList()) {
+              final value = row[column];
+              if (column.toString().endsWith('_json') && value is String) {
+                row[column] = jsonEncode(rebase(jsonDecode(value)));
+              } else {
+                row[column] = rebase(value);
+              }
+            }
+          }
+        }
+        await Get.find<AudioService>().stop();
+        await Get.find<VideoService>().stop();
+        await Get.find<AudioService>().flushPlaybackHistory();
+        await Get.find<VideoService>().flushPlaybackHistory();
+        await Get.find<PlaybackStateStorage>().flush();
+        if (Get.isRegistered<CatalogStorage>()) {
+          await Get.find<CatalogStorage>().flush();
+        }
+        if (Get.isRegistered<DomainStorage>()) {
+          await Get.find<DomainStorage>().flush();
+        }
+        await Get.find<PlaybackRepository>().restoreCompleteDatabase(bundle);
+        if (Get.isRegistered<CatalogStorage>()) {
+          await Get.find<CatalogStorage>().reload();
+        }
+        if (Get.isRegistered<DomainStorage>()) {
+          await Get.find<DomainStorage>().reload();
+        }
+        await Get.find<PlaybackRepository>().recoverInterruptedSessions();
+        await Get.find<PlaybackStateStorage>().reload();
+        if (Get.isRegistered<InstrumentalGenerationService>()) {
+          Get.find<InstrumentalGenerationService>().reloadDurableTasks();
+        }
+        if (Get.isRegistered<Spatial8dGenerationService>()) {
+          Get.find<Spatial8dGenerationService>().reloadDurableTasks();
+        }
+        if (Get.isRegistered<RecommendationEngine>()) {
+          await Get.find<RecommendationEngine>().reloadFromStore();
+        }
+        if (Get.isRegistered<RecommendationFeedbackService>()) {
+          await Get.find<RecommendationFeedbackService>().reloadFromStore();
+        }
+      }
       currentOperation.value = tr('backup.operations.finalizing');
       progress.value = 0.95;
 
