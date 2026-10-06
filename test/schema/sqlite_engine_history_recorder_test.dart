@@ -6,6 +6,7 @@ import 'package:listenfy/app/data/playback/playback_repository.dart';
 import 'package:listenfy/app/data/playback/playback_session_command.dart';
 import 'package:listenfy/app/data/playback/playback_boundary_command.dart';
 import 'package:listenfy/app/services/sqlite_engine_history_recorder.dart';
+import 'package:listenfy/app/services/audio_history_position_clock.dart';
 import 'package:listenfy/app/models/media_item.dart';
 import 'package:listenfy/Modules/sources/domain/source_origin.dart';
 
@@ -293,4 +294,55 @@ void main() {
       isEmpty,
     );
   });
+  test(
+    'Honey engine anchor correction after extrapolation keeps listening time',
+    () async {
+      final clock = AudioHistoryPositionClock();
+      clock.reset(2, 0);
+      recorder.select(item, variant: variant);
+      void observe(int time, {int? enginePosition, bool playing = true}) {
+        if (enginePosition != null) {
+          clock.observe(
+            positionMs: enginePosition,
+            monotonicMs: time,
+            playing: playing,
+            speed: 1,
+            durationMs: 100000,
+          );
+        }
+        sample(time, clock.sample(time), playing: playing);
+      }
+
+      observe(0, enginePosition: 2);
+      observe(399);
+      expect(clock.sample(399), 401);
+      observe(424, enginePosition: 128);
+      expect(clock.sample(424), 401);
+      observe(5000);
+      observe(10000);
+      observe(28000, enginePosition: 27704, playing: false);
+      await recorder.flush();
+      final row =
+          (await db.customSelect('SELECT * FROM playback_session').getSingle())
+              .data;
+      expect(row['wall_ms'], 28000);
+      expect(row['media_ms'], 27702);
+      expect(row['valid_play'], 1);
+      expect(row['skipped'], 0);
+      expect(
+        await db
+            .customSelect("SELECT * FROM playback_event WHERE type='pause'")
+            .get(),
+        hasLength(1),
+      );
+      // Real backwards ENGINE anchors are not hidden by extrapolation handling.
+      clock.observe(
+        positionMs: 10000,
+        monotonicMs: 28001,
+        playing: true,
+        speed: 1,
+      );
+      expect(clock.sample(28001), 10000);
+    },
+  );
 }

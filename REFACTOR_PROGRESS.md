@@ -1,5 +1,15 @@
 # Registro de refactor
 
+## 2026-10-06 — Observaciones de historial independientes de UI/Connect
+
+- Log real de Honey mostró401→128ms: la tolerancia250ms no bastaba. just_audio0.10.5 extrapola position con DateTime mientras ready+playing; la UI mezclaba esa estimación con correcciones del motor.
+- AudioHistoryPositionClock separa ancla updatePosition del motor y extrapolación con Stopwatch. Una nueva ancla que avanza respecto al ancla anterior, aunque quede detrás de la estimación publicada, no produce un retroceso. Retrocesos reales del ancla siguen visibles para la validación del recorder.
+- AudioService alimenta el recorder desde una única entrada coordinada playerEventStream/ticker500ms. Eliminados escritores de historial de playerStateStream, currentIndexStream y _publishPosition. Fuente/índice/variante delimitan ocurrencias; reload y seek restablecen el reloj explícitamente.
+- UI, currentPosition, notificación, widget y payloads/progreso de Connect conservan su lógica visual. Los clientes remotos no agregan escritores SQL; sus comandos siguen usando el motor del teléfono. No se implementó aquí contexto connect ni refresco de métricas remotas: pendientes separados.
+- Prueba exacta Honey401→128 guarda28s de reloj,27,702s de avance y pausa sin bloquearse. Se añaden pruebas del reloj para pausa/buffering, seek y velocidades. No se reconstruye actividad perdida ni se modifica la base del dispositivo.
+- Validación móvil/background real y sincronización de Connect pendientes de repetir con reinicio completo. El avance entre anclas sigue siendo una estimación por estado/velocidad; no se presenta como medición continua exacta del decoder.
+- Verificación:89 pruebas Flutter schema/stats/Connect aprobadas y análisis focalizado sin issues. La suite Connect cubre HTTP/WebSocket, permisos y sincronización de metadatos con dobles de audio, no reproducción remota real del plugin. Se captura una observación antes de stop/seek/reload/cambio de velocidad.
+
 ## 2026-10-06 — Correcciones pequeñas de posición del motor
 
 - Verificada SQLite real de Honey: baseline31 intacto, posición de restauración28,6s y resume27s, pero sesión abierta sin intervalos. El log del proceso confirma bloqueo por Unreported seek/loop/discontinuity from engine.
