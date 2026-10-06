@@ -9,6 +9,7 @@ import '../../../services/audio_service.dart';
 import '../../../controllers/navigation_controller.dart';
 import 'player_lyrics_sheet.dart';
 import '../../../../Modules/player/audio/controller/audio_player_controller.dart';
+import '../../../../Modules/Home/Controller/home_controller.dart';
 
 class MiniPlayerBar extends StatelessWidget {
   const MiniPlayerBar({super.key});
@@ -20,7 +21,11 @@ class MiniPlayerBar extends StatelessWidget {
 
     return Obx(() {
       final route = nav.currentRoute.value;
+      final isVideoHome = route == AppRoutes.home &&
+          Get.isRegistered<HomeController>() &&
+          Get.find<HomeController>().mode.value == HomeMode.video;
       if (nav.isEditing.value ||
+          isVideoHome ||
           nav.isOverlayOpen.value ||
           (Get.isBottomSheetOpen ?? false) ||
           (Get.isDialogOpen ?? false) ||

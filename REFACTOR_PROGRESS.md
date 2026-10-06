@@ -1,5 +1,11 @@
 # Registro de refactor
 
+## 2026-10-06 — Mini reproductor oculto en Home video
+
+- MiniPlayerBar observa el modo de Home y se oculta únicamente en la ruta Home cuando el modo es video. Volver a audio restituye su visibilidad conforme a las condiciones existentes.
+- Cambio exclusivamente visual: no pausa, detiene, descarta ni modifica la sesión o persistencia de audio.
+- Análisis focalizado sin issues y diff sin errores de whitespace. Comprobación visual del cambio de modo pendiente en teléfono.
+
 ## 2026-10-06 — Acceso para retomar video desde Home
 
 - Home en modo video muestra Continuar video y el título actual cuando VideoService conserva un último item. La acción abre videoPlayer sin argumentos: reutiliza la sesión o restaura la cola/índice persistidos mediante el binding, sin sustituirlos por Últimas importaciones.
