@@ -284,6 +284,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
   List<MediaVariant> _linearVariants = <MediaVariant>[];
   int _activeIndex = 0;
   int _queueRevision = 0;
+  int _persistedSessionQueueRevision = -1;
   int _lastHandlerQueueRevision = -1;
   bool _shuffleEnabled = false;
   bool _suppressCurrentIndexUpdates = false;
@@ -1580,11 +1581,18 @@ class AudioService extends GetxService with WidgetsBindingObserver {
       _trustedCurrentPosition.inMilliseconds,
     );
     _storage.write(_sessionWasPlayingKey, _player.playing);
+    _persistedSessionQueueRevision = _queueRevision;
   }
 
   void _persistSessionPlaybackState({bool throttle = false}) {
     if (_queueItems.isEmpty || _queueVariants.isEmpty) return;
     if (_queueItems.length != _queueVariants.length) return;
+    // Engine callbacks can arrive before setAudioSources completes. Never save
+    // an index for a queue that has not reached operational storage yet.
+    if (_persistedSessionQueueRevision != _queueRevision) {
+      _persistSessionSnapshot(throttle: throttle);
+      return;
+    }
 
     if (throttle) {
       final now = DateTime.now();
@@ -1609,6 +1617,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
   }
 
   void _clearSessionSnapshot() {
+    _persistedSessionQueueRevision = -1;
     _storage.remove(_sessionQueueItemsKey);
     _storage.remove(_sessionQueueVariantsKey);
     _storage.remove(_sessionIndexKey);

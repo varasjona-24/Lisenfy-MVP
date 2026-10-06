@@ -1,5 +1,13 @@
 # Registro de refactor
 
+## 2026-10-06 — Reanudación y recuperación de escrituras operativas
+
+- Corregido un camino que podía persistir índice/posición desde callbacks del motor antes de guardar la cola nueva. Audio compara revisión de cola persistida y escribe el snapshot estructural completo antes del estado incremental.
+- PlaybackStateStorage ya no rechaza toda escritura posterior al primer fallo ni envuelve recursivamente el error. Cada nuevo lote intenta su transacción; solo un commit correcto limpia failure. Flush sigue informando fallos pendientes y SQLite continúa siendo la única fuente durable.
+- Regresión: índice inválido con cola vacía revierte; un lote válido posterior recupera audio/video y conserva un punto de reanudación sintético de Honey. No se relajan validaciones ni se borran posiciones para evitar el error.
+- Validación: 36 pruebas de integración/restauración/política video/reloj audio/recorder aprobadas; análisis de AudioService y adapter sin issues. Persisten advertencias Drift de múltiples instancias en tests de reapertura.
+- Build release temporal aprobado y actualizado mediante ADB -r únicamente en .restoretest, conservando datos. Reanudación física del video y Honey pendiente del usuario; no se declara probada solo por compilar/instalar.
+
 ## 2026-10-06 — Arranque release temporal e identidad tras restauración
 
 - Causa física del cierre: runtime Flutter AOT sin snapshot precompilado al marcar buildTypes.release.isDebuggable. Inspección pasa a placeholder Android separado; release mantiene assets AOT, debug conserva su flag. APK verificado con libapp.so y paquete .restoretest.

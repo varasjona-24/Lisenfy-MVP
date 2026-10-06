@@ -105,6 +105,41 @@ void main() {
     await directory.delete(recursive: true);
   });
   test(
+    'invalid partial queue rolls back and later valid state recovers both modes',
+    () async {
+      await storage.write('audio_resume_positions', {'honey': 42000});
+      await expectLater(
+        storage.write('audio_session_index', 2),
+        throwsArgumentError,
+      );
+      expect(storage.failure, isNotNull);
+      expect(
+        (await repository.readRestoration(RestorationMode.audio))?.index ?? 0,
+        0,
+      );
+      await storage.write('audio_session_index', 0);
+      await storage.write('video_queue_items', <Map<String, dynamic>>[
+        {'id': 'video'},
+      ]);
+      await storage.flush();
+      expect(storage.failure, isNull);
+      expect(
+        (await repository.readResumePoints(
+          RestorationMode.audio,
+        )).single.positionMs,
+        42000,
+      );
+      expect(
+        (await repository.readRestoration(
+          RestorationMode.video,
+        ))!.payload['queue'],
+        [
+          {'id': 'video'},
+        ],
+      );
+    },
+  );
+  test(
     'playback settings read SQL crossfade and leave legacy preferences separate',
     () async {
       legacy.values['audio_crossfade_seconds'] = 1;

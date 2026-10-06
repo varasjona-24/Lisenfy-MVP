@@ -83,9 +83,6 @@ class PlaybackStateStorage implements GetStorage {
   @override
   Future<void> write(String key, dynamic value) {
     if (!_owns(key)) return preferences.write(key, value);
-    if (failure != null) {
-      return Future.error(StateError('SQLite restoration failed: $failure'));
-    }
     _values[key] = jsonDecode(jsonEncode(value));
     return _schedule();
   }
@@ -108,9 +105,6 @@ class PlaybackStateStorage implements GetStorage {
       final frozen = LegacyRestorationSnapshot.capture((key) => _values[key]);
       _tail = _tail
           .then((_) async {
-            if (failure != null) {
-              throw StateError('SQLite restoration failed: $failure');
-            }
             await repository.saveOperationalBundle(
               frozen.states,
               frozen.resumePoints,
@@ -118,7 +112,10 @@ class PlaybackStateStorage implements GetStorage {
             );
           })
           .then(
-            (_) => batch.complete(),
+            (_) {
+              failure = null;
+              batch.complete();
+            },
             onError: (Object error, StackTrace stack) {
               failure = error;
               batch.completeError(error, stack);
