@@ -1,5 +1,11 @@
 # Registro de refactor
 
+## 2026-10-06 — Pantalla de preparación coherente con Listenfy
+
+- Startup SQLite usa la paleta y brillo guardados, tema compartido, AppGradientBackground, tarjeta y logo SVG tintado. No inicializa settings ni consulta fondos SQLite antes de terminar la migración.
+- UI extraída a StorageStartupPage, adaptable con scroll y ancho limitado; fases traducidas conservadas, anuncio accesible del estado y reintento existente sin cambios en persistencia.
+- Validación: análisis de main y pantalla sin issues; prueba widget aprobada para progreso y acción de reintento. Sin build ni instalación en teléfono en este paso.
+
 ## 2026-10-06 — Inspección excepcional del release temporal
 
 - Usuario autoriza por esta vez actualizar .restoretest para consultar su SQLite después de restaurar y reproducir Te amare. LISTENFY_RESTORE_INSPECT=1 habilita debuggable Android solo junto a SANDBOX; Flutter se compila en release.

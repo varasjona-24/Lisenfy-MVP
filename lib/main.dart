@@ -19,6 +19,8 @@ import 'app/controllers/media_actions_controller.dart';
 import 'app/routes/app_pages.dart';
 import 'app/routes/app_routes.dart';
 import 'app/ui/themes/app_theme_factory.dart';
+import 'app/ui/themes/palette.dart';
+import 'app/ui/widgets/layout/storage_startup_page.dart';
 import 'app/ui/widgets/player/mini_player_bar.dart';
 import 'app/ui/widgets/download/download_progress_banner.dart';
 
@@ -110,50 +112,34 @@ Future<void> main() async {
         fallbackLocale: const Locale('es'),
         child: Builder(
           builder: (context) => MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: buildTheme(
+              palette:
+                  palettes[GetStorage().read<String>('selectedPalette') ??
+                      'green'] ??
+                  Get.find<ThemeController>().palette.value,
+              brightness: GetStorage().read<String>('brightness') == 'light'
+                  ? Brightness.light
+                  : Brightness.dark,
+            ),
             localizationsDelegates: context.localizationDelegates,
             supportedLocales: context.supportedLocales,
             locale: context.locale,
-            home: Scaffold(
-              body: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: ValueListenableBuilder<bool>(
-                    valueListenable: failed,
-                    builder: (context, error, _) => Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (!error) const CircularProgressIndicator(),
-                        const SizedBox(height: 20),
-                        Text(
-                          tr(
-                            error
-                                ? 'storage_startup.failed'
-                                : 'storage_startup.title',
-                            context: context,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ValueListenableBuilder<String>(
-                          valueListenable: progress,
-                          builder: (context, stage, _) => Text(
-                            tr('storage_startup.$stage', context: context),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        if (error)
-                          TextButton(
-                            onPressed: () {
-                              if (retry != null && !retry.isCompleted) {
-                                retry.complete();
-                              }
-                            },
-                            child: Text(
-                              tr('storage_startup.retry', context: context),
-                            ),
-                          ),
-                      ],
-                    ),
+            home: ValueListenableBuilder<bool>(
+              valueListenable: failed,
+              builder: (context, error, _) => ValueListenableBuilder<String>(
+                valueListenable: progress,
+                builder: (context, stage, _) => StorageStartupPage(
+                  title: tr(
+                    error ? 'storage_startup.failed' : 'storage_startup.title',
+                    context: context,
                   ),
+                  stage: tr('storage_startup.$stage', context: context),
+                  failed: error,
+                  retryLabel: tr('storage_startup.retry', context: context),
+                  onRetry: () {
+                    if (retry != null && !retry.isCompleted) retry.complete();
+                  },
                 ),
               ),
             ),
