@@ -290,6 +290,7 @@ class PlaybackProductionBootstrap {
     );
     final repository = PlaybackRepository(database);
     try {
+      await repository.repairRestoredIdentities(installationScope);
       await repository.recoverInterruptedSessions();
       return PlaybackProductionState(
         repository,

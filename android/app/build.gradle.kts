@@ -40,6 +40,8 @@ android {
             applicationIdSuffix = ".restoretest"
         }
         manifestPlaceholders["listenfyAppLabel"] = if (restoreSandbox) "Listenfy Restore Test" else "Listenfy"
+        // Keep Gradle/Flutter in AOT release; inspection is an Android flag only.
+        manifestPlaceholders["listenfyDebuggable"] = restoreSandbox && restoreInspection
 
         // Flutter defaults
         minSdk = flutter.minSdkVersion
@@ -71,8 +73,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            manifestPlaceholders["listenfyDebuggable"] = true
+        }
         release {
-            isDebuggable = restoreSandbox && restoreInspection
+            isDebuggable = false
             signingConfig = signingConfigs.getByName(if (restoreSandbox) "debug" else "release")
         }
     }

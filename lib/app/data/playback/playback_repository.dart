@@ -423,6 +423,140 @@ class PlaybackRepository {
         ?.read<String>('media_id');
   }
 
+  /// Match restored content by exact durable library ID, never title/artist.
+  /// Serializes repair and alias attachment with all other repository writes.
+  Future<String?> bindLibraryIdentity(
+    String libraryId,
+    PlaybackAlias alias,
+  ) => _restorationTask(
+    () => _database
+        .transaction(() async {
+          await _database.customStatement('PRAGMA defer_foreign_keys=ON');
+          final identities = await _database
+              .customSelect(
+                'SELECT media_id FROM media_identity WHERE library_id=? AND retired_at_utc_ms IS NULL ORDER BY created_at_utc_ms,media_id',
+                variables: [Variable(libraryId)],
+              )
+              .get();
+          if (identities.isEmpty) return null;
+          final canonical = identities.first.read<String>('media_id');
+          final existing = await _database
+              .customSelect(
+                'SELECT media_id FROM media_alias WHERE namespace=? AND scope=? AND value=?',
+                variables: [
+                  Variable(alias.namespace),
+                  Variable(alias.scope),
+                  Variable(alias.value),
+                ],
+              )
+              .getSingleOrNull();
+          final ids = identities.map((r) => r.read<String>('media_id')).toSet();
+          if (existing != null &&
+              !ids.contains(existing.read<String>('media_id'))) {
+            throw StateError(
+              'Scoped alias belongs to different library content',
+            );
+          }
+          final changed = existing == null || identities.length > 1;
+          // Controlled maintenance only: preserve immutable data, change FK links.
+          // DDL is transactional; rollback restores these guards on any failure.
+          final guards = identities.length > 1
+              ? await _database
+                    .customSelect(
+                      "SELECT name,sql FROM sqlite_master WHERE type='trigger' AND name IN ('session_terminal_immutable','feedback_no_update')",
+                    )
+                    .get()
+              : const <QueryRow>[];
+          for (final guard in guards) {
+            await _database.customStatement(
+              'DROP TRIGGER ${guard.read<String>('name')}',
+            );
+          }
+          for (final duplicate in identities.skip(1)) {
+            final old = duplicate.read<String>('media_id');
+            for (final table in [
+              'media_alias',
+              'media_variant',
+              'playback_session',
+              'playback_interval',
+              'legacy_metrics',
+            ]) {
+              await _database.customStatement(
+                'UPDATE $table SET media_id=? WHERE media_id=?',
+                [canonical, old],
+              );
+            }
+            await _database.customStatement(
+              "UPDATE feedback_event SET media_id=?,target_key=? WHERE media_id=? AND target_kind='media'",
+              [canonical, canonical, old],
+            );
+            await _database.customStatement(
+              'DELETE FROM playback_aggregate WHERE media_id=?',
+              [old],
+            );
+            // Tombstone preserves old command receipts without a second live identity.
+            await _database.customStatement(
+              'UPDATE media_identity SET library_id=NULL,retired_at_utc_ms=? WHERE media_id=?',
+              [DateTime.now().toUtc().millisecondsSinceEpoch, old],
+            );
+          }
+          if (existing == null) {
+            await _database.customStatement(
+              'INSERT INTO media_alias(namespace,scope,value,media_id,provenance) VALUES(?,?,?,?,?)',
+              [
+                alias.namespace,
+                alias.scope,
+                alias.value,
+                canonical,
+                'observed',
+              ],
+            );
+          }
+          for (final guard in guards) {
+            await _database.customStatement(guard.read<String>('sql'));
+          }
+          if (changed) {
+            for (final mode in ['audio', 'video', 'unknown']) {
+              await _refreshAggregate(canonical, mode);
+            }
+            final revision = await _restorationRevision();
+            await faultInjector?.call(PlaybackFaultPoint.beforeCommit);
+            // Publication is done by caller after transaction commit below.
+            return (canonical, revision);
+          }
+          return (canonical, null);
+        })
+        .then((result) {
+          if (result == null) return null;
+          final revision = result.$2;
+          if (revision != null) _revisions.add(revision);
+          return result.$1;
+        }),
+  );
+
+  Future<void> repairRestoredIdentities(String scope) async {
+    await _tail;
+    final rows = await _database
+        .customSelect(
+          '''SELECT library_id FROM media_identity
+          WHERE library_id IS NOT NULL AND retired_at_utc_ms IS NULL
+          GROUP BY library_id
+          HAVING count(*)>1 OR NOT EXISTS (
+            SELECT 1 FROM media_alias a WHERE a.namespace='local'
+              AND a.scope=? AND a.value=media_identity.library_id
+          )''',
+          variables: [Variable(scope)],
+        )
+        .get();
+    for (final row in rows) {
+      final id = row.read<String>('library_id');
+      await bindLibraryIdentity(
+        id,
+        PlaybackAlias(namespace: 'local', scope: scope, value: id),
+      );
+    }
+  }
+
   Future<void> close() async {
     if (_closing) {
       await _tail;

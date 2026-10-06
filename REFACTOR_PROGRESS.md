@@ -1,5 +1,14 @@
 # Registro de refactor
 
+## 2026-10-06 — Arranque release temporal e identidad tras restauración
+
+- Causa física del cierre: runtime Flutter AOT sin snapshot precompilado al marcar buildTypes.release.isDebuggable. Inspección pasa a placeholder Android separado; release mantiene assets AOT, debug conserva su flag. APK verificado con libapp.so y paquete .restoretest.
+- Asociación por library_id exacto, nunca por nombre/artista: agrega alias del scope nuevo a la identidad existente. Al arrancar repara únicamente aliases faltantes/duplicados. La factory usa la misma resolución después de restaurar sin reinicio.
+- Unificación transaccional de referencias en variantes, sesiones, intervalos, aliases, legacy y feedback; agregados regenerados. Identidades anteriores quedan como tombstones sin library_id para conservar recibos de comandos. Journal/snapshots y métricas históricas no se reescriben.
+- Mantenimiento de referencias de sesiones terminales: suspende y restaura solo los triggers de actualización de sesión/feedback dentro de la transacción; rollback conserva también las protecciones. Pruebas cubren sesión interrumpida, fallo antes de commit, triggers restaurados e idempotencia.
+- Validación: 57 pruebas Flutter focalizadas y 4 tests Android aprobados; análisis de repository/factory/bootstrap sin issues. Build release autorizado actualizado -r solo en .restoretest, sin desinstalar ni borrar datos.
+- Verificación física final: app abierta y estable (pantalla Imports); DB integrity_check=ok, foreign_key_check sin filas, 639 items/16 sesiones/378 eventos/49 intervalos conservados. Te amare tiene una identidad activa d966bca9-1034-50b2-b998-47d770957480, dos sesiones y una reproducción válida; no quedan library_id duplicados. App original no modificada.
+
 ## 2026-10-06 — Pantalla de preparación coherente con Listenfy
 
 - Startup SQLite usa la paleta y brillo guardados, tema compartido, AppGradientBackground, tarjeta y logo SVG tintado. No inicializa settings ni consulta fondos SQLite antes de terminar la migración.

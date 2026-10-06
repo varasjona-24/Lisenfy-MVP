@@ -80,6 +80,71 @@ void main() {
           .read<int>('n');
 
   test(
+    'identity repair preserves session variant and events with valid foreign keys',
+    () async {
+      await db.customStatement(
+        "UPDATE media_identity SET library_id='song' WHERE media_id='media'",
+      );
+      await repository.registerIdentity(
+        const RegisterPlaybackIdentity(
+          commandId: 'duplicate',
+          mediaId: 'duplicate',
+          createdAtUtcMs: 999,
+          libraryId: 'song',
+          alias: PlaybackAlias(namespace: 'local', scope: 'new', value: 'song'),
+        ),
+      );
+      await repository.openSession(command(media: 'duplicate'));
+      await repository.recoverInterruptedSessions();
+      failBeforeCommit = true;
+      await expectLater(
+        repository.bindLibraryIdentity(
+          'song',
+          const PlaybackAlias(namespace: 'local', scope: 'new', value: 'song'),
+        ),
+        throwsStateError,
+      );
+      expect(
+        (await db
+                .customSelect('SELECT media_id FROM playback_session')
+                .getSingle())
+            .read<String>('media_id'),
+        'duplicate',
+      );
+      await expectLater(
+        db.customStatement("UPDATE playback_session SET wall_ms=999"),
+        throwsA(isA<Exception>()),
+      );
+      failBeforeCommit = false;
+      final canonical = await repository.bindLibraryIdentity(
+        'song',
+        const PlaybackAlias(namespace: 'local', scope: 'new', value: 'song'),
+      );
+      expect(canonical, 'media');
+      expect(
+        (await db
+                .customSelect('SELECT media_id FROM playback_session')
+                .getSingle())
+            .read<String>('media_id'),
+        'media',
+      );
+      expect(
+        (await db
+                .customSelect('SELECT media_id FROM media_variant')
+                .getSingle())
+            .read<String>('media_id'),
+        'media',
+      );
+      expect(await count('playback_event'), 2);
+      expect(await db.customSelect('PRAGMA foreign_key_check').get(), isEmpty);
+      await expectLater(
+        db.customStatement("UPDATE playback_session SET wall_ms=999"),
+        throwsA(isA<Exception>()),
+      );
+    },
+  );
+
+  test(
     'opening commits session, variant, snapshot and real play without counting listening',
     () async {
       final first = await repository.openSession(command(position: 40000));

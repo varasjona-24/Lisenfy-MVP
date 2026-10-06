@@ -17,6 +17,15 @@ def is_launcher(intent):
 
 
 class LauncherManifestTest(unittest.TestCase):
+    def test_inspection_does_not_switch_flutter_release_to_debug_assets(self):
+        source = ET.parse(ROOT / "android/app/src/main/AndroidManifest.xml")
+        self.assertEqual(source.find("application").get(ANDROID + "debuggable"),
+                         "${listenfyDebuggable}")
+        gradle = (ROOT / "android/app/build.gradle.kts").read_text()
+        self.assertIn('manifestPlaceholders["listenfyDebuggable"] = restoreSandbox && restoreInspection', gradle)
+        self.assertIn('isDebuggable = false', gradle)
+        self.assertNotIn('isDebuggable = restoreSandbox', gradle)
+
     def test_restore_sandbox_labels_and_provider_are_package_scoped(self):
         source = ET.parse(ROOT / "android/app/src/main/AndroidManifest.xml")
         app = source.find("application")

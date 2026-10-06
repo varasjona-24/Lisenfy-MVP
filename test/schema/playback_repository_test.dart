@@ -38,6 +38,57 @@ void main() {
   );
 
   test(
+    'restored library IDs reuse identity across scopes and repair duplicates',
+    () async {
+      final repository = await open();
+      for (final scope in ['old', 'new']) {
+        await repository.registerIdentity(
+          RegisterPlaybackIdentity(
+            commandId: scope,
+            mediaId: scope,
+            createdAtUtcMs: scope == 'old' ? 1 : 2,
+            libraryId: 'song',
+            alias: PlaybackAlias(
+              namespace: 'local',
+              scope: scope,
+              value: 'song',
+            ),
+          ),
+        );
+      }
+      const alias = PlaybackAlias(
+        namespace: 'local',
+        scope: 'third',
+        value: 'song',
+      );
+      await repository.repairRestoredIdentities('third');
+      expect(await repository.resolveAlias(alias), 'old');
+      expect(
+        await repository.resolveAlias(
+          const PlaybackAlias(namespace: 'local', scope: 'new', value: 'song'),
+        ),
+        'old',
+      );
+      final revision = await repository.readRevision();
+      await repository.repairRestoredIdentities('third');
+      expect(await repository.bindLibraryIdentity('song', alias), 'old');
+      expect(await repository.readRevision(), revision);
+      expect(
+        await repository.bindLibraryIdentity(
+          'different-song',
+          const PlaybackAlias(
+            namespace: 'local',
+            scope: 'third',
+            value: 'different-song',
+          ),
+        ),
+        isNull,
+      );
+      await repository.close();
+    },
+  );
+
+  test(
     'retry returns durable result without repeating revision or notifications',
     () async {
       var repository = await open();

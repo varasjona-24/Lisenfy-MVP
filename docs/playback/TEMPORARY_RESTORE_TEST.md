@@ -34,5 +34,11 @@ Solo con autorización: mantiene Flutter/AOT en release y habilita debuggable de
 Android para run-as en el paquete temporal. Se instala mediante adb install -r,
 misma firma y paquete, sin desinstalar ni borrar datos. INSPECT sin SANDBOX se
 rechaza; builds normales y sandbox sin INSPECT quedan no depurables.
+
+La inspección se aplica mediante placeholder del manifest, no mediante
+`buildTypes.release.isDebuggable`: ese último cambia la selección de assets de
+Flutter y puede producir un APK con runtime AOT y sin snapshot precompilado.
+Antes de instalar, comprobar que el APK contiene `lib/arm64-v8a/libapp.so` y
+que su manifest tiene el paquete temporal y el flag de inspección esperado.
 No distribuir este APK de inspección. La autorización es para esta comprobación,
 no para habilitar inspección de la app original ni futuras instalaciones.

@@ -34,7 +34,7 @@ class SqliteEngineHistoryFactory {
           scope: installationScope,
           value: item.id,
         );
-        var mediaId = await repository.resolveAlias(alias);
+        var mediaId = await repository.bindLibraryIdentity(item.id, alias);
         if (mediaId == null) {
           final candidate = _uuid.v4();
           try {
