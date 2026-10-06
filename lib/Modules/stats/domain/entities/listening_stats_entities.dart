@@ -210,12 +210,18 @@ class ListeningStats {
     List<MediaItem> items, {
     ArtistStore? artistStore,
     SourcesController? sourcesController,
+    List<MediaItem>? audioPlaybackItems,
+    List<MediaItem>? videoPlaybackItems,
   }) {
-    final audioItems = items
+    final audioItems = (audioPlaybackItems ?? items)
         .where((item) => item.hasAudioLocal)
         .toList(growable: false);
-    final videoItems = items
-        .where((item) => item.hasVideoLocal && !item.hasAudioLocal)
+    final videoItems = (videoPlaybackItems ?? items)
+        .where(
+          (item) =>
+              item.hasVideoLocal &&
+              (videoPlaybackItems != null || !item.hasAudioLocal),
+        )
         .toList(growable: false);
 
     final listened = audioItems

@@ -19,6 +19,7 @@ class LegacyRestorationSnapshot {
     'audio_speed',
     'audio_shuffle_enabled',
     'audio_crossfade_seconds',
+    'audio_repeat_mode',
     'video_last_item',
     'video_last_variant',
     'video_queue_items',
@@ -32,7 +33,10 @@ class LegacyRestorationSnapshot {
       );
   factory LegacyRestorationSnapshot.fromBytes(String bytes) {
     final value = jsonDecode(bytes);
-    if (value is! Map || keys.any((key) => !value.containsKey(key))) {
+    if (value is! Map ||
+        keys
+            .where((key) => key != 'audio_repeat_mode')
+            .any((key) => !value.containsKey(key))) {
       throw FormatException('Incomplete frozen restoration snapshot');
     }
     return LegacyRestorationSnapshot._(bytes);
@@ -62,6 +66,7 @@ class LegacyRestorationSnapshot {
         speed: (data['audio_speed'] as num?)?.toDouble() ?? 1,
         shuffle: data['audio_shuffle_enabled'] as bool? ?? false,
         crossfadeSeconds: data['audio_crossfade_seconds'] as int? ?? 0,
+        repeatMode: data['audio_repeat_mode'] as String?,
       ),
       PlaybackRestoration(
         mode: RestorationMode.video,

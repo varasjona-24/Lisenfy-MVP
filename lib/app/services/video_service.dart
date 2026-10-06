@@ -11,7 +11,9 @@ import '../config/api_config.dart';
 import '../../Modules/settings/controller/playback_settings_controller.dart';
 import 'playback_history_recorder.dart';
 import 'engine_history_recorder.dart';
+import 'video_resume_policy.dart';
 import '../data/playback/playback_boundary_command.dart';
+import '../data/playback/playback_state_storage.dart';
 import '../data/local/local_library_store.dart';
 import '../../Modules/recommendations/data/listening_event_store.dart';
 import '../../Modules/recommendations/domain/recommendation_models.dart';
@@ -29,18 +31,44 @@ class VideoService extends GetxService with WidgetsBindingObserver {
         library: Get.find<LocalLibraryStore>(),
         mode: RecommendationMode.video,
       );
-  Future<void> flushPlaybackHistory() => _history.flush();
+  Future<void> flushPlaybackHistory() async {
+    await _history.flush();
+    final storage = _storage;
+    if (storage is PlaybackStateStorage) await storage.flush();
+  }
+
   final Rxn<Object> historyPersistenceFailure = Rxn<Object>();
   Future<void> _flushEngineHistory() async {
     try {
-      await _history.flush();
+      await flushPlaybackHistory();
     } catch (error) {
       historyPersistenceFailure.value = error;
       debugPrint('Video history persistence failed: $error');
     }
   }
 
-  final GetStorage _storage = GetStorage();
+  final GetStorage _storage = playbackStateStorage();
+  late final VideoResumePolicy _resumePolicy = VideoResumePolicy(_storage);
+  void persistResumePosition() {
+    if (_player == null) return;
+    final item = currentItem.value;
+    if (item != null) {
+      _resumePolicy.persist(item, position.value, duration.value);
+    }
+  }
+
+  void persistQueue(List<MediaItem> items, int index) {
+    if (items.isEmpty) {
+      _storage.remove('video_queue_items');
+      _storage.remove('video_queue_index');
+    } else {
+      _storage.write(
+        'video_queue_items',
+        items.map((item) => item.toJson()).toList(),
+      );
+      _storage.write('video_queue_index', index);
+    }
+  }
 
   static const _lastItemKey = 'video_last_item';
   static const _lastVariantKey = 'video_last_variant';
@@ -101,6 +129,7 @@ class VideoService extends GetxService with WidgetsBindingObserver {
 
   @override
   void onClose() {
+    persistResumePosition();
     WidgetsBinding.instance.removeObserver(this);
     _history.intent(PlaybackTermination.appShutdown);
     _history.select(null);
@@ -303,6 +332,12 @@ class VideoService extends GetxService with WidgetsBindingObserver {
       position.value = v.position;
       isPlaying.value = v.isPlaying;
       duration.value = v.duration;
+      _resumePolicy.observe(
+        currentItem.value,
+        v.position,
+        v.duration,
+        v.isPlaying && !v.isBuffering,
+      );
 
       if (v.isPlaying) {
         state.value = VideoPlaybackState.playing;
@@ -322,6 +357,8 @@ class VideoService extends GetxService with WidgetsBindingObserver {
   }
 
   Future<void> _disposePlayer() async {
+    persistResumePosition();
+    _resumePolicy.discontinuity();
     await _flushEngineHistory();
     _history.select(null);
     _posTimer?.cancel();
@@ -379,6 +416,7 @@ class VideoService extends GetxService with WidgetsBindingObserver {
   }
 
   Future<void> seek(Duration position) async {
+    _resumePolicy.discontinuity();
     if (_player == null) return;
     _history.beforeSeek(position);
     try {

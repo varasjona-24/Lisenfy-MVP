@@ -95,6 +95,11 @@ class SqliteEngineHistoryFactory {
             id: _uuid.v4(),
             title: item.title,
             artist: item.displaySubtitle,
+            artworkRef: item.thumbnailLocalPath?.trim().isNotEmpty == true
+                ? 'local:${item.thumbnailLocalPath}'
+                : item.thumbnail?.trim().isNotEmpty == true
+                ? 'remote:${item.thumbnail}'
+                : null,
           ),
           startedAtUtcMs: utc,
           clockEpoch: epoch,

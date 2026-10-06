@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import '../../../../app/data/playback/playback_state_storage.dart';
 import 'package:video_player/video_player.dart' as vp;
 
 import '../../../../app/models/media_item.dart';
@@ -16,12 +16,11 @@ import '../../../settings/controller/playback_settings_controller.dart';
 class VideoPlayerController extends GetxController {
   static const double _resumeProgressThreshold = 0.05;
   static const _resumeEligibleDuration = Duration(seconds: 150);
-  static const _trustedResumeWatchThreshold = Duration(seconds: 8);
 
   final VideoService videoService;
   final PlaybackSettingsController _settings =
       Get.find<PlaybackSettingsController>();
-  final GetStorage _storage = GetStorage();
+  final GetStorage _storage = playbackStateStorage();
   final List<MediaItem> _initialQueue;
   final int initialIndex;
 
@@ -29,15 +28,9 @@ class VideoPlayerController extends GetxController {
   final RxInt currentIndex = 0.obs;
   final RxBool isQueueOpen = false.obs;
   final Rxn<String> error = Rxn<String>();
-  Worker? _positionWorker;
   Worker? _completedWorker;
   Worker? _queueWorker;
   Worker? _indexWorker;
-  Worker? _progressWorker;
-  int _trustedResumeWatchMs = 0;
-  Duration _lastTrustedResumePosition = Duration.zero;
-  int _lastTrustedResumeTick = 0;
-  String _trustedResumeTrackKey = '';
 
   static const queueStorageKey = 'video_queue_items';
   static const queueIndexStorageKey = 'video_queue_index';
@@ -51,7 +44,7 @@ class VideoPlayerController extends GetxController {
   }) : _initialQueue = List<MediaItem>.from(queue);
 
   static List<MediaItem> restorePersistedQueue({GetStorage? storage}) {
-    final box = storage ?? GetStorage();
+    final box = storage ?? playbackStateStorage();
     final rawQueue = box.read<List>(queueStorageKey);
     if (rawQueue == null || rawQueue.isEmpty) return <MediaItem>[];
 
@@ -71,13 +64,13 @@ class VideoPlayerController extends GetxController {
     GetStorage? storage,
   }) {
     if (queueLength <= 0) return 0;
-    final box = storage ?? GetStorage();
+    final box = storage ?? playbackStateStorage();
     final rawIndex = box.read<int>(queueIndexStorageKey) ?? 0;
     return rawIndex.clamp(0, queueLength - 1).toInt();
   }
 
   static void clearPersistedQueueSnapshot({GetStorage? storage}) {
-    final box = storage ?? GetStorage();
+    final box = storage ?? playbackStateStorage();
     box.remove(queueStorageKey);
     box.remove(queueIndexStorageKey);
   }
@@ -104,15 +97,6 @@ class VideoPlayerController extends GetxController {
       currentIndex.value = safeIndex;
       _persistQueue();
     }
-
-    _positionWorker = debounce<Duration>(
-      position,
-      (p) => _persistPosition(p),
-      time: const Duration(seconds: 2),
-    );
-    _progressWorker = ever<Duration>(position, (_) {
-      _captureTrustedResumeWatch();
-    });
 
     _completedWorker = ever<int>(videoService.completedTick, (_) async {
       await videoService.flushPlaybackHistory();
@@ -225,9 +209,6 @@ class VideoPlayerController extends GetxController {
       final sameTrackLoaded =
           videoService.hasSourceLoaded &&
           videoService.isSameVideo(item, variant);
-      if (!sameTrackLoaded) {
-        _resetTrustedResumeWatch(item);
-      }
       await videoService.play(item, variant, replacementReason: reason);
       if (!sameTrackLoaded) {
         await _resumeIfAny(item);
@@ -315,79 +296,8 @@ class VideoPlayerController extends GetxController {
     await _playCurrent();
   }
 
-  void _persistQueue() {
-    if (queue.isEmpty) {
-      clearPersistedQueueSnapshot(storage: _storage);
-      return;
-    }
-    _storage.write(
-      queueStorageKey,
-      queue.map((e) => e.toJson()).toList(growable: false),
-    );
-    _storage.write(queueIndexStorageKey, currentIndex.value);
-  }
-
-  void _persistPosition(Duration p) {
-    final item = currentItemOrNull;
-    if (item == null) return;
-    final key = item.publicId.isNotEmpty ? item.publicId : item.id;
-    if (key.trim().isEmpty) return;
-
-    final map = _storage.read<Map>(resumePosStorageKey);
-    final watchMap = _storage.read<Map>(resumeWatchStorageKey);
-    final next = <String, dynamic>{};
-    if (map != null) {
-      for (final entry in map.entries) {
-        next[entry.key.toString()] = entry.value;
-      }
-    }
-    final nextWatch = <String, dynamic>{};
-    if (watchMap != null) {
-      for (final entry in watchMap.entries) {
-        nextWatch[entry.key.toString()] = entry.value;
-      }
-    }
-
-    final total = duration.value > Duration.zero
-        ? duration.value
-        : Duration(seconds: item.effectiveDurationSeconds ?? 0);
-    final nearEnd =
-        total > Duration.zero && p >= total - const Duration(seconds: 5);
-    final isEligible = total >= _resumeEligibleDuration;
-    final progress = total > Duration.zero
-        ? p.inMilliseconds / total.inMilliseconds
-        : 0.0;
-    final storedWatch = nextWatch[key];
-    final storedWatchMs = storedWatch is num
-        ? storedWatch.toInt()
-        : int.tryParse('$storedWatch') ?? 0;
-    final trustedWatchMs = math.max(storedWatchMs, _trustedResumeWatchMs);
-    final hasTrustedWatch =
-        trustedWatchMs >= _trustedResumeWatchThreshold.inMilliseconds;
-
-    if (!isEligible ||
-        progress <= _resumeProgressThreshold ||
-        nearEnd ||
-        !hasTrustedWatch) {
-      next.remove(key);
-      nextWatch.remove(key);
-    } else {
-      next[key] = p.inMilliseconds;
-      nextWatch[key] = trustedWatchMs;
-    }
-
-    if (next.length > 300) {
-      final overflow = next.length - 300;
-      final keys = next.keys.take(overflow).toList(growable: false);
-      for (final oldKey in keys) {
-        next.remove(oldKey);
-        nextWatch.remove(oldKey);
-      }
-    }
-
-    _storage.write(resumePosStorageKey, next);
-    _storage.write(resumeWatchStorageKey, nextWatch);
-  }
+  void _persistQueue() =>
+      videoService.persistQueue(queue.toList(), currentIndex.value);
 
   Future<void> _resumeIfAny(MediaItem item) async {
     final key = item.publicId.isNotEmpty ? item.publicId : item.id;
@@ -470,55 +380,6 @@ class VideoPlayerController extends GetxController {
     _storage.write(resumeWatchStorageKey, nextWatch);
   }
 
-  void _resetTrustedResumeWatch(MediaItem item) {
-    final key = item.publicId.isNotEmpty ? item.publicId : item.id;
-    _trustedResumeTrackKey = key;
-    _trustedResumeWatchMs = 0;
-    _lastTrustedResumePosition = Duration.zero;
-    _lastTrustedResumeTick = 0;
-  }
-
-  void _captureTrustedResumeWatch() {
-    final item = currentItemOrNull;
-    if (item == null) return;
-
-    final key = item.publicId.isNotEmpty ? item.publicId : item.id;
-    if (_trustedResumeTrackKey != key) {
-      _resetTrustedResumeWatch(item);
-    }
-
-    final currentPosition = position.value;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (!isPlaying.value) {
-      _lastTrustedResumePosition = currentPosition;
-      _lastTrustedResumeTick = now;
-      return;
-    }
-
-    if (_lastTrustedResumeTick <= 0) {
-      _lastTrustedResumePosition = currentPosition;
-      _lastTrustedResumeTick = now;
-      return;
-    }
-
-    final positionDelta =
-        currentPosition.inMilliseconds -
-        _lastTrustedResumePosition.inMilliseconds;
-    final wallDelta = now - _lastTrustedResumeTick;
-    final looksLikeNaturalPlayback =
-        positionDelta > 0 &&
-        positionDelta <= 3500 &&
-        wallDelta > 0 &&
-        wallDelta <= 5000;
-
-    if (looksLikeNaturalPlayback) {
-      _trustedResumeWatchMs += math.min(positionDelta, wallDelta);
-    }
-
-    _lastTrustedResumePosition = currentPosition;
-    _lastTrustedResumeTick = now;
-  }
-
   String _fmtDuration(Duration value) {
     final totalSeconds = value.inSeconds;
     final hours = totalSeconds ~/ 3600;
@@ -534,12 +395,10 @@ class VideoPlayerController extends GetxController {
   void onClose() {
     unawaited(videoService.flushPlaybackHistory());
     _persistQueue();
-    _persistPosition(position.value);
-    _positionWorker?.dispose();
+    videoService.persistResumePosition();
     _completedWorker?.dispose();
     _queueWorker?.dispose();
     _indexWorker?.dispose();
-    _progressWorker?.dispose();
     super.onClose();
   }
 }

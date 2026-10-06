@@ -1287,6 +1287,7 @@
     "shuffle": "Reproducción aleatoria"
   },
   "backup": {
+    "sqlite_debug_required": "El modo SQLite debug requiere un respaldo creado en ese mismo modo. Los datos antiguos se importan automáticamente en el primer arranque debug.",
     "title": "Copia de seguridad",
     "estimate_error": "No se pudo calcular el tamaño estimado",
     "export_error": "No se pudo exportar",
@@ -2020,6 +2021,29 @@
     "private_playback_locked": {
       "message": "La sincronización de letras está activa en este dispositivo."
     }
+  },
+  "weekly_collage": {
+    "open": "Collage semanal",
+    "title": "Tu semana en collage",
+    "brand": "Listenfy",
+    "headline": "UNA SEMANA\nMUY TUYA",
+    "export": "Guardar o compartir imagen",
+    "exporting": "Exportando…",
+    "export_error": "No se pudo exportar el collage. Intenta nuevamente.",
+    "load_error": "No pudimos leer tu actividad semanal.",
+    "empty": "No hay reproducciones registradas la semana pasada. Tu próxima semana completa estará disponible el lunes.",
+    "audio_plays": "reproducciones de audio",
+    "video_plays": "reproducciones de video",
+    "minutes": "{} min",
+    "listened_estimated": "escuchados · estimados",
+    "watched_estimated": "vistos · estimados",
+    "headliner": "Tu protagonista: {}",
+    "last_week_plays": "{} reproducciones la semana pasada",
+    "footer": "Mi pequeño collage semanal ♫",
+    "audio": "Audio",
+    "video": "Video",
+    "stat": "{} · {}",
+    "cover_caption": "{} · {}×"
   },
   "karaoke_remote": {
     "status": {

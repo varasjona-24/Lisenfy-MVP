@@ -25,8 +25,9 @@ import 'app/data/repo/media_repository.dart';
 import 'app/data/local/local_library_store.dart';
 import 'app/services/audio_service.dart';
 import 'app/services/sqlite_engine_history_factory.dart';
-import 'app/data/playback/playback_database_opener.dart';
 import 'app/data/playback/playback_repository.dart';
+import 'app/data/playback/playback_debug_bootstrap.dart';
+import 'app/data/playback/playback_state_storage.dart';
 import 'package:uuid/uuid.dart';
 import 'app/services/app_audio_handler.dart';
 import 'app/services/instrumental_generation_service.dart';
@@ -107,14 +108,27 @@ Future<void> main() async {
       scope = const Uuid().v4();
       await storage.write('playback_staging_installation', scope);
     }
-    final repository = PlaybackRepository(
-      await PlaybackDatabaseOpener.openStaging(generation: 'debug-$scope'),
+    final (repository, restoration) = await PlaybackDebugBootstrap.open(
+      storage,
+      scope,
     );
-    await repository.recoverInterruptedSessions();
     Get.put(repository, permanent: true);
+    Get.put<PlaybackStateStorage>(restoration, permanent: true);
+    final library = LocalLibraryStore(
+      storage,
+      metricsLoader: repository.queryLibraryMetrics,
+    );
+    await library.readAll();
+    Get.replace<LocalLibraryStore>(library);
+    Get.replace<ListeningEventStore>(
+      ListeningEventStore.sqlite(querySqlite: repository.queryListeningEvents),
+    );
     sqliteHistory = SqliteEngineHistoryFactory(
       repository: repository,
       installationScope: scope,
+    );
+    debugPrint(
+      'SQLite DEBUG: legacy imported, restoration loaded, history consumers connected; scope=$scope',
     );
   }
   final appAudio = AudioService(historyRecorder: sqliteHistory?.create());

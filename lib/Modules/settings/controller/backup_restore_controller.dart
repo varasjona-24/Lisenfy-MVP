@@ -16,6 +16,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive_io.dart';
 
 import '../../../app/data/local/local_library_store.dart';
+import '../../../app/data/playback/playback_repository.dart';
+import '../../../app/data/playback/playback_state_storage.dart';
+import '../../../app/services/audio_service.dart';
+import '../../../app/services/video_service.dart';
 import '../../../app/models/media_item.dart';
 import '../../../Modules/captures/data/capture_gallery_store.dart';
 import '../../../Modules/playlists/data/playlist_store.dart';
@@ -34,6 +38,7 @@ import '../../../Modules/sources/domain/source_theme_topic_playlist.dart';
 import '../../../Modules/downloads/controller/downloads_controller.dart';
 import '../../../Modules/Home/Controller/home_controller.dart';
 import '../../../Modules/recommendations/data/recommendation_store.dart';
+import '../../../Modules/recommendations/data/listening_event_store.dart';
 import '../../../Modules/recommendations/data/recommendation_feedback_store.dart';
 import '../../../Modules/recommendations/application/recommendation_feedback_service.dart';
 import '../../../Modules/recommendations/domain/contracts/recommendation_engine.dart';
@@ -1519,6 +1524,8 @@ class BackupRestoreController extends GetxController {
         'files': fileManifestByRel.length,
       };
       final manifest = <String, dynamic>{
+        'listeningEvents': await Get.find<ListeningEventStore>()
+            .exportBackupPayloadAsync(),
         'version': 1,
         'backupVersion': _currentBackupVersion,
         'createdAt': createdAt,
@@ -1546,6 +1553,16 @@ class BackupRestoreController extends GetxController {
       };
 
       final manifestFile = File(p.join(tempDir.path, 'manifest.json'));
+      if (Get.isRegistered<PlaybackRepository>()) {
+        await Get.find<AudioService>().flushPlaybackHistory();
+        await Get.find<VideoService>().flushPlaybackHistory();
+        await Get.find<PlaybackStateStorage>().flush();
+        final payload = await Get.find<PlaybackRepository>()
+            .exportDebugBundle();
+        await File(
+          p.join(tempDir.path, 'playback_sqlite_debug.json'),
+        ).writeAsString(jsonEncode(payload), flush: true);
+      }
       await manifestFile.writeAsString(jsonEncode(manifest), flush: true);
       final appearanceFile = File(p.join(tempDir.path, 'appearance.json'));
       await appearanceFile.writeAsString(
@@ -1669,6 +1686,10 @@ class BackupRestoreController extends GetxController {
       final manifestEntry = zipIndex.find('manifest.json');
       if (manifestEntry == null) {
         throw Exception('Manifest not found');
+      }
+      if (Get.isRegistered<PlaybackRepository>() &&
+          zipIndex.find('playback_sqlite_debug.json') == null) {
+        throw StateError(tr('backup.sqlite_debug_required'));
       }
 
       currentOperation.value = tr('backup.operations.extracting_manifest');
@@ -2082,7 +2103,45 @@ class BackupRestoreController extends GetxController {
         await restoreCaptureTagCollections({key: data});
       }
 
+      if (Get.isRegistered<PlaybackRepository>()) {
+        final entry = zipIndex.find('playback_sqlite_debug.json');
+        if (entry == null) {
+          throw StateError(tr('backup.sqlite_debug_required'));
+        }
+        await Get.find<AudioService>().stop();
+        await Get.find<VideoService>().stop();
+        await Get.find<AudioService>().flushPlaybackHistory();
+        await Get.find<VideoService>().flushPlaybackHistory();
+        await Get.find<PlaybackStateStorage>().flush();
+        final target = File(p.join(tempDir.path, 'playback_sqlite_debug.json'));
+        await _extractZipBackupEntry(
+          zipPath: path,
+          entry: entry,
+          outputPath: target.path,
+        );
+        await Get.find<PlaybackRepository>().restoreDebugBundle(
+          Map<String, dynamic>.from(
+            jsonDecode(await target.readAsString()) as Map,
+          ),
+        );
+        await Get.find<PlaybackRepository>().recoverInterruptedSessions();
+        await Get.find<PlaybackStateStorage>().reload();
+      } else if (useStreamingManifest) {
+        await _forEachManifestObject(manifestFile, 'listeningEvents', (
+          data,
+          index,
+        ) async {
+          await Get.find<ListeningEventStore>().restoreBackupPayload([data]);
+        });
+      }
       if (!useStreamingManifest && manifest != null) {
+        final listeningEvents = manifest['listeningEvents'];
+        if (!Get.isRegistered<PlaybackRepository>() &&
+            listeningEvents is List) {
+          await Get.find<ListeningEventStore>().restoreBackupPayload(
+            listeningEvents,
+          );
+        }
         final rawCollections = manifest['captureTagCollections'];
         if (rawCollections is List) {
           for (final raw in rawCollections) {

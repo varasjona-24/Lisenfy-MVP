@@ -2,7 +2,11 @@ import 'package:get_storage/get_storage.dart';
 import '../../models/media_item.dart';
 
 class LocalLibraryStore {
-  LocalLibraryStore(this._box);
+  LocalLibraryStore(this._box, {this.metricsLoader});
+  final Future<Map<String, Map<String, dynamic>>> Function()? metricsLoader;
+  Map<String, Map<String, dynamic>> _metrics = {};
+  Object? _preservedSnapshot;
+  Map<String, Map<String, dynamic>> _preservedMetricFields = {};
 
   final GetStorage _box;
   static const _key = 'local_library_items';
@@ -20,15 +24,33 @@ class LocalLibraryStore {
   }
 
   Future<List<MediaItem>> readAll() async {
+    final loader = metricsLoader;
+    if (loader != null) {
+      _metrics = await loader();
+      _revision++;
+    }
     return readAllSync();
   }
 
   List<MediaItem> readAllSync() {
     final raw = _box.read<List>(_key) ?? <dynamic>[];
-    return raw
-        .whereType<Map>()
-        .map((m) => MediaItem.fromJson(Map<String, dynamic>.from(m)))
-        .toList();
+    return raw.whereType<Map>().map((m) {
+      final json = Map<String, dynamic>.from(m);
+      if (metricsLoader != null) {
+        json.addAll(
+          _metrics[json['id']] ??
+              {
+                'playCount': 0,
+                'skipCount': 0,
+                'fullListenCount': 0,
+                'avgListenProgress': 0.0,
+                'lastPlayedAt': null,
+                'lastCompletedAt': null,
+              },
+        );
+      }
+      return MediaItem.fromJson(json);
+    }).toList();
   }
 
   Future<void> upsert(MediaItem item) async {
@@ -41,7 +63,7 @@ class LocalLibraryStore {
       list[idx] = item;
     }
 
-    await _box.write(_key, list.map((e) => e.toJson()).toList());
+    await _box.write(_key, list.map(_metadataJson).toList());
   }
 
   Future<void> upsertAll(List<MediaItem> items) async {
@@ -54,12 +76,45 @@ class LocalLibraryStore {
       ...existing.where((e) => !incomingIds.contains(e.id)),
     ];
 
-    await _box.write(_key, merged.map((e) => e.toJson()).toList());
+    await _box.write(_key, merged.map(_metadataJson).toList());
   }
 
   Future<void> remove(String id) async {
     final list = await readAll();
     list.removeWhere((e) => e.id == id);
-    await _box.write(_key, list.map((e) => e.toJson()).toList());
+    await _box.write(_key, list.map(_metadataJson).toList());
+  }
+
+  Map<String, dynamic> _metadataJson(MediaItem item) {
+    final json = item.toJson();
+    if (metricsLoader != null) {
+      const fields = [
+        'playCount',
+        'skipCount',
+        'fullListenCount',
+        'avgListenProgress',
+        'lastPlayedAt',
+        'lastCompletedAt',
+      ];
+      final raw = _box.read<List>(_key);
+      if (!identical(raw, _preservedSnapshot)) {
+        _preservedSnapshot = raw;
+        _preservedMetricFields = {
+          for (final entry in (raw ?? []).whereType<Map>())
+            if (entry['id'] is String)
+              entry['id'] as String: {
+                for (final key in fields)
+                  if (entry.containsKey(key)) key: entry[key],
+              },
+        };
+      }
+      for (final key in fields) {
+        json.remove(key);
+      }
+      // Keep the untouched legacy baseline when testing with the same app id.
+      // Projected SQL counters are NEVER written back into GetStorage.
+      json.addAll(_preservedMetricFields[item.id] ?? {});
+    }
+    return json;
   }
 }

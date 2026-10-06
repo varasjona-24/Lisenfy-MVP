@@ -15,6 +15,7 @@ class ListeningEvent {
     this.sessionId,
     this.playedSeconds,
     this.mediaSnapshot,
+    this.countsAsPlay = true,
   });
 
   final String trackKey;
@@ -28,6 +29,7 @@ class ListeningEvent {
   final String? sessionId;
   final double? playedSeconds;
   final MediaItem? mediaSnapshot;
+  final bool countsAsPlay;
 
   factory ListeningEvent.fromJson(Map<String, dynamic> json) {
     return ListeningEvent(
@@ -38,6 +40,7 @@ class ListeningEvent {
           .toDouble(),
       completed: json['completed'] == true,
       skipped: json['skipped'] == true,
+      countsAsPlay: json['countsAsPlay'] != false,
       sessionId: json['sessionId'] as String?,
       playedSeconds: (json['playedSeconds'] as num?)?.toDouble(),
       mediaSnapshot: json['mediaSnapshot'] is Map
@@ -57,6 +60,7 @@ class ListeningEvent {
     'progress': progress,
     'completed': completed,
     'skipped': skipped,
+    if (!countsAsPlay) 'countsAsPlay': false,
     if (mode != null) 'mode': mode!.key,
     if (sessionId != null) 'sessionId': sessionId,
     if (playedSeconds != null) 'playedSeconds': playedSeconds,
@@ -69,6 +73,31 @@ class ListeningEventStore {
   ListeningEventStore.memory([List<Map<String, dynamic>>? initial])
     : _box = null,
       _memory = initial ?? [];
+  ListeningEventStore.sqlite({required this.querySqlite}) : _box = null;
+  Future<List<Map<String, dynamic>>> Function({int? startUtcMs, int? endUtcMs})?
+  querySqlite;
+  Future<List<ListeningEvent>> readAsync({
+    int? startUtcMs,
+    int? endUtcMs,
+  }) async {
+    final query = querySqlite;
+    if (query != null) {
+      return (await query(
+        startUtcMs: startUtcMs,
+        endUtcMs: endUtcMs,
+      )).map(ListeningEvent.fromJson).toList();
+    }
+    return readAll()
+        .where(
+          (e) =>
+              (startUtcMs == null || e.occurredAt >= startUtcMs) &&
+              (endUtcMs == null || e.occurredAt < endUtcMs),
+        )
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> exportBackupPayloadAsync() async =>
+      (await readAsync()).map((e) => e.toJson()).toList();
 
   static const storageKey = 'listening_events_v1';
   static const _retention = Duration(days: 120);
@@ -78,6 +107,9 @@ class ListeningEventStore {
   List<Map<String, dynamic>> _memory = [];
 
   List<ListeningEvent> readAll() {
+    if (querySqlite != null) {
+      throw StateError('SQLite history requires asynchronous queries');
+    }
     final raw = _box?.read<List>(storageKey) ?? _memory;
     return raw
         .whereType<Map>()
@@ -89,6 +121,9 @@ class ListeningEventStore {
   }
 
   Future<void> add(ListeningEvent event) {
+    if (querySqlite != null) {
+      throw StateError('Write history through PlaybackRepository');
+    }
     final operation = _pendingWrite.then((_) => _save(event));
     _pendingWrite = operation.catchError((Object _) {});
     return operation;
@@ -120,6 +155,9 @@ class ListeningEventStore {
       readAll().map((e) => e.toJson()).toList();
 
   Future<void> restoreBackupPayload(List raw) async {
+    if (querySqlite != null) {
+      throw StateError('Restore SQLite history through PlaybackRepository');
+    }
     for (final entry in raw.whereType<Map>()) {
       final event = ListeningEvent.fromJson(Map<String, dynamic>.from(entry));
       if (event.trackKey.isEmpty || event.occurredAt <= 0) continue;

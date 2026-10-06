@@ -1,5 +1,16 @@
 # Registro de refactor
 
+## 2026-10-06 — Conexión integral debug SQLite
+
+- Con autorización explícita se integran también los staged relacionados de collage, traducciones y backup. Release y arranque sin flag conservan legacy.
+- Bootstrap congela fuente antes de motores, importa hechos legacy y baseline sin inventar fechas, importa restauración y recupera sesiones. Recibos conservan el estado nuevo ante reintentos.
+- Audio/video y prompts usan PlaybackStateStorage: proyección operativa síncrona con coalescing y commits SQL; sin escrituras de posiciones nuevas en GetStorage. Repeat también se incluye en SQL. VideoResumePolicy mueve el writer de reanudación al servicio.
+- Consumidores del historial pasan a consultas asíncronas SQL. Biblioteca proyecta métricas SQL sin escribirlas a GetStorage; se conserva intacto el baseline legacy para no dañar la rama de prueba. Wrapped separa audio/video conocidos, collage excluye atribución ambigua y semanas usan intervalos recortados sin duplicar sesiones.
+- Backup debug incluye journal, baseline y estado. Merge histórico exacto, rollback de conflictos, restauración operativa explícita y rebuild de agregados; backups legacy no se restauran en este modo y se rechazan antes de cambios.
+- Recargas internas de fuentes de audio marcan el seek explícitamente y aíslan observaciones transitorias del recorder; pendiente validar el comportamiento del plugin en dispositivo. Una semana con minutos de una sesión iniciada antes del límite conserva el resumen aunque no tenga reproducciones nuevas.
+- Verificación retomada:66 pruebas Flutter de schema/stats y12 pruebas SQL aprobadas; análisis focalizado del repositorio y consumidores sin issues. El APK debug NO se compiló porque la solicitud fue rechazada. No hay validación en dispositivo ni aprobación de release.
+- docs/playback/DEBUG_SQLITE_TEST.md explica prueba y límites: staging no es manifest productivo, import/backup debug no son streaming de grandes bases, artwork/contexto y fallos de plataforma todavía pendientes. No se declara migración productiva al100%.
+
 ## 2026-10-05 — Restauración SQLite: almacenamiento e importación
 
 - Añadido esquema v2 separado del journal: playback_restoration, playback_resume y restoration_import. Upgrade v1 transaccional con validación previa; versiones futuras rechazadas sin reinicializar.

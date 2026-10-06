@@ -1,7 +1,7 @@
 # Restauración de reproducción en SQLite
 
-Estado: modelo e importador implementados y probados en staging. No hay cutover
-del estado operativo ni del historial de producción en este commit.
+Estado: modelo, importador y conexión al runtime debug opt-in implementados.
+No hay cutover del estado operativo ni del historial de producción.
 
 ## Fuente de verdad prevista
 
@@ -36,7 +36,19 @@ conflicto; no sobrescribe restauración nueva. Datos inválidos bloquean la
 operación, sin recortar índices ni descartar posiciones silenciosamente.
 Las claves GetStorage no se eliminan.
 
-## Trabajo restante para activar fuente única
+## Conexión debug implementada
+
+PlaybackDebugBootstrap congela source.json antes de crear motores e importa
+historial, baseline y restauración. PlaybackStateStorage carga SQL y adapta las
+lecturas síncronas existentes; coalesce escrituras operativas por microtask y las
+confirma en el repositorio. La memoria pendiente es estado vivo, no un segundo
+store persistente. Flush expone fallos; no hay fallback legacy para esas claves.
+VideoResumePolicy persiste desde el servicio aunque se cierre la ruta.
+Historial, resúmenes y collage usan consultas SQL asíncronas; Wrapped separa modos.
+La biblioteca conserva metadatos en GetStorage, pero obtiene métricas desde SQL.
+Los contadores legacy originales se conservan sin escribir métricas SQL de vuelta.
+
+## Trabajo restante para producción
 
 1. Persistir el snapshot de migración y completar importación/reconciliación del
    historial legacy, no solo del estado operativo.
@@ -50,6 +62,5 @@ Las claves GetStorage no se eliminan.
 5. Verificar arranque, pausa, cierre, background, migración interrumpida y backup
    en dispositivos. La activación se realiza antes de habilitar motores.
 
-Por ahora el runtime conserva los lectores/escritores GetStorage existentes.
-Este commit prepara almacenamiento y migración sin afirmar que ya son la fuente
-única de la aplicación.
+El runtime sin flag y los builds release conservan GetStorage. La fuente SQL
+única para reproducción se prueba solo en debug; no es activación de producción.

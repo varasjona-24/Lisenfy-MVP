@@ -1,6 +1,26 @@
 part of 'playback_repository.dart';
 
 extension PlaybackRestorationRepository on PlaybackRepository {
+  Future<void> saveOperationalBundle(
+    List<PlaybackRestoration> states,
+    List<PlaybackResumePoint> points,
+    int nowUtcMs,
+  ) => _restorationTask(() async {
+    final revision = await _database.transaction(() async {
+      for (final state in states) {
+        await _writeRestoration(state, nowUtcMs);
+        await _database.customStatement(
+          'DELETE FROM playback_resume WHERE mode=?',
+          [state.mode.name],
+        );
+        for (final point in points.where((p) => p.mode == state.mode)) {
+          await _writeResume(point);
+        }
+      }
+      return _restorationRevision();
+    });
+    _revisions.add(revision);
+  });
   Future<T> _restorationTask<T>(Future<T> Function() task) {
     if (_closing) {
       return Future.error(StateError('Playback repository is closing'));

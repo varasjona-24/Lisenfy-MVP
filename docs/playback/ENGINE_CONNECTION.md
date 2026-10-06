@@ -5,9 +5,10 @@ VideoService aceptan historyRecorder en constructor; null crea únicamente el
 legacy. No registrar ambos recorders para un motor ni realizar shadow writes
 en la fuente activa. main conserva legacy por defecto y SIEMPRE en release.
 Modo debug opt-in: `flutter run --dart-define=LISTENFY_SQLITE_STAGING_HISTORY=true`.
-Abre generación debug por instalación, recupera antes de crear motores e inyecta
-dos recorders con UN repositorio. No activa manifest ni importa historial legacy.
-Las pantallas aún consultan legacy: este modo es prueba de conexión, no rollout.
+Abre generación debug por instalación, congela e importa datos legacy, recupera
+antes de crear motores e inyecta dos recorders con UN repositorio. En ese modo
+restauración y consumidores del historial consultan SQLite. No activa el manifest
+de producción. Guía y límites de la prueba: DEBUG_SQLITE_TEST.md.
 
 Para pruebas de integración: abrir generación staging, recuperar sesiones antes
 de iniciar motores, crear UN PlaybackRepository compartido y un
@@ -21,7 +22,8 @@ en main: UUID de identidad+alias local scoped por instalación; variante UUIDv5
 con dominio/version/media/modo/rol/formato y SHA256 de bytes locales (streaming).
 Mover/renombrar archivo con mismos bytes conserva variante; remoto se identifica
 por locator sin fingir verificación de bytes. Contexto unknown hasta adaptar
-las entradas de producto, snapshot sin portada histórica hasta implementar assets.
+las entradas de producto. Artwork conserva un locator para UI, no una copia
+histórica inmutable por bytes; esa preservación depende del gestor de assets.
 No unir publicId a proveedores/instalaciones sin evidencia del importador.
 
 Audio: estados/posición de just_audio, variante actual, buffering, completed,

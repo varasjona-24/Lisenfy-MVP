@@ -17,6 +17,7 @@ import '../models/media_item.dart';
 import 'playback_history_recorder.dart';
 import 'engine_history_recorder.dart';
 import '../data/playback/playback_boundary_command.dart';
+import '../data/playback/playback_state_storage.dart';
 import '../data/local/local_library_store.dart';
 import '../../Modules/recommendations/data/listening_event_store.dart';
 import '../../Modules/recommendations/domain/recommendation_models.dart';
@@ -34,12 +35,17 @@ class AudioService extends GetxService with WidgetsBindingObserver {
         library: Get.find<LocalLibraryStore>(),
         mode: RecommendationMode.audio,
       );
-  Future<void> flushPlaybackHistory() => _history.flush();
+  Future<void> flushPlaybackHistory() async {
+    await _history.flush();
+    final storage = _storage;
+    if (storage is PlaybackStateStorage) await storage.flush();
+  }
+
   final Rxn<Object> historyPersistenceFailure = Rxn<Object>();
   StreamSubscription<PlayerException>? _historyErrorSubscription;
   Future<void> _flushEngineHistory() async {
     try {
-      await _history.flush();
+      await flushPlaybackHistory();
     } catch (error) {
       historyPersistenceFailure.value = error;
       debugPrint('Audio history persistence failed: $error');
@@ -48,8 +54,60 @@ class AudioService extends GetxService with WidgetsBindingObserver {
 
   Duration _lastEngineHistoryPosition = Duration.zero;
   bool _historySeekInProgress = false;
+  bool _historySourceReload = false;
   String? _lastEngineHistoryTrack;
   MediaVariant? _lastEngineHistoryVariant;
+  Future<void> _loadHistoryAwareSources(
+    List<AudioSource> sources, {
+    required int initialIndex,
+    required Duration initialPosition,
+    required MediaItem item,
+    required MediaVariant variant,
+  }) async {
+    if (_historySourceReload) {
+      throw StateError('Concurrent audio source reload');
+    }
+    _historySourceReload = true;
+    _historySeekInProgress = true;
+    _history.select(item, variant: variant);
+    _history.beforeSeek(initialPosition);
+    var loaded = false;
+    try {
+      await _player.setAudioSources(
+        sources,
+        initialIndex: initialIndex,
+        initialPosition: initialPosition,
+      );
+      loaded = true;
+    } catch (_) {
+      _history.intent(PlaybackTermination.engineError);
+      _history.select(null);
+      rethrow;
+    } finally {
+      _history.afterSeek(
+        playing:
+            loaded &&
+            _player.playing &&
+            _player.processingState == ProcessingState.ready,
+      );
+      _historySourceReload = false;
+      _historySeekInProgress = false;
+      _lastEngineHistoryPosition = _player.position;
+      _lastEngineHistoryTrack = item.id;
+      _lastEngineHistoryVariant = variant;
+      if (loaded) {
+        _history.update(
+          position: _player.position,
+          duration: _player.duration ?? Duration.zero,
+          playing:
+              _player.playing &&
+              _player.processingState == ProcessingState.ready,
+          speed: _player.speed,
+        );
+      }
+    }
+  }
+
   bool _consumeEngineLoop() {
     final position = _player.position;
     final duration = _player.duration;
@@ -91,7 +149,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
         ? null
         : AudioPipeline(androidAudioEffects: [_androidEqualizer]),
   );
-  final GetStorage _storage = GetStorage();
+  final GetStorage _storage = playbackStateStorage();
 
   Future<void> initializeAndroidAutoArtwork() async {
     if (!Platform.isAndroid) return;
@@ -288,16 +346,18 @@ class AudioService extends GetxService with WidgetsBindingObserver {
       unawaited(_flushEngineHistory());
     });
     _player.playerStateStream.listen((ps) {
-      _history.select(currentItem.value, variant: currentVariant.value);
-      _history.update(
-        position: _player.position,
-        duration: _player.duration ?? Duration.zero,
-        playing: ps.playing && ps.processingState == ProcessingState.ready,
-        speed: _player.speed,
-        buffering: ps.processingState == ProcessingState.buffering,
-        completed: ps.processingState == ProcessingState.completed,
-        looped: _consumeEngineLoop(),
-      );
+      if (!_historySourceReload) {
+        _history.select(currentItem.value, variant: currentVariant.value);
+        _history.update(
+          position: _player.position,
+          duration: _player.duration ?? Duration.zero,
+          playing: ps.playing && ps.processingState == ProcessingState.ready,
+          speed: _player.speed,
+          buffering: ps.processingState == ProcessingState.buffering,
+          completed: ps.processingState == ProcessingState.completed,
+          looped: _consumeEngineLoop(),
+        );
+      }
       final loading =
           ps.processingState == ProcessingState.loading ||
           ps.processingState == ProcessingState.buffering;
@@ -326,11 +386,13 @@ class AudioService extends GetxService with WidgetsBindingObserver {
       if (idx >= _queueVariants.length) return;
 
       final changedTrack = idx != _activeIndex;
-      _history.select(
-        _queueItems[idx],
-        variant: _queueVariants[idx],
-        occurrenceChanged: idx != _activeIndex,
-      );
+      if (!_historySourceReload) {
+        _history.select(
+          _queueItems[idx],
+          variant: _queueVariants[idx],
+          occurrenceChanged: idx != _activeIndex,
+        );
+      }
       if (changedTrack) {
         _beginTrackPositionLifecycle(Duration.zero);
       }
@@ -383,17 +445,19 @@ class AudioService extends GetxService with WidgetsBindingObserver {
   }
 
   void _publishPosition(Duration position) {
-    _history.select(currentItem.value, variant: currentVariant.value);
-    _history.update(
-      position: _player.position,
-      duration: _player.duration ?? Duration.zero,
-      playing:
-          _player.playing && _player.processingState == ProcessingState.ready,
-      speed: _player.speed,
-      buffering: _player.processingState == ProcessingState.buffering,
-      completed: _player.processingState == ProcessingState.completed,
-      looped: _consumeEngineLoop(),
-    );
+    if (!_historySourceReload) {
+      _history.select(currentItem.value, variant: currentVariant.value);
+      _history.update(
+        position: _player.position,
+        duration: _player.duration ?? Duration.zero,
+        playing:
+            _player.playing && _player.processingState == ProcessingState.ready,
+        speed: _player.speed,
+        buffering: _player.processingState == ProcessingState.buffering,
+        completed: _player.processingState == ProcessingState.completed,
+        looped: _consumeEngineLoop(),
+      );
+    }
     if (_position.value == position) return;
     _position.value = position;
   }
@@ -573,10 +637,12 @@ class AudioService extends GetxService with WidgetsBindingObserver {
         );
       }
       _beginTrackPositionLifecycle(initialPosition);
-      await _player.setAudioSources(
+      await _loadHistoryAwareSources(
         sources,
         initialIndex: _activeIndex,
         initialPosition: initialPosition,
+        item: _queueItems[_activeIndex],
+        variant: _queueVariants[_activeIndex],
       );
       _requestEqualizerRefresh();
 
@@ -627,10 +693,12 @@ class AudioService extends GetxService with WidgetsBindingObserver {
       }
 
       _beginTrackPositionLifecycle(Duration.zero);
-      await _player.setAudioSources(
+      await _loadHistoryAwareSources(
         sources,
         initialIndex: targetIndex,
         initialPosition: Duration.zero,
+        item: nextQueueItems[targetIndex],
+        variant: nextQueueVariants[targetIndex],
       );
       _requestEqualizerRefresh();
 
@@ -822,7 +890,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
       next[key] = position.inMilliseconds;
     }
 
-    if (next.length > 300) {
+    if (_storage is! PlaybackStateStorage && next.length > 300) {
       final overflow = next.length - 300;
       final keys = next.keys.take(overflow).toList(growable: false);
       for (final oldKey in keys) {
@@ -1135,10 +1203,12 @@ class AudioService extends GetxService with WidgetsBindingObserver {
     _beginTrackPositionLifecycle(position);
     _suppressCurrentIndexUpdates = true;
     try {
-      await _player.setAudioSources(
+      await _loadHistoryAwareSources(
         sources,
         initialIndex: _activeIndex,
         initialPosition: position,
+        item: _queueItems[_activeIndex],
+        variant: _queueVariants[_activeIndex],
       );
     } finally {
       _suppressCurrentIndexUpdates = false;
@@ -1208,10 +1278,12 @@ class AudioService extends GetxService with WidgetsBindingObserver {
     }
 
     _beginTrackPositionLifecycle(pos);
-    await _player.setAudioSources(
+    await _loadHistoryAwareSources(
       sources,
       initialIndex: _activeIndex,
       initialPosition: pos,
+      item: _queueItems[_activeIndex],
+      variant: _queueVariants[_activeIndex],
     );
     _requestEqualizerRefresh();
     if (wasPlaying) {
@@ -1354,10 +1426,12 @@ class AudioService extends GetxService with WidgetsBindingObserver {
       }
 
       _beginTrackPositionLifecycle(initialPos);
-      await _player.setAudioSources(
+      await _loadHistoryAwareSources(
         sources,
         initialIndex: _activeIndex,
         initialPosition: initialPos,
+        item: _queueItems[_activeIndex],
+        variant: _queueVariants[_activeIndex],
       );
       _requestEqualizerRefresh();
 

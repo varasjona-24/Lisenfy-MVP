@@ -44,10 +44,14 @@ class WeeklyListeningSummaryBuilder {
     final itemsByKey = <String, MediaItem>{
       for (final item in library) _stableKeyOf(item): item,
     };
-    final events = _listeningEventStore.readAll().where((event) {
-      return event.occurredAt >= window.start.millisecondsSinceEpoch &&
-          event.occurredAt < window.end.millisecondsSinceEpoch;
-    });
+    final events =
+        (await _listeningEventStore.readAsync(
+          startUtcMs: window.start.millisecondsSinceEpoch,
+          endUtcMs: window.end.millisecondsSinceEpoch,
+        )).where((event) {
+          return event.occurredAt >= window.start.millisecondsSinceEpoch &&
+              event.occurredAt < window.end.millisecondsSinceEpoch;
+        });
 
     var sessionCount = 0;
     var listenedSeconds = 0;
@@ -56,12 +60,13 @@ class WeeklyListeningSummaryBuilder {
     final artistNames = <String, String>{};
 
     for (final event in events) {
-      final item = itemsByKey[event.trackKey];
+      final item = event.mediaSnapshot ?? itemsByKey[event.trackKey];
       if (item == null) continue;
 
-      sessionCount++;
+      if (event.countsAsPlay) sessionCount++;
       trackKeys.add(event.trackKey);
-      final playedSeconds = _playedSeconds(item, event.progress);
+      final playedSeconds =
+          event.playedSeconds?.round() ?? _playedSeconds(item, event.progress);
       listenedSeconds += playedSeconds;
       final artist = _primaryArtist(item);
       if (artist == null) continue;
@@ -73,7 +78,7 @@ class WeeklyListeningSummaryBuilder {
           (playedSeconds > 0 ? playedSeconds : 1);
     }
 
-    if (sessionCount == 0) return null;
+    if (sessionCount == 0 && listenedSeconds == 0) return null;
     final topArtistKey = artistWeights.entries.fold<String?>(null, (
       current,
       entry,

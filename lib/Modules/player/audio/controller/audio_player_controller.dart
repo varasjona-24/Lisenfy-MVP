@@ -5,6 +5,7 @@ import 'package:easy_localization/easy_localization.dart'
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import '../../../../app/data/playback/playback_state_storage.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../../settings/controller/playback_settings_controller.dart';
@@ -38,7 +39,7 @@ class AudioPlayerController extends GetxController {
   final SpatialAudioService _spatial = Get.find<SpatialAudioService>();
   final PlaybackSettingsController _settings =
       Get.find<PlaybackSettingsController>();
-  final GetStorage _storage = GetStorage();
+  final GetStorage _storage = playbackStateStorage();
   static const _repeatModeKey = 'audio_repeat_mode';
   static const _resumePositionsKey = 'audio_resume_positions';
   static const _resumePromptThreshold = Duration(seconds: 5);

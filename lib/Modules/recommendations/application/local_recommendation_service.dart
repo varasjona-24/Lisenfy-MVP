@@ -250,7 +250,7 @@ class LocalRecommendationService implements RecommendationEngine {
       nowMs: nowMs,
     );
     final listeningEvents =
-        _listeningEventStore?.readAll() ?? const <ListeningEvent>[];
+        await _listeningEventStore?.readAsync() ?? const <ListeningEvent>[];
     final behavioralContext = _buildBehavioralContext(
       candidates: candidates,
       events: listeningEvents,

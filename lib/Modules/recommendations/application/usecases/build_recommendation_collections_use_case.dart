@@ -94,7 +94,7 @@ class BuildRecommendationCollectionsUseCase {
       targetSize: targetSize,
       nowMs: nowMs,
       seed: _seedFor(input.now, state.history.length),
-      listeningEvents: _listeningEventStore.readAll(),
+      listeningEvents: await _listeningEventStore.readAsync(),
     );
 
     final selected = <RecommendationMixPlan>[];

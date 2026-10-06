@@ -16,6 +16,7 @@ class PlaybackRestoration {
     this.speed = 1,
     this.shuffle = false,
     this.crossfadeSeconds = 0,
+    this.repeatMode,
   }) : _payload = jsonEncode({
          'queue': queue,
          'variants': variants,
@@ -27,6 +28,7 @@ class PlaybackRestoration {
          'speed': speed,
          'shuffle': shuffle,
          'crossfadeSeconds': crossfadeSeconds,
+         'repeatMode': repeatMode,
        }) {
     if (index < 0 ||
         (queue.isNotEmpty && index >= queue.length) ||
@@ -36,6 +38,7 @@ class PlaybackRestoration {
         speed <= 0 ||
         crossfadeSeconds < 0 ||
         crossfadeSeconds > 12 ||
+        (repeatMode != null && !{'off', 'once', 'loop'}.contains(repeatMode)) ||
         (mode == RestorationMode.audio && queue.length != variants.length)) {
       throw ArgumentError('Invalid playback restoration');
     }
@@ -48,6 +51,7 @@ class PlaybackRestoration {
   final double speed;
   final bool shuffle;
   final int crossfadeSeconds;
+  final String? repeatMode;
   final String _payload;
   String get payloadJson => _payload;
   Map<String, dynamic> get payload =>
@@ -71,6 +75,7 @@ class PlaybackRestoration {
       speed: (data['speed'] as num).toDouble(),
       shuffle: data['shuffle'] as bool,
       crossfadeSeconds: data['crossfadeSeconds'] as int,
+      repeatMode: data['repeatMode'] as String?,
     );
   }
 }

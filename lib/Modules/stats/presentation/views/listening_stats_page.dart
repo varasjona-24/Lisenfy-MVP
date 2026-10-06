@@ -10,6 +10,7 @@ import '../../../../app/models/media_item.dart';
 import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../controller/listening_stats_controller.dart';
 import '../../domain/entities/listening_stats_entities.dart';
+import 'weekly_collage_page.dart';
 
 part '../widgets/imports_tab.dart';
 part '../widgets/audio_tab.dart';
@@ -54,6 +55,13 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
         forceMaterialTransparency: true,
         foregroundColor: scheme.onSurface,
         leading: const BackButton(),
+        actions: [
+          IconButton(
+            tooltip: tr('weekly_collage.open'),
+            icon: const Icon(Icons.photo_library_outlined),
+            onPressed: () => Get.to(() => const WeeklyCollagePage()),
+          ),
+        ],
       ),
       body: AppGradientBackground(
         child: Obx(() {
