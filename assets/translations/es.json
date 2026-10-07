@@ -450,6 +450,11 @@
     }
   },
   "wrapped": {
+    "ui": {
+      "play_count": "{} reproducciones",
+      "import_count": "{} importaciones",
+      "completion_ratio": "{}% de tus reproducciones fueron completadas"
+    },
     "title": "Listenfy Wrapped",
     "tabs": {
       "imports": "Imports",

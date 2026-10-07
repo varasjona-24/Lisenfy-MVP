@@ -11,6 +11,7 @@ import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../controller/listening_stats_controller.dart';
 import '../../domain/entities/listening_stats_entities.dart';
 import 'weekly_collage_page.dart';
+import '../widgets/wrapped_panel_style.dart';
 
 part '../widgets/imports_tab.dart';
 part '../widgets/audio_tab.dart';
@@ -43,7 +44,7 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
     final scheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: scheme.surface,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text(
           tr('wrapped.title'),
@@ -52,7 +53,8 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
           ),
         ),
         centerTitle: true,
-        forceMaterialTransparency: true,
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
         foregroundColor: scheme.onSurface,
         leading: const BackButton(),
         actions: [
@@ -74,30 +76,32 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.music_off_rounded,
-                      size: 72,
-                      color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      tr('wrapped.empty_title'),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                child: StatsCard(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.music_off_rounded,
+                        size: 72,
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      tr('wrapped.empty_body'),
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                      const SizedBox(height: 16),
+                      Text(
+                        tr('wrapped.empty_title'),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        tr('wrapped.empty_body'),
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -105,7 +109,12 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
 
           return RefreshIndicator(
             onRefresh: controller.refreshStats,
-            child: _WrappedBody(stats: stats),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1000),
+                child: _WrappedBody(stats: stats),
+              ),
+            ),
           );
         }),
       ),
@@ -199,27 +208,18 @@ class _WrappedBodyState extends State<_WrappedBody>
             child: Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: scheme.surface.withValues(alpha: 0.15),
+                color: scheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: scheme.outline.withValues(alpha: 0.1),
-                ),
+                border: Border.all(color: scheme.outlineVariant),
               ),
               child: TabBar(
                 dividerColor: Colors.transparent,
                 indicatorSize: TabBarIndicatorSize.tab,
                 indicator: BoxDecoration(
-                  gradient: const LinearGradient(colors: kMusicGradient),
+                  color: scheme.primary,
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: kMusicGradient[0].withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
-                labelColor: Colors.white,
+                labelColor: scheme.onPrimary,
                 unselectedLabelColor: scheme.onSurfaceVariant,
                 labelStyle: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w800,
@@ -232,7 +232,13 @@ class _WrappedBodyState extends State<_WrappedBody>
                       children: [
                         const Icon(Icons.download_rounded, size: 16),
                         const SizedBox(width: 6),
-                        Text(tr('wrapped.tabs.imports')),
+                        Flexible(
+                          child: Text(
+                            tr('wrapped.tabs.imports'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -242,7 +248,13 @@ class _WrappedBodyState extends State<_WrappedBody>
                       children: [
                         const Icon(Icons.graphic_eq_rounded, size: 16),
                         const SizedBox(width: 6),
-                        Text(tr('wrapped.tabs.audio')),
+                        Flexible(
+                          child: Text(
+                            tr('wrapped.tabs.audio'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -252,7 +264,13 @@ class _WrappedBodyState extends State<_WrappedBody>
                       children: [
                         const Icon(Icons.video_collection_rounded, size: 16),
                         const SizedBox(width: 6),
-                        Text(tr('wrapped.tabs.video')),
+                        Flexible(
+                          child: Text(
+                            tr('wrapped.tabs.video'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -319,33 +337,25 @@ class _ImportsTab extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: kImportGradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: kImportGradient[0].withValues(alpha: 0.3),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
+            decoration: wrappedPanelDecoration(context, highlighted: true),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Text('📥', style: TextStyle(fontSize: 26)),
+                    Icon(
+                      Icons.download_rounded,
+                      color: theme.colorScheme.primary,
+                      size: 26,
+                    ),
                     const SizedBox(width: 8),
-                    Text(
-                      tr('wrapped.imports.hero_title'),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
+                    Flexible(
+                      child: Text(
+                        tr('wrapped.imports.hero_title'),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ],
@@ -354,7 +364,7 @@ class _ImportsTab extends StatelessWidget {
                 Text(
                   stats.latestImportLabel,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: theme.colorScheme.onSurfaceVariant,
                     height: 1.3,
                   ),
                 ),
@@ -739,33 +749,25 @@ class _VideoTab extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: kVideoGradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: kVideoGradient[0].withValues(alpha: 0.3),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
+            decoration: wrappedPanelDecoration(context, highlighted: true),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Text('🎬', style: TextStyle(fontSize: 26)),
+                    Icon(
+                      Icons.video_collection_rounded,
+                      color: theme.colorScheme.primary,
+                      size: 26,
+                    ),
                     const SizedBox(width: 8),
-                    Text(
-                      tr('wrapped.video.hero_title'),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
+                    Flexible(
+                      child: Text(
+                        tr('wrapped.video.hero_title'),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ],
@@ -782,7 +784,7 @@ class _VideoTab extends StatelessWidget {
                           ],
                         ),
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: theme.colorScheme.onSurfaceVariant,
                     height: 1.35,
                   ),
                 ),
@@ -938,11 +940,7 @@ class FieldMetricTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
-      ),
+      decoration: wrappedPanelDecoration(context),
       child: Row(
         children: [
           Container(
@@ -952,7 +950,7 @@ class FieldMetricTile extends StatelessWidget {
               color: accent.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(data.icon, color: accent, size: 22),
+            child: Icon(data.icon, color: scheme.onSurface, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1003,84 +1001,88 @@ class CompactRankedRows extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Column(
-      children: List.generate(rows.take(5).length, (index) {
-        final row = rows[index];
-        final ratio = row.maxValue <= 0 ? 0.0 : row.currentValue / row.maxValue;
-        final color = kArtistColors[index % kArtistColors.length];
-        return Padding(
-          padding: EdgeInsets.only(bottom: index == rows.length - 1 ? 0 : 10),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.16),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    '${index + 1}',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w900,
+    return StatsCard(
+      child: Column(
+        children: List.generate(rows.take(5).length, (index) {
+          final row = rows[index];
+          final ratio = row.maxValue <= 0
+              ? 0.0
+              : row.currentValue / row.maxValue;
+          final color = kArtistColors[index % kArtistColors.length];
+          return Padding(
+            padding: EdgeInsets.only(bottom: index == rows.length - 1 ? 0 : 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.16),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${index + 1}',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: scheme.onSurface,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            row.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              row.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          row.value,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: color,
-                            fontWeight: FontWeight.w900,
+                          const SizedBox(width: 8),
+                          Text(
+                            row.value,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: scheme.onSurface,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
+                        ],
+                      ),
+                      Text(
+                        row.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
                         ),
-                      ],
-                    ),
-                    Text(
-                      row.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
                       ),
-                    ),
-                    const SizedBox(height: 5),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: ratio.clamp(0.0, 1.0),
-                        minHeight: 4,
-                        backgroundColor: scheme.surfaceContainerHighest,
-                        valueColor: AlwaysStoppedAnimation<Color>(color),
+                      const SizedBox(height: 5),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: ratio.clamp(0.0, 1.0),
+                          minHeight: 4,
+                          backgroundColor: scheme.surfaceContainerHighest,
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      }),
+              ],
+            ),
+          );
+        }),
+      ),
     );
   }
 }
@@ -1105,38 +1107,54 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: gradient),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Center(
-            child: Text(emoji, style: const TextStyle(fontSize: 18)),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+    return Container(
+      decoration: wrappedPanelDecoration(context),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(10),
             ),
-            Text(
-              subtitle,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            child: Icon(
+              switch (emoji) {
+                '📊' => Icons.bar_chart_rounded,
+                '🎤' => Icons.mic_rounded,
+                '🏆' => Icons.emoji_events_rounded,
+                '🌍' => Icons.public_rounded,
+                '⏭' => Icons.skip_next_rounded,
+                '📺' => Icons.video_library_rounded,
+                _ => Icons.folder_rounded,
+              },
+              color: theme.colorScheme.onPrimaryContainer,
+              size: 22,
             ),
-          ],
-        ),
-      ],
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1158,35 +1176,27 @@ class _AnimatedHeroCard extends StatelessWidget {
         : stats.topArtists.first.name;
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: kMusicGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: kMusicGradient[0].withValues(alpha: 0.4),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: wrappedPanelDecoration(context, highlighted: true),
       padding: const EdgeInsets.all(22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text('🎵', style: TextStyle(fontSize: 28)),
+              Icon(
+                Icons.graphic_eq_rounded,
+                color: theme.colorScheme.primary,
+                size: 28,
+              ),
               const SizedBox(width: 10),
-              Text(
-                tr('wrapped.title'),
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
+              Flexible(
+                child: Text(
+                  tr('wrapped.title'),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: theme.colorScheme.onSurface,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ),
             ],
@@ -1197,14 +1207,16 @@ class _AnimatedHeroCard extends StatelessWidget {
             animation: counterCtrl,
             builder: (context, child) {
               final current = (stats.totalPlays * counterCtrl.value).round();
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.end,
                 children: [
                   Text(
                     '$current',
                     style: theme.textTheme.displayMedium?.copyWith(
                       fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                      color: theme.colorScheme.onSurface,
                       height: 1,
                     ),
                   ),
@@ -1214,7 +1226,7 @@ class _AnimatedHeroCard extends StatelessWidget {
                     child: Text(
                       tr('wrapped.audio.hero_plays'),
                       style: theme.textTheme.titleSmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.8),
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -1223,7 +1235,7 @@ class _AnimatedHeroCard extends StatelessWidget {
             },
           ),
           const SizedBox(height: 12),
-          Container(height: 1, color: Colors.white.withValues(alpha: 0.25)),
+          Divider(color: theme.colorScheme.outlineVariant),
           const SizedBox(height: 12),
           Text(
             tr(
@@ -1234,7 +1246,7 @@ class _AnimatedHeroCard extends StatelessWidget {
               ],
             ),
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.9),
+              color: theme.colorScheme.onSurfaceVariant,
               height: 1.4,
             ),
           ),
@@ -1301,11 +1313,7 @@ class _MoodCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      decoration: BoxDecoration(
-        color: _color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _color.withValues(alpha: 0.35), width: 1.5),
-      ),
+      decoration: wrappedPanelDecoration(context),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
@@ -1325,7 +1333,7 @@ class _MoodCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
                   children: [
                     Text(
                       tr('wrapped.audio.mood_prefix'),
@@ -1337,7 +1345,7 @@ class _MoodCard extends StatelessWidget {
                       _mood,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w800,
-                        color: _color,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                   ],
@@ -1498,7 +1506,7 @@ class _ProgressMetric extends StatelessWidget {
               displayText,
               style: theme.textTheme.labelMedium?.copyWith(
                 fontWeight: FontWeight.w700,
-                color: color,
+                color: theme.colorScheme.onSurface,
               ),
             ),
           ],
@@ -1593,7 +1601,7 @@ class _ArtistBarChartState extends State<_ArtistBarChart>
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: color,
+                                color: scheme.onSurface,
                               ),
                             ),
                           ),
@@ -1677,18 +1685,7 @@ class _TopTrackHero extends StatelessWidget {
     final plays = ListeningStats.listenScoreFor(item);
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: kMusicGradient[0].withValues(alpha: 0.4),
-          width: 1.5,
-        ),
-      ),
+      decoration: wrappedPanelDecoration(context, highlighted: true),
       padding: const EdgeInsets.all(18),
       child: Row(
         children: [
@@ -1696,12 +1693,12 @@ class _TopTrackHero extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: kMusicGradient),
+              color: theme.colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.music_note_rounded,
-              color: Colors.white,
+              color: theme.colorScheme.onPrimaryContainer,
               size: 32,
             ),
           ),
@@ -1716,7 +1713,7 @@ class _TopTrackHero extends StatelessWidget {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: kMusicGradient),
+                    color: theme.colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -1724,7 +1721,7 @@ class _TopTrackHero extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
-                      color: Colors.white,
+                      color: theme.colorScheme.onPrimaryContainer,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -1736,7 +1733,7 @@ class _TopTrackHero extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 Text(
@@ -1744,16 +1741,16 @@ class _TopTrackHero extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.65),
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$plays reproducciones',
+                  tr('wrapped.ui.play_count', args: ['$plays']),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: kMusicGradient[1],
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -1839,7 +1836,7 @@ class AnimatedRankedListState extends State<AnimatedRankedList>
                           '${i + 1}',
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w900,
-                            color: color,
+                            color: scheme.onSurface,
                           ),
                         ),
                       ),
@@ -1871,7 +1868,7 @@ class AnimatedRankedListState extends State<AnimatedRankedList>
                                 Text(
                                   row.value,
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    color: color,
+                                    color: scheme.onSurface,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -2131,7 +2128,7 @@ class _MonthlyImportsChartState extends State<_MonthlyImportsChart>
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipItem: (group, gIdx, rod, rIdx) {
                       return BarTooltipItem(
-                        '${months[gIdx].label}\n${rod.toY.toInt()} imports',
+                        '${months[gIdx].label}\n${tr('wrapped.ui.import_count', args: ['${rod.toY.toInt()}'])}',
                         const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
@@ -2280,7 +2277,7 @@ class _RegionsBarCardState extends State<_RegionsBarCard>
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
-                              color: color,
+                              color: scheme.onSurface,
                             ),
                           ),
                         ),
@@ -2294,7 +2291,7 @@ class _RegionsBarCardState extends State<_RegionsBarCard>
                           ),
                         ),
                         Text(
-                          '${r.plays} plays',
+                          tr('wrapped.ui.play_count', args: ['${r.plays}']),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
@@ -2446,7 +2443,12 @@ class _CompletedVsSkippedCardState extends State<_CompletedVsSkippedCard>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${(s.totalCompleted / total * 100).toStringAsFixed(0)}% de tus reproducciones fueron completadas',
+                      tr(
+                        'wrapped.ui.completion_ratio',
+                        args: [
+                          (s.totalCompleted / total * 100).toStringAsFixed(0),
+                        ],
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -2491,7 +2493,7 @@ class StatBubble extends StatelessWidget {
               value,
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w900,
-                color: color,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             Text(
@@ -2516,20 +2518,8 @@ class StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: wrappedPanelDecoration(context),
       padding: const EdgeInsets.all(16),
       child: child,
     );

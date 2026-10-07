@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-07 — Patrón visual de Wrapped sobre fondo dinámico
+
+- Conservadas las tres pestañas, secciones, animaciones y cálculos. Modelo visual compartido wrappedPanelDecoration: superficies opacas surfaceContainer, radio 18 y borde outlineVariant; destacados incorporan tinte suave de la paleta, no degradados saturados fijos ni sombras neón. Fondo dinámico de AppGradientBackground permanece visible entre paneles.
+- Cabeceras con iconos Material y texto adaptable; métricas, rankings y tarjeta de canción destacada siguen el mismo patrón. Texto principal/cifras usan onSurface, secundarios onSurfaceVariant. Gráficos mantienen colores por categoría; pestañas usan primary/onPrimary de la app y superficie sólida. Ancho máximo 1000 en pantallas grandes; títulos largos y contador adaptables.
+- Estado vacío también protegido por panel. Textos revisados de reproducciones, imports y porcentaje de finalización usan claves propias wrapped.ui ES/EN.
+- Validación: análisis de tres archivos sin issues; 9 pruebas aprobadas (6 UI/contraste/adaptación y 3 collage). Pantalla completa navega sus tres tabs con traducciones reales ES/EN a 360 px; componentes probados a 320 px/texto 150%, y contraste de texto principal en destacados >=4.5:1 en temas claro/oscuro. Sin APK ni instalación; revisión sobre wallpaper real en dispositivo pendiente.
+
 ## 2026-10-07 — Espera visible al guardar metadatos
 
 - EditEntityPage muestra Guardando cambios con indicador indeterminado inmediato en el botón, bloquea doble envío, edición y navegación atrás mientras termina, y recupera la interacción con finally ante cancelación/validación/error. Errores inesperados se registran y muestran aviso traducido sin cerrar la página.

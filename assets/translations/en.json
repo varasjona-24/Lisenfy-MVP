@@ -450,6 +450,11 @@
     "url_import_dialog_subtitle": "Paste the link and choose the file type to import."
   },
   "wrapped": {
+    "ui": {
+      "play_count": "{} plays",
+      "import_count": "{} imports",
+      "completion_ratio": "{}% of your plays were completed"
+    },
     "title": "Listenfy Wrapped",
     "tabs": {
       "imports": "Imports",
