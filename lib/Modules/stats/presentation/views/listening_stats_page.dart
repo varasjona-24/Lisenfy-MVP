@@ -12,6 +12,7 @@ import '../../controller/listening_stats_controller.dart';
 import '../../domain/entities/listening_stats_entities.dart';
 import 'weekly_collage_page.dart';
 import '../widgets/wrapped_panel_style.dart';
+import '../widgets/wrapped_artwork.dart';
 
 part '../widgets/imports_tab.dart';
 part '../widgets/audio_tab.dart';
@@ -378,7 +379,7 @@ class _ImportsTab extends StatelessWidget {
           1,
           LayoutBuilder(
             builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 520;
+              final isWide = constraints.maxWidth >= 300;
               final itemWidth = isWide
                   ? (constraints.maxWidth - 10) / 2
                   : constraints.maxWidth;
@@ -516,7 +517,7 @@ class _AudioTab extends StatelessWidget {
           2,
           LayoutBuilder(
             builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 520;
+              final isWide = constraints.maxWidth >= 300;
               final itemWidth = isWide
                   ? (constraints.maxWidth - 10) / 2
                   : constraints.maxWidth;
@@ -636,6 +637,7 @@ class _AudioTab extends StatelessWidget {
           fade(
             7,
             AnimatedRankedList(
+              artworkItems: stats.topTracks,
               rows: stats.topTracks
                   .map(
                     (item) => RankedRowData(
@@ -788,6 +790,10 @@ class _VideoTab extends StatelessWidget {
                     height: 1.35,
                   ),
                 ),
+                if (stats.topVideos.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  WrappedCoverStrip(items: stats.topVideos),
+                ],
               ],
             ),
           ),
@@ -798,7 +804,7 @@ class _VideoTab extends StatelessWidget {
           1,
           LayoutBuilder(
             builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 520;
+              final isWide = constraints.maxWidth >= 300;
               final itemWidth = isWide
                   ? (constraints.maxWidth - 10) / 2
                   : constraints.maxWidth;
@@ -888,7 +894,14 @@ class _VideoTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          fade(2, AnimatedRankedList(rows: videoRows, masterCtrl: masterCtrl)),
+          fade(
+            2,
+            AnimatedRankedList(
+              rows: videoRows,
+              artworkItems: stats.topVideos,
+              masterCtrl: masterCtrl,
+            ),
+          ),
           const SizedBox(height: 14),
         ],
 
@@ -941,49 +954,50 @@ class FieldMetricTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: wrappedPanelDecoration(context),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(data.icon, color: scheme.onSurface, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(data.icon, color: scheme.onSurface, size: 18),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
                   data.label,
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  data.value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  data.caption,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    height: 1.2,
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            data.value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            data.caption,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.2,
             ),
           ),
         ],
@@ -1236,6 +1250,8 @@ class _AnimatedHeroCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Divider(color: theme.colorScheme.outlineVariant),
+          if (stats.topTracks.isNotEmpty)
+            WrappedCoverStrip(items: stats.topTracks),
           const SizedBox(height: 12),
           Text(
             tr(
@@ -1681,83 +1697,11 @@ class _TopTrackHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final plays = ListeningStats.listenScoreFor(item);
-
-    return Container(
-      decoration: wrappedPanelDecoration(context, highlighted: true),
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              Icons.music_note_rounded,
-              color: theme.colorScheme.onPrimaryContainer,
-              size: 32,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    tr('wrapped.labels.top_track_badge'),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: theme.colorScheme.onPrimaryContainer,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                Text(
-                  item.displaySubtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  tr('wrapped.ui.play_count', args: ['$plays']),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return WrappedTrackSpotlight(
+      item: item,
+      badge: tr('wrapped.labels.top_track_badge'),
+      caption: tr('wrapped.ui.play_count', args: ['$plays']),
     );
   }
 }
@@ -1770,9 +1714,11 @@ class AnimatedRankedList extends StatefulWidget {
     super.key,
     required this.rows,
     required this.masterCtrl,
+    this.artworkItems = const [],
   });
 
   final List<RankedRowData> rows;
+  final List<MediaItem> artworkItems;
   final AnimationController masterCtrl;
 
   @override
@@ -1830,6 +1776,10 @@ class AnimatedRankedListState extends State<AnimatedRankedList>
                     ),
                   Row(
                     children: [
+                      if (i < widget.artworkItems.length) ...[
+                        WrappedArtwork(item: widget.artworkItems[i]),
+                        const SizedBox(width: 10),
+                      ],
                       SizedBox(
                         width: 24,
                         child: Text(

@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-07 — Wrapped editorial con portadas
+
+- Recap más visual sin cambiar secciones ni cálculos: portada protagonista de canción destacada (composición vertical en móvil/horizontal amplia), pequeñas portadas ligeramente inclinadas en cabeceras de audio/video y miniaturas reales en rankings de canciones/videos. Collage acotado a tres imágenes, no se crean ni modifican archivos de portada.
+- WrappedArtwork prioriza archivo local, luego URL HTTP(S) y fallback de icono con colores del tema ante ausencia/error. Imágenes decorativas sin duplicar semántica del título. Textos permanecen sobre superficie opaca para no competir con wallpaper ni depender del contraste de cada imagen.
+- Métricas en bloques compactos de dos columnas desde 300 px disponibles, una en tamaños menores, con cifra protagonista y subtítulos. Preservadas paleta, contraste, traducciones y estados existentes; sin nuevas preferencias ni escrituras SQLite.
+- Validación: análisis de cuatro archivos sin issues; 14 pruebas aprobadas (5 artwork/composición, 6 Wrapped/contraste/idiomas, 3 collage semanal). Verificadas portada local real, fallback de archivo ausente, spotlight a 320/760 px con texto 150%, límite de tres portadas y pantalla móvil ES/EN con datos de audio/video. Sin APK ni instalación; evaluación visual en dispositivo pendiente.
+
 ## 2026-10-07 — Patrón visual de Wrapped sobre fondo dinámico
 
 - Conservadas las tres pestañas, secciones, animaciones y cálculos. Modelo visual compartido wrappedPanelDecoration: superficies opacas surfaceContainer, radio 18 y borde outlineVariant; destacados incorporan tinte suave de la paleta, no degradados saturados fijos ni sombras neón. Fondo dinámico de AppGradientBackground permanece visible entre paneles.

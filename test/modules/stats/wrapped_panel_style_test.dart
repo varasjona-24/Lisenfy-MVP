@@ -59,6 +59,20 @@ void main() {
             },
           ],
         }),
+        MediaItem.fromJson({
+          'id': 'video',
+          'title': 'A video',
+          'playCount': 4,
+          'variants': [
+            {
+              'kind': 'video',
+              'format': 'mp4',
+              'fileName': 'video.mp4',
+              'localPath': '/video.mp4',
+              'durationSeconds': 180,
+            },
+          ],
+        }),
       ]);
       controller.isLoading.value = false;
       Get.put<ListeningStatsController>(controller);
