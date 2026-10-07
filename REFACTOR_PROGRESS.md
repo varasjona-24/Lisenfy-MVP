@@ -1,5 +1,11 @@
 # Registro de refactor
 
+## 2026-10-07 — Espera visible al guardar metadatos
+
+- EditEntityPage muestra Guardando cambios con indicador indeterminado inmediato en el botón, bloquea doble envío, edición y navegación atrás mientras termina, y recupera la interacción con finally ante cancelación/validación/error. Errores inesperados se registran y muestran aviso traducido sin cerrar la página.
+- Conservados confirmaciones, guardado y recargas existentes. El flujo actual también actualiza ítems relacionados y recarga Downloads, Home, artistas, playlists y Sources secuencialmente; no se atribuyen los 10 segundos a SQLite sin medición.
+- Textos ES/EN propios en edit; EditSaveButton reutilizable sigue colores del tema. Análisis de los tres archivos sin issues; prueba de interfaz aprobada verificando indicador, bloqueo de envío y recuperación. Sin APK ni instalación; verificación física pendiente.
+
 ## 2026-10-07 — Estados de video específicos de SQLite
 
 - Etiquetas sin promedio combinado audio/video: proyección de modo video y posiciones del adaptador SQLite, actualizada con revisiones del repositorio. Visto persiste tras reproducciones parciales; En progreso se distingue de Seguir viendo. Sesiones nuevas requieren finalización y cobertura real de al menos 92%; legacy conserva completados explícitos de modo video sin inventar evidencia desconocida.

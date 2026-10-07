@@ -1439,6 +1439,8 @@
     }
   },
   "edit": {
+    "saving_changes": "Guardando cambios…",
+    "save_changes_error": "No se pudo completar el guardado. Revisa los cambios e inténtalo de nuevo.",
     "metadata_suggestions_title": "Sugerencias de metadatos",
     "metadata_suggestions_subtitle": "Busca coincidencias por título y artista en MusicBrainz. Solo reemplaza título y artista; tu portada, letras, estadísticas y archivos se conservan.",
     "metadata_suggestions_action": "Buscar sugerencias en Internet",

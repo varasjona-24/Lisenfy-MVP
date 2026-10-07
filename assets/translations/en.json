@@ -1439,6 +1439,8 @@
     }
   },
   "edit": {
+    "saving_changes": "Saving changes…",
+    "save_changes_error": "Saving could not be completed. Review your changes and try again.",
     "metadata_suggestions_title": "Metadata suggestions",
     "metadata_suggestions_subtitle": "Search MusicBrainz matches by title and artist. Only title and artist are replaced; your cover, lyrics, stats, and files are kept.",
     "metadata_suggestions_action": "Search suggestions online",

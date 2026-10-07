@@ -26,6 +26,7 @@ import '../../sources/domain/source_theme_topic_playlist.dart';
 import '../../sources/domain/source_origin.dart';
 import '../../sources/ui/source_color_picker_field.dart';
 import '../controller/edit_entity_controller.dart';
+import 'edit_save_button.dart';
 import '../../../app/ui/widgets/dialogs/image_search_dialog.dart';
 
 class EditEntityPage extends StatefulWidget {
@@ -58,6 +59,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
   bool _coverTransferBusy = false;
   bool _coverGallerySaving = false;
   bool _metadataSuggestionBusy = false;
+  bool _saving = false;
   MediaItem? _mediaDraft;
   ArtistProfileKind _artistKind = ArtistProfileKind.singer;
   ArtistMainRegion _artistMainRegion = ArtistMainRegion.none;
@@ -1388,8 +1390,31 @@ class _EditEntityPageState extends State<EditEntityPage> {
   }
 
   Future<void> _save() async {
+    if (_saving || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      // Allow the waiting state to paint before starting persistence/refreshes.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      await _performSave();
+    } catch (error, stackTrace) {
+      debugPrint('Metadata save failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        Get.snackbar(
+          tr('common.error'),
+          tr('edit.save_changes_error'),
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _performSave() async {
     final canContinue = await _confirmTitleCollaborationWarning();
-    if (!canContinue) return;
+    if (!canContinue || !mounted) return;
 
     final ok = await switch (_args.type) {
       EditEntityType.media => _controller.saveMedia(
@@ -2210,6 +2235,13 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_saving,
+      child: AbsorbPointer(absorbing: _saving, child: _buildPage(context)),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -2224,11 +2256,13 @@ class _EditEntityPageState extends State<EditEntityPage> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: FilledButton(
+          child: EditSaveButton(
+            busy: _saving,
+            label: tr('common.save_changes'),
+            busyLabel: tr('edit.saving_changes'),
             onPressed: _audioCleanupBusy || _metadataSuggestionBusy
                 ? null
                 : _save,
-            child: Text(tr('common.save_changes')),
           ),
         ),
       ),
