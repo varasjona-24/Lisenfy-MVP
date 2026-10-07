@@ -209,78 +209,95 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                       },
                       child: ScrollConfiguration(
                         behavior: const _NoGlowScrollBehavior(),
-                        child: SingleChildScrollView(
+                        child: CustomScrollView(
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: EdgeInsets.only(
-                            top: 12,
-                            bottom: kBottomNavigationBarHeight + 18,
-                            left: 12,
-                            right: 12,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (widget.onlyOffline) ...[
-                                _offlineHeader(theme),
-                                const SizedBox(height: 10),
-                                _offlineSummary(
-                                  theme,
-                                  modeList.length,
-                                  displayMode,
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                              ],
-                              if (themeMeta != null &&
-                                  themeMeta.onlyOffline != true) ...[
-                                _topicHeader(themeMeta),
-                                const SizedBox(height: 8),
-                                _topicList(themeMeta),
-                                const SizedBox(height: 18),
-                              ],
-                              if (themeMeta == null ||
-                                  themeMeta.onlyOffline == true) ...[
-                                if (!widget.onlyOffline) ...[
-                                  _librarySummary(
-                                    theme,
-                                    modeList.length,
-                                    displayMode,
+                          slivers: [
+                            SliverPadding(
+                              padding: EdgeInsets.only(
+                                top: 12,
+                                bottom: kBottomNavigationBarHeight + 18,
+                                left: 12,
+                                right: 12,
+                              ),
+                              sliver: SliverMainAxisGroup(
+                                slivers: [
+                                  SliverToBoxAdapter(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (widget.onlyOffline) ...[
+                                          _offlineHeader(theme),
+                                          const SizedBox(height: 10),
+                                          _offlineSummary(
+                                            theme,
+                                            modeList.length,
+                                            displayMode,
+                                          ),
+                                          const SizedBox(height: AppSpacing.md),
+                                        ],
+                                        if (themeMeta != null &&
+                                            themeMeta.onlyOffline != true) ...[
+                                          _topicHeader(themeMeta),
+                                          const SizedBox(height: 8),
+                                          _topicList(themeMeta),
+                                          const SizedBox(height: 18),
+                                        ],
+                                        if (themeMeta == null ||
+                                            themeMeta.onlyOffline == true) ...[
+                                          if (!widget.onlyOffline) ...[
+                                            _librarySummary(
+                                              theme,
+                                              modeList.length,
+                                              displayMode,
+                                            ),
+                                            const SizedBox(height: 12),
+                                          ],
+                                          if (modeList.isEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 12,
+                                              ),
+                                              child: Text(
+                                                tr('sources.empty_content'),
+                                                style: theme
+                                                    .textTheme
+                                                    .bodyMedium
+                                                    ?.copyWith(
+                                                      color: theme
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                            ),
+                                        ],
+                                      ],
+                                    ),
                                   ),
-                                  const SizedBox(height: 12),
-                                ],
-                                if (modeList.isEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 12),
-                                    child: Text(
-                                      tr('sources.empty_content'),
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                            color: theme
-                                                .colorScheme
-                                                .onSurfaceVariant,
+                                  if ((themeMeta == null ||
+                                          themeMeta.onlyOffline == true) &&
+                                      modeList.isNotEmpty)
+                                    AppMediaItemsSliver(
+                                      items: modeList,
+                                      gridView: _gridView,
+                                      videoStyle: displayMode == HomeMode.video,
+                                      compactListCard: widget.onlyOffline,
+                                      onTap: (item, index) => _playSourceItem(
+                                        item,
+                                        modeList,
+                                        displayMode,
+                                      ),
+                                      onLongPress: (item, index) =>
+                                          _openGridItemActions(
+                                            item,
+                                            modeList,
+                                            displayMode,
                                           ),
                                     ),
-                                  )
-                                else
-                                  AppMediaItemsList(
-                                    items: modeList,
-                                    gridView: _gridView,
-                                    videoStyle: displayMode == HomeMode.video,
-                                    compactListCard: widget.onlyOffline,
-                                    onTap: (item, index) => _playSourceItem(
-                                      item,
-                                      modeList,
-                                      displayMode,
-                                    ),
-                                    onLongPress: (item, index) =>
-                                        _openGridItemActions(
-                                          item,
-                                          modeList,
-                                          displayMode,
-                                        ),
-                                  ),
-                              ],
-                            ],
-                          ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );

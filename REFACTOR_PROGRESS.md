@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-07 — Scroll unificado de biblioteca audio/video
+
+- SourceLibraryPage reemplaza SingleChildScrollView + grid shrinkWrap no desplazable por CustomScrollView con encabezados y AppMediaItemsSliver en un único viewport. Lista y grid comparten ahora el mismo scroll; el grid construye elementos bajo demanda.
+- Conservados filtros audio/video locales, acciones, modo offline, encabezados, refresh y espacio del nav. No se modifican persistencia ni reproducción.
+- El bloqueo físico reportado no se reprodujo en la prueba mínima de la estructura antigua; no se declara una causa nativa confirmada. Se elimina la estructura anidada como corrección y queda pendiente la comprobación en el teléfono.
+- Validación: dos pruebas de grid audio/video aprobadas con drag en ambas direcciones y una única posición de scroll. Análisis focalizado sin issues y diff sin errores de whitespace. Sin generar/instalar APK.
+
 ## 2026-10-07 — Continuar viendo integrado al orden de Home
 
 - Retirada la tarjeta de Collections y del encabezado fijo de Home; ahora el widget continueWatching del orden editable renderiza la tarjeta de sesión existente sin reemplazar su cola. Sigue exclusivo del Home en modo video y se oculta cuando no hay sesión disponible.
