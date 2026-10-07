@@ -1,5 +1,11 @@
 # Registro de refactor
 
+## 2026-10-07 — Tarjetas de biblioteca para listas de Home
+
+- Las previsualizaciones en modo lista de widgets estándar y secciones personalizadas reemplazan MediaHistoryItemTile por AppMediaItemsList con compactListCard=true: mismo componente de biblioteca, fondo de tema, esquinas y separación individual.
+- Conservados límite de cinco elementos, encabezados/acceso a sección completa, reproducción e índice de cola, pulsación larga y acciones. Colecciones mantienen presentación de video; no cambia la persistencia del diseño.
+- Prueba widget aprobada: dos cards con fondo, separación mínima de 8 px, tap y pulsación larga con índices correctos. Análisis de Home sin errores/warnings, conserva 13 infos de estilo. Sin build ni instalación.
+
 ## 2026-10-07 — Scroll unificado de biblioteca audio/video
 
 - SourceLibraryPage reemplaza SingleChildScrollView + grid shrinkWrap no desplazable por CustomScrollView con encabezados y AppMediaItemsSliver en un único viewport. Lista y grid comparten ahora el mismo scroll; el grid construye elementos bajo demanda.

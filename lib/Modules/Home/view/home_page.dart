@@ -14,7 +14,7 @@ import '../../../app/ui/widgets/navigation/app_top_bar.dart';
 import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import '../../../app/ui/widgets/dialogs/sort_options_sheet.dart';
 import '../../../app/ui/widgets/list/media_horizontal_list.dart';
-import '../../../app/ui/widgets/media/media_history_item_tile.dart';
+import '../../../app/ui/widgets/media/app_media_items_view.dart';
 import '../../../app/ui/themes/app_spacing.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../app/controllers/media_actions_controller.dart';
@@ -1739,18 +1739,13 @@ class _CustomHomeListSection extends StatelessWidget {
         const SizedBox(height: 10),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Column(
-            children: [
-              for (var i = 0; i < preview.length; i++) ...[
-                MediaHistoryItemTile(
-                  item: preview[i],
-                  time: '${i + 1}',
-                  onTap: () => onTap(preview[i], i),
-                  onLongPress: () => onLongPress(preview[i], i),
-                ),
-                if (i != preview.length - 1) const SizedBox(height: 8),
-              ],
-            ],
+          child: AppMediaItemsList(
+            items: preview,
+            gridView: false,
+            compactListCard: true,
+            videoStyle: section.kind == HomeCustomSectionKind.collection,
+            onTap: onTap,
+            onLongPress: onLongPress,
           ),
         ),
       ],
@@ -2833,18 +2828,12 @@ class _MediaListSection extends StatelessWidget {
         const SizedBox(height: 10),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Column(
-            children: [
-              for (var i = 0; i < preview.length; i++) ...[
-                MediaHistoryItemTile(
-                  item: preview[i],
-                  time: '${i + 1}',
-                  onTap: () => onTap(preview[i], i),
-                  onLongPress: () => onLongPress(preview[i], i),
-                ),
-                if (i != preview.length - 1) const SizedBox(height: 8),
-              ],
-            ],
+          child: AppMediaItemsList(
+            items: preview,
+            gridView: false,
+            compactListCard: true,
+            onTap: onTap,
+            onLongPress: onLongPress,
           ),
         ),
       ],
