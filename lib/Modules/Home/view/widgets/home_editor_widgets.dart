@@ -70,6 +70,7 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
   }
 
   void _toggleWidget(HomeWidgetId id) {
+    if (!id.canDisable) return;
     setState(() {
       if (_enabled.contains(id)) {
         _enabled.remove(id);
@@ -390,7 +391,7 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
                     index: index,
                     enabled: enabled,
                     layout: _layoutForWidget(id),
-                    onToggle: () => _toggleWidget(id),
+                    onToggle: id.canDisable ? () => _toggleWidget(id) : null,
                     onLayoutToggle: mode == HomeMode.video || id.hasFixedLayout
                         ? null
                         : () => _toggleWidgetLayout(id),
@@ -1187,7 +1188,7 @@ class _EditableHomeWidgetRow extends StatelessWidget {
   final int index;
   final bool enabled;
   final HomeCustomSectionLayout layout;
-  final VoidCallback onToggle;
+  final VoidCallback? onToggle;
   final VoidCallback? onLayoutToggle;
 
   @override
@@ -1209,17 +1210,20 @@ class _EditableHomeWidgetRow extends StatelessWidget {
         height: 54,
         child: Row(
           children: [
-            IconButton(
-              onPressed: onToggle,
-              visualDensity: VisualDensity.compact,
-              icon: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: actionColor,
+            if (id.canDisable)
+              IconButton(
+                onPressed: onToggle,
+                visualDensity: VisualDensity.compact,
+                icon: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: actionColor,
+                  ),
+                  child: Icon(actionIcon, color: Colors.white, size: 18),
                 ),
-                child: Icon(actionIcon, color: Colors.white, size: 18),
-              ),
-            ),
+              )
+            else
+              const SizedBox(width: 48),
             Icon(
               id.icon,
               size: 22,

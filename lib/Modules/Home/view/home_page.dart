@@ -177,13 +177,6 @@ class HomePage extends GetView<HomeController> {
                           child: CustomScrollView(
                             physics: const AlwaysScrollableScrollPhysics(),
                             slivers: [
-                              if (mode == HomeMode.video)
-                                const SliverToBoxAdapter(
-                                  child: Padding(
-                                    padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-                                    child: ContinueVideoCard(),
-                                  ),
-                                ),
                               SliverPadding(
                                 padding: EdgeInsets.only(
                                   top: AppSpacing.md,
@@ -1171,7 +1164,10 @@ class _HomeOrderedSections extends StatelessWidget {
       case HomeWidgetId.recentlyPlayed:
         return _mediaSection(context, id: id, title: _homeWidgetTitle(id));
       case HomeWidgetId.continueWatching:
-        return _mediaSection(context, id: id, title: _homeWidgetTitle(id));
+        return const Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: ContinueVideoCard(),
+        );
       case HomeWidgetId.featured:
         return _mediaSection(context, id: id, title: _homeWidgetTitle(id));
       case HomeWidgetId.latestDownloads:

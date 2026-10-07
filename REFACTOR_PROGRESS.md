@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-07 — Continuar viendo integrado al orden de Home
+
+- Retirada la tarjeta de Collections y del encabezado fijo de Home; ahora el widget continueWatching del orden editable renderiza la tarjeta de sesión existente sin reemplazar su cola. Sigue exclusivo del Home en modo video y se oculta cuando no hay sesión disponible.
+- Continúa debajo de Favoritos en el orden predeterminado; normalización inserta el widget ausente tras Favoritos en diseños antiguos y conserva posiciones personalizadas sin duplicados.
+- Eliminado el control de quitar para este widget y protegido el guardado/restauración de activación. Se puede reordenar, pero no desactivar ni cambiar su diseño fijo.
+- Validación: cinco pruebas de layout/tarjeta aprobadas; análisis focalizado sin errores ni warnings, con 18 infos de estilo. El test de tarjeta conserva aviso de traducción por su fixture sin catálogo; el JSON real tiene la clave. Sin build ni instalación en este paso.
+
 ## 2026-10-06 — Recuperación ante fallo nativo del ecualizador
 
 - ADB confirmó un PlatformException al activar AndroidEqualizer: getNumberOfBands sobre referencia nula; la carga de Te amare quedaba bloqueada antes de reproducir. No se atribuye este fallo a SQLite ni a corrupción del archivo.

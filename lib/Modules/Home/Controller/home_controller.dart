@@ -171,12 +171,16 @@ class HomeController extends GetxController {
         .whereType<HomeWidgetId>()
         .where((id) => id.videoHomeSupported)
         .toList(growable: false);
-    videoHomeWidgetOrder.assignAll(<HomeWidgetId>[
-      ...(parsedVideoOrder ?? const <HomeWidgetId>[]),
-      ..._defaultVideoHomeWidgets.where(
-        (id) => parsedVideoOrder?.contains(id) != true,
-      ),
-    ]);
+    videoHomeWidgetOrder.assignAll(
+      normalizeVideoHomeOrder(<HomeWidgetId>[
+        ...normalizeVideoHomeOrder(
+          parsedVideoOrder ?? _defaultVideoHomeWidgets,
+        ),
+        ..._defaultVideoHomeWidgets.where(
+          (id) => parsedVideoOrder?.contains(id) != true,
+        ),
+      ]),
+    );
 
     final rawVideoEnabled = _layoutStorage.read<List>(
       _videoHomeWidgetEnabledKey,
@@ -186,9 +190,11 @@ class HomeController extends GetxController {
         .whereType<HomeWidgetId>()
         .where((id) => id.videoHomeSupported)
         .toList(growable: false);
-    enabledVideoHomeWidgets.assignAll(
-      parsedVideoEnabled ?? _defaultVideoHomeWidgets,
-    );
+    enabledVideoHomeWidgets.assignAll({
+      ...?parsedVideoEnabled,
+      if (parsedVideoEnabled == null) ..._defaultVideoHomeWidgets,
+      HomeWidgetId.continueWatching,
+    });
 
     final rawLayouts = _layoutStorage.read<Map>(_homeWidgetLayoutsKey);
     homeWidgetLayouts.value = <String, HomeCustomSectionLayout>{
@@ -415,7 +421,7 @@ class HomeController extends GetxController {
     if (currentMode == HomeMode.video) {
       return videoHomeWidgetOrder
           .where((id) => id.videoHomeSupported)
-          .where((id) => enabledVideoHomeWidgets.contains(id))
+          .where((id) => !id.canDisable || enabledVideoHomeWidgets.contains(id))
           .toList(growable: false);
     }
     return homeWidgetOrder
@@ -633,12 +639,11 @@ class HomeController extends GetxController {
     required List<HomeCustomSection> customSections,
   }) {
     if (mode == HomeMode.video) {
-      videoHomeWidgetOrder.assignAll(
-        order.where((id) => id.videoHomeSupported),
-      );
-      enabledVideoHomeWidgets.assignAll(
-        enabled.where((id) => id.videoHomeSupported),
-      );
+      videoHomeWidgetOrder.assignAll(normalizeVideoHomeOrder(order));
+      enabledVideoHomeWidgets.assignAll({
+        ...enabled.where((id) => id.videoHomeSupported),
+        HomeWidgetId.continueWatching,
+      });
       videoCustomHomeSections.assignAll(
         _normalizeVideoCustomHomeSections(customSections),
       );

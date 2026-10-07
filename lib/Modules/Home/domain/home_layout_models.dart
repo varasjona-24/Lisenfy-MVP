@@ -55,6 +55,7 @@ extension HomeWidgetIdX on HomeWidgetId {
 
   bool get audioOnly => this == HomeWidgetId.recommendations;
   bool get videoOnly => this == HomeWidgetId.continueWatching;
+  bool get canDisable => this != HomeWidgetId.continueWatching;
 
   bool get videoHomeSupported =>
       this == HomeWidgetId.favorites ||
@@ -65,7 +66,9 @@ extension HomeWidgetIdX on HomeWidgetId {
       this == HomeWidgetId.recentlyPlayed;
 
   bool get hasFixedLayout =>
-      this == HomeWidgetId.recommendations || this == HomeWidgetId.mostPlayed;
+      this == HomeWidgetId.recommendations ||
+      this == HomeWidgetId.mostPlayed ||
+      this == HomeWidgetId.continueWatching;
 
   static HomeWidgetId? fromKey(String key) {
     for (final value in HomeWidgetId.values) {
@@ -73,6 +76,20 @@ extension HomeWidgetIdX on HomeWidgetId {
     }
     return null;
   }
+}
+
+/// Preserve customized order; insert a missing mandatory session widget after
+/// favorites, including layouts restored from older backups.
+List<HomeWidgetId> normalizeVideoHomeOrder(Iterable<HomeWidgetId> order) {
+  final result = order.where((id) => id.videoHomeSupported).toSet().toList();
+  if (!result.contains(HomeWidgetId.continueWatching)) {
+    final favorites = result.indexOf(HomeWidgetId.favorites);
+    result.insert(
+      favorites < 0 ? 0 : favorites + 1,
+      HomeWidgetId.continueWatching,
+    );
+  }
+  return result;
 }
 
 enum HomeMediaSort { title, artist, importedAt, size, plays, duration, recent }
