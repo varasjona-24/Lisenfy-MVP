@@ -464,6 +464,7 @@
     "empty_title": "Aún no hay suficientes datos",
     "empty_body": "Importa canciones y empieza a escuchar para ver tu Wrapped.",
     "imports": {
+      "top_artist_badge": "Tu artista más importado",
       "hero_title": "Tus Descargas e Imports",
       "imported_songs": "{} canciones importadas",
       "files": "Archivos",
@@ -484,6 +485,10 @@
       "top_artists_subtitle": "Basado en archivos locales"
     },
     "audio": {
+      "top_artist_badge": "Tu artista más escuchado",
+      "favorites_title": "Favoritas más escuchadas",
+      "favorites_subtitle": "Las favoritas que más repites",
+      "favorite_badge": "Tu favorita más escuchada",
       "songs": "Canciones",
       "saved_duration": "{} guardadas",
       "listening_time": "Tiempo escuchado",
@@ -525,6 +530,7 @@
       "skipped": "Saltadas"
     },
     "video": {
+      "top_video_badge": "Tu video más reproducido",
       "fallback": "Video",
       "videos_unit": "{} videos",
       "hero_title": "Video + Collections",

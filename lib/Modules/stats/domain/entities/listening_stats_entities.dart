@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../../app/utils/artist_credit_parser.dart';
 import '../../../artists/data/artist_store.dart';
+import '../../application/wrapped_artist_artwork.dart';
 import '../../../sources/controller/sources_controller.dart';
 import '../../../world_mode/agent/local_affinity_engine.dart';
 import '../../../world_mode/domain/entities/world_region_catalog.dart';
@@ -33,11 +34,13 @@ class ArtistStats {
     required this.name,
     required this.plays,
     required this.tracks,
+    this.artwork,
   });
 
   final String name;
   final int plays;
   final int tracks;
+  final MediaItem? artwork;
 }
 
 class ImportArtistStats {
@@ -45,11 +48,13 @@ class ImportArtistStats {
     required this.name,
     required this.imports,
     required this.tracks,
+    this.artwork,
   });
 
   final String name;
   final int imports;
   final int tracks;
+  final MediaItem? artwork;
 }
 
 class ImportPeak {
@@ -294,6 +299,20 @@ class ListeningStats {
     final skipped = listened.where((item) => item.skipCount > 0).toList()
       ..sort((a, b) => b.skipCount.compareTo(a.skipCount));
     final importStats = ImportStats.fromItems(items);
+    final profiles = artistStore?.readAllSync() ?? [];
+    MediaItem artwork(String name) =>
+        wrappedArtistArtwork(name, profiles: profiles, items: items);
+    List<ImportArtistStats> importedArtists(List<ImportArtistStats> artists) =>
+        artists
+            .map(
+              (a) => ImportArtistStats(
+                name: a.name,
+                imports: a.imports,
+                tracks: a.tracks,
+                artwork: artwork(a.name),
+              ),
+            )
+            .toList(growable: false);
     final videosByPlays =
         watched.where((item) => listenScoreFor(item) > 0).toList()
           ..sort((a, b) {
@@ -517,8 +536,10 @@ class ListeningStats {
               'wrapped.labels.latest_import',
               args: [_relativeDateLabel(importStats.latestImportAt)],
             ),
-      topImportedArtistsLastMonth: importStats.topArtistsLastMonth,
-      topImportedArtists: importStats.topArtistsAllTime,
+      topImportedArtistsLastMonth: importedArtists(
+        importStats.topArtistsLastMonth,
+      ),
+      topImportedArtists: importedArtists(importStats.topArtistsAllTime),
       topImportMonthLabel: importStats.topMonth.count <= 0
           ? tr('wrapped.labels.no_data')
           : importStats.topMonth.label,
@@ -533,7 +554,16 @@ class ListeningStats {
       topTracks: byPlays.take(5).toList(growable: false),
       topFavoriteTracks: favoritesByPlays.take(5).toList(growable: false),
       topRegions: topRegions,
-      topArtists: _buildTopArtists(listened),
+      topArtists: _buildTopArtists(listened)
+          .map(
+            (a) => ArtistStats(
+              name: a.name,
+              plays: a.plays,
+              tracks: a.tracks,
+              artwork: artwork(a.name),
+            ),
+          )
+          .toList(growable: false),
       mostCompleted: completed.take(5).toList(growable: false),
       mostSkipped: skipped.take(5).toList(growable: false),
       monthlyImports: monthlyImports,

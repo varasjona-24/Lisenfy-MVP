@@ -1,5 +1,13 @@
 # Registro de refactor
 
+## 2026-10-07 — Rankings visuales de artistas, imports y favoritas
+
+- Artistas más importados, top artistas de audio, favoritas más escuchadas y top videos comparten primer puesto destacado grande más lista con imágenes desde el segundo puesto. Top Canciones integra su destacada dentro de la sección y excluye ese primer item de la lista para no duplicarlo; numeración restante empieza en 2.
+- Favoritas tiene sección, subtítulo y destacado propios con carátulas; reutiliza el ranking independiente existente topFavoriteTracks sin cambiar filtros, orden ni conteos. Etiquetas nuevas en wrapped.imports/audio/video ES/EN.
+- Snapshots visuales de artistas resueltos al calcular stats: foto de perfil cuando el nombre identifica un perfil único; sin foto, carátula de un item con crédito exacto del artista (incluye invitados). Homónimos explícitos no reciben foto elegida arbitrariamente. Resolución de solo lectura, sin fusiones de identidad ni escrituras SQLite.
+- Eliminado gráfico antiguo de barras de artistas a favor del recap compartido. Lista compacta soporta imágenes y rango inicial; cifras largas se distribuyen en líneas para evitar overflow con letra ampliada.
+- Validación: análisis de cinco archivos sin issues y 19 pruebas aprobadas. Pruebas nuevas cubren foto de perfil, crédito invitado exacto, homónimos, ranking independiente de favoritas y primer puesto único/resto con imágenes/rango 2 a 320 px con texto 150%. Smoke móvil ES/EN incluye varias canciones/artistas y favoritas. Sin push, APK ni instalación; revisión visual física pendiente.
+
 ## 2026-10-07 — Wrapped editorial con portadas
 
 - Recap más visual sin cambiar secciones ni cálculos: portada protagonista de canción destacada (composición vertical en móvil/horizontal amplia), pequeñas portadas ligeramente inclinadas en cabeceras de audio/video y miniaturas reales en rankings de canciones/videos. Collage acotado a tres imágenes, no se crean ni modifican archivos de portada.

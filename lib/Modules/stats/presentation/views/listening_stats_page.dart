@@ -320,7 +320,7 @@ class _ImportsTab extends StatelessWidget {
               'wrapped.imports.imported_songs',
               args: ['${artist.tracks}'],
             ),
-            value: '${artist.imports}',
+            value: tr('wrapped.ui.import_count', args: ['${artist.imports}']),
             maxValue: stats.topImportedArtists.isEmpty
                 ? 1
                 : stats.topImportedArtists.first.imports,
@@ -475,7 +475,24 @@ class _ImportsTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          fade(3, CompactRankedRows(rows: rows)),
+          fade(
+            3,
+            WrappedRankedRecap(
+              rows: rows,
+              artworkItems: stats.topImportedArtists
+                  .map(
+                    (a) =>
+                        a.artwork ??
+                        MediaItem.fromJson({
+                          'id': a.name,
+                          'title': a.name,
+                          'variants': [],
+                        }),
+                  )
+                  .toList(),
+              badge: tr('wrapped.imports.top_artist_badge'),
+            ),
+          ),
           const SizedBox(height: 14),
         ],
       ],
@@ -614,12 +631,7 @@ class _AudioTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          fade(5, _ArtistBarChart(artists: stats.topArtists)),
-          const SizedBox(height: 14),
-        ],
-
-        if (topTrack != null) ...[
-          fade(6, _TopTrackHero(item: topTrack, stats: stats)),
+          fade(5, _ArtistRecap(artists: stats.topArtists)),
           const SizedBox(height: 14),
         ],
 
@@ -636,29 +648,79 @@ class _AudioTab extends StatelessWidget {
           const SizedBox(height: 10),
           fade(
             7,
-            AnimatedRankedList(
-              artworkItems: stats.topTracks,
-              rows: stats.topTracks
-                  .map(
-                    (item) => RankedRowData(
-                      title: item.title,
-                      subtitle: item.displaySubtitle,
-                      value:
-                          '${ListeningStats.listenScoreFor(item)} ${tr('wrapped.audio.plays_unit')}',
-                      maxValue: stats.topTracks.isNotEmpty
-                          ? ListeningStats.listenScoreFor(stats.topTracks.first)
-                          : 1,
-                      currentValue: ListeningStats.listenScoreFor(item),
-                      color: kMusicGradient[0],
-                    ),
-                  )
-                  .toList(),
-              masterCtrl: masterCtrl,
+            Column(
+              children: [
+                if (topTrack != null) ...[
+                  _TopTrackHero(item: topTrack, stats: stats),
+                  const SizedBox(height: 14),
+                ],
+                if (stats.topTracks.length > 1)
+                  AnimatedRankedList(
+                    startRank: 2,
+                    artworkItems: stats.topTracks.skip(1).toList(),
+                    rows: stats.topTracks
+                        .skip(1)
+                        .map(
+                          (item) => RankedRowData(
+                            title: item.title,
+                            subtitle: item.displaySubtitle,
+                            value:
+                                '${ListeningStats.listenScoreFor(item)} ${tr('wrapped.audio.plays_unit')}',
+                            maxValue: stats.topTracks.isNotEmpty
+                                ? ListeningStats.listenScoreFor(
+                                    stats.topTracks.first,
+                                  )
+                                : 1,
+                            currentValue: ListeningStats.listenScoreFor(item),
+                            color: kMusicGradient[0],
+                          ),
+                        )
+                        .toList(),
+                    masterCtrl: masterCtrl,
+                  ),
+              ],
             ),
           ),
           const SizedBox(height: 14),
         ],
 
+        if (stats.topFavoriteTracks.isNotEmpty) ...[
+          fade(
+            8,
+            SectionHeader(
+              emoji: '❤️',
+              title: tr('wrapped.audio.favorites_title'),
+              subtitle: tr('wrapped.audio.favorites_subtitle'),
+              gradient: kMusicGradient,
+            ),
+          ),
+          const SizedBox(height: 10),
+          fade(
+            8,
+            WrappedRankedRecap(
+              badge: tr('wrapped.audio.favorite_badge'),
+              artworkItems: stats.topFavoriteTracks,
+              rows: stats.topFavoriteTracks
+                  .map(
+                    (item) => RankedRowData(
+                      title: item.title,
+                      subtitle: item.displaySubtitle,
+                      value: tr(
+                        'wrapped.ui.play_count',
+                        args: ['${ListeningStats.listenScoreFor(item)}'],
+                      ),
+                      maxValue: ListeningStats.listenScoreFor(
+                        stats.topFavoriteTracks.first,
+                      ),
+                      currentValue: ListeningStats.listenScoreFor(item),
+                      color: kMusicGradient.first,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
         if (stats.topRegions.isNotEmpty) ...[
           fade(
             8,
@@ -896,10 +958,10 @@ class _VideoTab extends StatelessWidget {
           const SizedBox(height: 10),
           fade(
             2,
-            AnimatedRankedList(
+            WrappedRankedRecap(
               rows: videoRows,
               artworkItems: stats.topVideos,
-              masterCtrl: masterCtrl,
+              badge: tr('wrapped.video.top_video_badge'),
             ),
           ),
           const SizedBox(height: 14),
@@ -1007,9 +1069,16 @@ class FieldMetricTile extends StatelessWidget {
 }
 
 class CompactRankedRows extends StatelessWidget {
-  const CompactRankedRows({super.key, required this.rows});
+  const CompactRankedRows({
+    super.key,
+    required this.rows,
+    this.artworkItems = const [],
+    this.startRank = 1,
+  });
 
   final List<RankedRowData> rows;
+  final List<MediaItem> artworkItems;
+  final int startRank;
 
   @override
   Widget build(BuildContext context) {
@@ -1027,6 +1096,10 @@ class CompactRankedRows extends StatelessWidget {
             padding: EdgeInsets.only(bottom: index == rows.length - 1 ? 0 : 10),
             child: Row(
               children: [
+                if (index < artworkItems.length) ...[
+                  WrappedArtwork(item: artworkItems[index]),
+                  const SizedBox(width: 10),
+                ],
                 Container(
                   width: 28,
                   height: 28,
@@ -1036,7 +1109,7 @@ class CompactRankedRows extends StatelessWidget {
                   ),
                   child: Center(
                     child: Text(
-                      '${index + 1}',
+                      '${index + startRank}',
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: scheme.onSurface,
                         fontWeight: FontWeight.w900,
@@ -1049,27 +1122,20 @@ class CompactRankedRows extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              row.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            row.value,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: scheme.onSurface,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        row.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        row.value,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                       Text(
                         row.subtitle,
@@ -1104,6 +1170,49 @@ class CompactRankedRows extends StatelessWidget {
 // ─────────────────────────────────────────────
 // Section Header
 // ─────────────────────────────────────────────
+class WrappedRankedRecap extends StatelessWidget {
+  const WrappedRankedRecap({
+    super.key,
+    required this.rows,
+    required this.artworkItems,
+    required this.badge,
+  });
+  final List<RankedRowData> rows;
+  final List<MediaItem> artworkItems;
+  final String badge;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final first = rows.first;
+    final image = artworkItems.isEmpty
+        ? MediaItem.fromJson({
+            'id': first.title,
+            'title': first.title,
+            'variants': [],
+          })
+        : artworkItems.first;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        WrappedTrackSpotlight(
+          item: image.copyWith(title: first.title, subtitle: first.subtitle),
+          badge: badge,
+          caption: first.value,
+        ),
+        if (rows.length > 1) ...[
+          const SizedBox(height: 14),
+          CompactRankedRows(
+            rows: rows.skip(1).toList(),
+            artworkItems: artworkItems.skip(1).toList(),
+            startRank: 2,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
     super.key,
@@ -1138,6 +1247,7 @@ class SectionHeader extends StatelessWidget {
                 '📊' => Icons.bar_chart_rounded,
                 '🎤' => Icons.mic_rounded,
                 '🏆' => Icons.emoji_events_rounded,
+                '❤️' => Icons.favorite_rounded,
                 '🌍' => Icons.public_rounded,
                 '⏭' => Icons.skip_next_rounded,
                 '📺' => Icons.video_library_rounded,
@@ -1543,146 +1653,42 @@ class _ProgressMetric extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-// Artist Bar Chart horizontal
+// Artist recap: featured first place and illustrated remaining rows
 // ─────────────────────────────────────────────
-class _ArtistBarChart extends StatefulWidget {
-  const _ArtistBarChart({required this.artists});
+class _ArtistRecap extends StatelessWidget {
+  const _ArtistRecap({required this.artists});
   final List<ArtistStats> artists;
 
   @override
-  State<_ArtistBarChart> createState() => _ArtistBarChartState();
-}
-
-class _ArtistBarChartState extends State<_ArtistBarChart>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _ctrl.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final artists = widget.artists;
-    final maxPlays = artists.isEmpty
-        ? 1
-        : artists.map((a) => a.plays).reduce(max);
-
-    return StatsCard(
-      child: AnimatedBuilder(
-        animation: _anim,
-        builder: (context, child) {
-          return Column(
-            children: List.generate(artists.length, (i) {
-              final artist = artists[i];
-              final ratio = maxPlays == 0 ? 0.0 : artist.plays / maxPlays;
-              final animRatio = ratio * _anim.value;
-              final color = kArtistColors[i % kArtistColors.length];
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${i + 1}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: scheme.onSurface,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            artist.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '${artist.plays} plays',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    Row(
-                      children: [
-                        const SizedBox(width: 30),
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Stack(
-                              children: [
-                                Container(
-                                  height: 10,
-                                  color: scheme.surfaceContainerHighest,
-                                ),
-                                FractionallySizedBox(
-                                  widthFactor: animRatio.clamp(0.0, 1.0),
-                                  child: Container(
-                                    height: 10,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          color,
-                                          color.withValues(alpha: 0.6),
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            }),
-          );
-        },
-      ),
+    return WrappedRankedRecap(
+      badge: tr('wrapped.audio.top_artist_badge'),
+      artworkItems: artists
+          .map(
+            (a) =>
+                a.artwork ??
+                MediaItem.fromJson({
+                  'id': a.name,
+                  'title': a.name,
+                  'variants': [],
+                }),
+          )
+          .toList(),
+      rows: artists
+          .map(
+            (a) => RankedRowData(
+              title: a.name,
+              subtitle: tr(
+                'wrapped.imports.imported_songs',
+                args: ['${a.tracks}'],
+              ),
+              value: tr('wrapped.ui.play_count', args: ['${a.plays}']),
+              maxValue: artists.isEmpty ? 1 : artists.first.plays,
+              currentValue: a.plays,
+              color: kMusicGradient.first,
+            ),
+          )
+          .toList(),
     );
   }
 }
@@ -1715,10 +1721,12 @@ class AnimatedRankedList extends StatefulWidget {
     required this.rows,
     required this.masterCtrl,
     this.artworkItems = const [],
+    this.startRank = 1,
   });
 
   final List<RankedRowData> rows;
   final List<MediaItem> artworkItems;
+  final int startRank;
   final AnimationController masterCtrl;
 
   @override
@@ -1783,7 +1791,7 @@ class AnimatedRankedListState extends State<AnimatedRankedList>
                       SizedBox(
                         width: 24,
                         child: Text(
-                          '${i + 1}',
+                          '${i + widget.startRank}',
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w900,
                             color: scheme.onSurface,

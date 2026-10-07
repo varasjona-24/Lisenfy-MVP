@@ -46,6 +46,7 @@ void main() {
           'title': 'A song',
           'subtitle': 'An artist',
           'playCount': 12,
+          'isFavorite': true,
           'fullListenCount': 9,
           'avgListenProgress': .8,
           'variants': [
@@ -56,6 +57,21 @@ void main() {
               'localPath': '/song.mp3',
               'durationSeconds': 180,
               'createdAt': DateTime.now().millisecondsSinceEpoch,
+            },
+          ],
+        }),
+        MediaItem.fromJson({
+          'id': 'another-song',
+          'title': 'Another song',
+          'subtitle': 'Another artist',
+          'playCount': 3,
+          'isFavorite': true,
+          'variants': [
+            {
+              'kind': 'audio',
+              'format': 'mp3',
+              'fileName': 'another.mp3',
+              'localPath': '/another.mp3',
             },
           ],
         }),
