@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-07 — Tarjetas de biblioteca en listas expandidas de Home
+
+- Corregida la vista SectionListPage mostrada en las capturas: las listas normales expandidas usan AppMediaListTile(carded=true), el mismo componente de biblioteca, no solo las previsualizaciones de Home. Video incorpora fondo de tema, radio 18, padding horizontal 12/vertical 10 y separación entre filas de 18 px; audio mantiene separación 8 px.
+- Listas con hints, trailing o feedback mantienen AppMediaActionListTile con nuevo carded opt-in para conservar sus controles sin filas transparentes. Callers externos sin opt-in conservan su diseño anterior.
+- Preservados openItem, refresh, pulsación larga/entrada a selección, badges de thumbnail y metadatos. No se modifican orden ni persistencia ni datos de video/audio.
+- Validación: análisis de ambos archivos sin issues; pruebas de tarjetas (2) y scroll audio/video (2) aprobadas. Prueba nueva verifica fondo/padding y callbacks de fila video con acciones. Capturas aportadas identifican la diferencia anterior; comprobación visual en dispositivo del cambio pendiente. Sin APK/instalación.
+
 ## 2026-10-07 — Accesos legacy de artistas y sección Continuar viendo
 
 - Selector de artistas usa resolveHomeArtistTargets igual que el render de Home: nombres legacy se resuelven solo cuando son inequívocos y IDs exactos tienen prioridad. Así Agregar excluye accesos existentes y Eliminar los incluye; eliminación compara identidades resueltas para quitar también referencias antiguas por nombre, sin borrar artistas.

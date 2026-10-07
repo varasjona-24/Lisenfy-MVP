@@ -4,6 +4,52 @@ import 'package:listenfy/app/models/media_item.dart';
 import 'package:listenfy/app/ui/widgets/media/app_media_items_view.dart';
 
 void main() {
+  testWidgets('expanded video action row keeps card background and callbacks', (
+    tester,
+  ) async {
+    final item = MediaItem.fromJson({
+      'id': 'v',
+      'title': 'Episode',
+      'source': 'local',
+      'origin': 'device',
+      'variants': [],
+    });
+    var taps = 0;
+    var holds = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AppMediaActionListTile(
+            item: item,
+            videoStyle: true,
+            carded: true,
+            onTap: () => taps++,
+            onLongPress: () => holds++,
+          ),
+        ),
+      ),
+    );
+    final scheme = Theme.of(
+      tester.element(find.byType(AppMediaActionListTile)),
+    ).colorScheme;
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration as BoxDecoration).color ==
+                scheme.surfaceContainer.withValues(alpha: 0.78) &&
+            widget.padding ==
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Episode'));
+    await tester.longPress(find.text('Episode'));
+    expect(taps, 1);
+    expect(holds, 1);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('Home list uses separate library cards and preserves actions', (
     tester,
   ) async {

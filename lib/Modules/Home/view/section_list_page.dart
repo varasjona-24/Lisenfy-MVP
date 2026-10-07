@@ -669,7 +669,8 @@ class _SectionListPageState extends State<SectionListPage> {
         AppSpacing.lg,
       ),
       itemCount: _items.length + 1,
-      separatorBuilder: (context, index) => const SizedBox(height: 8),
+      separatorBuilder: (context, index) =>
+          SizedBox(height: widget.rectangularGrid ? 18 : 8),
       itemBuilder: (context, index) {
         if (index == 0) {
           return _buildSectionHeader(theme);
@@ -677,8 +678,31 @@ class _SectionListPageState extends State<SectionListPage> {
 
         final item = _items[index - 1];
         final itemIndex = index - 1;
+        if (!_selectionMode &&
+            !_hasFeedbackActions &&
+            widget.itemHintBuilder == null &&
+            widget.itemTrailingBuilder == null) {
+          return AppMediaListTile(
+            item: item,
+            videoStyle: widget.rectangularGrid,
+            carded: true,
+            onTap: () async {
+              await _openItem(item, itemIndex);
+              if (mounted) setState(() {});
+            },
+            onLongPress: () async {
+              await widget.onItemLongPress(
+                item,
+                itemIndex,
+                onStartMultiSelect: () => _startMultiSelectFromItem(item),
+              );
+              await _refreshItemsFromStore();
+            },
+          );
+        }
         return AppMediaActionListTile(
           item: item,
+          carded: true,
           videoStyle: widget.rectangularGrid,
           hintText: widget.itemHintBuilder?.call(item, itemIndex),
           trailing: widget.itemTrailingBuilder?.call(item, itemIndex),

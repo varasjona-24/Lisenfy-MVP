@@ -210,6 +210,7 @@ class AppMediaActionListTile extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     this.videoStyle = false,
+    this.carded = false,
     this.hintText,
     this.trailing,
     this.showFeedbackActions = false,
@@ -227,6 +228,7 @@ class AppMediaActionListTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final bool videoStyle;
+  final bool carded;
   final String? hintText;
   final Widget? trailing;
   final bool showFeedbackActions;
@@ -245,18 +247,34 @@ class AppMediaActionListTile extends StatelessWidget {
     final scheme = theme.colorScheme;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(videoStyle ? 12 : 16),
+      borderRadius: BorderRadius.circular(
+        carded
+            ? 18
+            : videoStyle
+            ? 12
+            : 16,
+      ),
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        padding: EdgeInsets.all(videoStyle ? 0 : 10),
+        padding: carded
+            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 10)
+            : EdgeInsets.all(videoStyle ? 0 : 10),
         decoration: BoxDecoration(
           color: selected
               ? scheme.primary.withValues(alpha: 0.12)
+              : carded
+              ? scheme.surfaceContainer.withValues(alpha: 0.78)
               : (videoStyle
                     ? Colors.transparent
                     : scheme.surfaceContainerHigh.withValues(alpha: 0.78)),
-          borderRadius: BorderRadius.circular(videoStyle ? 12 : 16),
+          borderRadius: BorderRadius.circular(
+            carded
+                ? 18
+                : videoStyle
+                ? 12
+                : 16,
+          ),
           border: selected
               ? Border.all(
                   color: scheme.primary.withValues(alpha: 0.55),
