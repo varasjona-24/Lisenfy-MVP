@@ -1,4 +1,11 @@
 {
+  "video_progress": {
+    "collection_complete": "Completada",
+    "pending": "Pendiente",
+    "in_progress": "En progreso",
+    "resume": "Seguir viendo",
+    "seen": "Visto"
+  },
   "storage_startup": {
     "title": "Preparando tus datos",
     "capturing": "Guardando una copia segura de los datos anteriores…",
@@ -704,8 +711,8 @@
       "title": "Video",
       "hide_status": "Ocultar etiquetas de estado",
       "hide_status_subtitle": "Oculta Pendiente, Seguir viendo, Visto y Completado sin cambiar el progreso guardado.",
-      "hide_short_status": "Ocultar etiquetas en videos de 13 min o menos",
-      "hide_short_status_subtitle": "Útil para ocultar el estado visual en clips cortos o episodios breves. Viene apagado por defecto."
+      "hide_short_status": "Ocultar etiquetas entre 2:30 y 13 minutos",
+      "hide_short_status_subtitle": "Los videos menores de 2:30 nunca muestran etiquetas de progreso. Esta opción oculta también las de hasta 13 minutos. Viene apagada por defecto."
     },
     "data": {
       "title": "Datos y descargas",
@@ -1002,7 +1009,7 @@
       "files_title": "Archivos personales",
       "files_subtitle": "Imports desde tu dispositivo"
     },
-    "completed_count": "{}/{} completados"
+    "completed_count": "{} de {} vistos"
   },
   "nearby": {
     "transfer": "Transferencia",

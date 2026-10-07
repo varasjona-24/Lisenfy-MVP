@@ -3,36 +3,57 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import '../data/local/local_library_store.dart';
 import '../models/media_item.dart';
+import '../data/playback/playback_state_storage.dart';
+import 'package:easy_localization/easy_localization.dart'
+    hide StringTranslateExtension;
 import '../../Modules/settings/controller/playback_settings_controller.dart';
 
-enum VideoProgressStatus { pendiente, viendo, completado, abandonado }
+enum VideoProgressStatus { pendiente, enProgreso, viendo, completado }
+
+VideoProgressStatus resolveVideoProgress({
+  required bool seen,
+  required bool started,
+  required bool resumable,
+}) {
+  if (seen) return VideoProgressStatus.completado;
+  if (resumable) return VideoProgressStatus.viendo;
+  return started
+      ? VideoProgressStatus.enProgreso
+      : VideoProgressStatus.pendiente;
+}
 
 extension MediaItemStatusX on MediaItem {
   static const int shortVideoMaxSeconds = 150;
   static const int seenLabelMaxSeconds = 13 * 60;
 
   bool get isShortVideoForResume {
-    final seconds = effectiveDurationSeconds;
+    final seconds = localVideoVariant?.durationSeconds ?? durationSeconds;
     return seconds != null && seconds > 0 && seconds < shortVideoMaxSeconds;
   }
 
   bool get usesSeenLabel {
-    final seconds = effectiveDurationSeconds;
-    return seconds != null && seconds > 0 && seconds <= seenLabelMaxSeconds;
+    final seconds = localVideoVariant?.durationSeconds ?? durationSeconds;
+    return seconds != null &&
+        seconds >= shortVideoMaxSeconds &&
+        seconds <= seenLabelMaxSeconds;
   }
 
   VideoProgressStatus get videoStatus {
-    final pct = avgListenProgress * 100;
-    if (pct >= 90) {
-      return VideoProgressStatus.completado;
-    }
-    if (pct <= 5) {
+    if (!Get.isRegistered<PlaybackStateStorage>()) {
       return VideoProgressStatus.pendiente;
     }
-    if (isShortVideoForResume) {
-      return VideoProgressStatus.pendiente;
-    }
-    return VideoProgressStatus.viendo;
+    final storage = Get.find<PlaybackStateStorage>();
+    final metrics = storage.videoMetrics[id];
+    final positions = storage.read<Map>('video_resume_positions') ?? {};
+    final key = publicId.trim().isNotEmpty ? publicId : id;
+    final position = positions[key];
+    return resolveVideoProgress(
+      seen: (metrics?['fullListenCount'] as num? ?? 0) > 0,
+      started:
+          (metrics?['playCount'] as num? ?? 0) > 0 ||
+          (metrics?['avgListenProgress'] as num? ?? 0) > 0,
+      resumable: !isShortVideoForResume && position is num && position > 0,
+    );
   }
 }
 
@@ -44,7 +65,7 @@ class VideoStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isVideo = item.hasVideoLocal || item.localVideoVariant != null;
-    if (!isVideo) return const SizedBox.shrink();
+    if (!isVideo || item.isShortVideoForResume) return const SizedBox.shrink();
 
     if (Get.isRegistered<PlaybackSettingsController>()) {
       final playback = Get.find<PlaybackSettingsController>();
@@ -68,7 +89,9 @@ class VideoStatusBadge extends StatelessWidget {
                 true &&
             item.usesSeenLabel);
 
-    return _buildBadge(context, hidden: hidden);
+    return Get.isRegistered<PlaybackStateStorage>()
+        ? Obx(() => _buildBadge(context, hidden: hidden))
+        : _buildBadge(context, hidden: hidden);
   }
 
   Widget _buildBadge(BuildContext context, {required bool hidden}) {
@@ -87,26 +110,26 @@ class VideoStatusBadge extends StatelessWidget {
       case VideoProgressStatus.completado:
         bg = scheme.primary;
         fg = scheme.onPrimary;
-        label = item.usesSeenLabel ? 'Visto' : 'Completado';
+        label = tr('video_progress.seen');
         icon = Icons.check_circle_rounded;
         break;
       case VideoProgressStatus.viendo:
         bg = Colors.black.withValues(alpha: 0.75);
         fg = scheme.primary;
-        label = 'Seguir viendo';
+        label = tr('video_progress.resume');
         icon = Icons.play_circle_fill_rounded;
         break;
       case VideoProgressStatus.pendiente:
         bg = Colors.black.withValues(alpha: 0.65);
         fg = Colors.white70;
-        label = 'Pendiente';
+        label = tr('video_progress.pending');
         icon = Icons.hourglass_empty_rounded;
         break;
-      case VideoProgressStatus.abandonado:
+      case VideoProgressStatus.enProgreso:
         bg = Colors.black.withValues(alpha: 0.65);
-        fg = Colors.redAccent;
-        label = 'Abandonado';
-        icon = Icons.block_rounded;
+        fg = Colors.white70;
+        label = tr('video_progress.in_progress');
+        icon = Icons.timelapse_rounded;
         break;
     }
 
@@ -197,20 +220,22 @@ class CollectionProgressHelper {
 
     final map = <String, MediaItem>{};
     for (final item in allItems) {
-      final key = item.publicId.trim().isNotEmpty
-          ? item.publicId.trim()
-          : item.id.trim();
-      map[key] = item;
+      map[item.id.trim()] = item;
+      if (item.publicId.trim().isNotEmpty) map[item.publicId.trim()] = item;
     }
 
     int completed = 0;
-    int total = itemIds.length;
+    int total = itemIds.toSet().length;
 
-    for (final id in itemIds) {
+    final counted = <String>{};
+    for (final id in itemIds.toSet()) {
       final item = map[id.trim()];
       if (item != null) {
-        final pct = item.avgListenProgress * 100;
-        if (pct >= 90) {
+        if (!counted.add(item.id)) {
+          total--;
+          continue;
+        }
+        if (item.videoStatus == VideoProgressStatus.completado) {
           completed++;
         }
       }

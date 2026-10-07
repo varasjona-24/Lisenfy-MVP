@@ -18,10 +18,28 @@ class PlaybackStateStorage implements GetStorage {
   final PlaybackRepository repository;
   final GetStorage preferences;
   Map<String, dynamic> _values;
+  final videoMetrics = <String, Map<String, dynamic>>{}.obs;
+  StreamSubscription<int>? _videoSubscription;
+  Future<void> _videoRefresh = Future.value();
+  Object? videoMetricsFailure;
+
+  void _refreshVideoMetrics() {
+    _videoRefresh = _videoRefresh
+        .then((_) async {
+          videoMetrics.assignAll(await repository.queryVideoStatuses());
+          videoMetricsFailure = null;
+        })
+        .catchError((Object error) {
+          videoMetricsFailure = error;
+        });
+  }
+
   Future<void> reload() async {
     await flush();
     final refreshed = await load(repository, preferences);
     _values = refreshed._values;
+    videoMetrics.assignAll(refreshed.videoMetrics);
+    await refreshed._videoSubscription?.cancel();
   }
 
   Future<void> _tail = Future.value();
@@ -69,7 +87,12 @@ class PlaybackStateStorage implements GetStorage {
         };
       }
     }
-    return PlaybackStateStorage._(repository, preferences, values);
+    final storage = PlaybackStateStorage._(repository, preferences, values);
+    storage.videoMetrics.assignAll(await repository.queryVideoStatuses());
+    storage._videoSubscription = repository.revisions.listen(
+      (_) => storage._refreshVideoMetrics(),
+    );
+    return storage;
   }
 
   bool _owns(String key) => LegacyRestorationSnapshot.keys.contains(key);

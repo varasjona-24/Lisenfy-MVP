@@ -69,7 +69,12 @@ class VideoResumePolicy {
     );
     final total = duration > Duration.zero
         ? duration
-        : Duration(seconds: item.effectiveDurationSeconds ?? 0);
+        : Duration(
+            seconds:
+                item.localVideoVariant?.durationSeconds ??
+                item.durationSeconds ??
+                0,
+          );
     if (total < const Duration(seconds: 150) ||
         position.inMilliseconds <= total.inMilliseconds * 0.05 ||
         position >= total - const Duration(seconds: 5) ||

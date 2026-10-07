@@ -32,18 +32,18 @@ void main() {
     await repo.close();
     await dir.delete(recursive: true);
   });
-  Future<void> open({int? duration = 100000, double speed = 1}) async {
+  Future<void> open({
+    int? duration = 100000,
+    double speed = 1,
+    PlaybackMode mode = PlaybackMode.audio,
+  }) async {
     await repo.openSession(
       OpenPlaybackSession(
         commandId: 'open',
         sessionId: 's',
         eventId: 'play',
         mediaId: 'm',
-        variant: const PlaybackVariant(
-          id: 'v',
-          mode: PlaybackMode.audio,
-          role: 'normal',
-        ),
+        variant: PlaybackVariant(id: 'v', mode: mode, role: 'normal'),
         snapshot: const PlaybackSnapshot(id: 'snapshot'),
         startedAtUtcMs: 0,
         clockEpoch: 'clock',
@@ -83,6 +83,68 @@ void main() {
   Future<Map<String, dynamic>> session() async =>
       (await db.customSelect('SELECT * FROM playback_session').getSingle())
           .data;
+  test('video UI requires coverage and ignores audio completions', () async {
+    await db.customStatement(
+      "UPDATE media_identity SET library_id='item' WHERE media_id='m'",
+    );
+    await open(mode: PlaybackMode.video);
+    await repo.recordBoundary(
+      boundary(
+        'end',
+        PlaybackBoundary.stop,
+        92000,
+        92000,
+        start: 1,
+        reason: PlaybackTermination.manualNext,
+      ),
+    );
+    expect((await repo.queryVideoStatuses())['item']?['fullListenCount'], 1);
+  });
+  test('seek to the end does not mark a video watched', () async {
+    await db.customStatement(
+      "UPDATE media_identity SET library_id='item' WHERE media_id='m'",
+    );
+    await open(mode: PlaybackMode.video);
+    await repo.recordBoundary(
+      boundary(
+        'seek',
+        PlaybackBoundary.seek,
+        1000,
+        1000,
+        start: 1,
+        target: 91000,
+        playing: true,
+      ),
+    );
+    await repo.recordBoundary(
+      boundary(
+        'end',
+        PlaybackBoundary.stop,
+        2000,
+        92000,
+        start: 2,
+        reason: PlaybackTermination.manualNext,
+      ),
+    );
+    expect((await repo.queryVideoStatuses())['item']?['fullListenCount'], 0);
+  });
+  test('audio completion does not mark a video watched', () async {
+    await db.customStatement(
+      "UPDATE media_identity SET library_id='item' WHERE media_id='m'",
+    );
+    await open();
+    await repo.recordBoundary(
+      boundary(
+        'end',
+        PlaybackBoundary.stop,
+        92000,
+        92000,
+        start: 1,
+        reason: PlaybackTermination.manualNext,
+      ),
+    );
+    expect((await repo.queryVideoStatuses())['item'], isNull);
+  });
   test(
     'short natural completion qualifies after three active seconds',
     () async {

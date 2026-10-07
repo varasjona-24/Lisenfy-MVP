@@ -60,6 +60,31 @@ extension PlaybackDebugTransfer on PlaybackRepository {
         },
     };
   });
+
+  /// Require actual coverage: seeking to the end is not viewing.
+  Future<Map<String, Map<String, dynamic>>> queryVideoStatuses() async {
+    final metrics = await queryLibraryMetrics(mode: 'video');
+    final rows = await _database.customSelect('''
+      SELECT m.library_id, SUM(t.seen) seen FROM (
+        SELECT media_id, COALESCE(completed_count,0) seen FROM legacy_metrics WHERE mode='video'
+        UNION ALL
+        SELECT media_id, 1 seen FROM playback_session
+          WHERE mode='video' AND completed=1
+            AND aggregate_scope IN ('independent','post_cutover')
+            AND duration_ms>0 AND coverage_ms*100 >= duration_ms*92
+      ) t JOIN media_identity m USING(media_id)
+      WHERE m.library_id IS NOT NULL GROUP BY m.library_id
+    ''').get();
+    final seen = {
+      for (final row in rows)
+        row.read<String>('library_id'): row.read<int>('seen'),
+    };
+    return {
+      for (final entry in metrics.entries)
+        entry.key: {...entry.value, 'fullListenCount': seen[entry.key] ?? 0},
+    };
+  }
+
   Future<void> importLegacyHistory({
     required List<Map<String, dynamic>> library,
     required List<Map<String, dynamic>> events,

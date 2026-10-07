@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-07 — Estados de video específicos de SQLite
+
+- Etiquetas sin promedio combinado audio/video: proyección de modo video y posiciones del adaptador SQLite, actualizada con revisiones del repositorio. Visto persiste tras reproducciones parciales; En progreso se distingue de Seguir viendo. Sesiones nuevas requieren finalización y cobertura real de al menos 92%; legacy conserva completados explícitos de modo video sin inventar evidencia desconocida.
+- Videos menores de 2:30 no muestran etiquetas; ajuste existente controla desde 2:30 hasta 13:00 inclusive y ocultar todas mantiene prioridad. Duración de video priorizada en las reglas y fallback de reanudación. Preferencias permanecen en GetStorage; no cambia el journal ni sus contadores.
+- Collections cuentan videos vistos usando la misma proyección, incluidos cortos, resuelven ID/publicId y evitan duplicados. Textos de estados y Completada traducidos en ES/EN.
+- Validación: estados/límites, boundaries e integración debug aprobados (31), además de restauración (6); análisis de archivos revisados sin issues. Pruebas SQLite verifican cobertura de 92%, seek al final sin Visto y aislamiento de audio. Sin APK ni instalación; comprobación visual física pendiente.
+
 ## 2026-10-07 — Tarjetas de biblioteca en listas expandidas de Home
 
 - Corregida la vista SectionListPage mostrada en las capturas: las listas normales expandidas usan AppMediaListTile(carded=true), el mismo componente de biblioteca, no solo las previsualizaciones de Home. Video incorpora fondo de tema, radio 18, padding horizontal 12/vertical 10 y separación entre filas de 18 px; audio mantiene separación 8 px.

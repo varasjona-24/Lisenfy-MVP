@@ -1,4 +1,11 @@
 {
+  "video_progress": {
+    "collection_complete": "Completed",
+    "pending": "Not watched",
+    "in_progress": "In progress",
+    "resume": "Continue watching",
+    "seen": "Watched"
+  },
   "storage_startup": {
     "title": "Preparing your data",
     "capturing": "Saving a safe copy of your previous data…",
@@ -704,8 +711,8 @@
       "title": "Video",
       "hide_status": "Hide status labels",
       "hide_status_subtitle": "Hide Pending, Continue watching, Watched, and Completed without changing saved progress.",
-      "hide_short_status": "Hide labels on videos 13 min or shorter",
-      "hide_short_status_subtitle": "Useful for hiding visual status on short clips or brief episodes. Off by default."
+      "hide_short_status": "Hide labels between 2:30 and 13 minutes",
+      "hide_short_status_subtitle": "Videos under 2:30 never show progress labels. This option also hides labels up to 13 minutes. Off by default."
     },
     "data": {
       "title": "Data and downloads",
@@ -1002,7 +1009,7 @@
     },
     "items_count": "{} items",
     "sub_collection": "Sub-collection",
-    "completed_count": "{}/{} completed"
+    "completed_count": "{} of {} watched"
   },
   "nearby": {
     "transfer": "Transfer",
