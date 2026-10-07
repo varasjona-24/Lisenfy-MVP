@@ -22,4 +22,29 @@ void main() {
     expect(resolveHomeArtistTargets('Lisa', choices), isEmpty);
     expect(resolveHomeArtistTargets('artist-japan', choices), {'artist-japan'});
   });
+  test(
+    'legacy shortcut removal uses the same stable identity as rendering',
+    () {
+      final choices = [
+        artist('artist-huey', 'Huey Dunbar'),
+        artist('artist-honey', 'Arc'),
+      ];
+      expect(resolveHomeArtistTargets('Huey Dunbar|artist-honey', choices), {
+        'artist-huey',
+        'artist-honey',
+      });
+      expect(
+        removeHomeArtistTargets('Huey Dunbar|artist-honey', [
+          'artist-huey',
+        ], choices),
+        'artist-honey',
+      );
+      expect(
+        removeHomeArtistTargets('Huey Dunbar|artist-honey', [
+          'artist-honey',
+        ], choices),
+        'Huey Dunbar',
+      );
+    },
+  );
 }

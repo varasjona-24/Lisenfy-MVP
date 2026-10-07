@@ -19,9 +19,12 @@ void main() {
 
   testWidgets('no session service renders no resume action', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: ContinueVideoCard())),
+      const MaterialApp(
+        home: Scaffold(body: ContinueVideoCard(header: Text('Section title'))),
+      ),
     );
     expect(find.byType(InkWell), findsNothing);
+    expect(find.text('Section title'), findsNothing);
   });
 
   testWidgets('card follows the current video without mutating playback', (
@@ -31,7 +34,9 @@ void main() {
       () async => Get.put<VideoService>(_Video()),
     ))!;
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: ContinueVideoCard())),
+      const MaterialApp(
+        home: Scaffold(body: ContinueVideoCard(header: Text('Section title'))),
+      ),
     );
     expect(find.byType(InkWell), findsNothing);
     video.currentItem.value = MediaItem.fromJson({
@@ -43,10 +48,12 @@ void main() {
     });
     await tester.pump();
     expect(find.text('Saved video'), findsOneWidget);
+    expect(find.text('Section title'), findsOneWidget);
     expect(find.byType(InkWell), findsOneWidget);
     expect(video.isPlaying.value, isFalse);
     video.currentItem.value = null;
     await tester.pump();
     expect(find.byType(InkWell), findsNothing);
+    expect(find.text('Section title'), findsNothing);
   });
 }

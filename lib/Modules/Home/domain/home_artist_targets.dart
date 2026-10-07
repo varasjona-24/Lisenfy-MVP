@@ -9,7 +9,9 @@ Set<String> resolveHomeArtistTargets(
   final resolved = <String>{};
   for (final raw in targets.split('|')) {
     final target = ArtistCreditParser.normalizeKey(raw);
-    final exact = choices.where((choice) => choice.key == target).toList();
+    final exact = choices
+        .where((choice) => choice.key == raw.trim() || choice.key == target)
+        .toList();
     if (exact.isNotEmpty) {
       resolved.addAll(exact.map((choice) => choice.key));
       continue;
@@ -22,4 +24,18 @@ Set<String> resolveHomeArtistTargets(
     if (named.length == 1) resolved.add(named.single.key);
   }
   return resolved;
+}
+
+String removeHomeArtistTargets(
+  String targets,
+  Iterable<String> removedIds,
+  List<HomeArtistChoice> choices,
+) {
+  final removed = removedIds.toSet();
+  return targets
+      .split('|')
+      .where(
+        (raw) => !resolveHomeArtistTargets(raw, choices).any(removed.contains),
+      )
+      .join('|');
 }

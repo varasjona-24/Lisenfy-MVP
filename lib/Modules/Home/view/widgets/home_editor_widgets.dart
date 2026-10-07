@@ -173,7 +173,15 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
     if (index < 0) return;
     setState(() {
       final section = _customSections[index];
-      final updated = section.withoutTargets(ids);
+      final updated = section.kind == HomeCustomSectionKind.artist
+          ? section.copyWith(
+              targetId: removeHomeArtistTargets(
+                section.targetId,
+                ids,
+                controller.artistChoices(),
+              ),
+            )
+          : section.withoutTargets(ids);
       if (updated.targetId.isEmpty) {
         _customSections.removeAt(index);
       } else {
@@ -207,11 +215,10 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
       }
     }
     if (section == null) return <String>{};
-    return section.targetId
-        .split('|')
-        .map(ArtistCreditParser.normalizeKey)
-        .where((entry) => entry.isNotEmpty && entry != 'unknown')
-        .toSet();
+    return resolveHomeArtistTargets(
+      section.targetId,
+      controller.artistChoices(),
+    );
   }
 
   Set<String> _selectedCollectionIds() {

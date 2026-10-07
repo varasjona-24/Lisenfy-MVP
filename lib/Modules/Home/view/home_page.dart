@@ -21,6 +21,7 @@ import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/utils/artist_credit_parser.dart';
+import '../domain/home_artist_targets.dart';
 import '../../../app/utils/country_catalog.dart';
 
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
@@ -1179,9 +1180,9 @@ class _HomeOrderedSections extends StatelessWidget {
       case HomeWidgetId.recentlyPlayed:
         return _mediaSection(context, id: id, title: _homeWidgetTitle(id));
       case HomeWidgetId.continueWatching:
-        return const Padding(
-          padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: ContinueVideoCard(),
+        return ContinueVideoCard(
+          header: _SectionHeader(title: _homeWidgetTitle(id)),
+          horizontalPadding: AppSpacing.md,
         );
       case HomeWidgetId.featured:
         return _mediaSection(context, id: id, title: _homeWidgetTitle(id));

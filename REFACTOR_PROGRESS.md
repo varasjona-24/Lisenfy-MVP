@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-07 — Accesos legacy de artistas y sección Continuar viendo
+
+- Selector de artistas usa resolveHomeArtistTargets igual que el render de Home: nombres legacy se resuelven solo cuando son inequívocos y IDs exactos tienen prioridad. Así Agregar excluye accesos existentes y Eliminar los incluye; eliminación compara identidades resueltas para quitar también referencias antiguas por nombre, sin borrar artistas.
+- Continuar viendo incorpora el mismo encabezado _SectionHeader de Home con su clave traducida existente, separación de 10 px y padding común. Simplificada tarjeta: thumbnail 16:9, título/crédito, reproducción, fondo de tema y radio 18; retirados borde contrastante, texto duplicado de reanudación y margen inferior propio.
+- Encabezado y tarjeta se ocultan juntos sin sesión de video. Retomar sigue abriendo el reproductor sin reemplazar cola ni posiciones; orden obligatorio/reordenable de Home permanece.
+- Validación: 10 pruebas aprobadas (legacy/ID/homónimos/eliminación, visibilidad de título/tarjeta y preferencias). Análisis focalizado sin errores/warnings, conserva 13 infos de Home. Sin build/instalación ni QA visual física en este paso.
+
 ## 2026-10-07 — Editor uniforme para playlists, artistas y Collections
 
 - Integrados widgets personalizados en la misma ReorderableListView y fila compartida de widgets estándar: círculo rojo −/verde + a la izquierda, atenuación al ocultarse, cambio de vista donde corresponde y drag handle. Eliminados footer separado y flechas; arrastre permite intercalar personalizados con estándar y conservar orden entre personalizados.
