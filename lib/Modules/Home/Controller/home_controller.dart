@@ -294,6 +294,8 @@ class HomeController extends GetxController {
               targetId: '',
               title: tr('home.custom.artists'),
               layout: artistLayout,
+              enabled: section.enabled,
+              beforeWidget: section.beforeWidget,
             ),
           );
           insertedArtistSection = true;
@@ -321,6 +323,8 @@ class HomeController extends GetxController {
               targetId: '',
               title: tr('home.custom.playlists'),
               layout: playlistLayout,
+              enabled: section.enabled,
+              beforeWidget: section.beforeWidget,
             ),
           );
           insertedPlaylistSection = true;
@@ -343,6 +347,8 @@ class HomeController extends GetxController {
               targetId: artistKeys.join('|'),
               title: tr('home.custom.artists'),
               layout: section.layout,
+              enabled: section.enabled,
+              beforeWidget: section.beforeWidget,
             );
           }
           if (section.id == playlistSectionId) {
@@ -353,6 +359,8 @@ class HomeController extends GetxController {
               targetId: playlistIds.join('|'),
               title: tr('home.custom.playlists'),
               layout: section.layout,
+              enabled: section.enabled,
+              beforeWidget: section.beforeWidget,
             );
           }
           return section;
@@ -394,6 +402,12 @@ class HomeController extends GetxController {
         targetId: collectionIds.join('|'),
         title: tr('home.custom.collections'),
         layout: collectionLayout,
+        enabled: sections
+            .firstWhere((s) => s.kind == HomeCustomSectionKind.collection)
+            .enabled,
+        beforeWidget: sections
+            .firstWhere((s) => s.kind == HomeCustomSectionKind.collection)
+            .beforeWidget,
       ),
     ];
   }
@@ -410,7 +424,9 @@ class HomeController extends GetxController {
           left.kind != right.kind ||
           left.targetId != right.targetId ||
           left.title != right.title ||
-          left.layout != right.layout) {
+          left.layout != right.layout ||
+          left.enabled != right.enabled ||
+          left.beforeWidget != right.beforeWidget) {
         return false;
       }
     }
@@ -687,6 +703,8 @@ class HomeController extends GetxController {
         targetId: ids.join('|'),
         title: tr('home.custom.playlists'),
         layout: current.layout,
+        enabled: current.enabled,
+        beforeWidget: current.beforeWidget,
       );
       _persistHomeLayout();
       return;
@@ -728,6 +746,8 @@ class HomeController extends GetxController {
         targetId: keys.join('|'),
         title: tr('home.custom.artists'),
         layout: current.layout,
+        enabled: current.enabled,
+        beforeWidget: current.beforeWidget,
       );
       _persistHomeLayout();
       return;

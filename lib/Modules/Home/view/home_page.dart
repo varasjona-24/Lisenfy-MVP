@@ -1062,6 +1062,21 @@ class _HomeOrderedSections extends StatelessWidget {
   Widget build(BuildContext context) {
     final children = <Widget>[];
     for (final id in controller.visibleHomeWidgetIdsForMode(mode)) {
+      final custom = mode == HomeMode.video
+          ? controller.videoCustomHomeSections
+          : controller.customHomeSections;
+      for (final entry in custom.where(
+        (s) => s.enabled && s.beforeWidget == id.key,
+      )) {
+        children.add(
+          _CustomHomeSections(
+            controller: controller,
+            actions: actions,
+            mode: mode,
+            onlySectionId: entry.id,
+          ),
+        );
+      }
       final section = _buildSection(context, id);
       if (section == null) continue;
       children.add(section);
@@ -1321,16 +1336,18 @@ class _CustomHomeSections extends StatelessWidget {
     required this.controller,
     required this.actions,
     required this.mode,
+    this.onlySectionId,
   });
 
   final HomeController controller;
   final MediaActionsController actions;
   final HomeMode mode;
+  final String? onlySectionId;
 
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[];
-    if (mode == HomeMode.audio) {
+    if (mode == HomeMode.audio && onlySectionId == null) {
       final temporary = controller.temporaryPlaylistChoices();
       if (temporary.isNotEmpty) {
         const sectionId = 'temporary_playlists';
@@ -1378,6 +1395,14 @@ class _CustomHomeSections extends StatelessWidget {
         ? controller.videoCustomHomeSections
         : controller.customHomeSections;
     for (final section in sections) {
+      if (!section.enabled) continue;
+      if (onlySectionId != null) {
+        if (section.id != onlySectionId) continue;
+      } else if (controller
+          .visibleHomeWidgetIdsForMode(mode)
+          .any((id) => id.key == section.beforeWidget)) {
+        continue;
+      }
       if (section.kind == HomeCustomSectionKind.collection) {
         final collectionSection = _buildCollectionSection(context, section);
         if (collectionSection == null) continue;

@@ -155,6 +155,14 @@
       "randomMix": "Random mix"
     },
     "editor": {
+      "manage_add": "Add",
+      "shortcuts_only": "Only changes Home shortcuts; your saved data is not deleted.",
+      "hide_widget": "Hide widget",
+      "show_widget": "Show widget",
+      "manage_remove": "Remove",
+      "remove_selected": "Remove shortcuts ({})",
+      "remove_shortcuts_title": "Remove Home shortcuts",
+      "remove_empty": "There are no Home shortcuts to remove.",
       "title": "Edit home",
       "add_playlist": "Playlist",
       "add_artist": "Artist",

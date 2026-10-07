@@ -191,6 +191,8 @@ class HomeCustomSection {
     required this.targetId,
     required this.title,
     this.layout = HomeCustomSectionLayout.cards,
+    this.enabled = true,
+    this.beforeWidget,
   });
 
   final String id;
@@ -198,6 +200,18 @@ class HomeCustomSection {
   final String targetId;
   final String title;
   final HomeCustomSectionLayout layout;
+  final bool enabled;
+  final String? beforeWidget;
+
+  HomeCustomSection withoutTargets(Iterable<String> removed) {
+    final excluded = removed.toSet();
+    return copyWith(
+      targetId: targetId
+          .split('|')
+          .where((id) => id.isNotEmpty && !excluded.contains(id))
+          .join('|'),
+    );
+  }
 
   factory HomeCustomSection.fromJson(Map<String, dynamic> json) {
     return HomeCustomSection(
@@ -206,12 +220,16 @@ class HomeCustomSection {
       targetId: (json['targetId'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
       layout: HomeCustomSectionLayoutX.fromRaw(json['layout']),
+      enabled: json['enabled'] != false,
+      beforeWidget: json['beforeWidget'] as String?,
     );
   }
 
   HomeCustomSection copyWith({
     String? targetId,
     HomeCustomSectionLayout? layout,
+    bool? enabled,
+    String? beforeWidget,
   }) {
     return HomeCustomSection(
       id: id,
@@ -219,6 +237,8 @@ class HomeCustomSection {
       targetId: targetId ?? this.targetId,
       title: title,
       layout: layout ?? this.layout,
+      enabled: enabled ?? this.enabled,
+      beforeWidget: beforeWidget ?? this.beforeWidget,
     );
   }
 
@@ -228,7 +248,43 @@ class HomeCustomSection {
     'targetId': targetId,
     'title': title,
     'layout': layout.key,
+    'enabled': enabled,
+    'beforeWidget': beforeWidget,
   };
+}
+
+List<Object> homeEditorEntries(
+  List<HomeWidgetId> order,
+  List<HomeCustomSection> custom,
+) {
+  final entries = <Object>[];
+  for (final id in order) {
+    entries.addAll(custom.where((section) => section.beforeWidget == id.key));
+    entries.add(id);
+  }
+  entries.addAll(
+    custom.where(
+      (section) => !order.any((id) => id.key == section.beforeWidget),
+    ),
+  );
+  return entries;
+}
+
+List<HomeCustomSection> homeCustomSectionsInEditorOrder(List<Object> entries) {
+  final result = <HomeCustomSection>[];
+  for (var i = 0; i < entries.length; i++) {
+    final entry = entries[i];
+    if (entry is! HomeCustomSection) continue;
+    String nextKey = '';
+    for (final next in entries.skip(i + 1)) {
+      if (next is HomeWidgetId) {
+        nextKey = next.key;
+        break;
+      }
+    }
+    result.add(entry.copyWith(beforeWidget: nextKey));
+  }
+  return result;
 }
 
 class HomeArtistChoice {

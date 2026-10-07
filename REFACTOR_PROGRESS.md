@@ -1,5 +1,13 @@
 # Registro de refactor
 
+## 2026-10-07 — Editor uniforme para playlists, artistas y Collections
+
+- Integrados widgets personalizados en la misma ReorderableListView y fila compartida de widgets estándar: círculo rojo −/verde + a la izquierda, atenuación al ocultarse, cambio de vista donde corresponde y drag handle. Eliminados footer separado y flechas; arrastre permite intercalar personalizados con estándar y conservar orden entre personalizados.
+- Visibilidad y ancla de posición persistidas en HomeCustomSection dentro de home_custom_sections/video_home_custom_sections en GetStorage. Layouts antiguos siguen activos por defecto; normalización y adición de accesos conservan selección, visibilidad y posición. Datos de playlists/artistas/Collections siguen en SQLite.
+- Los tres selectores mantienen pantalla/búsqueda existentes e incorporan Agregar/Eliminar con listas contextuales. Cambiar modo reinicia búsqueda y selección temporal. Eliminar solo retira accesos seleccionados del widget; ocultar conserva todos los accesos. No se llama a borrados de entidades ni archivos.
+- Mensajes propios en JSON ES/EN para modos, eliminación exclusiva de accesos y estado vacío. Guardar aplica el diseño; cerrar sin guardar no persiste las modificaciones del editor.
+- Validación: 11 pruebas aprobadas de orden mixto serializado, ocultación/activación de los tres tipos, compatibilidad legacy, accesos de artistas y tarjetas. Análisis del editor/modelo/tests sin issues; Home/controller sin errores/warnings y conservan 18 infos previas. Selectores completos y drag físico pendientes de QA en dispositivo. Sin generar/instalar APK.
+
 ## 2026-10-07 — Tarjetas de biblioteca para listas de Home
 
 - Las previsualizaciones en modo lista de widgets estándar y secciones personalizadas reemplazan MediaHistoryItemTile por AppMediaItemsList con compactListCard=true: mismo componente de biblioteca, fondo de tema, esquinas y separación individual.
