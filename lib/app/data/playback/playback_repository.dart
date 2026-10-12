@@ -10,6 +10,7 @@ import 'playback_boundary_command.dart';
 import 'playback_restoration.dart';
 import 'package:uuid/uuid.dart';
 import '../../utils/artist_credit_parser.dart';
+import '../../models/media_item.dart';
 
 part 'playback_session_writer.dart';
 part 'playback_aggregate_writer.dart';
@@ -18,6 +19,7 @@ part 'playback_debug_transfer.dart';
 part 'catalog_writer.dart';
 part 'domain_writer.dart';
 part 'artist_relation_writer.dart';
+part 'media_replacement_writer.dart';
 
 enum PlaybackFaultPoint { afterIdentityWrite, beforeCommit, afterCommit }
 

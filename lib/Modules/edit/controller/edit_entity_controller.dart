@@ -5,6 +5,11 @@ import 'package:easy_localization/easy_localization.dart'
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../app/data/local/catalog_storage.dart';
+import '../../../app/data/local/domain_storage.dart';
+import '../../../app/data/playback/playback_repository.dart';
+import '../../../app/data/playback/playback_restoration.dart';
+import '../../../app/data/playback/playback_state_storage.dart';
+import '../../../app/services/video_service.dart';
 import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:path/path.dart' as p;
@@ -28,7 +33,6 @@ import '../../downloads/controller/downloads_controller.dart';
 import '../../Home/Controller/home_controller.dart';
 import '../../player/audio/controller/audio_player_controller.dart';
 import '../../playlists/controller/playlists_controller.dart';
-import '../../playlists/data/playlist_store.dart';
 import '../../playlists/domain/playlist.dart';
 import '../../sources/controller/sources_controller.dart';
 import '../../sources/domain/source_theme_topic.dart';
@@ -202,7 +206,6 @@ class EditEntityController extends GetxController {
   final AudioCleanupService _audioCleanup = Get.find<AudioCleanupService>();
   final ArtistsController _artists = Get.find<ArtistsController>();
   final PlaylistsController _playlists = Get.find<PlaylistsController>();
-  final PlaylistStore _playlistStore = Get.find<PlaylistStore>();
   final SourcesController _sources = Get.find<SourcesController>();
   final CaptureGalleryStore _capturesStore = Get.find<CaptureGalleryStore>();
   final MusicBrainzMetadataService _musicBrainz = MusicBrainzMetadataService();
@@ -640,39 +643,34 @@ class EditEntityController extends GetxController {
   Future<MediaDataTransferResult?> transferMediaData({
     required MediaItem source,
     required MediaItem target,
+    Map<String, String> resumeChoices = const {},
   }) async {
+    _ensureReplacementIdle(source, target);
     final latestSource = await resolveLatestMedia(source);
     final latestTarget = await resolveLatestMedia(target);
     if (latestSource.id == latestTarget.id) return null;
-
-    final updatedTarget = latestTarget.copyWith(
-      title: latestSource.title,
-      subtitle: latestSource.subtitle,
-      country: latestSource.country,
-      thumbnail: latestSource.thumbnail,
-      thumbnailLocalPath: latestSource.thumbnailLocalPath,
-      lyrics: latestSource.lyrics,
-      lyricsLanguage: latestSource.lyricsLanguage,
-      translations: latestSource.translations == null
-          ? null
-          : Map<String, String>.from(latestSource.translations!),
-      timedLyrics: latestSource.timedLyrics == null
-          ? null
-          : Map<String, List<TimedLyricCue>>.from(latestSource.timedLyrics!),
-      isFavorite: latestSource.isFavorite,
-      playCount: latestSource.playCount,
-      lastPlayedAt: latestSource.lastPlayedAt,
-      skipCount: latestSource.skipCount,
-      fullListenCount: latestSource.fullListenCount,
-      avgListenProgress: latestSource.avgListenProgress,
-      lastCompletedAt: latestSource.lastCompletedAt,
+    for (final v in latestTarget.variants.where(
+      (v) => (v.localPath ?? '').trim().isNotEmpty,
+    )) {
+      if (!await File(v.localPath!).exists()) {
+        throw StateError('replacement_missing_file');
+      }
+    }
+    final (
+      updatedTarget,
+      playlistsUpdated,
+    ) = await Get.find<PlaybackRepository>().replaceMediaFile(
+      latestSource.id,
+      latestTarget.id,
+      resumeChoices,
     );
-
-    await _store.upsert(updatedTarget);
-    final playlistsUpdated = await _replaceMediaInPlaylists(
-      source: latestSource,
-      target: updatedTarget,
-    );
+    await Get.find<CatalogStorage>().reload();
+    if (Get.isRegistered<DomainStorage>()) {
+      await Get.find<DomainStorage>().reload();
+    }
+    if (Get.isRegistered<PlaybackStateStorage>()) {
+      await Get.find<PlaybackStateStorage>().reload();
+    }
     _refreshLivePlaybackItem(updatedTarget);
     await _refreshDependentControllers();
 
@@ -682,43 +680,72 @@ class EditEntityController extends GetxController {
     );
   }
 
-  Future<int> _replaceMediaInPlaylists({
-    required MediaItem source,
-    required MediaItem target,
-  }) async {
-    final sourceKey = _libraryKeyFor(source);
-    final targetKey = _libraryKeyFor(target);
-    if (sourceKey.isEmpty || targetKey.isEmpty || sourceKey == targetKey) {
-      return 0;
+  void _ensureReplacementIdle(MediaItem source, MediaItem target) {
+    final ids = {source.id, target.id};
+    if (Get.isRegistered<AudioService>()) {
+      final service = Get.find<AudioService>();
+      if (service.hasSourceLoaded &&
+          (ids.contains(service.currentItem.value?.id) ||
+              service.queueItems.any((item) => ids.contains(item.id)))) {
+        throw StateError('replacement_active_session');
+      }
     }
-
-    final playlists = await _playlistStore.readAll();
-    var changed = 0;
-    for (final playlist in playlists) {
-      if (!playlist.itemIds.contains(sourceKey)) continue;
-
-      final ids = <String>[];
-      for (final id in playlist.itemIds) {
-        final next = id == sourceKey ? targetKey : id;
-        if (!ids.contains(next)) ids.add(next);
+    if (Get.isRegistered<VideoService>()) {
+      final service = Get.find<VideoService>();
+      if (service.hasSourceLoaded &&
+          ids.contains(service.currentItem.value?.id)) {
+        throw StateError('replacement_active_session');
       }
+    }
+  }
 
-      final addedAt = Map<String, int>.from(playlist.itemAddedAt);
-      final sourceAddedAt = addedAt.remove(sourceKey);
-      if (sourceAddedAt != null) {
-        addedAt.putIfAbsent(targetKey, () => sourceAddedAt);
-      }
-
-      await _playlistStore.upsert(
-        playlist.copyWith(
-          itemIds: ids,
-          itemAddedAt: addedAt,
-          updatedAt: DateTime.now().millisecondsSinceEpoch,
-        ),
+  Future<Map<String, List<int>>> replacementResumePositions(
+    MediaItem source,
+    MediaItem target,
+  ) async {
+    _ensureReplacementIdle(source, target);
+    final result = <String, List<int>>{};
+    for (final mode in RestorationMode.values) {
+      final points = await Get.find<PlaybackRepository>().readResumePoints(
+        mode,
       );
-      changed++;
+      int position(MediaItem item) {
+        final keys = {
+          item.id,
+          item.publicId,
+          'i:${item.id}',
+          'p:${item.publicId}',
+        };
+        return points
+            .where((point) => keys.contains(point.trackKey))
+            .fold<int>(
+              0,
+              (value, point) =>
+                  value > point.positionMs ? value : point.positionMs,
+            );
+      }
+
+      int duration(MediaItem item) {
+        final kind = mode == RestorationMode.audio
+            ? MediaVariantKind.audio
+            : MediaVariantKind.video;
+        final variants = item.variants.where(
+          (v) => v.kind == kind && (v.localPath ?? '').isNotEmpty,
+        );
+        return variants.isEmpty
+            ? 0
+            : (variants.first.durationSeconds ?? item.durationSeconds ?? 0) *
+                  1000;
+      }
+
+      result[mode.name] = [
+        position(source),
+        position(target),
+        duration(source),
+        duration(target),
+      ];
     }
-    return changed;
+    return result;
   }
 
   Future<void> deleteMediaFromLibrary(MediaItem item) async {

@@ -881,9 +881,35 @@ class _EditEntityPageState extends State<EditEntityPage> {
       if (!mounted || confirmed != true) return;
 
       final source = _media!;
+      final positions = await _controller.replacementResumePositions(
+        source,
+        target,
+      );
+      final choices = <String, String>{};
+      for (final entry in positions.entries) {
+        final values = entry.value;
+        final differentDuration =
+            values[2] > 0 &&
+            values[3] > 0 &&
+            (values[2] - values[3]).abs() > values[2] * .05;
+        if ((values[0] > 0 && values[1] > 0) ||
+            (differentDuration && (values[0] > 0 || values[1] > 0))) {
+          if (!mounted) return;
+          final choice = await _chooseReplacementResume(entry.key, values);
+          if (choice == null) return;
+          choices[entry.key] = choice;
+        } else {
+          choices[entry.key] = values[0] > 0
+              ? 'source'
+              : values[1] > 0
+              ? 'target'
+              : 'restart';
+        }
+      }
       final result = await _controller.transferMediaData(
         source: source,
         target: target,
+        resumeChoices: choices,
       );
       if (!mounted || result == null) return;
 
@@ -896,24 +922,81 @@ class _EditEntityPageState extends State<EditEntityPage> {
         snackPosition: SnackPosition.BOTTOM,
       );
 
-      final deleteSource = await _confirmDeleteTransferredSource(source);
-      if (!mounted) return;
-      if (deleteSource == true) {
-        await _controller.deleteMediaFromLibrary(source);
-        if (mounted) {
-          Get.back(result: true);
-          Get.snackbar(
-            tr('edit.library_title'),
-            tr('edit.previous_version_deleted'),
-            snackPosition: SnackPosition.BOTTOM,
-          );
-        }
-      } else if (mounted) {
-        Get.back(result: true);
+      if (mounted) Get.back(result: true);
+    } catch (error) {
+      if (mounted) {
+        Get.snackbar(
+          tr('edit.data_transfer_title'),
+          tr(
+            error.toString().contains('replacement_active_session')
+                ? 'edit.replacement_active_session'
+                : 'edit.replacement_failed',
+          ),
+          snackPosition: SnackPosition.BOTTOM,
+        );
       }
     } finally {
       if (mounted) setState(() => _dataTransferBusy = false);
     }
+  }
+
+  Future<String?> _chooseReplacementResume(String mode, List<int> positions) {
+    String time(int ms) {
+      final seconds = ms ~/ 1000;
+      return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+    }
+
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(
+          tr(
+            'edit.replacement_resume_title',
+            args: [
+              tr(
+                mode == 'audio'
+                    ? 'edit.replacement_audio'
+                    : 'edit.replacement_video',
+              ),
+            ],
+          ),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(tr('edit.replacement_resume_body')),
+          ),
+          if (positions[0] > 0)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(ctx).pop('source'),
+              child: Text(
+                tr(
+                  'edit.replacement_resume_source',
+                  args: [time(positions[0])],
+                ),
+              ),
+            ),
+          if (positions[1] > 0)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(ctx).pop('target'),
+              child: Text(
+                tr(
+                  'edit.replacement_resume_target',
+                  args: [time(positions[1])],
+                ),
+              ),
+            ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('restart'),
+            child: Text(tr('edit.replacement_resume_restart')),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(tr('common.cancel')),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _runCoverTransferFlow() async {
@@ -1360,28 +1443,6 @@ class _EditEntityPageState extends State<EditEntityPage> {
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
               child: Text(tr('edit.data_transfer_confirm')),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<bool?> _confirmDeleteTransferredSource(MediaItem source) {
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(tr('edit.delete_previous_title')),
-          content: Text(tr('edit.delete_previous_body', args: [source.title])),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(tr('common.cancel')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(tr('edit.delete_previous_confirm')),
             ),
           ],
         );
