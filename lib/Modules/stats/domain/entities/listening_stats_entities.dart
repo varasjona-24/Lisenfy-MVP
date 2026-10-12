@@ -848,29 +848,28 @@ class ImportStats {
         if ((variant.localPath ?? '').trim().isEmpty) continue;
         totalFiles++;
         totalBytes += max(variant.size ?? 0, 0);
-        if (variant.createdAt > latestImportAt) {
-          latestImportAt = variant.createdAt;
-        }
         if (variant.kind == MediaVariantKind.audio) {
           audioFiles++;
           hasAudio = true;
           audioImportsForItem++;
-          if (variant.createdAt >= lastMonthCutoff) {
+          if (importedAt >= lastMonthCutoff) {
             recentAudioImportsForItem++;
           }
         } else {
           videoFiles++;
           hasVideo = true;
         }
-        if (variant.createdAt > 0) {
-          _increment(monthCounts, _monthKey(variant.createdAt));
-          _increment(weekCounts, _weekKey(variant.createdAt));
-        }
+      }
+      if ((hasAudio || hasVideo) && importedAt > 0) {
+        if (importedAt > latestImportAt) latestImportAt = importedAt;
+        _increment(monthCounts, _monthKey(importedAt));
+        _increment(weekCounts, _weekKey(importedAt));
       }
       if (hasAudio) audioItems++;
       if (hasVideo) videoItems++;
       if (audioImportsForItem > 0) {
         importAllTime.add(item, audioImportsForItem);
+      final importedAt = item.originalImportAt;
       }
       if (recentAudioImportsForItem > 0) {
         importLastMonth.add(item, recentAudioImportsForItem);

@@ -1484,12 +1484,7 @@ class HomeController extends GetxController {
   }
 
   int _latestVariantCreatedAt(MediaItem item) {
-    var maxTs = 0;
-    for (final v in item.variants) {
-      if (v.localPath?.trim().isNotEmpty != true) continue;
-      if (v.createdAt > maxTs) maxTs = v.createdAt;
-    }
-    return maxTs;
+    return item.originalImportAt;
   }
 
   int _localSizeBytes(MediaItem item) {

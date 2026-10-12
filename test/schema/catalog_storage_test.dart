@@ -88,6 +88,48 @@ void main() {
   });
 
   test(
+    'import date backfill is durable and survives variant replacement and restart',
+    () async {
+      Map<String, dynamic> item(int date) => {
+        'id': 'date-item',
+        'title': 'Date item',
+        'variants': [
+          {
+            'kind': 'audio',
+            'format': 'mp3',
+            'fileName': 'date.mp3',
+            'localPath': '/date.mp3',
+            'createdAt': date,
+          },
+        ],
+      };
+      await repository.replaceCatalog('local_library_items', [item(100)]);
+      await db.customStatement(
+        "UPDATE library_record SET metadata_json=json_remove(metadata_json, '\$.importedAt')",
+      );
+      final migrated =
+          (await repository.readCatalog())['local_library_items']!.single
+              as Map;
+      expect(migrated['importedAt'], 100);
+      await repository.replaceCatalog('local_library_items', [item(900)]);
+      final replaced =
+          (await repository.readCatalog())['local_library_items']!.single
+              as Map;
+      expect(replaced['importedAt'], 100);
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'date-item', 'title': 'Date item', 'variants': []},
+      ]);
+      await repository.close();
+      await open();
+      expect(
+        ((await repository.readCatalog())['local_library_items']!.single
+            as Map)['importedAt'],
+        100,
+      );
+    },
+  );
+
+  test(
     'imports normalized rows and keeps absent file references and aliases',
     () async {
       final storage = await load();

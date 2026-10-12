@@ -330,12 +330,7 @@ class DownloadHistoryController
   }
 
   int _latestVariantCreatedAt(MediaItem item) {
-    var latest = 0;
-    for (final v in item.variants) {
-      if (v.localPath?.trim().isEmpty ?? true) continue;
-      if (v.createdAt > latest) latest = v.createdAt;
-    }
-    return latest;
+    return item.originalImportAt;
   }
 
   void _ensureSelectedDate(List<MediaItem> items) {

@@ -718,12 +718,7 @@ class _SongSectionState extends State<_SongSection> {
   }
 
   int _latestVariantCreatedAt(MediaItem item) {
-    var maxTs = 0;
-    for (final variant in item.variants) {
-      if (variant.localPath?.trim().isNotEmpty != true) continue;
-      if (variant.createdAt > maxTs) maxTs = variant.createdAt;
-    }
-    return maxTs;
+    return item.originalImportAt;
   }
 
   int _localSizeBytes(MediaItem item) {

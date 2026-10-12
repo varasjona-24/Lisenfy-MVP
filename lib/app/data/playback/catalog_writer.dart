@@ -2,6 +2,20 @@ part of 'playback_repository.dart';
 
 const catalogKeys = ['local_library_items', 'playlists', 'artist_profiles'];
 
+int? _catalogImportedAt(Map<String, dynamic> json) {
+  final stored = (json['importedAt'] as num?)?.toInt();
+  if (stored != null && stored > 0) return stored;
+  int? first;
+  for (final variant in (json['variants'] as List? ?? []).whereType<Map>()) {
+    final date = (variant['createdAt'] as num?)?.toInt() ?? 0;
+    if ((variant['localPath'] as String? ?? '').trim().isEmpty || date <= 0) {
+      continue;
+    }
+    if (first == null || date < first) first = date;
+  }
+  return first;
+}
+
 extension CatalogPersistence on PlaybackRepository {
   Future<T> _catalogCommand<T>(Future<T> Function() action) {
     if (_closing) return Future.error(StateError('Repository is closing'));
@@ -128,6 +142,39 @@ extension CatalogPersistence on PlaybackRepository {
         throw FormatException('Missing catalog identity');
       }
       if (!seenIds.add(id)) throw FormatException('Duplicate catalog identity');
+      if (key == 'local_library_items') {
+        final previous = await _database
+            .customSelect(
+              'SELECT metadata_json FROM library_record WHERE id=?',
+              variables: [Variable(id)],
+            )
+            .getSingleOrNull();
+        int? oldDate;
+        if (previous != null) {
+          final old =
+              jsonDecode(previous.read<String>('metadata_json'))
+                  as Map<String, dynamic>;
+          oldDate = _catalogImportedAt(old);
+          if (oldDate == null) {
+            old['variants'] =
+                (await _database
+                        .customSelect(
+                          'SELECT payload_json FROM library_variant WHERE item_id=?',
+                          variables: [Variable(id)],
+                        )
+                        .get())
+                    .map((row) => jsonDecode(row.read<String>('payload_json')))
+                    .toList();
+            oldDate = _catalogImportedAt(old);
+          }
+        }
+        final importDate = oldDate ?? _catalogImportedAt(json);
+        if (importDate != null) {
+          json['importedAt'] = importDate;
+        } else {
+          json.remove('importedAt');
+        }
+      }
       final variants = key == 'local_library_items'
           ? json.remove('variants')
           : null;
@@ -206,6 +253,19 @@ extension CatalogPersistence on PlaybackRepository {
                         .get())
                     .map((v) => jsonDecode(v.read<String>('payload_json')))
                     .toList();
+            if (!json.containsKey('importedAt') ||
+                ((json['importedAt'] as num?)?.toInt() ?? 0) <= 0) {
+              final date = _catalogImportedAt(json);
+              if (date != null) {
+                json['importedAt'] = date;
+                final metadata = Map<String, dynamic>.from(json)
+                  ..remove('variants');
+                await _database.customStatement(
+                  'UPDATE library_record SET metadata_json=? WHERE id=?',
+                  [jsonEncode(metadata), id],
+                );
+              }
+            }
           } else if (key == 'playlists') {
             json['itemIds'] =
                 (await _database
