@@ -69,6 +69,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
   @override
   void initState() {
     super.initState();
+    _gridView = _storage.read<bool>('source_library_items_grid_view') ?? false;
     _topicSort = _readTopicSort();
     _topicsGridView = _storage.read('source_library_topics_grid_view') ?? false;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -448,7 +449,10 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
           tooltip: _gridView
               ? tr('home.section.list_view')
               : tr('home.section.grid_view'),
-          onPressed: () => setState(() => _gridView = !_gridView),
+          onPressed: () {
+            setState(() => _gridView = !_gridView);
+            _storage.write('source_library_items_grid_view', _gridView);
+          },
           icon: Icon(
             _gridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
           ),

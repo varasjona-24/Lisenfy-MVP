@@ -50,6 +50,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
   @override
   void initState() {
     super.initState();
+    _gridView = _storage.read<bool>('song_library_grid_view') ?? false;
     _sort = _readSort();
     _sortAscending = _storage.read('song_library_sort_ascending') ?? false;
   }
@@ -113,7 +114,10 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
                       tooltip: _gridView
                           ? tr('home.section.list_view')
                           : tr('home.section.grid_view'),
-                      onPressed: () => setState(() => _gridView = !_gridView),
+                      onPressed: () {
+                        setState(() => _gridView = !_gridView);
+                        _storage.write('song_library_grid_view', _gridView);
+                      },
                       icon: Icon(
                         _gridView
                             ? Icons.view_list_rounded
