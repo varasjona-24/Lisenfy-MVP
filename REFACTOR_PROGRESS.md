@@ -1,5 +1,20 @@
 # Registro de refactor
 
+## 2026-10-12 — Collage semanal editorial y actividad real
+
+- Portada protagonista más collage secundario; video 16:9, métricas compactas con iconos, logo existente y fondo de paleta sobre paneles opacos. La página mantiene el fondo dinámico de la app y la imagen exportada tiene fondo propio legible.
+- Gráfico diario basado únicamente en playback_interval.wall_ms; recorta intervalos entre días/semanas por calendario local y separa audio/video. No estima barras a partir de legacy ni cuenta seeks como escucha.
+- Hasta tres regiones conocidas desde el catálogo de países, ordenadas por tiempo de audio; desconocidos y videos no reciben región inferida. Frases basadas en repetición/variedad, sin inferir energía, nostalgia o BPM.
+- Comparativa de tiempo activo contra la semana completa precedente, oculta cuando no hay denominador o el inicio observado/importación es posterior al comienzo del rango comparado. Sin QR por no disponer de un destino público acordado.
+- Traducciones ES/EN y pruebas de corte semanal, medianoche, wall time, comparativa, SQL de intervalos y layout estrecho con texto ampliado en temas claro/oscuro. Sin APK ni modificación de datos del celular.
+
+## 2026-10-08 — Sustitución de archivo conservando identidad e historial
+
+- Operación SQLite transaccional: conserva identidad, metadatos, fecha original y favorito; prioriza variantes locales mejoradas y conserva las antiguas sin borrar archivos físicos.
+- Une vínculos históricos y recalcula agregados sin modificar eventos ni sus fechas; mantiene el modo audio/video. Playlists y colecciones remapean referencias y evitan miembros duplicados. Referencias documentadas de recomendaciones se remapean sin tocar pesos del modelo.
+- Cierra el antiguo flujo de transferencia y borrado separado. Bloquea sesiones abiertas o motores cargados; resuelve pendientes por modo con selección original/mejorada/reinicio, conserva colas y limita posición a duración disponible.
+- Pruebas nuevas: identidad, variantes, eventos originales, playlists, claves foráneas, elección obligatoria, rollback, sesión abierta y reinicio. Validación física del flujo completo pendiente.
+
 ## 2026-10-07 — Rankings visuales de artistas, imports y favoritas
 
 - Artistas más importados, top artistas de audio, favoritas más escuchadas y top videos comparten primer puesto destacado grande más lista con imágenes desde el segundo puesto. Top Canciones integra su destacada dentro de la sección y excluye ese primer item de la lista para no duplicarlo; numeración restante empieza en 2.
@@ -414,3 +429,64 @@
 - La persistencia sigue siendo GetStorage, como el proyecto actual. No se introduce una migración a SQLite.
 - Limitación histórica: las reproducciones sin un evento fechado no pueden reconstruirse desde los contadores acumulados.
 - Validación: pruebas de cola sin controller, checkpoints sin duplicados, pausa/seek, repetición, snapshots y backup; pruebas del período semanal.
+## 2026-10-07 — Portadas del Wrapped según el modo
+
+- Videos: imágenes 16:9 en el destacado, collage y filas del ranking, sin rotación del collage.
+- Audio, artistas y favoritas conservan imágenes 1:1. La proporción depende del contexto, no de que un archivo tenga también una variante de video.
+- Validación: 22 pruebas aprobadas de artwork, rankings, paneles y collage semanal; análisis de los cinco archivos afectados sin incidencias.
+## 2026-10-08 — Contadores explícitos del Wrapped
+
+- Completadas conserva fullListenCount histórico y nuevo; cero ya no se sustituye por reproducciones menos skips. No se modifican registros SQLite ni backups.
+- La comparación final suma todos los skips, no solamente los del top cinco. El texto de porcentaje usa completadas entre total de reproducciones, igual que métricas clave; la barra sigue comparando completadas frente a skips, no clasifica las parciales como skips.
+- El promedio escuchado mantiene su cálculo actual por canción; no se reinterpreta retroactivamente como cobertura por sesión.
+- Regresiones añadidas: cero completadas con cien reproducciones; conservación de completadas explícitas y skips de más de cinco canciones.
+## 2026-10-08 — Escucha promedio por reproducción
+
+- El promedio consulta SQLite: sesiones de audio válidas finalizadas (cerradas/interrumpidas), duración conocida y scope independiente/post-cutover. Promedia coverage_ms/duration_ms acotado a 0..1; no usa posición final ni promedios por canción ni contadores legacy.
+- Incluye sesiones cuyo contenido ya no esté en biblioteca. Sesiones abiertas, video y registros históricos sin cobertura verificable no entran. Los contadores históricos y backups se conservan sin cambios.
+- Etiquetas ES/EN aclaran el alcance; sin muestras muestra «—», no un porcentaje inventado. Las tasas históricas de completadas siguen teniendo alcance distinto a este promedio observado.
+## 2026-10-08 — Distribución y favoritos del Wrapped
+
+- Se retira Completadas de las tarjetas superiores de audio; permanece en métricas clave y en la comparación de resultados.
+- Métricas clave incorpora tasa de favoritos: todos los audios locales marcados favoritos / biblioteca de audio, independientemente de reproducciones y del top cinco. Alcance traducido ES/EN y sin biblioteca muestra «—».
+- El gráfico circular contiene únicamente audio/video; favoritos deja de contarse como una categoría adicional superpuesta.
+## 2026-10-08 — Historial estimado separado de sesiones observadas
+
+- Consulta de solo lectura agrupa métricas legacy por identidad de audio: conserva completadas explícitas y estima max(reproducciones-skips,0) solamente donde el contador agrupado de completadas es cero. No escribe estimaciones en SQLite ni altera backups.
+- Métricas clave muestra ese historial separado cuando existe; instalaciones nuevas no muestran el bloque.
+- La tasa y el porcentaje final usan exclusivamente sesiones válidas finalizadas con duración conocida y cobertura >=92%, con el mismo alcance del promedio por sesión. No mezclan contadores legacy en el denominador; sin sesiones elegibles muestra «—».
+- Los totales y rankings de completadas registradas permanecen explícitos; la comparación completadas/skips conserva sus contadores históricos, sin reclasificar parciales.
+## 2026-10-08 — Mood mixto sin alterar métricas verificables
+
+- Mood usa (completadas históricas explícitas + estimaciones históricas + completadas observadas) / (reproducciones históricas + sesiones observadas evaluables), sin sumar otra vez los totales combinados de biblioteca.
+- Icono, nombre, descripción y color comparten el mismo cálculo. Aclaración ES/EN solo cuando hay estimaciones; instalaciones nuevas usan únicamente sesiones observadas.
+- No cambia SQLite, tasa verificable, promedio de cobertura ni contadores originales.
+## 2026-10-08 — Unidades binarias del Wrapped
+
+- Etiquetas de tamaño corregidas a KiB/MiB/GiB/TiB, coherentes con el divisor 1024 existente. No cambian bytes registrados ni tamaños calculados.
+- Regresión para peso total, audio y promedio por archivo en KiB, MiB y GiB.
+
+## 2026-10-08 — Tamaños decimales del Wrapped (criterio definitivo)
+
+- Sustituye el criterio binario anterior: divisor 1000 y etiquetas B/KB/MB/GB/TB para peso total, audio y promedio por archivo. Solo cambia la presentación; los bytes persistidos no se modifican.
+- Prueba de límites 0/999/1000 bytes y escalas MB/GB/TB, incluyendo 1.073.741.824 bytes como 1,1 GB.
+## 2026-10-08 — Tasa de escuchadas mixta y comparación nueva
+
+- Métricas clave: tasa de escuchadas = (completadas legacy + estimaciones legacy + completadas nuevas por cobertura) / (ese total + skips legacy + skips nuevos elegibles), con aclaración breve traducida.
+- Comparación inferior exclusivamente sesiones nuevas válidas finalizadas con duración conocida. Completadas cobertura >=92%; skips registrados solo con cobertura menor al 92%, evitando doble clasificación. Parciales no se convierten en skips; porcentaje final conserva denominador de todas las sesiones evaluables.
+- Mood mantiene la regla previamente acordada. Sin cambios a datos persistidos ni backups.
+## 2026-10-08 — Fecha original y acciones táctiles
+
+- Fecha de importación usa la primera fecha positiva entre variantes locales, compartida por Home, artistas, historial de descargas y Wrapped. Descargar variantes posteriores no mueve el contenido a una importación nueva. Los períodos de Wrapped cuentan una importación por item, mientras archivos/peso siguen incluyendo variantes.
+- Área táctil opaca en toda la fila del menú de acciones: favoritos responde a texto, icono y espacio vacío, no únicamente a la flecha.
+- No se reescriben timestamps de variantes. Limitación: la fecha se reconstruye con las variantes conservadas; eliminar la más antigua puede cambiar la primera fecha conocida.
+## 2026-10-08 — Fecha de importación persistente por contenido
+
+- importedAt se conserva en metadata_json de biblioteca SQLite y en JSON/backup, sin nueva tabla ni cambio de versión del esquema. Backfill transaccional idempotente al cargar el catálogo: primera createdAt positiva local disponible; sin fechas queda desconocida.
+- Escritor SQL conserva la fecha existente incluso si llega un item reconstruido sin importedAt o con variantes reemplazadas/eliminadas. copyWith y serialización conservan la fecha; backups antiguos pasan por el mismo escritor/backfill.
+- Home, artistas, historial de imports, repositorio de descargas y Wrapped usan originalImportAt priorizando importedAt persistido. Las fechas de variantes siguen independientes.
+- No recupera timestamps sobrescritos antes de esta implementación: el backfill es primera fecha conocida, no reconstrucción de una fecha perdida.
+## 2026-10-08 — Persistencia de vista de biblioteca y buscador
+
+- Biblioteca de sources restaura/guarda source_library_items_grid_view y buscador restaura/guarda song_library_grid_view en GetStorage. Sin preferencia previa conservan modo lista.
+- Preferencias de UI solamente; no modifican SQLite ni datos de biblioteca.
