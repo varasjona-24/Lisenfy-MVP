@@ -2,6 +2,53 @@ part of 'playback_repository.dart';
 
 /// Debug transfer/query APIs. Imports facts without manufacturing listen ranges.
 extension PlaybackDebugTransfer on PlaybackRepository {
+  /// Effective intervals only: no reconstruction from legacy counters.
+  Future<List<Map<String, dynamic>>> queryWeeklyIntervals(int start, int end) =>
+      _restorationTask(() async {
+        final rows = await _database
+            .customSelect(
+              '''
+      SELECT i.started_at_utc_ms start_ms,i.ended_at_utc_ms end_ms,i.wall_ms,i.mode,
+        l.metadata_json
+      FROM playback_interval i JOIN media_identity m USING(media_id)
+      LEFT JOIN library_record l ON l.id=m.library_id
+      WHERE i.ended_at_utc_ms>? AND i.started_at_utc_ms<? AND i.wall_ms>0
+        AND i.mode IN ('audio','video')
+      ORDER BY i.started_at_utc_ms
+    ''',
+              variables: [Variable(start), Variable(end)],
+            )
+            .get();
+        return rows
+            .map(
+              (r) => {
+                'start': r.read<int>('start_ms'),
+                'end': r.read<int>('end_ms'),
+                'wallMs': r.read<int>('wall_ms'),
+                'video': r.read<String>('mode') == 'video',
+                'country': r.readNullable<String>('metadata_json') == null
+                    ? null
+                    : (jsonDecode(r.read<String>('metadata_json'))
+                          as Map)['country'],
+              },
+            )
+            .toList();
+      });
+
+  /// Conservative lower bound: suppress comparisons after recent imports or
+  /// before the first observed session. Legacy dates never establish coverage.
+  Future<int?> weeklyComparisonCoverageStart() => _restorationTask(() async {
+    final row = await _database.customSelect(
+      '''SELECT
+      (SELECT MIN(started_at_utc_ms) FROM playback_session WHERE status!='legacy') first_observed,
+      (SELECT MAX(cutover_at_utc_ms) FROM migration_state) latest_import''',
+    ).getSingle();
+    final first = row.readNullable<int>('first_observed');
+    if (first == null) return null;
+    final imported = row.readNullable<int>('latest_import');
+    return imported != null && imported > first ? imported : first;
+  });
+
   /// Legacy ZIPs are a baseline, not additive history. Permit an empty target
   /// or an exact retry, never sum an overlapping backup into existing history.
   Future<void> validateLegacyBackupTarget(String sourceHash) =>
@@ -22,6 +69,47 @@ extension PlaybackDebugTransfer on PlaybackRepository {
         if (row.read<int>('total') != 0) {
           throw StateError('legacy_backup_requires_empty_history');
         }
+      });
+
+  /// Finalized valid audio sessions only; legacy counters cannot prove coverage.
+  Future<double?> queryAverageAudioCoverage() => _restorationTask(() async {
+    final row = await _database.customSelect('''
+      SELECT AVG(MIN(1.0, MAX(0.0, coverage_ms * 1.0 / duration_ms))) AS average
+      FROM playback_session
+      WHERE mode='audio' AND valid_play=1 AND duration_ms>0
+        AND status IN ('closed','interrupted')
+        AND aggregate_scope IN ('independent','post_cutover')
+    ''').getSingle();
+    return (row.data['average'] as num?)?.toDouble();
+  });
+
+  /// Legacy estimates remain a read-only presentation, never stored as facts.
+  Future<Map<String, int>> queryAudioCompletionSummary() =>
+      _restorationTask(() async {
+        final legacy = await _database.customSelect('''
+      SELECT COALESCE(SUM(plays),0) plays, COALESCE(SUM(skips),0) skips, COALESCE(SUM(completed),0) completed,
+        COALESCE(SUM(CASE WHEN completed=0 THEN MAX(plays-skips,0) ELSE 0 END),0) estimated
+      FROM (SELECT SUM(COALESCE(play_count,0)) plays,
+        SUM(COALESCE(completed_count,0)) completed, SUM(COALESCE(skip_count,0)) skips
+        FROM legacy_metrics WHERE mode='audio' GROUP BY media_id)
+    ''').getSingle();
+        final observed = await _database.customSelect('''
+      SELECT COUNT(*) samples,
+        COALESCE(SUM(CASE WHEN skipped=1 AND coverage_ms*100<duration_ms*92 THEN 1 ELSE 0 END),0) skips,
+        COALESCE(SUM(CASE WHEN coverage_ms*100>=duration_ms*92 THEN 1 ELSE 0 END),0) completed
+      FROM playback_session WHERE mode='audio' AND valid_play=1 AND duration_ms>0
+        AND status IN ('closed','interrupted')
+        AND aggregate_scope IN ('independent','post_cutover')
+    ''').getSingle();
+        return {
+          'legacyPlays': legacy.read<int>('plays'),
+          'legacySkips': legacy.read<int>('skips'),
+          'legacyCompleted': legacy.read<int>('completed'),
+          'legacyEstimated': legacy.read<int>('estimated'),
+          'samples': observed.read<int>('samples'),
+          'completed': observed.read<int>('completed'),
+          'skips': observed.read<int>('skips'),
+        };
       });
 
   Future<Map<String, Map<String, dynamic>>> queryLibraryMetrics({
@@ -71,47 +159,6 @@ extension PlaybackDebugTransfer on PlaybackRepository {
         SELECT media_id, 1 seen FROM playback_session
           WHERE mode='video' AND completed=1
             AND aggregate_scope IN ('independent','post_cutover')
-  /// Finalized valid audio sessions only; legacy counters cannot prove coverage.
-  Future<double?> queryAverageAudioCoverage() => _restorationTask(() async {
-    final row = await _database.customSelect('''
-      SELECT AVG(MIN(1.0, MAX(0.0, coverage_ms * 1.0 / duration_ms))) AS average
-      FROM playback_session
-      WHERE mode='audio' AND valid_play=1 AND duration_ms>0
-        AND status IN ('closed','interrupted')
-        AND aggregate_scope IN ('independent','post_cutover')
-    ''').getSingle();
-    return (row.data['average'] as num?)?.toDouble();
-  });
-
-  /// Legacy estimates remain a read-only presentation, never stored as facts.
-  Future<Map<String, int>> queryAudioCompletionSummary() =>
-      _restorationTask(() async {
-        final legacy = await _database.customSelect('''
-      SELECT COALESCE(SUM(plays),0) plays, COALESCE(SUM(skips),0) skips, COALESCE(SUM(completed),0) completed,
-        COALESCE(SUM(CASE WHEN completed=0 THEN MAX(plays-skips,0) ELSE 0 END),0) estimated
-      FROM (SELECT SUM(COALESCE(play_count,0)) plays,
-        SUM(COALESCE(completed_count,0)) completed, SUM(COALESCE(skip_count,0)) skips
-        FROM legacy_metrics WHERE mode='audio' GROUP BY media_id)
-    ''').getSingle();
-        final observed = await _database.customSelect('''
-      SELECT COUNT(*) samples,
-        COALESCE(SUM(CASE WHEN skipped=1 AND coverage_ms*100<duration_ms*92 THEN 1 ELSE 0 END),0) skips,
-        COALESCE(SUM(CASE WHEN coverage_ms*100>=duration_ms*92 THEN 1 ELSE 0 END),0) completed
-      FROM playback_session WHERE mode='audio' AND valid_play=1 AND duration_ms>0
-        AND status IN ('closed','interrupted')
-        AND aggregate_scope IN ('independent','post_cutover')
-    ''').getSingle();
-        return {
-          'legacyPlays': legacy.read<int>('plays'),
-          'legacySkips': legacy.read<int>('skips'),
-          'legacyCompleted': legacy.read<int>('completed'),
-          'legacyEstimated': legacy.read<int>('estimated'),
-          'samples': observed.read<int>('samples'),
-          'completed': observed.read<int>('completed'),
-          'skips': observed.read<int>('skips'),
-        };
-      });
-
             AND duration_ms>0 AND coverage_ms*100 >= duration_ms*92
       ) t JOIN media_identity m USING(media_id)
       WHERE m.library_id IS NOT NULL GROUP BY m.library_id

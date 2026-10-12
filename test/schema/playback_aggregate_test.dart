@@ -76,6 +76,10 @@ void main() {
     expect(before['completed_count'], 1);
     expect(before['skip_count'], 0);
     expect(before['wall_ms'], 95000);
+    final intervals = await repo.queryWeeklyIntervals(30000, 60000);
+    expect(intervals.single['wallMs'], 95000);
+    expect(intervals.single['start'], 0);
+    expect(intervals.single['end'], 95000);
     expect(await repo.queryAverageAudioCoverage(), closeTo(.95, .0001));
     final completion = await repo.queryAudioCompletionSummary();
     expect(completion['samples'], 1);
