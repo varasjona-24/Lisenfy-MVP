@@ -52,6 +52,8 @@ void main() {
     await dir.delete(recursive: true);
   });
   test('incremental aggregate matches repair rebuild exactly', () async {
+    expect(await repo.queryAverageAudioCoverage(), isNull);
+    expect((await repo.queryAudioCompletionSummary())['samples'], 0);
     await repo.recordBoundary(
       const RecordPlaybackBoundary(
         commandId: 'end',
@@ -74,6 +76,12 @@ void main() {
     expect(before['completed_count'], 1);
     expect(before['skip_count'], 0);
     expect(before['wall_ms'], 95000);
+    expect(await repo.queryAverageAudioCoverage(), closeTo(.95, .0001));
+    final completion = await repo.queryAudioCompletionSummary();
+    expect(completion['samples'], 1);
+    expect(completion['completed'], 1);
+    expect(completion['skips'], 0);
+    expect(completion['legacyEstimated'], 0);
     await db.customStatement('UPDATE playback_aggregate SET wall_ms=999');
     await repo.rebuildAggregates();
     expect(

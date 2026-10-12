@@ -453,7 +453,7 @@
     "ui": {
       "play_count": "{} plays",
       "import_count": "{} imports",
-      "completion_ratio": "{}% of your plays were completed"
+      "completion_ratio": "{}% of eligible sessions reached 92% listening coverage"
     },
     "title": "Listenfy Wrapped",
     "tabs": {
@@ -509,7 +509,7 @@
       "regions_title": "Favorite Regions",
       "regions_subtitle": "Your music by origin",
       "completed_skipped_title": "Completed vs Skipped",
-      "completed_skipped_subtitle": "Your musical patience",
+      "completed_skipped_subtitle": "New sessions · your musical patience",
       "plays_unit": "plays",
       "hero_library": "your library",
       "hero_plays": "plays",
@@ -524,8 +524,17 @@
       "mood_explorer_desc": "You like discovering, although sometimes you skip quickly.",
       "mood_selective_desc": "You are very selective. Few songs make it to the end.",
       "key_metrics": "Key metrics",
-      "avg_listened": "Average listened",
+      "avg_listened": "Average listening per playback",
+      "coverage_caption": "Based on finalized sessions with recorded coverage",
+      "coverage_empty": "No finalized sessions with recorded coverage yet",
       "completion_rate": "Completion rate",
+      "listened_rate": "Listening rate",
+      "listened_rate_caption": "Listened versus skipped · includes historical estimates",
+      "mood_legacy_caption": "Includes estimates from earlier history",
+      "observed_completion_caption": "Finalized valid sessions with known duration; completed when at least 92% was listened to",
+      "legacy_completion_summary": "Earlier history: {} recorded completions and {} additional estimates across {} plays. Estimates use plays minus skips where no completions were recorded; excluded from the verifiable rate.",
+      "favorite_rate": "Favorite rate",
+      "favorite_rate_caption": "{} of {} audio items in your library marked as favorites",
       "recent_activity_30d": "Recent activity (30d)",
       "skipped": "Skipped"
     },

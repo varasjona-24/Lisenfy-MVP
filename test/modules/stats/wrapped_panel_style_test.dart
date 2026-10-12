@@ -10,6 +10,7 @@ import 'package:listenfy/Modules/stats/domain/entities/listening_stats_entities.
 import 'package:listenfy/app/models/media_item.dart';
 import 'package:listenfy/Modules/stats/presentation/views/listening_stats_page.dart';
 import 'package:listenfy/Modules/stats/presentation/widgets/wrapped_panel_style.dart';
+import 'package:listenfy/Modules/stats/presentation/widgets/wrapped_artwork.dart';
 
 class _StatsController extends ListeningStatsController {
   @override
@@ -100,6 +101,11 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         expect(find.byType(ListView), findsWidgets);
+        for (final artwork in tester.widgetList<WrappedArtwork>(
+          find.byType(WrappedArtwork),
+        )) {
+          expect(artwork.aspectRatio, index == 2 ? 16 / 9 : 1);
+        }
       }
     });
   }

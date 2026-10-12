@@ -71,6 +71,47 @@ extension PlaybackDebugTransfer on PlaybackRepository {
         SELECT media_id, 1 seen FROM playback_session
           WHERE mode='video' AND completed=1
             AND aggregate_scope IN ('independent','post_cutover')
+  /// Finalized valid audio sessions only; legacy counters cannot prove coverage.
+  Future<double?> queryAverageAudioCoverage() => _restorationTask(() async {
+    final row = await _database.customSelect('''
+      SELECT AVG(MIN(1.0, MAX(0.0, coverage_ms * 1.0 / duration_ms))) AS average
+      FROM playback_session
+      WHERE mode='audio' AND valid_play=1 AND duration_ms>0
+        AND status IN ('closed','interrupted')
+        AND aggregate_scope IN ('independent','post_cutover')
+    ''').getSingle();
+    return (row.data['average'] as num?)?.toDouble();
+  });
+
+  /// Legacy estimates remain a read-only presentation, never stored as facts.
+  Future<Map<String, int>> queryAudioCompletionSummary() =>
+      _restorationTask(() async {
+        final legacy = await _database.customSelect('''
+      SELECT COALESCE(SUM(plays),0) plays, COALESCE(SUM(skips),0) skips, COALESCE(SUM(completed),0) completed,
+        COALESCE(SUM(CASE WHEN completed=0 THEN MAX(plays-skips,0) ELSE 0 END),0) estimated
+      FROM (SELECT SUM(COALESCE(play_count,0)) plays,
+        SUM(COALESCE(completed_count,0)) completed, SUM(COALESCE(skip_count,0)) skips
+        FROM legacy_metrics WHERE mode='audio' GROUP BY media_id)
+    ''').getSingle();
+        final observed = await _database.customSelect('''
+      SELECT COUNT(*) samples,
+        COALESCE(SUM(CASE WHEN skipped=1 AND coverage_ms*100<duration_ms*92 THEN 1 ELSE 0 END),0) skips,
+        COALESCE(SUM(CASE WHEN coverage_ms*100>=duration_ms*92 THEN 1 ELSE 0 END),0) completed
+      FROM playback_session WHERE mode='audio' AND valid_play=1 AND duration_ms>0
+        AND status IN ('closed','interrupted')
+        AND aggregate_scope IN ('independent','post_cutover')
+    ''').getSingle();
+        return {
+          'legacyPlays': legacy.read<int>('plays'),
+          'legacySkips': legacy.read<int>('skips'),
+          'legacyCompleted': legacy.read<int>('completed'),
+          'legacyEstimated': legacy.read<int>('estimated'),
+          'samples': observed.read<int>('samples'),
+          'completed': observed.read<int>('completed'),
+          'skips': observed.read<int>('skips'),
+        };
+      });
+
             AND duration_ms>0 AND coverage_ms*100 >= duration_ms*92
       ) t JOIN media_identity m USING(media_id)
       WHERE m.library_id IS NOT NULL GROUP BY m.library_id

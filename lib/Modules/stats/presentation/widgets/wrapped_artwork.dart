@@ -5,9 +5,15 @@ import 'wrapped_panel_style.dart';
 
 /// Artwork is decorative; labels stay on a solid themed surface.
 class WrappedArtwork extends StatelessWidget {
-  const WrappedArtwork({super.key, required this.item, this.size = 52});
+  const WrappedArtwork({
+    super.key,
+    required this.item,
+    this.size = 52,
+    this.aspectRatio = 1,
+  });
   final MediaItem item;
   final double size;
+  final double aspectRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +22,7 @@ class WrappedArtwork extends StatelessWidget {
       color: scheme.primaryContainer,
       child: Center(
         child: Icon(
-          item.hasVideoLocal ? Icons.movie_rounded : Icons.music_note_rounded,
+          aspectRatio > 1 ? Icons.movie_rounded : Icons.music_note_rounded,
           color: scheme.onPrimaryContainer,
           size: size * .35,
         ),
@@ -38,17 +44,20 @@ class WrappedArtwork extends StatelessWidget {
 
     final local = item.thumbnailLocalPath?.trim() ?? '';
     return ExcludeSemantics(
-      child: SizedBox.square(
-        dimension: size,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: local.isEmpty
-              ? remote()
-              : Image.file(
-                  File(local),
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => remote(),
-                ),
+      child: SizedBox(
+        width: size,
+        child: AspectRatio(
+          aspectRatio: aspectRatio,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: local.isEmpty
+                ? remote()
+                : Image.file(
+                    File(local),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => remote(),
+                  ),
+          ),
         ),
       ),
     );
@@ -56,14 +65,19 @@ class WrappedArtwork extends StatelessWidget {
 }
 
 class WrappedCoverStrip extends StatelessWidget {
-  const WrappedCoverStrip({super.key, required this.items});
+  const WrappedCoverStrip({
+    super.key,
+    required this.items,
+    this.aspectRatio = 1,
+  });
   final List<MediaItem> items;
+  final double aspectRatio;
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
     return SizedBox(
-      height: 108,
+      height: aspectRatio == 1 ? 108 : 80,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -72,8 +86,12 @@ class WrappedCoverStrip extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                 child: Transform.rotate(
-                  angle: (i - 1) * .07,
-                  child: WrappedArtwork(item: items[i], size: 88),
+                  angle: aspectRatio == 1 ? (i - 1) * .07 : 0,
+                  child: WrappedArtwork(
+                    item: items[i],
+                    size: 88,
+                    aspectRatio: aspectRatio,
+                  ),
                 ),
               ),
             ),
@@ -89,10 +107,12 @@ class WrappedTrackSpotlight extends StatelessWidget {
     required this.item,
     required this.badge,
     required this.caption,
+    this.aspectRatio = 1,
   });
   final MediaItem item;
   final String badge;
   final String caption;
+  final double aspectRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -158,8 +178,18 @@ class WrappedTrackSpotlight extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(8),
               child: Transform.rotate(
-                angle: -.035,
-                child: WrappedArtwork(item: item, size: wide ? 180 : 204),
+                angle: aspectRatio == 1 ? -.035 : 0,
+                child: WrappedArtwork(
+                  item: item,
+                  aspectRatio: aspectRatio,
+                  size: aspectRatio == 1
+                      ? (wide ? 180 : 204)
+                      : (wide
+                            ? 240
+                            : (constraints.maxWidth - 16)
+                                  .clamp(0, 320)
+                                  .toDouble()),
+                ),
               ),
             ),
           );

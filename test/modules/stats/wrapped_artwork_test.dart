@@ -13,6 +13,58 @@ MediaItem item({String? local}) => MediaItem.fromJson({
 });
 
 void main() {
+  testWidgets(
+    'aspect is explicit: audio stays square even with a video variant',
+    (tester) async {
+      final media = MediaItem.fromJson({
+        'id': 'mixed',
+        'title': 'Mixed',
+        'variants': [
+          {'kind': 'audio', 'localPath': '/a.mp3'},
+          {'kind': 'video', 'localPath': '/v.mp4'},
+        ],
+      });
+      for (final ratio in [1.0, 16 / 9]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: WrappedArtwork(
+                  item: media,
+                  size: 160,
+                  aspectRatio: ratio,
+                ),
+              ),
+            ),
+          ),
+        );
+        final size = tester.getSize(find.byType(WrappedArtwork));
+        expect(size.width / size.height, closeTo(ratio, .001));
+      }
+    },
+  );
+  testWidgets('video collage preserves widescreen thumbnails', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 240,
+              child: WrappedCoverStrip(
+                items: [item(), item(), item()],
+                aspectRatio: 16 / 9,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    for (var i = 0; i < 3; i++) {
+      final size = tester.getSize(find.byType(WrappedArtwork).at(i));
+      expect(size.width / size.height, closeTo(16 / 9, .001));
+    }
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('uses a real local artwork file without changing its identity', (
     tester,
   ) async {

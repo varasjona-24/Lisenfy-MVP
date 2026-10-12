@@ -576,12 +576,6 @@ class _AudioTab extends StatelessWidget {
                     args: ['${stats.recentTracks}'],
                   ),
                 ),
-                FieldMetricData(
-                  icon: Icons.done_all_rounded,
-                  label: tr('wrapped.audio.completed'),
-                  value: '${stats.totalCompleted}',
-                  caption: stats.audioCompletionRateLabel,
-                ),
               ];
 
               return Wrap(
@@ -854,7 +848,10 @@ class _VideoTab extends StatelessWidget {
                 ),
                 if (stats.topVideos.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  WrappedCoverStrip(items: stats.topVideos),
+                  WrappedCoverStrip(
+                    items: stats.topVideos,
+                    aspectRatio: 16 / 9,
+                  ),
                 ],
               ],
             ),
@@ -961,6 +958,7 @@ class _VideoTab extends StatelessWidget {
             WrappedRankedRecap(
               rows: videoRows,
               artworkItems: stats.topVideos,
+              artworkAspectRatio: 16 / 9,
               badge: tr('wrapped.video.top_video_badge'),
             ),
           ),
@@ -1074,11 +1072,13 @@ class CompactRankedRows extends StatelessWidget {
     required this.rows,
     this.artworkItems = const [],
     this.startRank = 1,
+    this.artworkAspectRatio = 1,
   });
 
   final List<RankedRowData> rows;
   final List<MediaItem> artworkItems;
   final int startRank;
+  final double artworkAspectRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -1097,7 +1097,11 @@ class CompactRankedRows extends StatelessWidget {
             child: Row(
               children: [
                 if (index < artworkItems.length) ...[
-                  WrappedArtwork(item: artworkItems[index]),
+                  WrappedArtwork(
+                    item: artworkItems[index],
+                    aspectRatio: artworkAspectRatio,
+                    size: artworkAspectRatio == 1 ? 52 : 88,
+                  ),
                   const SizedBox(width: 10),
                 ],
                 Container(
@@ -1176,10 +1180,12 @@ class WrappedRankedRecap extends StatelessWidget {
     required this.rows,
     required this.artworkItems,
     required this.badge,
+    this.artworkAspectRatio = 1,
   });
   final List<RankedRowData> rows;
   final List<MediaItem> artworkItems;
   final String badge;
+  final double artworkAspectRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -1196,6 +1202,7 @@ class WrappedRankedRecap extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         WrappedTrackSpotlight(
+          aspectRatio: artworkAspectRatio,
           item: image.copyWith(title: first.title, subtitle: first.subtitle),
           badge: badge,
           caption: first.value,
@@ -1206,6 +1213,7 @@ class WrappedRankedRecap extends StatelessWidget {
             rows: rows.skip(1).toList(),
             artworkItems: artworkItems.skip(1).toList(),
             startRank: 2,
+            artworkAspectRatio: artworkAspectRatio,
           ),
         ],
       ],
@@ -1390,9 +1398,7 @@ class _MoodCard extends StatelessWidget {
   final ListeningStats stats;
 
   String get _emoji {
-    final ratio = stats.totalPlays == 0
-        ? 0.0
-        : stats.totalCompleted / stats.totalPlays;
+    final ratio = stats.moodCompletionRatio;
     if (ratio >= 0.75) return '🔥';
     if (ratio >= 0.5) return '🎯';
     if (ratio >= 0.25) return '⚡';
@@ -1400,9 +1406,7 @@ class _MoodCard extends StatelessWidget {
   }
 
   String get _mood {
-    final ratio = stats.totalPlays == 0
-        ? 0.0
-        : stats.totalCompleted / stats.totalPlays;
+    final ratio = stats.moodCompletionRatio;
     if (ratio >= 0.75) return tr('wrapped.audio.mood_faithful');
     if (ratio >= 0.5) return tr('wrapped.audio.mood_melomaniac');
     if (ratio >= 0.25) return tr('wrapped.audio.mood_explorer');
@@ -1410,9 +1414,7 @@ class _MoodCard extends StatelessWidget {
   }
 
   String get _desc {
-    final ratio = stats.totalPlays == 0
-        ? 0.0
-        : stats.totalCompleted / stats.totalPlays;
+    final ratio = stats.moodCompletionRatio;
     if (ratio >= 0.75) {
       return tr('wrapped.audio.mood_faithful_desc');
     }
@@ -1426,9 +1428,7 @@ class _MoodCard extends StatelessWidget {
   }
 
   Color get _color {
-    final ratio = stats.totalPlays == 0
-        ? 0.0
-        : stats.totalCompleted / stats.totalPlays;
+    final ratio = stats.moodCompletionRatio;
     if (ratio >= 0.75) return const Color(0xFFFF6B6B);
     if (ratio >= 0.5) return const Color(0xFF06D6A0);
     if (ratio >= 0.25) return const Color(0xFFFFD166);
@@ -1481,6 +1481,15 @@ class _MoodCard extends StatelessWidget {
                   _desc,
                   style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
                 ),
+                if (stats.moodIncludesEstimates) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    tr('wrapped.audio.mood_legacy_caption'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1555,19 +1564,61 @@ class _MetricsCardState extends State<_MetricsCard>
                 _ProgressMetric(
                   label: tr('wrapped.audio.avg_listened'),
                   value: s.averageProgressPercent / 100,
-                  displayText: '${s.averageProgressPercent}%',
+                  displayText: s.hasAverageCoverage
+                      ? '${s.averageProgressPercent}%'
+                      : '—',
                   color: kMusicGradient[0],
                   anim: _anim.value,
                 ),
+                Text(
+                  tr(
+                    s.hasAverageCoverage
+                        ? 'wrapped.audio.coverage_caption'
+                        : 'wrapped.audio.coverage_empty',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 _ProgressMetric(
-                  label: tr('wrapped.audio.completion_rate'),
-                  value: s.totalPlays == 0
-                      ? 0
-                      : s.totalCompleted / s.totalPlays,
-                  displayText: '${s.totalCompleted} / ${s.totalPlays}',
+                  label: tr('wrapped.audio.listened_rate'),
+                  value: s.listenedRate,
+                  displayText: s.combinedListened + s.combinedSkips == 0
+                      ? '—'
+                      : '${(s.listenedRate * 100).round()}%',
                   color: const Color(0xFF06D6A0),
                   anim: _anim.value,
+                ),
+                Text(
+                  tr('wrapped.audio.listened_rate_caption'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _ProgressMetric(
+                  label: tr('wrapped.audio.favorite_rate'),
+                  value: s.importedAudioItems == 0
+                      ? 0
+                      : s.favoriteAudioCount / s.importedAudioItems,
+                  displayText: s.importedAudioItems == 0
+                      ? '—'
+                      : '${(s.favoriteAudioCount / s.importedAudioItems * 100).round()}%',
+                  color: scheme.primary,
+                  anim: _anim.value,
+                ),
+                Text(
+                  tr(
+                    'wrapped.audio.favorite_rate_caption',
+                    args: [
+                      '${s.favoriteAudioCount}',
+                      '${s.importedAudioItems}',
+                    ],
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _ProgressMetric(
@@ -1622,10 +1673,12 @@ class _ProgressMetric extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
             ),
             Text(
@@ -1722,11 +1775,13 @@ class AnimatedRankedList extends StatefulWidget {
     required this.masterCtrl,
     this.artworkItems = const [],
     this.startRank = 1,
+    this.artworkAspectRatio = 1,
   });
 
   final List<RankedRowData> rows;
   final List<MediaItem> artworkItems;
   final int startRank;
+  final double artworkAspectRatio;
   final AnimationController masterCtrl;
 
   @override
@@ -1785,7 +1840,11 @@ class AnimatedRankedListState extends State<AnimatedRankedList>
                   Row(
                     children: [
                       if (i < widget.artworkItems.length) ...[
-                        WrappedArtwork(item: widget.artworkItems[i]),
+                        WrappedArtwork(
+                          item: widget.artworkItems[i],
+                          aspectRatio: widget.artworkAspectRatio,
+                          size: widget.artworkAspectRatio == 1 ? 52 : 88,
+                        ),
                         const SizedBox(width: 10),
                       ],
                       SizedBox(
@@ -1901,15 +1960,13 @@ class _DonutDistributionCardState extends State<_DonutDistributionCard>
     final s = widget.stats;
     final audio = s.importedAudioItems.toDouble();
     final video = s.importedVideoItems.toDouble();
-    final favs = s.topFavoriteTracks.length.toDouble();
-    final total = audio + video + favs;
+    final total = audio + video;
 
     if (total == 0) return const SizedBox.shrink();
 
     final sections = [
       _DonutSection('Audio', audio, kMusicGradient[0]),
       _DonutSection('Video', video, kVideoGradient[0]),
-      _DonutSection('Favoritos', favs, const Color(0xFF06D6A0)),
     ].where((s) => s.value > 0).toList();
 
     return StatsCard(
@@ -2325,11 +2382,9 @@ class _CompletedVsSkippedCardState extends State<_CompletedVsSkippedCard>
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final s = widget.stats;
-    final totalSkips = s.mostSkipped.fold<int>(
-      0,
-      (acc, i) => acc + i.skipCount,
-    );
-    final total = s.totalCompleted + totalSkips;
+    final totalSkips = s.observedSkips;
+    final totalCompleted = s.observedCompleted;
+    final total = totalCompleted + totalSkips;
 
     return StatsCard(
       child: Column(
@@ -2339,7 +2394,7 @@ class _CompletedVsSkippedCardState extends State<_CompletedVsSkippedCard>
             children: [
               StatBubble(
                 label: tr('wrapped.audio.completed'),
-                value: '${s.totalCompleted}',
+                value: '$totalCompleted',
                 color: const Color(0xFF06D6A0),
               ),
               const SizedBox(width: 12),
@@ -2355,8 +2410,8 @@ class _CompletedVsSkippedCardState extends State<_CompletedVsSkippedCard>
             AnimatedBuilder(
               animation: _anim,
               builder: (context, child) {
-                final completedRatio =
-                    ((s.totalCompleted / total) * _anim.value).clamp(0.0, 1.0);
+                final completedRatio = ((totalCompleted / total) * _anim.value)
+                    .clamp(0.0, 1.0);
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2400,17 +2455,21 @@ class _CompletedVsSkippedCardState extends State<_CompletedVsSkippedCard>
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      tr(
-                        'wrapped.ui.completion_ratio',
-                        args: [
-                          (s.totalCompleted / total * 100).toStringAsFixed(0),
-                        ],
+                    if (s.observedCompletionSamples > 0)
+                      Text(
+                        tr(
+                          'wrapped.ui.completion_ratio',
+                          args: [
+                            (s.observedCompleted /
+                                    s.observedCompletionSamples *
+                                    100)
+                                .toStringAsFixed(0),
+                          ],
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
                   ],
                 );
               },

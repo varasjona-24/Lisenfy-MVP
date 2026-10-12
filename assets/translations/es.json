@@ -453,7 +453,7 @@
     "ui": {
       "play_count": "{} reproducciones",
       "import_count": "{} importaciones",
-      "completion_ratio": "{}% de tus reproducciones fueron completadas"
+      "completion_ratio": "{}% de las sesiones evaluables alcanzaron el 92% de escucha"
     },
     "title": "Listenfy Wrapped",
     "tabs": {
@@ -509,7 +509,7 @@
       "regions_title": "Regiones Favoritas",
       "regions_subtitle": "Tu música por origen",
       "completed_skipped_title": "Completadas vs Saltadas",
-      "completed_skipped_subtitle": "Tu paciencia musical",
+      "completed_skipped_subtitle": "Sesiones nuevas · tu paciencia musical",
       "plays_unit": "plays",
       "hero_library": "tu biblioteca",
       "hero_plays": "reproducciones",
@@ -524,8 +524,17 @@
       "mood_explorer_desc": "Te gusta descubrir, aunque a veces saltas rápido.",
       "mood_selective_desc": "Eres muy selectivo. Das pocas canciones por terminadas.",
       "key_metrics": "Métricas clave",
-      "avg_listened": "Promedio escuchado",
+      "avg_listened": "Escucha promedio por reproducción",
+      "coverage_caption": "Basado en sesiones finalizadas con cobertura registrada",
+      "coverage_empty": "Aún no hay sesiones finalizadas con cobertura registrada",
       "completion_rate": "Tasa de completadas",
+      "listened_rate": "Tasa de escuchadas",
+      "listened_rate_caption": "Escuchadas frente a saltadas · incluye estimaciones históricas",
+      "mood_legacy_caption": "Incluye estimaciones del historial anterior",
+      "observed_completion_caption": "Sesiones válidas finalizadas con duración conocida; completadas al escuchar al menos el 92%",
+      "legacy_completion_summary": "Historial anterior: {} completadas registradas y {} adicionales estimadas sobre {} reproducciones. La estimación usa reproducciones menos skips donde no hay completadas; no entra en la tasa verificable.",
+      "favorite_rate": "Tasa de favoritos",
+      "favorite_rate_caption": "{} de {} audios de tu biblioteca marcados como favoritos",
       "recent_activity_30d": "Actividad reciente (30d)",
       "skipped": "Saltadas"
     },

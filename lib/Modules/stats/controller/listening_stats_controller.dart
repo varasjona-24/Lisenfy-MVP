@@ -24,6 +24,8 @@ class ListeningStatsController extends GetxController {
   StreamSubscription<int>? _sqlRevision;
   List<MediaItem>? _audioPlaybackItems;
   List<MediaItem>? _videoPlaybackItems;
+  double? _averageAudioCoverage;
+  Map<String, int> _audioCompletionSummary = const {};
 
   @override
   void onInit() {
@@ -77,6 +79,8 @@ class ListeningStatsController extends GetxController {
       sourcesController: _sourcesController,
       audioPlaybackItems: _audioPlaybackItems,
       videoPlaybackItems: _videoPlaybackItems,
+      averageAudioCoverage: _averageAudioCoverage,
+      audioCompletionSummary: _audioCompletionSummary,
     );
   }
 
@@ -110,6 +114,8 @@ class ListeningStatsController extends GetxController {
   Future<void> _loadModeMetrics(List<MediaItem> items) async {
     if (!Get.isRegistered<PlaybackRepository>()) return;
     final repository = Get.find<PlaybackRepository>();
+    _averageAudioCoverage = await repository.queryAverageAudioCoverage();
+    _audioCompletionSummary = await repository.queryAudioCompletionSummary();
     List<MediaItem> project(Map<String, Map<String, dynamic>> metrics) =>
         items.map((item) {
           final json = item.toJson();
