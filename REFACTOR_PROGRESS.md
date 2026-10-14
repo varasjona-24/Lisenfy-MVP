@@ -1,5 +1,24 @@
 # Registro de refactor
 
+## 2026-10-14 — Publicación de collage y resolución de artistas
+
+- Collage semanal: regiones tomadas de mainRegion del artista principal por su ID, sin inferirlas del país ni duplicar minutos de colaboraciones. Dos láminas PNG de 2160 px de ancho y altura proporcional al contenido; todavía no hay un layout de exportación independiente del dispositivo.
+- Artistas: diálogos de fusión y asignación adaptados a la paleta. «Resolver artista» aparece únicamente para homónimos pendientes; los vínculos existentes se conservan. Las tarjetas muestran imagen disponible, país y región; cancelar no asigna créditos.
+- Verificación previa a publicación: 42 pruebas seleccionadas aprobadas. Las mejoras propuestas para el reproductor de video no forman parte de estos cambios.
+
+## 2026-10-12 — Composición del collage y distinción de video
+
+- Inspiración visual aplicada con portadas existentes y paleta de la app: protagonista con texto sobre degradado en audio y texto exterior cuando el tamaño accesible lo requiere; audio secundario separado de highlights de video.
+- Video conserva 16:9, badge con icono, panel y tiempo de visualización propios; el gráfico añade tramado para no depender solamente del color.
+- Texto bajo el gráfico resume el domingo: minutos activos de audio más video / tiempo activo total de la última semana completa. No usa toda la vida del historial ni cifras de la referencia visual. Domingo sin actividad recibe texto propio.
+- Traducciones ES/EN y regresiones de tiempos, porcentaje del cierre, proporciones y layout con texto ampliado. Sin cambios en la base SQLite ni subida automática.
+
+## 2026-10-12 — Minutos por región en el collage semanal
+
+- El bloque se titula «Regiones más escuchadas» y muestra el tiempo de audio de cada región junto a su nombre.
+- Conserva el top tres ordenado por tiempo real de la última semana completa. Actividad menor a un minuto muestra «<1 min», no cero.
+- Traducciones ES/EN y regresión visual en ambos temas con texto ampliado; sin modificar historial ni el cálculo del Wrapped general.
+
 ## 2026-10-12 — Collage semanal editorial y actividad real
 
 - Portada protagonista más collage secundario; video 16:9, métricas compactas con iconos, logo existente y fondo de paleta sobre paneles opacos. La página mantiene el fondo dinámico de la app y la imagen exportada tiene fondo propio legible.
