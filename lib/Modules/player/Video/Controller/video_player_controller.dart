@@ -29,6 +29,7 @@ class VideoPlayerController extends GetxController {
   final RxBool isQueueOpen = false.obs;
   final Rxn<String> error = Rxn<String>();
   Worker? _completedWorker;
+  Worker? _errorWorker;
   Worker? _queueWorker;
   Worker? _indexWorker;
 
@@ -87,6 +88,9 @@ class VideoPlayerController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _errorWorker = ever<String?>(videoService.playbackFailureKey, (key) {
+      error.value = key == null ? null : tr(key);
+    });
 
     queue.assignAll(_initialQueue);
     if (queue.isEmpty) {
@@ -187,7 +191,7 @@ class VideoPlayerController extends GetxController {
     final item = currentItemOrNull;
     final variant = currentVideoVariant;
     if (item == null || variant == null) {
-      error.value = tr('player.video_corrupt');
+      error.value = tr('player.invalid_video_variant');
       return;
     }
 
@@ -216,7 +220,9 @@ class VideoPlayerController extends GetxController {
       }
       error.value = null;
     } catch (e) {
-      error.value = 'Error al reproducir: $e';
+      error.value = tr(
+        videoService.playbackFailureKey.value ?? 'player.video_engine_error',
+      );
     }
   }
 
@@ -397,6 +403,7 @@ class VideoPlayerController extends GetxController {
     _persistQueue();
     videoService.persistResumePosition();
     _completedWorker?.dispose();
+    _errorWorker?.dispose();
     _queueWorker?.dispose();
     _indexWorker?.dispose();
     super.onClose();

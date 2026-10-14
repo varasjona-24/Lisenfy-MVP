@@ -1231,6 +1231,15 @@
     }
   },
   "player": {
+    "video_lock": "Lock controls",
+    "video_unlock": "Unlock controls",
+    "video_fit": "Fit",
+    "video_fill": "Fill",
+    "video_file_missing": "The video file is unavailable. Check its location or select another file.",
+    "video_network_error": "The video could not load due to a connection problem. Check your network and retry.",
+    "video_timeout": "The video took too long to open. Retry or select another file.",
+    "video_format_error": "The engine could not decode this video. Another format or codec may be required.",
+    "video_engine_error": "The video could not be played. Retry or select another file.",
     "audio_load_failed": "Playback could not start. Please try again.",
     "queue_title": "Playback queue",
     "queue_empty": "The queue is empty",

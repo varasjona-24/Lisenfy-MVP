@@ -1231,6 +1231,15 @@
     }
   },
   "player": {
+    "video_lock": "Bloquear controles",
+    "video_unlock": "Desbloquear controles",
+    "video_fit": "Ajustar",
+    "video_fill": "Rellenar",
+    "video_file_missing": "El archivo de video no está disponible. Comprueba su ubicación o selecciona otro.",
+    "video_network_error": "No se pudo cargar el video por un problema de conexión. Comprueba la red y reintenta.",
+    "video_timeout": "El video tardó demasiado en abrirse. Reintenta o selecciona otro archivo.",
+    "video_format_error": "El motor no pudo decodificar este video. Puede requerir otro formato o códec.",
+    "video_engine_error": "No se pudo reproducir el video. Reintenta o selecciona otro archivo.",
     "audio_load_failed": "No se pudo iniciar la reproducción. Inténtalo nuevamente.",
     "queue_title": "Cola de reproducción",
     "queue_empty": "La cola está vacía",

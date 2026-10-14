@@ -12,6 +12,7 @@ import '../../Modules/settings/controller/playback_settings_controller.dart';
 import 'playback_history_recorder.dart';
 import 'engine_history_recorder.dart';
 import 'video_resume_policy.dart';
+import 'video_playback_policy.dart';
 import '../data/playback/playback_boundary_command.dart';
 import '../data/playback/playback_state_storage.dart';
 import '../data/local/local_library_store.dart';
@@ -78,6 +79,7 @@ class VideoService extends GetxService with WidgetsBindingObserver {
   final Rx<VideoPlaybackState> state = VideoPlaybackState.stopped.obs;
   final RxBool isPlaying = false.obs;
   final RxBool isLoading = false.obs;
+  final Rxn<String> playbackFailureKey = Rxn<String>();
 
   final Rx<Duration> position = Duration.zero.obs;
   final Rx<Duration> duration = Duration.zero.obs;
@@ -153,12 +155,14 @@ class VideoService extends GetxService with WidgetsBindingObserver {
     MediaVariant variant, {
     PlaybackTermination replacementReason = PlaybackTermination.manualSelection,
   }) async {
+    final previousFailure = playbackFailureKey.value;
+    playbackFailureKey.value = null;
     if (!variant.isValid) {
       throw Exception('No existe archivo para reproducir (variant inválido).');
     }
 
     final sameTrack = isSameVideo(item, variant);
-    if (sameTrack && hasSourceLoaded) {
+    if (sameTrack && hasSourceLoaded && previousFailure == null) {
       if (!isPlaying.value) await _player?.play();
       return;
     }
@@ -184,11 +188,9 @@ class VideoService extends GetxService with WidgetsBindingObserver {
     if (hasLocal) {
       final f = File(localPath);
       if (!await f.exists()) {
+        playbackFailureKey.value = 'player.video_file_missing';
         // debug útil
-        print('❌ Local video file not found');
-        print('fileName = ${variant.fileName}');
-        print('localPath = ${variant.localPath}');
-        print('using path = $localPath');
+        debugPrint('Local video file not found: $localPath');
 
         isLoading.value = false;
         isPlaying.value = false;
@@ -199,7 +201,7 @@ class VideoService extends GetxService with WidgetsBindingObserver {
 
       try {
         videoUrl = Uri.file(localPath).toString();
-        print('🎬 Playing local video: $videoUrl');
+        debugPrint('Playing local video: $videoUrl');
 
         _player = vp.VideoPlayerController.file(
           File(localPath),
@@ -210,7 +212,7 @@ class VideoService extends GetxService with WidgetsBindingObserver {
 
         await _player!.initialize().timeout(const Duration(seconds: 12));
         final v = _player!.value;
-        print(
+        debugPrint(
           '🎥 LOCAL init=${v.isInitialized} '
           'size=${v.size} '
           'dur=${v.duration} '
@@ -235,13 +237,14 @@ class VideoService extends GetxService with WidgetsBindingObserver {
 
         return;
       } catch (e) {
+        playbackFailureKey.value = videoFailureKey(e, remote: false);
         _history.intent(PlaybackTermination.engineError);
         await _disposePlayer();
         isLoading.value = false;
         isPlaying.value = false;
         state.value = VideoPlaybackState.stopped;
 
-        print('❌ Error playing local video: $e');
+        debugPrint('Error playing local video: $e');
         throw Exception('Error al reproducir video local: $e');
       } finally {
         isLoading.value = false;
@@ -266,12 +269,11 @@ class VideoService extends GetxService with WidgetsBindingObserver {
 
     videoUrl = '${ApiConfig.baseUrl}/api/v1/media/file/$fileId/video/$format';
 
-    print('🎬 VideoService.play (remote)');
-    print('🌐 Video URL: $videoUrl');
+    debugPrint('Playing remote video: $videoUrl');
 
     try {
-      _player = vp.VideoPlayerController.network(
-        videoUrl,
+      _player = vp.VideoPlayerController.networkUrl(
+        Uri.parse(videoUrl),
         videoPlayerOptions: vp.VideoPlayerOptions(
           allowBackgroundPlayback: true,
         ),
@@ -295,6 +297,7 @@ class VideoService extends GetxService with WidgetsBindingObserver {
       isPlaying.value = true;
       state.value = VideoPlaybackState.playing;
     } catch (e) {
+      playbackFailureKey.value = videoFailureKey(e, remote: true);
       _history.intent(PlaybackTermination.engineError);
       _history.select(null);
       await _disposePlayer();
@@ -302,7 +305,7 @@ class VideoService extends GetxService with WidgetsBindingObserver {
       isPlaying.value = false;
       state.value = VideoPlaybackState.stopped;
 
-      print('❌ Error playing remote video: $e');
+      debugPrint('Error playing remote video: $e');
       throw Exception('Error al reproducir video remoto: $e');
     } finally {
       isLoading.value = false;
@@ -315,6 +318,20 @@ class VideoService extends GetxService with WidgetsBindingObserver {
       if (_player == null) return;
       final v = _player!.value;
       if (v.hasError) {
+        playbackFailureKey.value = videoFailureKey(
+          StateError(v.errorDescription ?? ''),
+          remote: currentVariant.value?.localPath?.trim().isNotEmpty != true,
+        );
+        isLoading.value = false;
+        isPlaying.value = false;
+        state.value = VideoPlaybackState.stopped;
+        persistResumePosition();
+        _posTimer?.cancel();
+        unawaited(
+          _player?.pause().catchError((Object error) {
+            debugPrint('Unable to pause failed video: $error');
+          }),
+        );
         _history.intent(PlaybackTermination.engineError);
         _history.select(null);
         unawaited(_flushEngineHistory());
@@ -324,31 +341,40 @@ class VideoService extends GetxService with WidgetsBindingObserver {
       _history.update(
         position: v.position,
         duration: v.duration,
-        playing: v.isPlaying && !v.isBuffering,
+        playing: v.isPlaying && !v.isBuffering && !v.isCompleted,
         speed: v.playbackSpeed,
         buffering: v.isBuffering,
-        completed: v.isCompleted,
+        completed: videoEngineCompleted(
+          completed: v.isCompleted,
+          buffering: v.isBuffering,
+          hasError: v.hasError,
+        ),
       );
       position.value = v.position;
-      isPlaying.value = v.isPlaying;
+      isPlaying.value = v.isPlaying && !v.isCompleted;
+      isLoading.value = v.isBuffering;
       duration.value = v.duration;
       _resumePolicy.observe(
         currentItem.value,
         v.position,
         v.duration,
-        v.isPlaying && !v.isBuffering,
+        v.isPlaying && !v.isBuffering && !v.isCompleted,
       );
 
-      if (v.isPlaying) {
+      if (v.isBuffering) {
+        state.value = VideoPlaybackState.loading;
+      } else if (v.isPlaying && !v.isCompleted) {
         state.value = VideoPlaybackState.playing;
       } else {
         state.value = VideoPlaybackState.paused;
       }
 
-      final d = v.duration;
-      final completed =
-          d > Duration.zero &&
-          v.position >= d - const Duration(milliseconds: 200);
+      final completed = videoEngineCompleted(
+        completed: v.isCompleted,
+        buffering: v.isBuffering,
+        hasError: v.hasError,
+      );
+      if (!completed && v.position == Duration.zero) _completedOnce = false;
       if (!_completedOnce && completed) {
         _completedOnce = true;
         completedTick.value++;
@@ -389,7 +415,7 @@ class VideoService extends GetxService with WidgetsBindingObserver {
 
   Future<void> toggle() async {
     if (_player == null) {
-      print('❌ No video loaded. Call play(item, variant) first.');
+      debugPrint('No video loaded. Call play(item, variant) first.');
       return;
     }
 
@@ -421,6 +447,7 @@ class VideoService extends GetxService with WidgetsBindingObserver {
     _history.beforeSeek(position);
     try {
       await _player!.seekTo(position);
+      if (position < _player!.value.duration) _completedOnce = false;
     } finally {
       final value = _player?.value;
       _history.afterSeek(
@@ -431,6 +458,7 @@ class VideoService extends GetxService with WidgetsBindingObserver {
 
   Future<void> replay() async {
     if (_player == null) return;
+    _completedOnce = false;
     _history.intent(PlaybackTermination.explicitStop);
     _history.select(null);
     _history.select(currentItem.value, variant: currentVariant.value);

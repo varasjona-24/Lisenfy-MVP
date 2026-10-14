@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-14 — Primera etapa de mejoras de video
+
+- Errores durante la reproducción llegan al controller y a la UI, detienen el muestreo fallido y cierran el historial con engineError. Reintentar vuelve a cargar el motor si había fallado. Mensajes ES/EN distinguen archivo ausente, conexión, timeout, decodificación reconocida y fallo genérico sin declarar corrupción.
+- Buffering se refleja como carga visible y no suma tiempo activo. Cola e historial usan la finalización real del motor, no la proximidad a los últimos 200 ms; se mantiene independiente la política estadística de visto/completado.
+- Controles: bloqueo con desbloqueo visible, gestos desactivados mientras está bloqueado y selector Ajustar/Rellenar con recorte sin deformación. Estado visual efímero, sin nueva dependencia ni cambio de motor.
+- Verificación: 33 pruebas de políticas, reanudación e historial SQLite y 2 pruebas visuales en ambos temas, pantalla estrecha y horizontal aprobadas. Análisis de los archivos revisados sin problemas. Falta validar reproducción nativa, PiP y cambio automático en dispositivo; no se generó APK ni se publicaron estos cambios.
+
 ## 2026-10-14 — Publicación de collage y resolución de artistas
 
 - Collage semanal: regiones tomadas de mainRegion del artista principal por su ID, sin inferirlas del país ni duplicar minutos de colaboraciones. Dos láminas PNG de 2160 px de ancho y altura proporcional al contenido; todavía no hay un layout de exportación independiente del dispositivo.
