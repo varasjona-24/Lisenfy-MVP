@@ -1,4 +1,4 @@
-import '../../../app/utils/country_catalog.dart';
+import '../../artists/domain/artist_profile.dart';
 
 /// Presentation projection of effective listening intervals; never persisted.
 class WeeklyCollageActivity {
@@ -14,8 +14,11 @@ class WeeklyCollageActivity {
   final Map<String, double> regionsMs;
   final double previousMs;
   final bool comparable;
-  double get totalMs =>
-      audioMs.fold(0.0, (a, b) => a + b) + videoMs.fold(0.0, (a, b) => a + b);
+  double get audioTotalMs => audioMs.fold(0.0, (a, b) => a + b);
+  double get videoTotalMs => videoMs.fold(0.0, (a, b) => a + b);
+  double get closingDayMs => audioMs.last + videoMs.last;
+  double get closingDayShare => totalMs > 0 ? closingDayMs / totalMs : 0;
+  double get totalMs => audioTotalMs + videoTotalMs;
   double? get changePercent => comparable && previousMs > 0
       ? (totalMs - previousMs) / previousMs * 100
       : null;
@@ -63,11 +66,9 @@ class WeeklyCollageActivity {
         );
         (interval['video'] == true ? video : audio)[day] += value;
         if (interval['video'] != true) {
-          final region = CountryCatalog.regionKeyFromCode(
-            interval['country'] as String?,
-          );
-          if (region != null && value > 0) {
-            regions.update(region, (v) => v + value, ifAbsent: () => value);
+          final region = ArtistMainRegionX.fromRaw(interval['region']);
+          if (region != ArtistMainRegion.none && value > 0) {
+            regions.update(region.key, (v) => v + value, ifAbsent: () => value);
           }
         }
       }

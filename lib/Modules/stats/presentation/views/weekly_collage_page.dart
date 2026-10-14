@@ -13,6 +13,7 @@ import '../../../../app/data/playback/playback_repository.dart';
 import '../../../../app/ui/widgets/branding/listenfy_logo.dart';
 import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../recommendations/data/listening_event_store.dart';
+import '../../../artists/domain/artist_profile.dart';
 import '../../application/weekly_collage_summary.dart';
 import '../../application/weekly_collage_activity.dart';
 import '../widgets/weekly_activity_chart.dart';
@@ -26,7 +27,7 @@ class WeeklyCollagePage extends StatefulWidget {
 }
 
 class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
-  final _imageKey = GlobalKey();
+  final _imageKeys = [GlobalKey(), GlobalKey()];
   late final Future<WeeklyCollageSummary> _summary;
   bool _exporting = false;
   WeeklyCollageActivity? _activity;
@@ -68,26 +69,39 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
   Future<void> _export() async {
     if (_exporting) return;
     setState(() => _exporting = true);
-    ui.Image? image;
     try {
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return;
-      final boundary =
-          _imageKey.currentContext!.findRenderObject()!
-              as RenderRepaintBoundary;
-      image = await boundary.toImage(pixelRatio: 1080 / boundary.size.width);
-      final data = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (data == null || !mounted) return;
+      final files = <XFile>[];
+      final names = <String>[];
+      for (var index = 0; index < _imageKeys.length; index++) {
+        final boundary =
+            _imageKeys[index].currentContext!.findRenderObject()!
+                as RenderRepaintBoundary;
+        final image = await boundary.toImage(
+          pixelRatio: 2160 / boundary.size.width,
+        );
+        try {
+          final data = await image.toByteData(format: ui.ImageByteFormat.png);
+          if (data == null) throw StateError('PNG encoding failed');
+          final name = 'listenfy-weekly-${index + 1}.png';
+          names.add(name);
+          files.add(
+            XFile.fromData(
+              data.buffer.asUint8List(),
+              mimeType: 'image/png',
+              name: name,
+            ),
+          );
+        } finally {
+          image.dispose();
+        }
+      }
+      if (!mounted) return;
       final box = context.findRenderObject()! as RenderBox;
       await Share.shareXFiles(
-        [
-          XFile.fromData(
-            data.buffer.asUint8List(),
-            mimeType: 'image/png',
-            name: 'listenfy-weekly.png',
-          ),
-        ],
-        fileNameOverrides: ['listenfy-weekly.png'],
+        files,
+        fileNameOverrides: names,
         sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
       );
     } catch (_) {
@@ -97,7 +111,6 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
         );
       }
     } finally {
-      image?.dispose();
       if (mounted) setState(() => _exporting = false);
     }
   }
@@ -131,7 +144,13 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                RepaintBoundary(key: _imageKey, child: _collage(summary)),
+                for (var part = 0; part < 2; part++) ...[
+                  if (part > 0) const SizedBox(height: 20),
+                  RepaintBoundary(
+                    key: _imageKeys[part],
+                    child: _collage(summary, part: part),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 FilledButton.icon(
                   onPressed: _exporting ? null : _export,
@@ -150,15 +169,17 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
     ),
   );
 
-  Widget _collage(WeeklyCollageSummary summary) {
+  Widget _collage(WeeklyCollageSummary summary, {required int part}) {
     final scheme = Theme.of(context).colorScheme;
-    final featured = summary.entries.take(4).toList();
-    final videos = summary.entries.where((e) => e.video);
-    if (videos.isNotEmpty && !featured.any((e) => e.video)) {
-      if (featured.length == 4) featured.removeLast();
-      featured.add(videos.first);
-    }
     final top = summary.entries.first;
+    final audio = summary.entries
+        .where((e) => !e.video && !identical(e, top))
+        .take(3)
+        .toList();
+    final videos = summary.entries
+        .where((e) => e.video && !identical(e, top))
+        .take(2)
+        .toList();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
@@ -205,163 +226,257 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
             style: TextStyle(color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 22),
-          _cover(top, protagonist: true),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 16,
-            children: [
-              for (
-                var i = 0;
-                i < featured.where((e) => !identical(e, top)).length;
-                i++
-              )
-                FractionallySizedBox(
-                  widthFactor: .47,
-                  child: Transform.rotate(
-                    angle: i.isEven ? -.035 : .035,
-                    child: _cover(
-                      featured.where((e) => !identical(e, top)).elementAt(i),
+          if (part == 0) ...[
+            _cover(top, protagonist: true),
+            if (audio.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              _sectionTitle(
+                Icons.music_note_rounded,
+                tr('weekly_collage.other_audio'),
+                scheme.primary,
+              ),
+              const SizedBox(height: 12),
+              LayoutBuilder(
+                builder: (context, constraints) => Wrap(
+                  spacing: 10,
+                  runSpacing: 12,
+                  children: [
+                    for (final entry in audio)
+                      SizedBox(
+                        width: (constraints.maxWidth - 10) / 2,
+                        child: _cover(entry),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+            if (videos.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              _panel(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _sectionTitle(
+                      Icons.movie_rounded,
+                      tr('weekly_collage.video_highlights'),
+                      scheme.tertiary,
                     ),
+                    const SizedBox(height: 12),
+                    for (final entry in videos)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _cover(entry),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+          if (part == 1) ...[
+            const SizedBox(height: 24),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                if (summary.plays(false) > 0)
+                  _metric(
+                    Icons.music_note_rounded,
+                    '${summary.plays(false)}',
+                    tr('weekly_collage.audio_plays'),
+                  ),
+                if (summary.plays(true) > 0)
+                  _metric(
+                    Icons.movie_rounded,
+                    '${summary.plays(true)}',
+                    tr('weekly_collage.video_plays'),
+                    video: true,
+                  ),
+                if ((_activity?.videoTotalMs ?? 0) > 0)
+                  _metric(
+                    Icons.ondemand_video_rounded,
+                    _minutes(_activity!.videoTotalMs),
+                    tr('weekly_collage.watched_time'),
+                    video: true,
+                  ),
+                if ((_activity?.totalMs ?? 0) > 0)
+                  _metric(
+                    Icons.schedule_rounded,
+                    tr(
+                      'weekly_collage.minutes',
+                      args: [('${(_activity!.totalMs / 60000).round()}')],
+                    ),
+                    tr('weekly_collage.active_time'),
+                  ),
+              ],
+            ),
+            if (_activity != null && _activity!.totalMs > 0) ...[
+              const SizedBox(height: 22),
+              _panel(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tr('weekly_collage.activity'),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 16),
+                    WeeklyActivityChart(
+                      activity: _activity!,
+                      labels: List.generate(
+                        7,
+                        (i) =>
+                            DateFormat.E(
+                              Localizations.localeOf(context).toString(),
+                            ).format(
+                              DateTime(
+                                summary.start.year,
+                                summary.start.month,
+                                summary.start.day + i,
+                              ),
+                            ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      children: [
+                        _legend(
+                          scheme.primary,
+                          tr('weekly_collage.audio'),
+                          Icons.music_note_rounded,
+                        ),
+                        if (_activity!.videoMs.any((v) => v > 0))
+                          _legend(
+                            scheme.tertiary,
+                            tr('weekly_collage.video'),
+                            Icons.movie_rounded,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      tr(
+                        _activity!.closingDayMs > 0
+                            ? 'weekly_collage.week_closing'
+                            : 'weekly_collage.week_closing_empty',
+                        args: [
+                          _minutes(_activity!.closingDayMs),
+                          NumberFormat.decimalPercentPattern(
+                            locale: Localizations.localeOf(context).toString(),
+                            decimalDigits: 1,
+                          ).format(_activity!.closingDayShare),
+                        ],
+                      ),
+                      style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_activity!.changePercent != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 14),
+                  child: Text(
+                    tr(
+                      _activity!.changePercent!.abs() < .5
+                          ? 'weekly_collage.same_time'
+                          : _activity!.changePercent! >= 0
+                          ? 'weekly_collage.more_time'
+                          : 'weekly_collage.less_time',
+                      args: [
+                        _activity!.changePercent!.abs().round().toString(),
+                      ],
+                    ),
+                    style: TextStyle(color: scheme.onSurfaceVariant),
                   ),
                 ),
             ],
-          ),
-          const SizedBox(height: 24),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              if (summary.plays(false) > 0)
-                _metric(
-                  Icons.music_note_rounded,
-                  '${summary.plays(false)}',
-                  tr('weekly_collage.audio_plays'),
-                ),
-              if (summary.plays(true) > 0)
-                _metric(
-                  Icons.movie_rounded,
-                  '${summary.plays(true)}',
-                  tr('weekly_collage.video_plays'),
-                ),
-              if ((_activity?.totalMs ?? 0) > 0)
-                _metric(
-                  Icons.schedule_rounded,
-                  tr(
-                    'weekly_collage.minutes',
-                    args: [('${(_activity!.totalMs / 60000).round()}')],
-                  ),
-                  tr('weekly_collage.active_time'),
-                ),
-            ],
-          ),
-          if (_activity != null && _activity!.totalMs > 0) ...[
-            const SizedBox(height: 22),
-            _panel(
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tr('weekly_collage.activity'),
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 16),
-                  WeeklyActivityChart(
-                    activity: _activity!,
-                    labels: List.generate(
-                      7,
-                      (i) =>
-                          DateFormat.E(
-                            Localizations.localeOf(context).toString(),
-                          ).format(
-                            DateTime(
-                              summary.start.year,
-                              summary.start.month,
-                              summary.start.day + i,
+            if (_activity?.regionsMs.isNotEmpty ?? false) ...[
+              const SizedBox(height: 16),
+              _panel(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tr('weekly_collage.regions'),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final region
+                            in (_activity!.regionsMs.entries.toList()
+                                  ..sort((a, b) => b.value.compareTo(a.value)))
+                                .take(3))
+                          Chip(
+                            label: Text(
+                              tr(
+                                'weekly_collage.stat',
+                                args: [
+                                  ArtistMainRegionX.fromRaw(
+                                    region.key,
+                                  ).simpleLabel,
+                                  region.value < 60000
+                                      ? tr('weekly_collage.under_one_minute')
+                                      : tr(
+                                          'weekly_collage.minutes',
+                                          args: [
+                                            '${(region.value / 60000).round()}',
+                                          ],
+                                        ),
+                                ],
+                              ),
                             ),
                           ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 12,
-                    children: [
-                      _legend(scheme.primary, tr('weekly_collage.audio')),
-                      if (_activity!.videoMs.any((v) => v > 0))
-                        _legend(scheme.tertiary, tr('weekly_collage.video')),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (_activity!.changePercent != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 14),
-                child: Text(
-                  tr(
-                    _activity!.changePercent!.abs() < .5
-                        ? 'weekly_collage.same_time'
-                        : _activity!.changePercent! >= 0
-                        ? 'weekly_collage.more_time'
-                        : 'weekly_collage.less_time',
-                    args: [_activity!.changePercent!.abs().round().toString()],
-                  ),
-                  style: TextStyle(color: scheme.onSurfaceVariant),
+                  ],
                 ),
               ),
-          ],
-          if (_activity?.regionsMs.isNotEmpty ?? false) ...[
+            ],
+            const SizedBox(height: 16),
+            Text(
+              tr(
+                top.plays >= 3 && top.plays * 2 >= summary.plays(top.video)
+                    ? 'weekly_collage.habit_repeat'
+                    : summary.entries.length >= 4
+                    ? 'weekly_collage.habit_varied'
+                    : 'weekly_collage.habit_yours',
+              ),
+              style: TextStyle(
+                color: scheme.primary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
             const SizedBox(height: 16),
             _panel(
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    tr('weekly_collage.regions'),
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    tr('weekly_collage.footer'),
+                    style: TextStyle(
+                      color: scheme.primary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final region
-                          in (_activity!.regionsMs.entries.toList()
-                                ..sort((a, b) => b.value.compareTo(a.value)))
-                              .take(3))
-                        Chip(
-                          label: Text(
-                            tr('weekly_collage.region_${region.key}'),
-                          ),
-                        ),
-                    ],
+                  const SizedBox(height: 8),
+                  Text(
+                    tr('weekly_collage.footer_story'),
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
                   ),
                 ],
               ),
             ),
           ],
-          const SizedBox(height: 16),
-          Text(
-            tr(
-              top.plays >= 3 && top.plays * 2 >= summary.plays(top.video)
-                  ? 'weekly_collage.habit_repeat'
-                  : summary.entries.length >= 4
-                  ? 'weekly_collage.habit_varied'
-                  : 'weekly_collage.habit_yours',
-            ),
-            style: TextStyle(
-              color: scheme.primary,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            tr('weekly_collage.footer'),
-            style: TextStyle(
-              color: scheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
         ],
       ),
     );
@@ -373,28 +488,68 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(20),
+      border: Border.all(
+        color: Theme.of(
+          context,
+        ).colorScheme.outlineVariant.withValues(alpha: .5),
+      ),
     ),
     child: child,
   );
-  Widget _legend(Color color, String label) => Row(
+  String _minutes(double ms) => ms > 0 && ms < 60000
+      ? tr('weekly_collage.under_one_minute')
+      : tr('weekly_collage.minutes', args: ['${(ms / 60000).round()}']);
+  Widget _sectionTitle(IconData icon, String label, Color color) => Row(
+    children: [
+      Icon(icon, color: color, size: 20),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+      ),
+    ],
+  );
+  Widget _legend(Color color, String label, IconData icon) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(Icons.circle, size: 8, color: color),
+      Icon(icon, size: 16, color: color),
       const SizedBox(width: 6),
       Text(label, style: const TextStyle(fontSize: 11)),
     ],
   );
-  Widget _metric(IconData icon, String value, String label) => Container(
+  Widget _metric(
+    IconData icon,
+    String value,
+    String label, {
+    bool video = false,
+  }) => Container(
     constraints: const BoxConstraints(minWidth: 110),
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      color: video
+          ? Color.alphaBlend(
+              Theme.of(context).colorScheme.tertiary.withValues(alpha: .08),
+              Theme.of(context).colorScheme.surfaceContainerHigh,
+            )
+          : Theme.of(context).colorScheme.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(18),
+      border: Border.all(
+        color:
+            (video
+                    ? Theme.of(context).colorScheme.tertiary
+                    : Theme.of(context).colorScheme.primary)
+                .withValues(alpha: .25),
+      ),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+        Icon(
+          icon,
+          size: 20,
+          color: video
+              ? Theme.of(context).colorScheme.tertiary
+              : Theme.of(context).colorScheme.primary,
+        ),
         const SizedBox(height: 6),
         Text(
           value,
@@ -407,6 +562,10 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
 
   Widget _cover(WeeklyCollageEntry entry, {bool protagonist = false}) {
     final item = entry.item;
+    final overlay =
+        protagonist &&
+        !entry.video &&
+        MediaQuery.textScalerOf(context).scale(1) <= 1.3;
     final local = item.thumbnailLocalPath;
     final remote = item.thumbnail;
     final fallback = ColoredBox(
@@ -436,6 +595,13 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color:
+              (entry.video
+                      ? Theme.of(context).colorScheme.tertiary
+                      : Theme.of(context).colorScheme.primary)
+                  .withValues(alpha: .25),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,39 +633,125 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
             borderRadius: BorderRadius.circular(12),
             child: AspectRatio(
               aspectRatio: entry.video ? 16 / 9 : 1,
-              child: image,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  image,
+                  if (overlay) ...[
+                    const Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Color(0xE6000000)],
+                            stops: [.35, 1],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 14,
+                      right: 14,
+                      bottom: 14,
+                      child: _coverText(entry, true, color: Colors.white),
+                    ),
+                  ],
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    right: 8,
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: .8),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              entry.video
+                                  ? Icons.movie_rounded
+                                  : Icons.music_note_rounded,
+                              size: 13,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                tr(
+                                  entry.video
+                                      ? 'weekly_collage.video'
+                                      : 'weekly_collage.audio',
+                                ),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 7),
-          Text(
-            item.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: protagonist ? 20 : 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          if (protagonist && item.displaySubtitle.isNotEmpty)
-            Text(
-              item.displaySubtitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          Text(
-            tr(
-              'weekly_collage.cover_caption',
-              args: [
-                tr(
-                  entry.video ? 'weekly_collage.video' : 'weekly_collage.audio',
-                ),
-                '${entry.plays}',
-              ],
-            ),
-            style: const TextStyle(fontSize: 11),
-          ),
+          if (!overlay) ...[
+            const SizedBox(height: 7),
+            _coverText(entry, protagonist),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _coverText(
+    WeeklyCollageEntry entry,
+    bool protagonist, {
+    Color? color,
+  }) {
+    final item = entry.item;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          item.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: protagonist ? 20 : 12,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+        if (protagonist && item.displaySubtitle.isNotEmpty)
+          Text(
+            item.displaySubtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: color),
+          ),
+        Text(
+          tr(
+            'weekly_collage.cover_caption',
+            args: [
+              tr(entry.video ? 'weekly_collage.video' : 'weekly_collage.audio'),
+              '${entry.plays}',
+            ],
+          ),
+          style: TextStyle(fontSize: 11, color: color),
+        ),
+      ],
     );
   }
 }

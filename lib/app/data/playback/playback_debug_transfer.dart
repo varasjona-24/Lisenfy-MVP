@@ -7,11 +7,16 @@ extension PlaybackDebugTransfer on PlaybackRepository {
       _restorationTask(() async {
         final rows = await _database
             .customSelect(
-              '''
+              r'''
       SELECT i.started_at_utc_ms start_ms,i.ended_at_utc_ms end_ms,i.wall_ms,i.mode,
-        l.metadata_json
+        (SELECT json_extract(a.metadata_json,'$.mainRegion')
+         FROM library_artist_credit c
+         JOIN artist_record a ON a.artist_key=c.artist_key
+         JOIN library_credit_state cs ON cs.item_id=c.item_id
+         WHERE c.item_id=m.library_id AND c.role='primary'
+           AND cs.interpretation!='ambiguous'
+         ORDER BY c.ordinal LIMIT 1) artist_region
       FROM playback_interval i JOIN media_identity m USING(media_id)
-      LEFT JOIN library_record l ON l.id=m.library_id
       WHERE i.ended_at_utc_ms>? AND i.started_at_utc_ms<? AND i.wall_ms>0
         AND i.mode IN ('audio','video')
       ORDER BY i.started_at_utc_ms
@@ -26,10 +31,7 @@ extension PlaybackDebugTransfer on PlaybackRepository {
                 'end': r.read<int>('end_ms'),
                 'wallMs': r.read<int>('wall_ms'),
                 'video': r.read<String>('mode') == 'video',
-                'country': r.readNullable<String>('metadata_json') == null
-                    ? null
-                    : (jsonDecode(r.read<String>('metadata_json'))
-                          as Map)['country'],
+                'region': r.readNullable<String>('artist_region'),
               },
             )
             .toList();

@@ -56,9 +56,17 @@ class WeeklyActivityChart extends StatelessWidget {
                                                     1000)
                                                 .round()
                                                 .clamp(1, 1000),
-                                        child: ColoredBox(
-                                          color: scheme.tertiary,
-                                          child: const SizedBox.expand(),
+                                        child: CustomPaint(
+                                          foregroundPainter: _VideoStripePainter(
+                                            scheme.tertiary.computeLuminance() >
+                                                    .5
+                                                ? Colors.black
+                                                : Colors.white,
+                                          ),
+                                          child: ColoredBox(
+                                            color: scheme.tertiary,
+                                            child: const SizedBox.expand(),
+                                          ),
                                         ),
                                       ),
                                     if (activity.audioMs[i] > 0)
@@ -94,4 +102,29 @@ class WeeklyActivityChart extends StatelessWidget {
       ],
     );
   }
+}
+
+class _VideoStripePainter extends CustomPainter {
+  const _VideoStripePainter(this.color);
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+    final paint = Paint()
+      ..color = color.withValues(alpha: .4)
+      ..strokeWidth = 1;
+    for (var x = -size.height; x < size.width; x += 6) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x + size.height, size.height),
+        paint,
+      );
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _VideoStripePainter oldDelegate) =>
+      color != oldDelegate.color;
 }
