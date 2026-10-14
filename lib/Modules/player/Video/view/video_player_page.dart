@@ -13,6 +13,8 @@ import 'package:listenfy/Modules/captures/data/capture_gallery_store.dart';
 import 'package:listenfy/Modules/player/Video/controller/video_player_controller.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../settings/controller/playback_settings_controller.dart';
+import 'video_controls_help_dialog.dart';
 
 class VideoPlayerPage extends StatefulWidget {
   const VideoPlayerPage({super.key});
@@ -420,6 +422,20 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                       onPressed: () => _setControlsLocked(true),
                       icon: const Icon(Icons.lock_outline_rounded),
                     ),
+                    IconButton(
+                      tooltip: tr('player.video_controls'),
+                      icon: const Icon(Icons.tune_rounded),
+                      onPressed: () async {
+                        _hideTimer?.cancel();
+                        await showDialog<void>(
+                          context: context,
+                          builder: (_) => VideoControlsHelpDialog(
+                            settings: Get.find<PlaybackSettingsController>(),
+                          ),
+                        );
+                        if (mounted && !_controlsLocked) _scheduleHide();
+                      },
+                    ),
                   ],
                 ),
                 _buildProgress(theme, item),
@@ -431,7 +447,16 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                       icon: const Icon(Icons.skip_previous),
                       onPressed: controller.previous,
                     ),
-                    const SizedBox(width: 12),
+                    IconButton(
+                      tooltip: tr('player.video_jump_back'),
+                      icon: const Icon(Icons.fast_rewind_rounded),
+                      onPressed: () => _seekBy(
+                        -Get.find<PlaybackSettingsController>()
+                            .videoSeekSeconds
+                            .value,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
                     Obx(() {
                       final playing = controller.isPlaying.value;
                       return ElevatedButton(
@@ -451,7 +476,16 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                         ),
                       );
                     }),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      tooltip: tr('player.video_jump_forward'),
+                      icon: const Icon(Icons.fast_forward_rounded),
+                      onPressed: () => _seekBy(
+                        Get.find<PlaybackSettingsController>()
+                            .videoSeekSeconds
+                            .value,
+                      ),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.skip_next),
                       onPressed: controller.next,
@@ -686,13 +720,19 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     if (_controlsLocked) return;
     final width = MediaQuery.sizeOf(context).width;
     final tapDx = tapPosition?.dx ?? (width / 2);
+    final seconds =
+        Get.find<PlaybackSettingsController>().videoSeekSeconds.value;
+    await _seekBy(tapDx < width / 2 ? -seconds : seconds);
+  }
+
+  Future<void> _seekBy(int delta) async {
+    if (_controlsLocked) return;
     final current =
         controller.playerController?.value.position ??
         controller.position.value;
     final total =
         controller.playerController?.value.duration ??
         controller.duration.value;
-    final delta = tapDx < width / 2 ? -5 : 5;
 
     final target = current + Duration(seconds: delta);
     final clamped = total > Duration.zero
@@ -702,7 +742,12 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
         : (target < Duration.zero ? Duration.zero : target);
 
     await controller.seek(clamped);
-    _showToast(delta < 0 ? '-5s' : '+5s');
+    _showToast(
+      tr(
+        'player.video_seek_feedback',
+        args: [delta < 0 ? '$delta' : '+$delta'],
+      ),
+    );
     _showControlsTemp();
   }
 

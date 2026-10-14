@@ -20,6 +20,7 @@ class _Settings extends PlaybackSettingsController {
 
 class _Video extends VideoService {
   int seeks = 0, volumeChanges = 0;
+  Duration? lastSeek;
   @override
   // ignore: must_call_super
   void onInit() {}
@@ -28,6 +29,7 @@ class _Video extends VideoService {
   @override
   Future<void> seek(Duration value) async {
     seeks++;
+    lastSeek = value;
   }
 
   @override
@@ -115,6 +117,18 @@ void main() {
       await tester.pump();
       expect(find.text('Fit'), findsOneWidget);
       expect(tester.takeException(), isNull);
+      Get.find<PlaybackSettingsController>().videoSeekSeconds.value = 15;
+      await tester.tapAt(const Offset(260, 200));
+      await tester.pump(const Duration(milliseconds: 70));
+      await tester.tapAt(const Offset(260, 200));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(video.lastSeek, const Duration(seconds: 15));
+      await tester.tap(find.byTooltip('Rewind by the selected interval'));
+      await tester.pump();
+      expect(video.lastSeek, Duration.zero);
+      await tester.tap(find.byTooltip('Advance by the selected interval'));
+      await tester.pump();
+      expect(video.lastSeek, const Duration(seconds: 15));
       tester.view.physicalSize = const Size(640, 360);
       await tester.pump();
       expect(tester.takeException(), isNull);

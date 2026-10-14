@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-14 — Controles de video y ayuda de gestos
+
+- Menú «Controles y gestos» con intervalo de doble toque de 5, 10 o 15 segundos (5 por defecto). Preferencia persistente en GetStorage, sin modificar posiciones ni historial SQLite; si falla el guardado no se presenta como guardada.
+- Botones visibles de retroceso/avance usan el mismo intervalo que el doble toque. Se respetan los límites del video y el bloqueo de controles.
+- Ayuda traducida ES/EN explica un toque, doble toque lateral, volumen con un dedo, velocidad con dos dedos, pausa/reanudación con doble toque de dos dedos y bloqueo.
+- Pruebas de persistencia tras recrear el controller, valor inválido, fallo de escritura, ayuda con texto ampliado, temas claro/oscuro, controles estrechos/horizontales y gestos. Pendiente prueba nativa en dispositivo; sin APK ni publicación automática.
+
 ## 2026-10-14 — Primera etapa de mejoras de video
 
 - Errores durante la reproducción llegan al controller y a la UI, detienen el muestreo fallido y cierran el historial con engineError. Reintentar vuelve a cargar el motor si había fallado. Mensajes ES/EN distinguen archivo ausente, conexión, timeout, decodificación reconocida y fallo genérico sin declarar corrupción.
