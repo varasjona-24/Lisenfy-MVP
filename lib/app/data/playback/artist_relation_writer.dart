@@ -12,12 +12,16 @@ extension ArtistRelationPersistence on PlaybackRepository {
               )
               .get()) {
         final metadata = row.readNullable<String>('metadata_json');
+        final profile = metadata == null
+            ? <String, dynamic>{}
+            : jsonDecode(metadata) as Map<String, dynamic>;
         result.putIfAbsent(row.read<String>('name_key'), () => []).add({
           'id': row.read<String>('artist_key'),
           'name': row.read<String>('display_name'),
-          'country': metadata == null
-              ? null
-              : (jsonDecode(metadata) as Map)['country'],
+          'country': profile['country'],
+          'mainRegion': profile['mainRegion'],
+          'thumbnail': profile['thumbnail'],
+          'thumbnailLocalPath': profile['thumbnailLocalPath'],
         });
       }
       return result;

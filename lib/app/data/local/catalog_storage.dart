@@ -28,6 +28,25 @@ class CatalogStorage implements GetStorage {
     return credits?.rawArtist == raw ? credits : null;
   }
 
+  bool needsArtistResolution(String id, String raw) {
+    final bound = creditsFor(id, raw);
+    final assigned = <String, String>{};
+    if (bound?.artistKeys != null) {
+      final names = bound!.allArtists;
+      for (var i = 0; i < names.length && i < bound.artistKeys!.length; i++) {
+        assigned[ArtistCreditParser.normalizeKey(names[i])] =
+            bound.artistKeys![i];
+      }
+    }
+    return ArtistCreditParser.parse(raw).allArtists.any((name) {
+      final candidates = candidatesFor(name);
+      return candidates.map((c) => c['id']).toSet().length > 1 &&
+          !candidates.any(
+            (c) => c['id'] == assigned[ArtistCreditParser.normalizeKey(name)],
+          );
+    });
+  }
+
   Future<void> _tail = Future<void>.value();
   Object? failure;
 

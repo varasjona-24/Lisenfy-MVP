@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import '../../../app/data/local/catalog_storage.dart';
 import '../../../app/data/local/domain_storage.dart';
 import '../../../app/data/playback/playback_repository.dart';
@@ -25,6 +24,7 @@ import '../../../app/services/musicbrainz_metadata_service.dart';
 import '../../../app/services/metadata_search_query_resolver_service.dart';
 import '../../artists/controller/artists_controller.dart';
 import '../../artists/domain/artist_profile.dart';
+import '../../artists/view/widgets/artist_merge_dialog.dart';
 import '../../captures/controller/capture_gallery_controller.dart';
 import '../../captures/data/capture_gallery_store.dart';
 import '../../captures/domain/capture_item.dart';
@@ -945,26 +945,7 @@ class EditEntityController extends GetxController {
           .toList();
       if (candidates.isNotEmpty) {
         final choice = await Get.dialog<String>(
-          SimpleDialog(
-            title: Text(tr('artist_identity.collision_title')),
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(tr('artist_identity.collision_message')),
-              ),
-              SimpleDialogOption(
-                onPressed: () => Get.back(result: 'separate'),
-                child: Text(tr('artist_identity.keep_separate')),
-              ),
-              for (final candidate in candidates)
-                SimpleDialogOption(
-                  onPressed: () => Get.back(result: candidate['id']),
-                  child: Text(
-                    '${tr('artist_identity.merge_with', args: [candidate['name'] as String])} — ${candidate['country'] ?? ''}',
-                  ),
-                ),
-            ],
-          ),
+          ArtistMergeDialog(candidates: candidates),
         );
         if (choice == null) return false;
         if (choice != 'separate') mergeTargetId = choice;

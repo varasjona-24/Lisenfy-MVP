@@ -87,6 +87,32 @@ void main() {
     await directory.delete(recursive: true);
   });
 
+  test('resolution is shown only for unresolved homonyms', () async {
+    final storage = await load();
+    await repository.replaceCatalog('local_library_items', [
+      {'id': 'one', 'subtitle': 'Lisa', 'variants': []},
+      {'id': 'two', 'subtitle': 'Lisa', 'variants': []},
+      {'id': 'solo', 'subtitle': 'Other Artist', 'variants': []},
+    ]);
+    await storage.reload();
+    expect(storage.needsArtistResolution('one', 'Lisa'), isFalse);
+    await storage.assignArtistCredits('two', [{}]);
+    await repository.replaceCatalog('local_library_items', [
+      {'id': 'one', 'subtitle': 'Lisa', 'variants': []},
+      {'id': 'two', 'subtitle': 'Lisa', 'variants': []},
+      {'id': 'new', 'subtitle': 'Lisa', 'variants': []},
+      {'id': 'solo', 'subtitle': 'Other Artist', 'variants': []},
+    ]);
+    await storage.reload();
+    expect(storage.needsArtistResolution('one', 'Lisa'), isFalse);
+    expect(storage.needsArtistResolution('two', 'Lisa'), isFalse);
+    expect(storage.needsArtistResolution('new', 'Lisa'), isTrue);
+    expect(storage.needsArtistResolution('solo', 'Other Artist'), isFalse);
+    final candidate = storage.candidatesFor('Lisa').first;
+    await storage.assignArtistCredits('new', [candidate]);
+    expect(storage.needsArtistResolution('new', 'Lisa'), isFalse);
+  });
+
   test(
     'import date backfill is durable and survives variant replacement and restart',
     () async {
