@@ -331,7 +331,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
             fit: StackFit.expand,
             children: [
               Container(
-                color: Colors.black,
+                decoration: const BoxDecoration(color: Colors.black),
                 clipBehavior: Clip.hardEdge,
                 child: SizedBox.expand(
                   child: FittedBox(

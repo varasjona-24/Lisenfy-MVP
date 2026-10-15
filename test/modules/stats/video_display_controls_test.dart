@@ -5,6 +5,7 @@ import 'package:easy_localization/src/translations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_player/video_player.dart' as vp;
 import 'package:get/get.dart' hide Translations;
 import 'package:listenfy/Modules/player/Video/controller/video_player_controller.dart';
 import 'package:listenfy/Modules/player/Video/view/video_player_page.dart';
@@ -19,6 +20,9 @@ class _Settings extends PlaybackSettingsController {
 }
 
 class _Video extends VideoService {
+  vp.VideoPlayerController? fixture;
+  @override
+  vp.VideoPlayerController? get playerController => fixture;
   int seeks = 0, volumeChanges = 0;
   Duration? lastSeek;
   @override
@@ -84,6 +88,14 @@ void main() {
       );
       Get.put<PlaybackSettingsController>(_Settings());
       final video = _Video();
+      final player = vp.VideoPlayerController.asset('fixture.mp4');
+      player.value = const vp.VideoPlayerValue(
+        duration: Duration(minutes: 5),
+        isInitialized: true,
+        size: Size(1920, 1080),
+      );
+      video.fixture = player;
+      addTearDown(player.dispose);
       video.duration.value = const Duration(minutes: 5);
       final controller = _Controller(
         video,
@@ -97,12 +109,21 @@ void main() {
         ),
       );
       await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(vp.VideoPlayer), findsOneWidget);
       expect(find.text('Fill'), findsOneWidget);
       await tester.tap(find.text('Fill'));
       await tester.pump();
       expect(find.text('Fit'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is FittedBox && widget.fit == BoxFit.cover,
+        ),
+        findsOneWidget,
+      );
       await tester.tap(find.byTooltip('Lock controls'));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
       expect(find.byTooltip('Unlock controls'), findsOneWidget);
       expect(find.text('Fit'), findsNothing);
       await tester.tapAt(const Offset(80, 200));
