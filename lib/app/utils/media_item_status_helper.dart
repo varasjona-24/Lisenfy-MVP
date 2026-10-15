@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import '../data/local/local_library_store.dart';
 import '../models/media_item.dart';
+import '../ui/widgets/motion/app_motion.dart';
 import '../data/playback/playback_state_storage.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
@@ -161,19 +162,31 @@ class VideoStatusBadge extends StatelessWidget {
   }
 }
 
-class VideoFavoriteBadge extends StatelessWidget {
+class VideoFavoriteBadge extends StatefulWidget {
   const VideoFavoriteBadge({super.key, required this.item});
 
   final MediaItem item;
 
   @override
+  State<VideoFavoriteBadge> createState() => _VideoFavoriteBadgeState();
+}
+
+class _VideoFavoriteBadgeState extends State<VideoFavoriteBadge> {
+  bool _animate = false;
+  @override
+  void didUpdateWidget(covariant VideoFavoriteBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _animate = !oldWidget.item.isFavorite && widget.item.isFavorite;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (!item.isFavorite) return const SizedBox.shrink();
+    if (!widget.item.isFavorite) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    return Container(
+    final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.65),
@@ -181,6 +194,7 @@ class VideoFavoriteBadge extends StatelessWidget {
       ),
       child: Icon(Icons.favorite_rounded, size: 10, color: scheme.primary),
     );
+    return _animate ? AppMotionEntrance(scaleFrom: .8, child: badge) : badge;
   }
 }
 

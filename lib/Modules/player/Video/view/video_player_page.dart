@@ -13,6 +13,7 @@ import 'package:listenfy/Modules/captures/data/capture_gallery_store.dart';
 import 'package:listenfy/Modules/player/Video/controller/video_player_controller.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../app/ui/widgets/motion/app_motion.dart';
 import '../../../settings/controller/playback_settings_controller.dart';
 import 'video_controls_help_dialog.dart';
 
@@ -175,10 +176,31 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
             return Stack(
               children: [
                 Positioned.fill(child: _buildVideoArea(theme)),
-                if (_showControls &&
-                    !_controlsLocked &&
-                    controller.error.value == null)
-                  Positioned.fill(child: _buildControls(theme, item)),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring:
+                        !_showControls ||
+                        _controlsLocked ||
+                        controller.error.value != null,
+                    child: ExcludeSemantics(
+                      excluding:
+                          !_showControls ||
+                          _controlsLocked ||
+                          controller.error.value != null,
+                      child: AppMotionSwap(
+                        child:
+                            _showControls &&
+                                !_controlsLocked &&
+                                controller.error.value == null
+                            ? KeyedSubtree(
+                                key: const ValueKey('controls'),
+                                child: _buildControls(theme, item),
+                              )
+                            : const SizedBox.shrink(key: ValueKey('hidden')),
+                      ),
+                    ),
+                  ),
+                ),
                 if (_controlsLocked)
                   Positioned(
                     right: 16,
@@ -191,20 +213,22 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                   ),
                 if (_toastMessage != null)
                   Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.65),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        _toastMessage!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
+                    child: AppMotionEntrance(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _toastMessage!,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),

@@ -1,5 +1,20 @@
 # Registro de refactor
 
+## 2026-10-15 — Pantalla gris al inicializar video
+
+- Diagnóstico en dispositivo: pantalla gris y excepciones de Flutter mientras el motor seguía procesando video. Reproducción en prueba con VideoPlayerValue inicializado: Container con clipBehavior distinto de none pero sin decoration.
+- Corrección: decoración negra explícita en el contenedor que recorta el video. Se conserva Ajustar/Rellenar sin deformar ni tocar archivos, posiciones o historial.
+- Regresión: las pruebas de controles ya pasan por el estado de video inicializado y verifican el modo Rellenar, además de bloqueo y layout. Antes solo cubrían el estado sin reproductor inicializado.
+- La corrección está en código; no se reinstaló la aplicación ni se borraron datos del dispositivo.
+
+## 2026-10-14 — Movimiento discreto y carga inicial sin caja
+
+- Utilidades de movimiento nativas, sin nuevas dependencias: transiciones cortas, respeto por movimiento reducido y TickerMode, y contenido saliente sin interacción ni semántica duplicada.
+- Video: controles con fundido y feedback de salto con entrada breve. Miniplayer: entrada/salida y cambio de portada/título, conservando ocultación inmediata en contexto de video y sin alterar sesiones. Descargas: entrada/salida y suavizado visual del progreso real, sin fabricar porcentajes.
+- Insignia de favorito de video: anima el cambio a favorito, no la aparición de favoritos ya guardados al hacer scroll.
+- Carga de datos: retirada la tarjeta envolvente; logo con pulso suave sobre el fondo de la app, transición de etapa y progreso discreto. Pulso detenido en error, movimiento reducido o TickerMode desactivado; se conserva reintento.
+- Pruebas de widgets cubren carga accesible, reintento, controles salientes no interactivos, favoritos y conservación del miniplayer al entrar en video. Pendiente revisar el resultado visual en dispositivo; sin APK ni publicación automática.
+
 ## 2026-10-14 — Controles de video y ayuda de gestos
 
 - Menú «Controles y gestos» con intervalo de doble toque de 5, 10 o 15 segundos (5 por defecto). Preferencia persistente en GetStorage, sin modificar posiciones ni historial SQLite; si falla el guardado no se presenta como guardada.

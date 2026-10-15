@@ -8,6 +8,7 @@ import '../../../routes/app_routes.dart';
 import '../../../services/audio_service.dart';
 import '../../../controllers/navigation_controller.dart';
 import 'player_lyrics_sheet.dart';
+import '../motion/app_motion.dart';
 import '../../../../Modules/player/audio/controller/audio_player_controller.dart';
 
 class MiniPlayerBar extends StatelessWidget {
@@ -49,7 +50,7 @@ class MiniPlayerBar extends StatelessWidget {
       // El mini player es exclusivo de audio.
       // El video se pausa al salir del reproductor, no necesita mini player.
       if (!audioActive) {
-        return const SizedBox.shrink();
+        return const AppMotionSwap(child: SizedBox.shrink());
       }
 
       final isPlaying = audio.isPlaying.value;
@@ -58,21 +59,25 @@ class MiniPlayerBar extends StatelessWidget {
           audioCtrl != null &&
           audioCtrl.currentIndex.value < audioCtrl.queue.length - 1;
 
-      return _MiniBar(
-        item: audioItem,
-        isVideo: false,
-        isPlaying: isPlaying,
-        canPrev: canPrev,
-        canNext: canNext,
-        onToggle: () async => audio.toggle(),
-        onPrev: canPrev ? () async => audioCtrl.previous() : null,
-        onNext: canNext ? () async => audioCtrl.next() : null,
-        onClose: () async {
-          audio.persistCurrentTrackResumePositionNow();
-          await audio.stopAndHidePreservingSession();
-        },
-        onOpen: () => Get.toNamed(AppRoutes.audioPlayer),
-        onLyrics: () => openPlayerLyricsSheet(audioItem),
+      return AppMotionSwap(
+        child: AppMotionEntrance(
+          child: _MiniBar(
+            item: audioItem,
+            isVideo: false,
+            isPlaying: isPlaying,
+            canPrev: canPrev,
+            canNext: canNext,
+            onToggle: () async => audio.toggle(),
+            onPrev: canPrev ? () async => audioCtrl.previous() : null,
+            onNext: canNext ? () async => audioCtrl.next() : null,
+            onClose: () async {
+              audio.persistCurrentTrackResumePositionNow();
+              await audio.stopAndHidePreservingSession();
+            },
+            onOpen: () => Get.toNamed(AppRoutes.audioPlayer),
+            onLyrics: () => openPlayerLyricsSheet(audioItem),
+          ),
+        ),
       );
     });
   }
@@ -158,19 +163,28 @@ class _MiniBar extends StatelessWidget {
               child: Row(
                 children: [
                   const SizedBox(width: 10),
-                  _Thumb(thumb: thumb, isVideo: isVideo),
+                  AppMotionSwap(
+                    child: KeyedSubtree(
+                      key: ValueKey(thumb),
+                      child: _Thumb(thumb: thumb, isVideo: isVideo),
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
+                        AppMotionSwap(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            item.title,
+                            key: ValueKey(item.title),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 2),
