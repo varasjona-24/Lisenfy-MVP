@@ -96,6 +96,14 @@
     "video_mode_tooltip": "Modo Video (tocar para Audio)"
   },
   "home": {
+    "move": {
+      "title": "Mover secciones",
+      "hint": "Arrastra el encabezado de cada sección para moverla. No se elimina ni se oculta nada.",
+      "done": "Listo",
+      "up": "Subir sección",
+      "down": "Bajar sección",
+      "drag": "Mover {}"
+    },
     "temporary_playlists": "Listas temporales",
     "actions": {
       "edit_home": "Editar inicio",

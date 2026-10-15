@@ -96,6 +96,14 @@
     "video_mode_tooltip": "Video mode (tap for Audio)"
   },
   "home": {
+    "move": {
+      "title": "Move sections",
+      "hint": "Drag each section's heading to move it. Nothing is deleted or hidden.",
+      "done": "Done",
+      "up": "Move section up",
+      "down": "Move section down",
+      "drag": "Move {}"
+    },
     "temporary_playlists": "Temporary playlists",
     "actions": {
       "edit_home": "Edit home",

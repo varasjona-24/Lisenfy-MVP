@@ -1,5 +1,28 @@
 # Registro de refactor
 
+## 2026-10-15 — Movimiento sin adornos ni asas visibles
+
+- Retirados el borde, las flechas de subir/bajar y el icono de arrastre del modo de movimiento del Home. El encabezado completo sigue siendo el área de arrastre invisible.
+- Temblor aumentado de .0025 a .006 radianes; sigue desactivado con movimiento reducido y al levantar el bloque. Se conservan acciones semánticas para accesibilidad sin botones visibles.
+- Editar inicio deja de ofrecer reordenamiento: retirada el asa de tres líneas y sustituida su lista reordenable por una lista normal. Configuración, selección y contenido se mantienen; mover queda exclusivamente en el Home.
+- Regresiones ejercitan el arrastre desde el texto del encabezado y verifican que no aparezcan flechas ni asas. Sin generar APK ni subir cambios.
+
+## 2026-10-15 — Movimiento sobre las secciones reales del Home
+
+- Sustituye la ventana compacta anterior: pulsación larga en el encabezado activa el modo directamente en el Home, con las mismas listas, portadas y contenido.
+- SliverReorderableList integrado en el CustomScrollView para arrastre del bloque desde su encabezado y auto-scroll de bordes. Controles Listo/Cancelar fijados arriba y temblor ligero del bloque completo, salvo movimiento reducido o bloque levantado.
+- Durante el movimiento se bloquean acciones del contenido y se excluye su semántica de interacción; los encabezados permiten mover y los botones Subir/Bajar ofrecen alternativa al arrastre.
+- Listo confirma el borrador; Cancelar o Atrás lo descartan. Se conserva el algoritmo de huecos, IDs y preferencias por modo sin modificar contenido, visibilidad ni destinos guardados.
+- Se retira home_section_move_sheet.dart, reemplazado por home_section_move_surface.dart. Regresiones prueban contenido real inline, ausencia de diálogo, reproducción bloqueada, arrastre, cancelación/confirmación y movimiento reducido. Pendiente prueba visual en dispositivo; sin APK ni subida automática.
+
+## 2026-10-15 — Movimiento de secciones desde el encabezado del Home
+
+- Mantener pulsado el nombre/encabezado abre una vista compacta dedicada a mover secciones. Las pulsaciones largas de canciones y tarjetas conservan sus acciones existentes.
+- Tarjetas con temblor suave, asa de arrastre, desplazamiento automático de la lista y botones accesibles Subir/Bajar. Sin temblor con movimiento reducido o TickerMode desactivado.
+- Orden temporal hasta «Listo»; cancelar, cerrar o volver descarta el borrador. No hay controles de eliminar, ocultar, cambiar diseño o modificar los datos de las secciones.
+- Orden separado por modo de audio/video mediante la persistencia de preferencias existente. Se sustituyen únicamente los huecos de las secciones movidas; las ocultas y entradas nuevas no se eliminan, y se conservan targets, layouts y selección.
+- Pruebas cubren cancelar/confirmar, arrastre, conservación de entradas ocultas y normalización de Continuar viendo. Falta validación visual en dispositivo; no se generó APK ni se subieron cambios.
+
 ## 2026-10-15 — Pantalla gris al inicializar video
 
 - Diagnóstico en dispositivo: pantalla gris y excepciones de Flutter mientras el motor seguía procesando video. Reproducción en prueba con VideoPlayerValue inicializado: Container con clipBehavior distinto de none pero sin decoration.

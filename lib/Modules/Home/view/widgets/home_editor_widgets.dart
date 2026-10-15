@@ -91,39 +91,6 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
     });
   }
 
-  void _moveWidget(int oldIndex, int newIndex) {
-    final entries = _editorEntries;
-    if (oldIndex < 0 ||
-        oldIndex >= entries.length ||
-        newIndex < 0 ||
-        newIndex >= entries.length) {
-      return;
-    }
-    final movedEntry = entries.removeAt(oldIndex);
-    entries.insert(newIndex, movedEntry);
-    final modeItems = entries.whereType<HomeWidgetId>().toList();
-    final custom = homeCustomSectionsInEditorOrder(entries);
-
-    var modeIndex = 0;
-    final nextOrder = <HomeWidgetId>[];
-    for (final id in _order) {
-      final belongsToMode = mode == HomeMode.video
-          ? id.videoHomeSupported
-          : !id.videoOnly;
-      if (!belongsToMode) {
-        nextOrder.add(id);
-      } else if (modeIndex < modeItems.length) {
-        nextOrder.add(modeItems[modeIndex]);
-        modeIndex++;
-      }
-    }
-
-    setState(() {
-      _order = nextOrder;
-      _customSections = custom;
-    });
-  }
-
   List<Object> get _editorEntries =>
       homeEditorEntries(_visibleItems, _customSections);
 
@@ -403,100 +370,85 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
               ),
             ),
             Expanded(
-              child: ReorderableListView.builder(
-                scrollController: scrollController,
+              child: ListView(
+                controller: scrollController,
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                buildDefaultDragHandles: false,
-                proxyDecorator: (child, index, animation) {
-                  return AnimatedBuilder(
-                    animation: animation,
-                    builder: (context, child) {
-                      final t = Curves.easeOut.transform(animation.value);
-                      return Transform.scale(
-                        scale: 1 + (0.025 * t),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: child,
-                        ),
+                children: [
+                  ...List<Widget>.generate(items.length, (index) {
+                    final entry = items[index];
+                    if (entry is HomeCustomSection) {
+                      return _EditableHomeWidgetRow(
+                        key: ValueKey('custom:${entry.id}'),
+                        customSection: entry,
+                        enabled: entry.enabled,
+                        layout: entry.layout,
+                        onToggle: () => _removeCustomSection(entry.id),
+                        onLayoutToggle: mode == HomeMode.video
+                            ? null
+                            : () => _toggleCustomSectionLayout(entry.id),
                       );
-                    },
-                    child: child,
-                  );
-                },
-                onReorderItem: _moveWidget,
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  final entry = items[index];
-                  if (entry is HomeCustomSection) {
+                    }
+                    final id = entry as HomeWidgetId;
+                    final enabled = _enabled.contains(id);
                     return _EditableHomeWidgetRow(
-                      key: ValueKey('custom:${entry.id}'),
-                      customSection: entry,
-                      index: index,
-                      enabled: entry.enabled,
-                      layout: entry.layout,
-                      onToggle: () => _removeCustomSection(entry.id),
-                      onLayoutToggle: mode == HomeMode.video
+                      key: ValueKey(id.key),
+                      id: id,
+                      enabled: enabled,
+                      layout: _layoutForWidget(id),
+                      onToggle: id.canDisable ? () => _toggleWidget(id) : null,
+                      onLayoutToggle:
+                          mode == HomeMode.video || id.hasFixedLayout
                           ? null
-                          : () => _toggleCustomSectionLayout(entry.id),
+                          : () => _toggleWidgetLayout(id),
                     );
-                  }
-                  final id = entry as HomeWidgetId;
-                  final enabled = _enabled.contains(id);
-                  return _EditableHomeWidgetRow(
-                    key: ValueKey(id.key),
-                    id: id,
-                    index: index,
-                    enabled: enabled,
-                    layout: _layoutForWidget(id),
-                    onToggle: id.canDisable ? () => _toggleWidget(id) : null,
-                    onLayoutToggle: mode == HomeMode.video || id.hasFixedLayout
-                        ? null
-                        : () => _toggleWidgetLayout(id),
-                  );
-                },
-                footer: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (mode == HomeMode.audio) ...[
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _showPlaylistPicker(context),
-                              icon: const Icon(
-                                Icons.queue_music_rounded,
-                                size: 18,
+                  }),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (mode == HomeMode.audio) ...[
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _showPlaylistPicker(context),
+                                icon: const Icon(
+                                  Icons.queue_music_rounded,
+                                  size: 18,
+                                ),
+                                label: Text(tr('home.editor.add_playlist')),
                               ),
-                              label: Text(tr('home.editor.add_playlist')),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _showArtistPicker(context),
-                              icon: const Icon(Icons.person_rounded, size: 18),
-                              label: Text(tr('home.editor.add_artist')),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _showArtistPicker(context),
+                                icon: const Icon(
+                                  Icons.person_rounded,
+                                  size: 18,
+                                ),
+                                label: Text(tr('home.editor.add_artist')),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => _showCollectionPicker(context),
-                          icon: const Icon(
-                            Icons.video_library_rounded,
-                            size: 18,
-                          ),
-                          label: Text(tr('home.editor.add_collection')),
+                          ],
                         ),
-                      ),
+                      ] else ...[
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showCollectionPicker(context),
+                            icon: const Icon(
+                              Icons.video_library_rounded,
+                              size: 18,
+                            ),
+                            label: Text(tr('home.editor.add_collection')),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1289,7 +1241,6 @@ class _EditableHomeWidgetRow extends StatelessWidget {
     super.key,
     this.id,
     this.customSection,
-    required this.index,
     required this.enabled,
     required this.layout,
     required this.onToggle,
@@ -1298,7 +1249,6 @@ class _EditableHomeWidgetRow extends StatelessWidget {
 
   final HomeWidgetId? id;
   final HomeCustomSection? customSection;
-  final int index;
   final bool enabled;
   final HomeCustomSectionLayout layout;
   final VoidCallback? onToggle;
@@ -1386,19 +1336,6 @@ class _EditableHomeWidgetRow extends StatelessWidget {
                       : scheme.onSurfaceVariant.withValues(alpha: 0.36),
                 ),
               ),
-            ReorderableDragStartListener(
-              index: index,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 12,
-                ),
-                child: Icon(
-                  Icons.drag_handle_rounded,
-                  color: scheme.onSurfaceVariant.withValues(alpha: 0.72),
-                ),
-              ),
-            ),
           ],
         ),
       ),
