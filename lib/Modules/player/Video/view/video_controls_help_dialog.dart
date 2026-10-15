@@ -51,6 +51,27 @@ class VideoControlsHelpDialog extends StatelessWidget {
                 children: [
                   for (final seconds in [5, 10, 15])
                     ChoiceChip(
+                      showCheckmark: false,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      labelPadding: EdgeInsets.zero,
+                      materialTapTargetSize: MaterialTapTargetSize.padded,
+                      shape: const StadiumBorder(),
+                      side: BorderSide(
+                        color: settings.videoSeekSeconds.value == seconds
+                            ? scheme.primary
+                            : scheme.outlineVariant,
+                      ),
+                      selectedColor: scheme.primaryContainer,
+                      backgroundColor: scheme.surfaceContainerHigh,
+                      labelStyle: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: settings.videoSeekSeconds.value == seconds
+                            ? scheme.onPrimaryContainer
+                            : scheme.onSurfaceVariant,
+                      ),
                       label: Text(
                         tr('player.video_seek_seconds', args: ['$seconds']),
                       ),

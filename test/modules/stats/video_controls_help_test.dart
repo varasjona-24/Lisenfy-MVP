@@ -83,10 +83,16 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        final ten = find.widgetWithText(ChoiceChip, '10 s');
+        final widthBefore = tester.getSize(ten).width;
+        final labelWidth = tester.getSize(find.text('10 s')).width;
+        expect(widthBefore, lessThanOrEqualTo(labelWidth + 28));
         await tester.ensureVisible(find.text('10 s'));
         await tester.tap(find.text('10 s'));
         await tester.pumpAndSettle();
         expect(settings.videoSeekSeconds.value, 10);
+        expect(tester.getSize(ten).width, closeTo(widthBefore, .1));
+        expect(tester.widget<ChoiceChip>(ten).showCheckmark, isFalse);
         expect(
           memory.values[PlaybackSettingsController.videoSeekSecondsKey],
           10,
