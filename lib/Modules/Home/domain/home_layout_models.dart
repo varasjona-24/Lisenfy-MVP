@@ -287,6 +287,32 @@ List<HomeCustomSection> homeCustomSectionsInEditorOrder(List<Object> entries) {
   return result;
 }
 
+String homeSectionOrderKey(Object entry) => entry is HomeWidgetId
+    ? 'widget:${entry.key}'
+    : 'custom:${(entry as HomeCustomSection).id}';
+
+/// Only selected slots move. Hidden and newly added entries stay in place.
+List<Object> reorderHomeSectionSlots(
+  List<Object> entries,
+  List<String> requested,
+) {
+  if (requested.toSet().length != requested.length) {
+    throw ArgumentError('Duplicate section order keys');
+  }
+  final byKey = {
+    for (final entry in entries) homeSectionOrderKey(entry): entry,
+  };
+  final ordered = requested.where(byKey.containsKey).toList();
+  final moving = ordered.toSet();
+  var index = 0;
+  return [
+    for (final entry in entries)
+      moving.contains(homeSectionOrderKey(entry))
+          ? byKey[ordered[index++]]!
+          : entry,
+  ];
+}
+
 class HomeArtistChoice {
   const HomeArtistChoice({
     required this.key,

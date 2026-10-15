@@ -678,6 +678,24 @@ class HomeController extends GetxController {
     _persistHomeLayout();
   }
 
+  void reorderHomeSectionsForMode(HomeMode currentMode, List<String> keys) {
+    final sections = currentMode == HomeMode.video
+        ? videoCustomHomeSections.toList()
+        : customHomeSections.toList();
+    final entries = homeEditorEntries(
+      editableHomeWidgetOrderForMode(currentMode),
+      sections,
+    );
+    final reordered = reorderHomeSectionSlots(entries, keys);
+    applyHomeLayoutSnapshot(
+      mode: currentMode,
+      order: reordered.whereType<HomeWidgetId>().toList(),
+      enabled: enabledHomeWidgetIdsForMode(currentMode),
+      layouts: Map<String, HomeCustomSectionLayout>.from(homeWidgetLayouts),
+      customSections: homeCustomSectionsInEditorOrder(reordered),
+    );
+  }
+
   void addCustomPlaylistSection({
     required String playlistId,
     required String title,
