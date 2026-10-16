@@ -1717,17 +1717,6 @@
     "preview": "Vista previa",
     "station_title_radio": "Radio {}",
     "station_title_mix": "{} · Mix {}",
-    "station_subtitle_tracks": "{} pistas · {}",
-    "station_sources": {
-      "local": "Biblioteca local"
-    },
-    "station_types": {
-      "gateway": "Puerta de entrada",
-      "essentials": "Esenciales",
-      "discovery": "Descubrimiento",
-      "energy": "Energía alta",
-      "chill": "Chill / Noche"
-    },
     "regions": {
       "rio_plata": "Río de la Plata",
       "gran_colombia": "Gran Colombia",

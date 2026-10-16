@@ -293,10 +293,7 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
             stationIndex: out.length,
             totalStations: cached.length,
           ),
-          subtitle: _stationSubtitle(
-            trackCount: tracks.length,
-            type: station.type,
-          ),
+          subtitle: '',
           tracks: tracks,
           generatedAtMs: station.generatedAtMs,
           ttlSec: station.ttlSec,
@@ -555,7 +552,7 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
             stationIndex: stationIndex,
             totalStations: (rankedTracks.length / chunkSize).ceil(),
           ),
-          subtitle: _stationSubtitle(trackCount: chunk.length, type: type),
+          subtitle: '',
           tracks: chunk,
           generatedAtMs: nowMs,
           ttlSec: 21600,
@@ -596,16 +593,6 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
     return tr(
       'world_mode.station_title_mix',
       args: [regionName, '${stationIndex + 1}'],
-    );
-  }
-
-  String _stationSubtitle({
-    required int trackCount,
-    required WorldStationType type,
-  }) {
-    return tr(
-      'world_mode.station_subtitle_tracks',
-      args: ['$trackCount', type.title],
     );
   }
 

@@ -1,5 +1,11 @@
 # Registro de refactor
 
+## 2026-10-16 — Tarjetas de Atlas sin chips redundantes
+
+- Quitados los chips de biblioteca local y número de pistas, además del subtítulo con cantidad y categoría. Se conservan título, portada, reproducir/continuar y vista previa con sus acciones.
+- Auditoría: las estaciones regionales se obtienen del mismo ranking y se dividen en bloques; Esenciales/Descubrimiento/etc. se asignaban por posición, no por una selección regional diferenciada. Se retiran las etiquetas públicas y sus traducciones, sin alterar IDs, sesiones ni compatibilidad de tipos históricos internos.
+- Los cachés antiguos pueden contener el subtítulo anterior; la tarjeta no lo muestra y las estaciones regeneradas ya no lo producen. Pruebas de widget cubren ambas categorías y conservan todas las acciones.
+
 ## 2026-10-16 — Atlas explícitamente local
 
 - Auditoría: generación, ranking y continuación de estaciones ya usan audios locales. No existe un datasource online de Atlas. La carga opcional de portadas remotas no es un catálogo ni una radio online y se conserva.

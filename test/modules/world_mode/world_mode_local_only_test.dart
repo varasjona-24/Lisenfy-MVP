@@ -58,8 +58,8 @@ void main() {
                 File('assets/translations/$locale.json').readAsStringSync(),
               )
               as Map;
-      final sources = json['world_mode']['station_sources'] as Map;
-      expect(sources.keys, ['local']);
+      expect(json['world_mode']['station_sources'], isNull);
+      expect(json['world_mode']['station_types'], isNull);
     }
     expect(
       File(
