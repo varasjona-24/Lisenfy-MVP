@@ -166,6 +166,17 @@ class AudioPlayerController extends GetxController {
 
     final items = _extractItems(rawQueue);
     if (items.isEmpty) return;
+    // Atlas has already restored the precise engine position. Opening its UI
+    // must not restart the song or show the generic song resume prompt.
+    if (args['atlasResumeLoaded'] == true &&
+        args['atlasStationId'] == audioService.activeAtlasStationId &&
+        audioService.activeAtlasStationId != null &&
+        audioService.hasSourceLoaded &&
+        _sameQueue(items, audioService.queueItems)) {
+      _syncFromService();
+      return;
+    }
+    await audioService.detachAtlasStation();
     final sameAsActiveQueue =
         audioService.hasSourceLoaded &&
         _sameQueue(items, audioService.queueItems);
@@ -389,6 +400,7 @@ class AudioPlayerController extends GetxController {
       queue: queue.toList(),
       queueIndex: currentIndex.value,
       forceReload: true,
+      atlasStationId: audioService.activeAtlasStationId,
     );
     await _enforceSpatialModeForVariant(variant);
     _syncFromService();
@@ -424,6 +436,7 @@ class AudioPlayerController extends GetxController {
       queueIndex: currentIndex.value,
       forceReload: forceReload,
       initialPosition: resumePosition ?? Duration.zero,
+      atlasStationId: audioService.activeAtlasStationId,
     );
     await _enforceSpatialModeForVariant(variant);
 

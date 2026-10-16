@@ -1,5 +1,13 @@
 # Registro de refactor
 
+## 2026-10-16 — Reanudación independiente por estación de Atlas
+
+- Sesiones identificadas por stationId en el dominio SQLite world_mode_station_sessions_v1; cola por referencias id/publicId, índice y posición. Sin escrituras nuevas en GetStorage ni duplicación del historial de escucha.
+- Checkpoints con el ciclo de persistencia del motor; se conserva la sesión al cerrar el miniplayer tanto reproduciendo como pausado, al detener y antes de seleccionar otra cola. Cambios de pista/cola, controles externos y ejecución en segundo plano usan el mismo escritor del motor.
+- Continuar no restaura primero una cola global ajena ni deduce la estación por canciones coincidentes. Una estación ya cargada no se reinicia al abrir su pantalla; las demás se restauran desde su propia sesión sin el prompt genérico de canción.
+- Reanudación contra la biblioteca actual y archivos locales existentes, sin rutas antiguas en los checkpoints. Si falta la canción activa se usa la siguiente disponible desde cero; sin archivos disponibles se conserva el fallback de generación de la estación.
+- El dominio entra automáticamente en el backup SQLite completo existente, sin cambiar el esquema SQL. Sesiones antiguas sin un ID explícito de estación no se atribuyen por heurística. Ayuda ES/EN actualizada y pruebas de SQLite, reinicio, backup, estaciones con colas iguales y flujo de Continuar con motor simulado.
+
 ## 2026-10-15 — Movimiento sin adornos ni asas visibles
 
 - Retirados el borde, las flechas de subir/bajar y el icono de arrastre del modo de movimiento del Home. El encabezado completo sigue siendo el área de arrastre invisible.

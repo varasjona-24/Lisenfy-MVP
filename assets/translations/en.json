@@ -852,7 +852,7 @@
           "tips": {
             "1": "Open Atlas from the Listenfly Atlas card inside Artists.",
             "2": "Atlas does not guess everything by itself: it depends on the region and country you have on artists and songs.",
-            "3": "If you close the miniplayer, Continue should try to resume the locally saved station, song, and position.",
+            "3": "Continue resumes that station's saved queue, song, and position, even after closing the miniplayer or playing another playlist. Files that are no longer available are skipped.",
             "4": "If app data, cookies, or internal storage are cleared, saved sessions can be lost.",
             "5": "Local recommendations improve as your library gets more consistent metadata."
           }
