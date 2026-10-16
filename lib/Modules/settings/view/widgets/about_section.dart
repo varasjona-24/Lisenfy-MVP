@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
-import 'package:flutter_custom_tabs/flutter_custom_tabs.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:get/get.dart';
 
 import '../../controller/settings_controller.dart';
@@ -21,32 +21,20 @@ class AboutSection extends GetView<SettingsController> {
     Uri uri, {
     required String fallbackMessage,
   }) async {
-    final scheme = Theme.of(context).colorScheme;
     final messenger = ScaffoldMessenger.of(context);
 
     try {
-      await launchUrl(
+      final opened = await launchUrl(
         uri,
-        prefersDeepLink: false,
-        customTabsOptions: CustomTabsOptions(
-          browser: const CustomTabsBrowserConfiguration(
-            prefersDefaultBrowser: true,
-          ),
-          colorSchemes: CustomTabsColorSchemes.defaults(
-            toolbarColor: scheme.surface,
-          ),
-          showTitle: true,
-          urlBarHidingEnabled: true,
-          shareState: CustomTabsShareState.on,
-          instantAppsEnabled: false,
-          closeButton: CustomTabsCloseButton(
-            icon: CustomTabsCloseButtonIcons.back,
-          ),
-          animations: CustomTabsSystemAnimations.slideIn(),
-        ),
+        mode: LaunchMode.externalApplication,
       );
+      if (!opened && context.mounted) {
+        messenger.showSnackBar(SnackBar(content: Text(fallbackMessage)));
+      }
     } catch (_) {
-      messenger.showSnackBar(SnackBar(content: Text(fallbackMessage)));
+      if (context.mounted) {
+        messenger.showSnackBar(SnackBar(content: Text(fallbackMessage)));
+      }
     }
   }
 
