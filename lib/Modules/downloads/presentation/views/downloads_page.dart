@@ -110,7 +110,7 @@ class DownloadsPage extends GetView<DownloadsController> {
                 right: 0,
                 bottom: 0,
                 child: AppBottomNav(
-                  currentIndex: 3,
+                  currentIndex: 4,
                   onTap: (index) {
                     switch (index) {
                       case 0:
@@ -123,9 +123,12 @@ class DownloadsPage extends GetView<DownloadsController> {
                         home.goToArtists();
                         break;
                       case 3:
-                        home.goToDownloads();
+                        home.goToAtlas();
                         break;
                       case 4:
+                        home.goToDownloads();
+                        break;
+                      case 5:
                         home.goToSources();
                         break;
                     }

@@ -70,6 +70,7 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
   }
 
   void _toggleWidget(HomeWidgetId id) {
+    if (!id.canDisable) return;
     setState(() {
       if (_enabled.contains(id)) {
         _enabled.remove(id);
@@ -90,29 +91,8 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
     });
   }
 
-  void _moveWidget(int oldIndex, int newIndex) {
-    final modeItems = _visibleItems.toList(growable: true);
-    if (oldIndex < 0 || oldIndex >= modeItems.length) return;
-    if (newIndex < 0 || newIndex > modeItems.length) return;
-    final moved = modeItems.removeAt(oldIndex);
-    modeItems.insert(newIndex, moved);
-
-    var modeIndex = 0;
-    final nextOrder = <HomeWidgetId>[];
-    for (final id in _order) {
-      final belongsToMode = mode == HomeMode.video
-          ? id.videoHomeSupported
-          : !id.videoOnly;
-      if (!belongsToMode) {
-        nextOrder.add(id);
-      } else if (modeIndex < modeItems.length) {
-        nextOrder.add(modeItems[modeIndex]);
-        modeIndex++;
-      }
-    }
-
-    setState(() => _order = nextOrder);
-  }
+  List<Object> get _editorEntries =>
+      homeEditorEntries(_visibleItems, _customSections);
 
   void _reset() {
     setState(() {
@@ -146,7 +126,34 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
 
   void _removeCustomSection(String id) {
     setState(() {
-      _customSections.removeWhere((section) => section.id == id);
+      final index = _customSections.indexWhere((section) => section.id == id);
+      if (index >= 0) {
+        _customSections[index] = _customSections[index].copyWith(
+          enabled: !_customSections[index].enabled,
+        );
+      }
+    });
+  }
+
+  void _removeTargets(String sectionId, List<String> ids) {
+    final index = _customSections.indexWhere((s) => s.id == sectionId);
+    if (index < 0) return;
+    setState(() {
+      final section = _customSections[index];
+      final updated = section.kind == HomeCustomSectionKind.artist
+          ? section.copyWith(
+              targetId: removeHomeArtistTargets(
+                section.targetId,
+                ids,
+                controller.artistChoices(),
+              ),
+            )
+          : section.withoutTargets(ids);
+      if (updated.targetId.isEmpty) {
+        _customSections.removeAt(index);
+      } else {
+        _customSections[index] = updated;
+      }
     });
   }
 
@@ -175,11 +182,10 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
       }
     }
     if (section == null) return <String>{};
-    return section.targetId
-        .split('|')
-        .map(ArtistCreditParser.normalizeKey)
-        .where((entry) => entry.isNotEmpty && entry != 'unknown')
-        .toSet();
+    return resolveHomeArtistTargets(
+      section.targetId,
+      controller.artistChoices(),
+    );
   }
 
   Set<String> _selectedCollectionIds() {
@@ -219,6 +225,8 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
           targetId: ids.join('|'),
           title: _homeCustomTitle(HomeCustomSectionKind.playlist),
           layout: current.layout,
+          enabled: current.enabled,
+          beforeWidget: current.beforeWidget,
         );
       } else {
         _customSections.add(
@@ -260,6 +268,8 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
           targetId: keys.join('|'),
           title: _homeCustomTitle(HomeCustomSectionKind.artist),
           layout: current.layout,
+          enabled: current.enabled,
+          beforeWidget: current.beforeWidget,
         );
       } else {
         _customSections.add(
@@ -295,6 +305,8 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
           targetId: ids.join('|'),
           title: _homeCustomTitle(HomeCustomSectionKind.collection),
           layout: HomeCustomSectionLayout.cards,
+          enabled: current.enabled,
+          beforeWidget: current.beforeWidget,
         );
       } else {
         _customSections.add(
@@ -323,8 +335,7 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final items = _visibleItems;
+    final items = _editorEntries;
 
     return DraggableScrollableSheet(
       expand: false,
@@ -359,139 +370,85 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
               ),
             ),
             Expanded(
-              child: ReorderableListView.builder(
-                scrollController: scrollController,
+              child: ListView(
+                controller: scrollController,
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                buildDefaultDragHandles: false,
-                proxyDecorator: (child, index, animation) {
-                  return AnimatedBuilder(
-                    animation: animation,
-                    builder: (context, child) {
-                      final t = Curves.easeOut.transform(animation.value);
-                      return Transform.scale(
-                        scale: 1 + (0.025 * t),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: child,
-                        ),
+                children: [
+                  ...List<Widget>.generate(items.length, (index) {
+                    final entry = items[index];
+                    if (entry is HomeCustomSection) {
+                      return _EditableHomeWidgetRow(
+                        key: ValueKey('custom:${entry.id}'),
+                        customSection: entry,
+                        enabled: entry.enabled,
+                        layout: entry.layout,
+                        onToggle: () => _removeCustomSection(entry.id),
+                        onLayoutToggle: mode == HomeMode.video
+                            ? null
+                            : () => _toggleCustomSectionLayout(entry.id),
                       );
-                    },
-                    child: child,
-                  );
-                },
-                onReorderItem: _moveWidget,
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  final id = items[index];
-                  final enabled = _enabled.contains(id);
-                  return _EditableHomeWidgetRow(
-                    key: ValueKey(id.key),
-                    id: id,
-                    index: index,
-                    enabled: enabled,
-                    layout: _layoutForWidget(id),
-                    onToggle: () => _toggleWidget(id),
-                    onLayoutToggle: mode == HomeMode.video || id.hasFixedLayout
-                        ? null
-                        : () => _toggleWidgetLayout(id),
-                  );
-                },
-                footer: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (mode == HomeMode.audio) ...[
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _showPlaylistPicker(context),
-                              icon: const Icon(
-                                Icons.queue_music_rounded,
-                                size: 18,
+                    }
+                    final id = entry as HomeWidgetId;
+                    final enabled = _enabled.contains(id);
+                    return _EditableHomeWidgetRow(
+                      key: ValueKey(id.key),
+                      id: id,
+                      enabled: enabled,
+                      layout: _layoutForWidget(id),
+                      onToggle: id.canDisable ? () => _toggleWidget(id) : null,
+                      onLayoutToggle:
+                          mode == HomeMode.video || id.hasFixedLayout
+                          ? null
+                          : () => _toggleWidgetLayout(id),
+                    );
+                  }),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (mode == HomeMode.audio) ...[
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _showPlaylistPicker(context),
+                                icon: const Icon(
+                                  Icons.queue_music_rounded,
+                                  size: 18,
+                                ),
+                                label: Text(tr('home.editor.add_playlist')),
                               ),
-                              label: Text(tr('home.editor.add_playlist')),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => _showArtistPicker(context),
-                              icon: const Icon(Icons.person_rounded, size: 18),
-                              label: Text(tr('home.editor.add_artist')),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _showArtistPicker(context),
+                                icon: const Icon(
+                                  Icons.person_rounded,
+                                  size: 18,
+                                ),
+                                label: Text(tr('home.editor.add_artist')),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => _showCollectionPicker(context),
-                          icon: const Icon(
-                            Icons.video_library_rounded,
-                            size: 18,
-                          ),
-                          label: Text(tr('home.editor.add_collection')),
+                          ],
                         ),
-                      ),
-                    ],
-                    if (_customSections.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      ..._customSections.map((section) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(
-                              section.kind.icon,
-                              color: scheme.primary,
+                      ] else ...[
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showCollectionPicker(context),
+                            icon: const Icon(
+                              Icons.video_library_rounded,
+                              size: 18,
                             ),
-                            title: Text(
-                              section.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            subtitle: Text(
-                              tr(
-                                'home.editor.view',
-                                args: [_homeLayoutLabel(section.layout)],
-                              ),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  tooltip: tr('home.actions.change_view'),
-                                  onPressed: mode == HomeMode.video
-                                      ? null
-                                      : () => _toggleCustomSectionLayout(
-                                          section.id,
-                                        ),
-                                  icon: Icon(section.layout.icon),
-                                ),
-                                IconButton(
-                                  tooltip: tr('home.actions.remove'),
-                                  onPressed: () =>
-                                      _removeCustomSection(section.id),
-                                  icon: const Icon(Icons.close_rounded),
-                                ),
-                              ],
-                            ),
+                            label: Text(tr('home.editor.add_collection')),
                           ),
-                        );
-                      }),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -501,11 +458,9 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
   }
 
   Future<void> _showPlaylistPicker(BuildContext context) async {
+    var removing = false;
     final existing = _selectedPlaylistIds();
-    final playlists = controller
-        .playlistChoices()
-        .where((playlist) => !existing.contains(playlist.id))
-        .toList(growable: false);
+    final playlists = controller.playlistChoices().toList(growable: false);
     if (!context.mounted) return;
     final selected = await showModalBottomSheet<List<String>>(
       context: context,
@@ -516,24 +471,33 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return _HomePlaylistPickerSheet(
-          playlists: playlists,
-          totalCount: controller.playlistChoices().length,
+        return _HomePickerModeHost(
+          onChanged: (value) => removing = value,
+          builder: (remove) => _HomePlaylistPickerSheet(
+            key: ValueKey(remove),
+            playlists: playlists
+                .where((p) => existing.contains(p.id) == remove)
+                .toList(),
+            totalCount: controller.playlistChoices().length,
+          ),
         );
       },
     );
     if (selected == null || selected.isEmpty || !mounted) return;
+    if (removing) {
+      _removeTargets('playlists_custom', selected);
+      return;
+    }
     for (final id in selected) {
       _addPlaylistSection(playlistId: id);
     }
   }
 
   Future<void> _showArtistPicker(BuildContext context) async {
+    var removing = false;
     final existing = _selectedArtistKeys();
     final allArtists = controller.artistChoices();
-    final artists = allArtists
-        .where((artist) => !existing.contains(artist.key))
-        .toList(growable: false);
+    final artists = allArtists.toList(growable: false);
 
     final selected = await showModalBottomSheet<List<String>>(
       context: context,
@@ -544,24 +508,33 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return _HomeArtistPickerSheet(
-          artists: artists,
-          totalCount: allArtists.length,
+        return _HomePickerModeHost(
+          onChanged: (value) => removing = value,
+          builder: (remove) => _HomeArtistPickerSheet(
+            key: ValueKey(remove),
+            artists: artists
+                .where((a) => existing.contains(a.key) == remove)
+                .toList(),
+            totalCount: allArtists.length,
+          ),
         );
       },
     );
     if (selected == null || selected.isEmpty || !mounted) return;
+    if (removing) {
+      _removeTargets('artists_custom', selected);
+      return;
+    }
     for (final key in selected) {
       _addArtistSection(artistKey: key);
     }
   }
 
   Future<void> _showCollectionPicker(BuildContext context) async {
+    var removing = false;
     final existing = _selectedCollectionIds();
     final allCollections = controller.collectionChoices();
-    final collections = allCollections
-        .where((collection) => !existing.contains(collection.id))
-        .toList(growable: false);
+    final collections = allCollections.toList(growable: false);
 
     final selected = await showModalBottomSheet<List<String>>(
       context: context,
@@ -572,21 +545,66 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return _HomeCollectionPickerSheet(
-          collections: collections,
-          totalCount: allCollections.length,
+        return _HomePickerModeHost(
+          onChanged: (value) => removing = value,
+          builder: (remove) => _HomeCollectionPickerSheet(
+            key: ValueKey(remove),
+            collections: collections
+                .where((c) => existing.contains(c.id) == remove)
+                .toList(),
+            totalCount: allCollections.length,
+          ),
         );
       },
     );
     if (selected == null || selected.isEmpty || !mounted) return;
+    if (removing) {
+      _removeTargets('collections_custom', selected);
+      return;
+    }
     for (final id in selected) {
       _addCollectionSection(collectionId: id);
     }
   }
 }
 
+class _HomePickerModeHost extends StatefulWidget {
+  const _HomePickerModeHost({required this.builder, required this.onChanged});
+  final Widget Function(bool removing) builder;
+  final ValueChanged<bool> onChanged;
+  @override
+  State<_HomePickerModeHost> createState() => _HomePickerModeHostState();
+}
+
+class _HomePickerModeHostState extends State<_HomePickerModeHost> {
+  bool removing = false;
+  @override
+  Widget build(BuildContext context) => _HomePickerMode(
+    removing: removing,
+    onChanged: (value) {
+      widget.onChanged(value);
+      setState(() => removing = value);
+    },
+    child: widget.builder(removing),
+  );
+}
+
+class _HomePickerMode extends InheritedWidget {
+  const _HomePickerMode({
+    required this.removing,
+    required this.onChanged,
+    required super.child,
+  });
+  final bool removing;
+  final ValueChanged<bool> onChanged;
+  @override
+  bool updateShouldNotify(_HomePickerMode oldWidget) =>
+      removing != oldWidget.removing;
+}
+
 class _HomePlaylistPickerSheet extends StatefulWidget {
   const _HomePlaylistPickerSheet({
+    super.key,
     required this.playlists,
     required this.totalCount,
   });
@@ -715,6 +733,7 @@ class _HomePlaylistPickerSheetState extends State<_HomePlaylistPickerSheet> {
 
 class _HomeArtistPickerSheet extends StatefulWidget {
   const _HomeArtistPickerSheet({
+    super.key,
     required this.artists,
     required this.totalCount,
   });
@@ -728,6 +747,7 @@ class _HomeArtistPickerSheet extends StatefulWidget {
 
 class _HomeCollectionPickerSheet extends StatefulWidget {
   const _HomeCollectionPickerSheet({
+    super.key,
     required this.collections,
     required this.totalCount,
   });
@@ -1001,6 +1021,7 @@ class _HomePickerHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final mode = context.dependOnInheritedWidgetOfExactType<_HomePickerMode>();
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Column(
@@ -1012,7 +1033,9 @@ class _HomePickerHeader extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  title,
+                  mode?.removing == true
+                      ? tr('home.editor.remove_shortcuts_title')
+                      : title,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -1025,6 +1048,31 @@ class _HomePickerHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          if (mode != null) ...[
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<bool>(
+                segments: [
+                  ButtonSegment(
+                    value: false,
+                    label: Text(tr('home.editor.manage_add')),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    label: Text(tr('home.editor.manage_remove')),
+                  ),
+                ],
+                selected: {mode.removing},
+                onSelectionChanged: (values) => mode.onChanged(values.single),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              tr('home.editor.shortcuts_only'),
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+          ],
           TextField(
             controller: searchController,
             onChanged: onQueryChanged,
@@ -1077,7 +1125,12 @@ class _HomePickerEmptyText extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          text,
+          context
+                      .dependOnInheritedWidgetOfExactType<_HomePickerMode>()
+                      ?.removing ==
+                  true
+              ? tr('home.editor.remove_empty')
+              : text,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
@@ -1101,14 +1154,25 @@ class _HomePickerSubmitButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final removing =
+        context
+            .dependOnInheritedWidgetOfExactType<_HomePickerMode>()
+            ?.removing ??
+        false;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: SizedBox(
         width: double.infinity,
         child: FilledButton.icon(
           onPressed: onPressed,
-          icon: const Icon(Icons.add_rounded),
-          label: Text(selectedCount == 0 ? emptyLabel : activeLabel),
+          icon: Icon(removing ? Icons.remove_rounded : Icons.add_rounded),
+          label: Text(
+            removing
+                ? tr('home.editor.remove_selected', args: ['$selectedCount'])
+                : selectedCount == 0
+                ? emptyLabel
+                : activeLabel,
+          ),
         ),
       ),
     );
@@ -1175,19 +1239,19 @@ class _HomeChoiceTile extends StatelessWidget {
 class _EditableHomeWidgetRow extends StatelessWidget {
   const _EditableHomeWidgetRow({
     super.key,
-    required this.id,
-    required this.index,
+    this.id,
+    this.customSection,
     required this.enabled,
     required this.layout,
     required this.onToggle,
     this.onLayoutToggle,
   });
 
-  final HomeWidgetId id;
-  final int index;
+  final HomeWidgetId? id;
+  final HomeCustomSection? customSection;
   final bool enabled;
   final HomeCustomSectionLayout layout;
-  final VoidCallback onToggle;
+  final VoidCallback? onToggle;
   final VoidCallback? onLayoutToggle;
 
   @override
@@ -1209,19 +1273,22 @@ class _EditableHomeWidgetRow extends StatelessWidget {
         height: 54,
         child: Row(
           children: [
-            IconButton(
-              onPressed: onToggle,
-              visualDensity: VisualDensity.compact,
-              icon: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: actionColor,
+            if (id?.canDisable ?? true)
+              IconButton(
+                onPressed: onToggle,
+                visualDensity: VisualDensity.compact,
+                icon: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: actionColor,
+                  ),
+                  child: Icon(actionIcon, color: Colors.white, size: 18),
                 ),
-                child: Icon(actionIcon, color: Colors.white, size: 18),
-              ),
-            ),
+              )
+            else
+              const SizedBox(width: 48),
             Icon(
-              id.icon,
+              id?.icon ?? customSection!.kind.icon,
               size: 22,
               color: enabled
                   ? scheme.primary
@@ -1234,7 +1301,7 @@ class _EditableHomeWidgetRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _homeWidgetTitle(id),
+                    id == null ? customSection!.title : _homeWidgetTitle(id!),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyLarge?.copyWith(
@@ -1245,7 +1312,7 @@ class _EditableHomeWidgetRow extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    id.hasFixedLayout
+                    (id?.hasFixedLayout ?? false)
                         ? tr('home.editor.special_view')
                         : _homeLayoutLabel(layout),
                     maxLines: 1,
@@ -1269,19 +1336,6 @@ class _EditableHomeWidgetRow extends StatelessWidget {
                       : scheme.onSurfaceVariant.withValues(alpha: 0.36),
                 ),
               ),
-            ReorderableDragStartListener(
-              index: index,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 12,
-                ),
-                child: Icon(
-                  Icons.drag_handle_rounded,
-                  color: scheme.onSurfaceVariant.withValues(alpha: 0.72),
-                ),
-              ),
-            ),
           ],
         ),
       ),

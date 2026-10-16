@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'app/data/local/catalog_storage.dart';
+import 'app/data/local/domain_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:audio_service/audio_service.dart' as aud;
 import 'package:easy_localization/easy_localization.dart'
@@ -16,12 +19,20 @@ import 'app/controllers/media_actions_controller.dart';
 import 'app/routes/app_pages.dart';
 import 'app/routes/app_routes.dart';
 import 'app/ui/themes/app_theme_factory.dart';
+import 'app/ui/themes/palette.dart';
+import 'app/ui/widgets/layout/storage_startup_page.dart';
 import 'app/ui/widgets/player/mini_player_bar.dart';
 
 import 'app/data/network/dio_client.dart';
 import 'app/data/repo/media_repository.dart';
 import 'app/data/local/local_library_store.dart';
 import 'app/services/audio_service.dart';
+import 'app/services/sqlite_engine_history_factory.dart';
+import 'app/data/playback/playback_repository.dart';
+import 'app/data/playback/playback_debug_bootstrap.dart';
+import 'app/data/playback/playback_production_bootstrap.dart';
+import 'app/data/playback/playback_state_storage.dart';
+import 'package:uuid/uuid.dart';
 import 'app/services/app_audio_handler.dart';
 import 'app/services/instrumental_generation_service.dart';
 import 'app/services/local_media_metadata_service.dart';
@@ -47,9 +58,12 @@ import 'Modules/sources/data/source_theme_topic_playlist_store.dart';
 import 'Modules/recommendations/data/recommendation_store.dart';
 import 'Modules/recommendations/data/recommendation_feedback_store.dart';
 import 'Modules/recommendations/data/listening_event_store.dart';
+import 'Modules/recommendations/data/recommendation_ml_store.dart';
 import 'Modules/recommendations/application/local_recommendation_service.dart';
+import 'Modules/recommendations/application/local_ml_recommendation_ranker.dart';
 import 'Modules/recommendations/application/recommendation_feedback_service.dart';
 import 'Modules/recommendations/domain/contracts/recommendation_engine.dart';
+import 'Modules/stats/application/weekly_listening_summary.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -77,14 +91,144 @@ Future<void> main() async {
   );
 
   // ⚙️ Controller global de configuración
+
+  // 🎵 Audio global (CLAVE)
+  Get.put<GetStorage>(GetStorage(), permanent: true);
+  Get.put(LocalLibraryStore(Get.find<GetStorage>()), permanent: true);
+  Get.put(ListeningEventStore(Get.find<GetStorage>()), permanent: true);
+  SqliteEngineHistoryFactory? sqliteHistory;
+  final productionStorage =
+      await PlaybackProductionBootstrap.shouldUseProduction();
+  if (productionStorage) {
+    final progress = ValueNotifier<String>('capturing');
+    final failed = ValueNotifier<bool>(false);
+    Completer<void>? retry;
+    runApp(
+      EasyLocalization(
+        supportedLocales: const [Locale('es'), Locale('en')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('es'),
+        child: Builder(
+          builder: (context) => MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: buildTheme(
+              palette:
+                  palettes[GetStorage().read<String>('selectedPalette') ??
+                      'green'] ??
+                  Get.find<ThemeController>().palette.value,
+              brightness: GetStorage().read<String>('brightness') == 'light'
+                  ? Brightness.light
+                  : Brightness.dark,
+            ),
+            localizationsDelegates: context.localizationDelegates,
+            supportedLocales: context.supportedLocales,
+            locale: context.locale,
+            home: ValueListenableBuilder<bool>(
+              valueListenable: failed,
+              builder: (context, error, _) => ValueListenableBuilder<String>(
+                valueListenable: progress,
+                builder: (context, stage, _) => StorageStartupPage(
+                  title: tr(
+                    error ? 'storage_startup.failed' : 'storage_startup.title',
+                    context: context,
+                  ),
+                  stage: tr('storage_startup.$stage', context: context),
+                  failed: error,
+                  retryLabel: tr('storage_startup.retry', context: context),
+                  onRetry: () {
+                    if (retry != null && !retry.isCompleted) retry.complete();
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    PlaybackProductionState? active;
+    while (active == null) {
+      try {
+        failed.value = false;
+        active = await PlaybackProductionBootstrap.open(
+          Get.find<GetStorage>(),
+          onProgress: (stage) => progress.value = stage,
+        );
+      } catch (error, stack) {
+        debugPrint('SQLite activation failed: $error\n$stack');
+        retry = Completer<void>();
+        progress.value = 'preserved';
+        failed.value = true;
+        await retry.future;
+      }
+    }
+    Get.put(active.repository, permanent: true);
+    Get.put<PlaybackStateStorage>(active.restoration, permanent: true);
+    Get.put<CatalogStorage>(active.catalog, permanent: true);
+    Get.put<DomainStorage>(active.domains, permanent: true);
+    final library = LocalLibraryStore(
+      Get.find<GetStorage>(),
+      metricsLoader: active.repository.queryLibraryMetrics,
+    );
+    await library.readAll();
+    Get.replace<LocalLibraryStore>(library);
+    Get.replace<ListeningEventStore>(
+      ListeningEventStore.sqlite(
+        querySqlite: active.repository.queryListeningEvents,
+      ),
+    );
+    sqliteHistory = SqliteEngineHistoryFactory(
+      repository: active.repository,
+      installationScope: active.installationScope,
+    );
+  }
+  // Test-only staging remains available when no production generation is active.
+  if (!productionStorage &&
+      kDebugMode &&
+      const bool.fromEnvironment('LISTENFY_SQLITE_STAGING_HISTORY')) {
+    final storage = Get.find<GetStorage>();
+    var scope = storage.read<String>('playback_staging_installation');
+    if (scope == null) {
+      scope = const Uuid().v4();
+      await storage.write('playback_staging_installation', scope);
+    }
+    final (repository, restoration) = await PlaybackDebugBootstrap.open(
+      storage,
+      scope,
+    );
+    Get.put(repository, permanent: true);
+    Get.put<PlaybackStateStorage>(restoration, permanent: true);
+    Get.put<CatalogStorage>(
+      await CatalogStorage.open(repository, storage, scope),
+      permanent: true,
+    );
+    Get.put<DomainStorage>(
+      await DomainStorage.open(repository, storage, scope),
+      permanent: true,
+    );
+    final library = LocalLibraryStore(
+      storage,
+      metricsLoader: repository.queryLibraryMetrics,
+    );
+    await library.readAll();
+    Get.replace<LocalLibraryStore>(library);
+    Get.replace<ListeningEventStore>(
+      ListeningEventStore.sqlite(querySqlite: repository.queryListeningEvents),
+    );
+    sqliteHistory = SqliteEngineHistoryFactory(
+      repository: repository,
+      installationScope: scope,
+    );
+    debugPrint(
+      'SQLite DEBUG: legacy imported, restoration loaded, history consumers connected; scope=$scope',
+    );
+  }
+  // Settings must read after SQL projections are loaded, not stale legacy data.
   Get.put(SettingsController(), permanent: true);
   Get.put(PlaybackSettingsController(), permanent: true);
   Get.put(SleepTimerController(), permanent: true);
   Get.put(EqualizerController(), permanent: true);
   Get.put(NotificationSettingsController(), permanent: true);
-
-  // 🎵 Audio global (CLAVE)
-  final appAudio = AudioService();
+  final appAudio = AudioService(historyRecorder: sqliteHistory?.create());
   Get.put<AudioService>(appAudio, permanent: true);
   await appAudio.initializeAndroidAutoArtwork();
 
@@ -103,7 +247,10 @@ Future<void> main() async {
   appAudio.attachHandler(handler);
 
   // 🎬 Video global (CLAVE)
-  Get.put<VideoService>(VideoService(), permanent: true);
+  Get.put<VideoService>(
+    VideoService(historyRecorder: sqliteHistory?.create()),
+    permanent: true,
+  );
 
   // 🎧 Spatial audio (8D)
   Get.put<SpatialAudioService>(
@@ -115,7 +262,6 @@ Future<void> main() async {
   Get.lazyPut<DioClient>(() => DioClient(), fenix: true);
 
   // 📦 GetStorage (shared)
-  Get.put<GetStorage>(GetStorage(), permanent: true);
 
   Get.put(
     KaraokeRemotePipelineService(client: Get.find<DioClient>()),
@@ -124,7 +270,6 @@ Future<void> main() async {
   Get.put(LocalMediaMetadataService(), permanent: true);
 
   // 💾 Local storage
-  Get.put(LocalLibraryStore(Get.find<GetStorage>()), permanent: true);
   if (!Get.isRegistered<PlaylistStore>()) {
     Get.put(PlaylistStore(Get.find<GetStorage>()), permanent: true);
   }
@@ -152,7 +297,11 @@ Future<void> main() async {
   // 🧠 Recomendaciones locales (MVP diario)
   Get.put(RecommendationStore(Get.find<GetStorage>()), permanent: true);
   Get.put(RecommendationFeedbackStore(Get.find<GetStorage>()), permanent: true);
-  Get.put(ListeningEventStore(Get.find<GetStorage>()), permanent: true);
+  Get.put(RecommendationMlStore(Get.find<GetStorage>()), permanent: true);
+  Get.put(
+    LocalMlRecommendationRanker(store: Get.find<RecommendationMlStore>()),
+    permanent: true,
+  );
   Get.put(
     RecommendationFeedbackService(
       store: Get.find<RecommendationFeedbackStore>(),
@@ -162,6 +311,8 @@ Future<void> main() async {
   final recommendationService = LocalRecommendationService(
     store: Get.find<RecommendationStore>(),
     feedbackService: Get.find<RecommendationFeedbackService>(),
+    listeningEventStore: Get.find<ListeningEventStore>(),
+    ranker: Get.find<LocalMlRecommendationRanker>(),
     libraryLoader: () => Get.find<MediaRepository>().getLibrary(),
     artistProfileLoader: () => Get.find<ArtistStore>().readAll(),
     topicLoader: () async {
@@ -179,6 +330,13 @@ Future<void> main() async {
   );
   Get.put<LocalRecommendationService>(recommendationService, permanent: true);
   Get.put<RecommendationEngine>(recommendationService, permanent: true);
+  final weeklySummaryBuilder = WeeklyListeningSummaryBuilder(
+    listeningEventStore: Get.find<ListeningEventStore>(),
+    libraryLoader: () => Get.find<MediaRepository>().getLibrary(),
+  );
+  Get.find<NotificationService>().configureWeeklySummaryLoader(
+    weeklySummaryBuilder.build,
+  );
 
   if (!Get.isRegistered<DownloadsRepository>()) {
     Get.lazyPut<DownloadsRepository>(
@@ -232,6 +390,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  final PlaybackNavigationObserver _playbackNavigationObserver =
+      PlaybackNavigationObserver();
   StreamSubscription<bool>? _notificationClickSub;
 
   @override
@@ -241,6 +401,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _checkPermissions();
     unawaited(Get.find<DeepLinkService>().start());
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(Get.find<NotificationService>().syncScheduledNotifications());
       Get.find<NotificationService>().flushPendingNavigation();
     });
     _notificationClickSub = aud.AudioService.notificationClicked.listen((
@@ -263,6 +424,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(Get.find<NotificationService>().syncScheduledNotifications());
+    }
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
@@ -299,12 +463,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         supportedLocales: context.supportedLocales,
         localizationsDelegates: context.localizationDelegates,
 
-        routingCallback: (routing) {
-          final current = routing?.current;
-          if (current != null) {
-            Get.find<NavigationController>().setRoute(current);
-          }
-        },
+        navigatorObservers: [_playbackNavigationObserver],
 
         builder: (context, child) {
           if (child == null) {

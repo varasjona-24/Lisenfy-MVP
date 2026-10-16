@@ -3,13 +3,24 @@ import 'package:get_storage/get_storage.dart';
 
 import '../../../app/services/audio_service.dart';
 import '../../../app/services/video_service.dart';
+import '../../../app/data/playback/playback_state_storage.dart';
 
 /// Gestiona: volumen, autoplay, crossfade, calidad de descarga y uso de datos.
 class PlaybackSettingsController extends GetxController {
+  PlaybackSettingsController({GetStorage? storage})
+    : _storage = storage ?? playbackStateStorage();
+  static const videoSeekSecondsKey = 'video_seek_seconds';
   static const hideVideoStatusLabelsKey = 'hide_video_status_labels';
   static const hideShortVideoStatusLabelsKey = 'hide_short_video_status_labels';
 
-  final GetStorage _storage = GetStorage();
+  final GetStorage _storage;
+  final RxInt videoSeekSeconds = 5.obs;
+
+  Future<void> setVideoSeekSeconds(int seconds) async {
+    if (![5, 10, 15].contains(seconds)) return;
+    await _storage.write(videoSeekSecondsKey, seconds);
+    videoSeekSeconds.value = seconds;
+  }
 
   // 🔊 Volumen por defecto (0-100)
   final RxDouble defaultVolume = 100.0.obs;
@@ -36,6 +47,8 @@ class PlaybackSettingsController extends GetxController {
   }
 
   void _loadSettings() {
+    final storedSeek = _storage.read<int>(videoSeekSecondsKey);
+    videoSeekSeconds.value = [5, 10, 15].contains(storedSeek) ? storedSeek! : 5;
     defaultVolume.value = _storage.read('defaultVolume') ?? 100.0;
     downloadQuality.value = _storage.read('downloadQuality') ?? 'high';
     dataUsage.value = _storage.read('dataUsage') ?? 'all';
@@ -82,7 +95,7 @@ class PlaybackSettingsController extends GetxController {
   Future<void> setCrossfadeSeconds(int seconds) async {
     final safe = seconds.clamp(0, 12).toInt();
     crossfadeSeconds.value = safe;
-    _storage.write('audio_crossfade_seconds', safe);
+    await _storage.write('audio_crossfade_seconds', safe);
     if (Get.isRegistered<AudioService>()) {
       await Get.find<AudioService>().setCrossfadeSeconds(safe);
     }

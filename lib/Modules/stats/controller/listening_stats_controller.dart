@@ -1,4 +1,6 @@
 import 'package:get/get.dart';
+import 'dart:async';
+import '../../../app/data/playback/playback_repository.dart';
 
 import '../../../app/data/local/local_library_store.dart';
 import '../../../app/models/media_item.dart';
@@ -19,6 +21,11 @@ class ListeningStatsController extends GetxController {
   Worker? _topicsWorker;
   Worker? _playlistsWorker;
   Worker? _itemsWorker;
+  StreamSubscription<int>? _sqlRevision;
+  List<MediaItem>? _audioPlaybackItems;
+  List<MediaItem>? _videoPlaybackItems;
+  double? _averageAudioCoverage;
+  Map<String, int> _audioCompletionSummary = const {};
 
   @override
   void onInit() {
@@ -34,12 +41,18 @@ class ListeningStatsController extends GetxController {
     _sourcesController = Get.find<SourcesController>();
 
     _loadData();
+    if (Get.isRegistered<PlaybackRepository>()) {
+      _sqlRevision = Get.find<PlaybackRepository>().revisions.listen(
+        (_) => refreshStats(),
+      );
+    }
   }
 
   Future<void> _loadData() async {
     isLoading.value = true;
     try {
       final items = await _libraryStore.readAll();
+      await _loadModeMetrics(items);
       _mediaItems.assignAll(items);
       _bindReactivity();
       _computeStats();
@@ -64,12 +77,17 @@ class ListeningStatsController extends GetxController {
       _mediaItems,
       artistStore: _artistStore,
       sourcesController: _sourcesController,
+      audioPlaybackItems: _audioPlaybackItems,
+      videoPlaybackItems: _videoPlaybackItems,
+      averageAudioCoverage: _averageAudioCoverage,
+      audioCompletionSummary: _audioCompletionSummary,
     );
   }
 
   Future<void> refreshStats() async {
     try {
       final items = await _libraryStore.readAll();
+      await _loadModeMetrics(items);
       _mediaItems.assignAll(items);
     } catch (_) {
       // Handle error silently
@@ -86,9 +104,39 @@ class ListeningStatsController extends GetxController {
 
   @override
   void onClose() {
+    _sqlRevision?.cancel();
     _topicsWorker?.dispose();
     _playlistsWorker?.dispose();
     _itemsWorker?.dispose();
     super.onClose();
+  }
+
+  Future<void> _loadModeMetrics(List<MediaItem> items) async {
+    if (!Get.isRegistered<PlaybackRepository>()) return;
+    final repository = Get.find<PlaybackRepository>();
+    _averageAudioCoverage = await repository.queryAverageAudioCoverage();
+    _audioCompletionSummary = await repository.queryAudioCompletionSummary();
+    List<MediaItem> project(Map<String, Map<String, dynamic>> metrics) =>
+        items.map((item) {
+          final json = item.toJson();
+          json.addAll(
+            metrics[item.id] ??
+                {
+                  'playCount': 0,
+                  'skipCount': 0,
+                  'fullListenCount': 0,
+                  'avgListenProgress': 0.0,
+                  'lastPlayedAt': null,
+                  'lastCompletedAt': null,
+                },
+          );
+          return MediaItem.fromJson(json);
+        }).toList();
+    _audioPlaybackItems = project(
+      await repository.queryLibraryMetrics(mode: 'audio'),
+    );
+    _videoPlaybackItems = project(
+      await repository.queryLibraryMetrics(mode: 'video'),
+    );
   }
 }

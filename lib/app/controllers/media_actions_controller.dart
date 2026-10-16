@@ -1094,8 +1094,11 @@ class _QueueModeOption extends StatelessWidget {
   }
 }
 
-class _ActionItem extends StatelessWidget {
-  const _ActionItem({
+typedef _ActionItem = MediaActionRow;
+
+class MediaActionRow extends StatelessWidget {
+  const MediaActionRow({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
@@ -1114,9 +1117,9 @@ class _ActionItem extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      child: InkWell(
+      child: GestureDetector(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        behavior: HitTestBehavior.opaque,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           child: Row(

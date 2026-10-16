@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:get_storage/get_storage.dart';
+import '../../../app/data/local/domain_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -17,7 +18,7 @@ class CaptureGalleryStore {
   static const _sourceKey = 'capture_gallery_sources';
   static const _tagCollectionsKey = 'capture_gallery_tag_collections';
 
-  CaptureGalleryStore(this._box);
+  CaptureGalleryStore(GetStorage box) : _box = domainStorage(box);
 
   final GetStorage _box;
 
@@ -44,6 +45,7 @@ class CaptureGalleryStore {
     final file = File(p.join(dir.path, fileName));
     await file.writeAsBytes(bytes, flush: true);
     await setSource(file.path, title: sourceTitle ?? title, sourceId: sourceId);
+    await registerCaptureFile(file.path);
     return file.path;
   }
 
@@ -68,6 +70,18 @@ class CaptureGalleryStore {
       );
     }
     captures.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
+    if (_box is DomainStorage) {
+      final registered = Map<String, dynamic>.from(
+        _box.read<Map>('capture_files_v1') ?? {},
+      );
+      for (final capture in captures) {
+        registered[capture.path] = {
+          'size': capture.size,
+          'modifiedAt': capture.modifiedAt.millisecondsSinceEpoch,
+        };
+      }
+      await _box.write('capture_files_v1', registered);
+    }
     return captures;
   }
 
@@ -89,6 +103,8 @@ class CaptureGalleryStore {
       index++;
     }
     final renamed = await file.rename(candidate);
+    await _removeCaptureFile(path);
+    await registerCaptureFile(renamed.path);
     final tags = tagsFor(path);
     final source = sourceFor(path);
     if (tags.isNotEmpty) {
@@ -109,6 +125,29 @@ class CaptureGalleryStore {
     }
     await removeTags(path);
     await removeSource(path);
+    await _removeCaptureFile(path);
+  }
+
+  Future<void> registerCaptureFile(String path) async {
+    if (_box is! DomainStorage) return;
+    final stat = await File(path).stat();
+    final files = Map<String, dynamic>.from(
+      _box.read<Map>('capture_files_v1') ?? {},
+    );
+    files[path] = {
+      'size': stat.size,
+      'modifiedAt': stat.modified.millisecondsSinceEpoch,
+    };
+    await _box.write('capture_files_v1', files);
+  }
+
+  Future<void> _removeCaptureFile(String path) async {
+    if (_box is! DomainStorage) return;
+    final files = Map<String, dynamic>.from(
+      _box.read<Map>('capture_files_v1') ?? {},
+    );
+    files.remove(path);
+    await _box.write('capture_files_v1', files);
   }
 
   List<String> tagsFor(String path) {

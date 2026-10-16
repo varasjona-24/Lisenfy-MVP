@@ -302,6 +302,13 @@ abstract class AppPages {
       binding: LocalConnectBinding(),
     ),
     GetPage(
+      name: AppRoutes.atlas,
+      page: () => const WorldModePage(),
+      binding: WorldModeBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 240),
+    ),
+    GetPage(
       name: AppRoutes.worldMode,
       page: () => const WorldModePage(),
       binding: WorldModeBinding(),

@@ -49,6 +49,7 @@ class MediaItem {
   final String? thumbnailLocalPath;
 
   final List<MediaVariant> variants;
+  final int? importedAt;
   final SourceOrigin origin;
 
   /// Favorito en UI
@@ -87,6 +88,7 @@ class MediaItem {
     this.country,
     required this.source,
     required this.variants,
+    this.importedAt,
     required this.origin,
     this.thumbnail,
     this.thumbnailLocalPath,
@@ -117,6 +119,7 @@ class MediaItem {
     String? thumbnail,
     String? thumbnailLocalPath,
     List<MediaVariant>? variants,
+    int? importedAt,
     SourceOrigin? origin,
     int? durationSeconds,
     String? lyrics,
@@ -141,6 +144,10 @@ class MediaItem {
       thumbnail: thumbnail ?? this.thumbnail,
       thumbnailLocalPath: thumbnailLocalPath ?? this.thumbnailLocalPath,
       variants: variants ?? this.variants,
+      importedAt:
+          this.importedAt ??
+          importedAt ??
+          (originalImportAt > 0 ? originalImportAt : null),
       origin: origin ?? this.origin,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       lyrics: lyrics ?? this.lyrics,
@@ -164,6 +171,21 @@ class MediaItem {
   String get fileId => publicId.trim().isNotEmpty ? publicId.trim() : id.trim();
 
   bool _hasLocal(MediaVariant v) => (v.localPath?.trim().isNotEmpty ?? false);
+
+  /// First known local import; later variants do not move the item in history.
+  int get originalImportAt {
+    if (importedAt != null && importedAt! > 0) return importedAt!;
+    var earliest = 0;
+    for (final variant in variants) {
+      if ((variant.localPath ?? '').trim().isEmpty || variant.createdAt <= 0) {
+        continue;
+      }
+      if (earliest == 0 || variant.createdAt < earliest) {
+        earliest = variant.createdAt;
+      }
+    }
+    return earliest;
+  }
 
   bool get hasAudioLocal =>
       variants.any((v) => v.kind == MediaVariantKind.audio && _hasLocal(v));
@@ -390,6 +412,7 @@ class MediaItem {
       thumbnail: (json['thumbnail'] as String?)?.trim(),
       thumbnailLocalPath: (json['thumbnailLocalPath'] as String?)?.trim(),
       variants: variants,
+      importedAt: (json['importedAt'] as num?)?.toInt(),
       durationSeconds: durationSeconds,
       origin: origin,
       lyrics: lyrics,
@@ -409,6 +432,7 @@ class MediaItem {
   Map<String, dynamic> toJson() => {
     'id': id,
     'publicId': publicId,
+    'importedAt': originalImportAt > 0 ? originalImportAt : null,
     'title': title,
     'artist': subtitle,
     'country': country,

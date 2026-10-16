@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import '../application/backup_file_restore_pass.dart';
+import '../application/backup_restore_progress.dart';
 
 import 'package:crypto/crypto.dart';
 import 'package:easy_localization/easy_localization.dart'
@@ -16,6 +18,15 @@ import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive_io.dart';
 
 import '../../../app/data/local/local_library_store.dart';
+import '../../../app/data/local/domain_storage.dart';
+import '../../../app/data/local/domain_backup_codec.dart';
+import '../../../app/data/local/catalog_storage.dart';
+import '../../../app/services/instrumental_generation_service.dart';
+import '../../../app/services/spatial8d_generation_service.dart';
+import '../../../app/data/playback/playback_repository.dart';
+import '../../../app/data/playback/playback_state_storage.dart';
+import '../../../app/services/audio_service.dart';
+import '../../../app/services/video_service.dart';
 import '../../../app/models/media_item.dart';
 import '../../../Modules/captures/data/capture_gallery_store.dart';
 import '../../../Modules/playlists/data/playlist_store.dart';
@@ -34,6 +45,7 @@ import '../../../Modules/sources/domain/source_theme_topic_playlist.dart';
 import '../../../Modules/downloads/controller/downloads_controller.dart';
 import '../../../Modules/Home/Controller/home_controller.dart';
 import '../../../Modules/recommendations/data/recommendation_store.dart';
+import '../../../Modules/recommendations/data/listening_event_store.dart';
 import '../../../Modules/recommendations/data/recommendation_feedback_store.dart';
 import '../../../Modules/recommendations/application/recommendation_feedback_service.dart';
 import '../../../Modules/recommendations/domain/contracts/recommendation_engine.dart';
@@ -428,6 +440,7 @@ class BackupRestoreController extends GetxController {
   final RxBool isExporting = false.obs;
   final RxBool isImporting = false.obs;
   final RxDouble progress = 0.0.obs;
+  final RxBool progressIndeterminate = false.obs;
   final RxString currentOperation = ''.obs;
 
   Future<void> _yieldUi([int ms = 1]) async {
@@ -639,9 +652,12 @@ class BackupRestoreController extends GetxController {
     );
   }
 
-  void _showProgressDialog(String title) {
-    progress.value = 0.0;
-    currentOperation.value = tr('backup.operations.starting');
+  void _showProgressDialog(String title, {bool resetProgress = true}) {
+    if (resetProgress) {
+      progress.value = 0.0;
+      progressIndeterminate.value = false;
+      currentOperation.value = tr('backup.operations.starting');
+    }
     final isExport = title.toLowerCase().contains('respaldo');
     final icon = isExport ? Icons.archive_rounded : Icons.restore_rounded;
     final accent = isExport ? Colors.orange : Colors.teal;
@@ -661,7 +677,7 @@ class BackupRestoreController extends GetxController {
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
                 child: Obx(() {
                   final raw = progress.value;
-                  final hasProgress = raw > 0;
+                  final hasProgress = raw > 0 && !progressIndeterminate.value;
                   final value = raw.clamp(0.0, 1.0).toDouble();
                   final percent = (value * 100).round();
 
@@ -698,7 +714,11 @@ class BackupRestoreController extends GetxController {
                                           'backup.progress_percent',
                                           args: ['$percent'],
                                         )
-                                      : tr('backup.preparing_process'),
+                                      : tr(
+                                          progressIndeterminate.value
+                                              ? 'backup.progress_indeterminate'
+                                              : 'backup.preparing_process',
+                                        ),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: scheme.onSurfaceVariant,
                                   ),
@@ -1318,6 +1338,7 @@ class BackupRestoreController extends GetxController {
 
         final rel = _safeBackupRelPath(_relativeBackupPath(appDir.path, clean));
         if (rel == null) return null;
+        if (fileManifestByRel.containsKey(rel)) return rel;
         final dest = File(p.join(filesDir.path, rel));
         await dest.parent.create(recursive: true);
         await src.copy(dest.path);
@@ -1519,6 +1540,8 @@ class BackupRestoreController extends GetxController {
         'files': fileManifestByRel.length,
       };
       final manifest = <String, dynamic>{
+        'listeningEvents': await Get.find<ListeningEventStore>()
+            .exportBackupPayloadAsync(),
         'version': 1,
         'backupVersion': _currentBackupVersion,
         'createdAt': createdAt,
@@ -1546,6 +1569,90 @@ class BackupRestoreController extends GetxController {
       };
 
       final manifestFile = File(p.join(tempDir.path, 'manifest.json'));
+      if (Get.isRegistered<DomainStorage>()) {
+        final storage = Get.find<DomainStorage>();
+        await storage.flush();
+        final data = {
+          for (final key in DomainBackupCodec.keys) key: storage.read(key),
+        };
+        await File(p.join(tempDir.path, 'app_domains_v1.json')).writeAsString(
+          jsonEncode({
+            'version': 1,
+            'values': await DomainBackupCodec.encode(data, copyToBackup),
+          }),
+          flush: true,
+        );
+      }
+      if (Get.isRegistered<PlaybackRepository>()) {
+        if (Get.isRegistered<CatalogStorage>()) {
+          await Get.find<CatalogStorage>().flush();
+        }
+        await Get.find<AudioService>().flushPlaybackHistory();
+        await Get.find<VideoService>().flushPlaybackHistory();
+        await Get.find<PlaybackStateStorage>().flush();
+        final complete = await Get.find<PlaybackRepository>()
+            .exportCompleteDatabase();
+        final completeTables = complete['tables'] as Map;
+        final references = <String>{};
+        void collectFiles(dynamic value, [String? field]) {
+          if (value is Map) {
+            for (final entry in value.entries) {
+              collectFiles(entry.value, entry.key.toString());
+            }
+          } else if (value is List) {
+            for (final entry in value) {
+              collectFiles(entry);
+            }
+          } else if (value is String && value.isNotEmpty) {
+            if (DomainBackupCodec.fileFields.contains(field)) {
+              references.add(value);
+            } else if (field == 'artwork_ref' && value.startsWith('local:')) {
+              references.add(value.substring(6));
+            } else if (field != null && field.endsWith('_json')) {
+              collectFiles(jsonDecode(value));
+            }
+          }
+        }
+
+        collectFiles(completeTables);
+        for (final raw in (completeTables['catalog_file_reference'] as List)) {
+          final row = raw as Map;
+          if (row['locator_kind'] == 'local_path') {
+            references.add(row['locator'] as String);
+          }
+        }
+        for (final raw in (completeTables['app_domain_file'] as List)) {
+          references.add((raw as Map)['locator'] as String);
+        }
+        final files = <String, String?>{};
+        for (final reference in references) {
+          files[reference] = await copyToBackup(reference);
+        }
+        complete['fileLocators'] = files;
+        complete['missingFiles'] = files.entries
+            .where((entry) => entry.value == null)
+            .map((entry) => entry.key)
+            .toList();
+        await File(
+          p.join(tempDir.path, 'sqlite_complete_v1.json'),
+        ).writeAsString(jsonEncode(complete), flush: true);
+        manifest['sqliteSnapshot'] = <String, dynamic>{
+          'entry': 'sqlite_complete_v1.json',
+          'scope': 'all_application_tables',
+          'tableCount': completeTables.length,
+          'missingFileCount': (complete['missingFiles'] as List).length,
+          'restoreMode': 'logical_compatibility',
+        };
+        final payload = await Get.find<PlaybackRepository>()
+            .exportDebugBundle();
+        await File(
+          p.join(tempDir.path, 'playback_sqlite_debug.json'),
+        ).writeAsString(jsonEncode(payload), flush: true);
+      }
+      manifest['backupFiles'] = fileManifestByRel.values
+          .map((entry) => entry.toJson())
+          .toList();
+      backupSummary['files'] = fileManifestByRel.length;
       await manifestFile.writeAsString(jsonEncode(manifest), flush: true);
       final appearanceFile = File(p.join(tempDir.path, 'appearance.json'));
       await appearanceFile.writeAsString(
@@ -1613,6 +1720,12 @@ class BackupRestoreController extends GetxController {
     if (isExporting.value || isImporting.value) return;
 
     try {
+      if ((Get.isRegistered<InstrumentalGenerationService>() &&
+              Get.find<InstrumentalGenerationService>().hasRunningJobs) ||
+          (Get.isRegistered<Spatial8dGenerationService>() &&
+              Get.find<Spatial8dGenerationService>().hasRunningJobs)) {
+        throw StateError(tr('backup.processing_busy'));
+      }
       String path = (zipPath ?? '').trim();
       if (path.isEmpty) {
         FilePickerResult? res;
@@ -1684,6 +1797,21 @@ class BackupRestoreController extends GetxController {
       if (!await manifestFile.exists()) {
         throw Exception('Manifest not found');
       }
+      final legacySqliteBackup =
+          Get.isRegistered<PlaybackRepository>() &&
+          zipIndex.find('playback_sqlite_debug.json') == null;
+      String? legacySourceHash;
+      if (legacySqliteBackup) {
+        legacySourceHash = (await sha256.bind(manifestFile.openRead()).first)
+            .toString();
+        try {
+          await Get.find<PlaybackRepository>().validateLegacyBackupTarget(
+            legacySourceHash,
+          );
+        } on StateError {
+          throw StateError(tr('backup.sqlite_legacy_empty_required'));
+        }
+      }
 
       currentOperation.value = tr('backup.operations.reading_manifest');
       progress.value = 0.3;
@@ -1715,12 +1843,16 @@ class BackupRestoreController extends GetxController {
           await tempDir.delete(recursive: true);
           return;
         }
-        _showProgressDialog(tr('backup.restore_progress_title'));
+        _showProgressDialog(
+          tr('backup.restore_progress_title'),
+          resetProgress: false,
+        );
         await _yieldUi(50);
         currentOperation.value = tr('backup.operations.reading_manifest');
         progress.value = 0.3;
       }
       final expectedFilesByRel = _backupFilesByRel(manifest);
+      final fileRestorePass = BackupFileRestorePass();
 
       String? resolveRel(String? rel) {
         final safe = _safeBackupRelPath(rel);
@@ -1741,21 +1873,23 @@ class BackupRestoreController extends GetxController {
         final destPath = resolveRel(safe);
         if (destPath == null) return;
         final dest = File(destPath);
-        await _extractZipBackupEntry(
-          zipPath: path,
-          entry: entry,
-          outputPath: dest.path,
-        );
-        final expectedFile = expectedFilesByRel[safe];
-        if (expectedFile != null) {
-          final valid = await _verifyRestoredFile(dest, expectedFile);
-          if (!valid) {
-            try {
-              if (await dest.exists()) await dest.delete();
-            } catch (_) {}
-            throw Exception('Backup file integrity check failed: $safe');
+        await fileRestorePass.run(safe, () async {
+          await _extractZipBackupEntry(
+            zipPath: path,
+            entry: entry,
+            outputPath: dest.path,
+          );
+          final expectedFile = expectedFilesByRel[safe];
+          if (expectedFile != null) {
+            final valid = await _verifyRestoredFile(dest, expectedFile);
+            if (!valid) {
+              try {
+                if (await dest.exists()) await dest.delete();
+              } catch (_) {}
+              throw Exception('Backup file integrity check failed: $safe');
+            }
           }
-        }
+        });
       }
 
       Map<String, dynamic>? appearancePayload;
@@ -1818,10 +1952,15 @@ class BackupRestoreController extends GetxController {
 
       currentOperation.value = tr('backup.operations.restoring_songs');
       progress.value = 0.4;
+      final libraryTotal = useStreamingManifest
+          ? null
+          : ((manifest!['items'] as List?) ?? const []).length;
+      progressIndeterminate.value = libraryTotal == null;
 
       final libraryStore = Get.find<LocalLibraryStore>();
       var restoredItems = 0;
       final itemsToRestore = <MediaItem>[];
+      final legacySqliteItems = <Map<String, dynamic>>[];
       Future<void> restoreItem(Map<String, dynamic> data, int i) async {
         if (i % 10 == 0) {
           await _yieldUi();
@@ -1829,7 +1968,6 @@ class BackupRestoreController extends GetxController {
             'backup.operations.restoring_songs_progress',
             args: ['${i + 1}'],
           );
-          progress.value = (0.4 + (0.3 * ((i % 500) / 500))).clamp(0.4, 0.7);
         }
 
         final thumbRel = (data['thumbnailLocalPath'] as String?)?.trim();
@@ -1853,8 +1991,14 @@ class BackupRestoreController extends GetxController {
         data['variants'] = updatedVariants;
 
         final item = MediaItem.fromJson(data);
+        if (legacySqliteBackup) legacySqliteItems.add(item.toJson());
         itemsToRestore.add(item);
         restoredItems++;
+        final completedProgress = libraryRestoreProgress(
+          completed: i + 1,
+          total: libraryTotal,
+        );
+        if (completedProgress != null) progress.value = completedProgress;
       }
 
       if (useStreamingManifest) {
@@ -1874,6 +2018,7 @@ class BackupRestoreController extends GetxController {
       currentOperation.value = tr('backup.operations.saving_restored_songs');
       await libraryStore.upsertAll(itemsToRestore);
       itemsToRestore.clear();
+      progressIndeterminate.value = false;
 
       currentOperation.value = tr(
         'backup.operations.restoring_playlists_artists',
@@ -1929,7 +2074,10 @@ class BackupRestoreController extends GetxController {
           await restoreArtist(Map<String, dynamic>.from(raw), i);
         }
       }
-      await artistStore.upsertAll(artistsToRestore);
+      if (!Get.isRegistered<PlaybackRepository>() ||
+          zipIndex.find('sqlite_complete_v1.json') == null) {
+        await artistStore.upsertAll(artistsToRestore);
+      }
       artistsToRestore.clear();
 
       currentOperation.value = tr('backup.operations.restoring_sources');
@@ -2044,6 +2192,7 @@ class BackupRestoreController extends GetxController {
           title: data['sourceTitle']?.toString(),
           sourceId: data['sourceId']?.toString(),
         );
+        await captureStore.registerCaptureFile(restoredPath);
       }
 
       if (useStreamingManifest) {
@@ -2082,7 +2231,110 @@ class BackupRestoreController extends GetxController {
         await restoreCaptureTagCollections({key: data});
       }
 
+      if (Get.isRegistered<PlaybackRepository>()) {
+        final entry = zipIndex.find('playback_sqlite_debug.json');
+        await Get.find<AudioService>().stop();
+        await Get.find<VideoService>().stop();
+        await Get.find<AudioService>().flushPlaybackHistory();
+        await Get.find<VideoService>().flushPlaybackHistory();
+        await Get.find<PlaybackStateStorage>().flush();
+        if (zipIndex.find('sqlite_complete_v1.json') != null) {
+          // The complete snapshot is applied after logical file restoration.
+        } else if (entry == null) {
+          final events = <Map<String, dynamic>>[];
+          if (useStreamingManifest) {
+            await _forEachManifestObject(manifestFile, 'listeningEvents', (
+              data,
+              index,
+            ) async {
+              events.add(Map<String, dynamic>.from(data));
+            });
+          } else {
+            for (final raw
+                in manifest?['listeningEvents'] as List? ?? const []) {
+              events.add(Map<String, dynamic>.from(raw as Map));
+            }
+          }
+          await Get.find<PlaybackRepository>().importLegacyHistory(
+            library: legacySqliteItems,
+            events: events,
+            scope: GetStorage().read<String>('playback_staging_installation')!,
+            sourceHash: legacySourceHash!,
+            migrationId: 'legacy-zip-$legacySourceHash',
+            nowUtcMs: DateTime.now().millisecondsSinceEpoch,
+          );
+        } else {
+          final target = File(
+            p.join(tempDir.path, 'playback_sqlite_debug.json'),
+          );
+          await _extractZipBackupEntry(
+            zipPath: path,
+            entry: entry,
+            outputPath: target.path,
+          );
+          await Get.find<PlaybackRepository>().restoreDebugBundle(
+            Map<String, dynamic>.from(
+              jsonDecode(await target.readAsString()) as Map,
+            ),
+          );
+        }
+        await Get.find<PlaybackRepository>().recoverInterruptedSessions();
+        await Get.find<PlaybackStateStorage>().reload();
+        await libraryStore.readAll();
+      } else if (useStreamingManifest) {
+        await _forEachManifestObject(manifestFile, 'listeningEvents', (
+          data,
+          index,
+        ) async {
+          await Get.find<ListeningEventStore>().restoreBackupPayload([data]);
+        });
+      }
+      if (Get.isRegistered<DomainStorage>()) {
+        final domainEntry = zipIndex.find('app_domains_v1.json');
+        if (domainEntry != null) {
+          final target = File(p.join(tempDir.path, 'app_domains_v1.json'));
+          await _extractZipBackupEntry(
+            zipPath: path,
+            entry: domainEntry,
+            outputPath: target.path,
+          );
+          final payload = jsonDecode(await target.readAsString()) as Map;
+          if (payload['version'] != 1 || payload['values'] is! Map) {
+            throw FormatException('Unsupported durable backup');
+          }
+          final raw = Map<String, dynamic>.from(payload['values'] as Map);
+          if (raw.keys.any((key) => !DomainBackupCodec.keys.contains(key))) {
+            throw FormatException('Unexpected durable backup domain');
+          }
+          final decoded = await DomainBackupCodec.decode(raw, (rel) async {
+            await restoreFile(rel);
+            final resolved = resolveRel(rel);
+            if (zipIndex.find(p.posix.join('files', rel)) == null ||
+                resolved == null ||
+                !await File(resolved).exists()) {
+              return null;
+            }
+            return resolved;
+          });
+          await Get.find<DomainStorage>().restoreValues(
+            Map<String, dynamic>.from(decoded as Map),
+          );
+          if (Get.isRegistered<InstrumentalGenerationService>()) {
+            Get.find<InstrumentalGenerationService>().reloadDurableTasks();
+          }
+          if (Get.isRegistered<Spatial8dGenerationService>()) {
+            Get.find<Spatial8dGenerationService>().reloadDurableTasks();
+          }
+        }
+      }
       if (!useStreamingManifest && manifest != null) {
+        final listeningEvents = manifest['listeningEvents'];
+        if (!Get.isRegistered<PlaybackRepository>() &&
+            listeningEvents is List) {
+          await Get.find<ListeningEventStore>().restoreBackupPayload(
+            listeningEvents,
+          );
+        }
         final rawCollections = manifest['captureTagCollections'];
         if (rawCollections is List) {
           for (final raw in rawCollections) {
@@ -2175,6 +2427,109 @@ class BackupRestoreController extends GetxController {
         );
       }
 
+      final completeEntry = zipIndex.find('sqlite_complete_v1.json');
+      if (completeEntry != null && Get.isRegistered<PlaybackRepository>()) {
+        final target = File(p.join(tempDir.path, 'sqlite_complete_v1.json'));
+        await _extractZipBackupEntry(
+          zipPath: path,
+          entry: completeEntry,
+          outputPath: target.path,
+        );
+        final bundle = Map<String, dynamic>.from(
+          jsonDecode(await target.readAsString()) as Map,
+        );
+        final locators = Map<String, dynamic>.from(
+          bundle['fileLocators'] as Map,
+        );
+        final rebased = <String, String>{};
+        for (final entry in locators.entries) {
+          final rel = entry.value;
+          if (rel == null) continue;
+          if (rel is! String || _safeBackupRelPath(rel) != rel) {
+            throw FormatException('Invalid complete backup locator');
+          }
+          await restoreFile(rel);
+          final resolved = resolveRel(rel);
+          if (resolved == null || !await File(resolved).exists()) {
+            throw FormatException('Missing complete backup file');
+          }
+          rebased[entry.key] = resolved;
+        }
+        dynamic rebase(dynamic value) {
+          if (value is Map) {
+            return {
+              for (final entry in value.entries)
+                rebased[entry.key] ?? entry.key: rebase(entry.value),
+            };
+          }
+          if (value is List) return value.map(rebase).toList();
+          if (value is String) return rebased[value] ?? value;
+          return value;
+        }
+
+        final tables = bundle['tables'] as Map;
+        // Journal payloads and hashed evidence are never rewritten.
+        for (final name in [
+          'library_record',
+          'library_variant',
+          'playlist_record',
+          'playlist_member',
+          'artist_record',
+          'catalog_file_reference',
+          'app_domain_record',
+          'app_domain_file',
+          'playback_restoration',
+          'playback_resume',
+        ]) {
+          final rows = tables[name];
+          if (rows is! List) {
+            throw FormatException('Missing complete backup table');
+          }
+          for (final raw in rows) {
+            final row = raw as Map;
+            for (final column in row.keys.toList()) {
+              final value = row[column];
+              if (column.toString().endsWith('_json') && value is String) {
+                row[column] = jsonEncode(rebase(jsonDecode(value)));
+              } else {
+                row[column] = rebase(value);
+              }
+            }
+          }
+        }
+        await Get.find<AudioService>().stop();
+        await Get.find<VideoService>().stop();
+        await Get.find<AudioService>().flushPlaybackHistory();
+        await Get.find<VideoService>().flushPlaybackHistory();
+        await Get.find<PlaybackStateStorage>().flush();
+        if (Get.isRegistered<CatalogStorage>()) {
+          await Get.find<CatalogStorage>().flush();
+        }
+        if (Get.isRegistered<DomainStorage>()) {
+          await Get.find<DomainStorage>().flush();
+        }
+        await Get.find<PlaybackRepository>().restoreCompleteDatabase(bundle);
+        if (Get.isRegistered<CatalogStorage>()) {
+          await Get.find<CatalogStorage>().reload();
+        }
+        if (Get.isRegistered<DomainStorage>()) {
+          await Get.find<DomainStorage>().reload();
+        }
+        await Get.find<PlaybackRepository>().recoverInterruptedSessions();
+        await Get.find<PlaybackStateStorage>().reload();
+        if (Get.isRegistered<InstrumentalGenerationService>()) {
+          Get.find<InstrumentalGenerationService>().reloadDurableTasks();
+        }
+        if (Get.isRegistered<Spatial8dGenerationService>()) {
+          Get.find<Spatial8dGenerationService>().reloadDurableTasks();
+        }
+        if (Get.isRegistered<RecommendationEngine>()) {
+          await Get.find<RecommendationEngine>().reloadFromStore();
+        }
+        if (Get.isRegistered<RecommendationFeedbackService>()) {
+          await Get.find<RecommendationFeedbackService>().reloadFromStore();
+        }
+      }
       currentOperation.value = tr('backup.operations.finalizing');
       progress.value = 0.95;
 
@@ -2222,6 +2577,7 @@ class BackupRestoreController extends GetxController {
       debugPrint('importLibrary error: $e');
     } finally {
       isImporting.value = false;
+      progressIndeterminate.value = false;
       progress.value = 0.0;
     }
   }

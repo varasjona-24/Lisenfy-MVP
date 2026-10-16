@@ -301,7 +301,7 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
                   ),
                   const SizedBox(width: 2),
                   Text(
-                    'COMPLETADO',
+                    tr('video_progress.collection_complete'),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: scheme.onPrimary,
                       fontWeight: FontWeight.w900,

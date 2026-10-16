@@ -1,0 +1,672 @@
+import 'dart:io';
+import 'dart:convert';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:listenfy/app/data/local/domain_storage.dart';
+import 'package:listenfy/app/data/local/domain_backup_codec.dart';
+import 'package:listenfy/app/data/playback/playback_database.dart';
+import 'package:listenfy/app/data/playback/playback_database_opener.dart';
+import 'package:listenfy/app/data/playback/playback_repository.dart';
+import 'package:listenfy/Modules/sources/data/source_theme_topic_store.dart';
+import 'package:listenfy/Modules/captures/data/capture_gallery_store.dart';
+import 'package:listenfy/Modules/world_mode/data/datasources/world_local_datasource.dart';
+import 'package:listenfy/Modules/recommendations/data/recommendation_feedback_store.dart';
+
+class _Legacy implements GetStorage {
+  final values = <String, dynamic>{
+    for (final entry in durableDomainKeys.entries)
+      entry.key: entry.value == 'map' ? <String, dynamic>{} : <dynamic>[],
+    'source_theme_topics': [
+      {'id': 'topic', 'title': 'Topic', 'themeId': 'parent'},
+    ],
+    'capture_gallery_tags': {
+      '/missing/capture.jpg': ['tag'],
+    },
+    'world_mode_country_discovery_v1': {'JP': 2},
+    'instrumental_tasks_v1': {
+      'job': {
+        'itemKey': 'job',
+        'stage': 'uploading',
+        'sessionId': 'remote',
+        'sourcePath': '/missing/audio.mp3',
+        'progress': 0.4,
+      },
+    },
+    'selectedPalette': 'green',
+    'defaultVolume': 80.0,
+    'world_mode_stations_cache_v1': {'cache': true},
+  };
+  final writes = <String>[];
+  @override
+  T? read<T>(String key) => values[key] as T?;
+  @override
+  Future<void> write(String key, dynamic value) async {
+    writes.add(key);
+    values[key] = value;
+  }
+
+  @override
+  Future<void> remove(String key) async {
+    writes.add(key);
+    values.remove(key);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw StateError('Unsupported legacy call');
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late Directory directory;
+  late Directory captures;
+  late PlaybackDatabase db;
+  late PlaybackRepository repository;
+  late _Legacy legacy;
+  Future<void> open() async {
+    db = await PlaybackDatabaseOpener.openStaging(
+      generation: 'domains',
+      supportDirectory: directory,
+      temporaryDirectory: directory,
+    );
+    repository = PlaybackRepository(db);
+  }
+
+  Future<DomainStorage> load() => DomainStorage.open(
+    repository,
+    legacy,
+    'test',
+    supportDirectory: directory,
+    capturesDirectory: captures,
+  );
+  setUp(() async {
+    directory = await Directory.systemTemp.createTemp('domain-test-');
+    captures = Directory('${directory.path}/captures');
+    await captures.create();
+    legacy = _Legacy();
+    await open();
+  });
+  test(
+    'repairs unmapped legacy profiles before rebuilding foreign keys',
+    () async {
+      await db.customStatement('INSERT INTO artist_record VALUES (?,?,?)', [
+        'no doubt',
+        0,
+        jsonEncode({
+          'key': 'no doubt',
+          'displayName': 'No Doubt',
+          'kind': 'band',
+          'memberKeys': ['gwen stefani'],
+          'coverLocalPath': '/cover.jpg',
+        }),
+      ]);
+      await db.customStatement(
+        'INSERT INTO catalog_file_reference VALUES (?,?,?,?,?)',
+        ['artist', 'no doubt', 'coverLocalPath', 'local_path', '/cover.jpg'],
+      );
+      await repository.rebuildArtistRelations();
+      final profile =
+          (await repository.readCatalog())['artist_profiles']!.single;
+      expect(profile['key'], startsWith('artist-'));
+      expect((profile['memberKeys'] as List).single, startsWith('artist-'));
+      expect(
+        (await repository.readArtistCandidates())['no doubt']!.single['id'],
+        profile['key'],
+      );
+      expect(
+        (await db
+                .customSelect('SELECT owner_id FROM catalog_file_reference')
+                .get())
+            .single
+            .read<String>('owner_id'),
+        profile['key'],
+      );
+      expect(await db.customSelect('PRAGMA foreign_key_check').get(), isEmpty);
+      final before = await repository.exportCompleteDatabase();
+      await repository.rebuildArtistRelations();
+      expect(await repository.exportCompleteDatabase(), before);
+    },
+  );
+  test('complete SQL export includes every installed table', () async {
+    await load();
+    final bundle =
+        jsonDecode(jsonEncode(await repository.exportCompleteDatabase()))
+            as Map;
+    final tables = bundle['tables'] as Map;
+    final installed = await db
+        .customSelect(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+        )
+        .get();
+    expect(
+      tables.keys.toSet(),
+      installed.map((row) => row.read<String>('name')).toSet(),
+    );
+    expect(tables.length, 34);
+    expect(tables['app_domain_import'], hasLength(1));
+    expect(tables['app_domain_record'], isNotEmpty);
+    expect(tables.containsKey('playback_interval'), isTrue);
+    expect(tables.containsKey('legacy_metrics'), isTrue);
+    expect(bundle['scope'], 'all_application_tables');
+    await db.customStatement('CREATE TABLE future_data(value TEXT)');
+    await db.customStatement("INSERT INTO future_data VALUES ('preserved')");
+    final future = await repository.exportCompleteDatabase();
+    expect((future['tables'] as Map)['future_data'], [
+      {'value': 'preserved'},
+    ]);
+  });
+  test(
+    'complete restore replaces all tables and invalid restore rolls back',
+    () async {
+      final storage = await load();
+      final original = await repository.exportCompleteDatabase();
+      await storage.write('world_mode_country_discovery_v1', {'JP': 99});
+      await repository.restoreCompleteDatabase(original);
+      expect(await repository.exportCompleteDatabase(), original);
+      await repository.restoreCompleteDatabase(original);
+      expect(await repository.exportCompleteDatabase(), original);
+      final invalid = Map<String, dynamic>.from(
+        jsonDecode(jsonEncode(original)) as Map,
+      );
+      ((invalid['tables'] as Map)['app_domain_file'] as List).add({
+        'namespace': 'missing',
+        'record_key': 'missing',
+        'slot': 'file',
+        'locator': '/bad',
+      });
+      await expectLater(
+        repository.restoreCompleteDatabase(invalid),
+        throwsA(anything),
+      );
+      expect(await repository.exportCompleteDatabase(), original);
+      (invalid['tables'] as Map).remove('legacy_metrics');
+      await expectLater(
+        repository.restoreCompleteDatabase(invalid),
+        throwsFormatException,
+      );
+      expect(await repository.exportCompleteDatabase(), original);
+    },
+  );
+  test(
+    'artist roles preserve group versus member and ambiguous credits',
+    () async {
+      await repository.replaceCatalog('artist_profiles', [
+        {
+          'key': 'blackpink',
+          'displayName': 'BLACKPINK',
+          'kind': 'band',
+          'memberKeys': ['jennie'],
+        },
+        {
+          'key': 'jennie',
+          'displayName': 'Jennie',
+          'kind': 'singer',
+          'memberKeys': [],
+        },
+      ]);
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'spot', 'artist': 'ZICO feat. JENNIE', 'variants': []},
+        {'id': 'band-song', 'artist': 'BLACKPINK', 'variants': []},
+        {'id': 'solo', 'artist': 'Jennie', 'variants': []},
+        {'id': 'ambiguous', 'artist': 'Judy & Mary', 'variants': []},
+        {'id': 'multiple', 'artist': 'LiSA ft Uru & Ayase', 'variants': []},
+      ]);
+      final credits = await repository.readArtistCredits();
+      expect(credits['spot']!.isPrimaryArtistKey('zico'), isTrue);
+      expect(credits['spot']!.isCollaborationForArtistKey('jennie'), isTrue);
+      expect(credits['spot']!.containsArtistKey('blackpink'), isFalse);
+      expect(credits['solo']!.containsArtistKey('blackpink'), isFalse);
+      expect(credits['band-song']!.containsArtistKey('jennie'), isFalse);
+      expect(credits['multiple']!.collaborators, ['Uru', 'Ayase']);
+      expect(credits['ambiguous']!.primaryArtist, 'Judy & Mary');
+      expect(credits['ambiguous']!.collaborators, isEmpty);
+      expect(
+        (await db
+                .customSelect(
+                  "SELECT interpretation FROM library_credit_state WHERE item_id='ambiguous'",
+                )
+                .getSingle())
+            .read<String>('interpretation'),
+        'ambiguous',
+      );
+      expect(
+        await db.customSelect('SELECT * FROM artist_membership').get(),
+        hasLength(1),
+      );
+      expect(await db.customSelect('PRAGMA foreign_key_check').get(), isEmpty);
+      final bundle = await repository.exportCompleteDatabase();
+      bundle['databaseSchemaVersion'] = 4;
+      (bundle['tables'] as Map).remove('artist_name_alias');
+      (bundle['tables'] as Map).remove('artist_redirect');
+      for (final name in PlaybackDatabase.artistRelationTables) {
+        (bundle['tables'] as Map).remove(name);
+      }
+      await repository.restoreCompleteDatabase(bundle);
+      expect((await repository.readArtistCredits())['spot']!.collaborators, [
+        'Jennie',
+      ]);
+    },
+  );
+  test(
+    'credit edit and removal refresh relations without stale links',
+    () async {
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'song', 'artist': 'LiSA ft Uru', 'variants': []},
+      ]);
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'song', 'artist': 'LiSA', 'variants': []},
+      ]);
+      expect(
+        (await repository.readArtistCredits())['song']!.collaborators,
+        isEmpty,
+      );
+      await repository.replaceCatalog('local_library_items', []);
+      expect(await repository.readArtistCredits(), isEmpty);
+    },
+  );
+  test('stable id survives rename and imports using an old alias', () async {
+    await repository.replaceCatalog('artist_profiles', [
+      {
+        'key': 'adam lev',
+        'displayName': 'Adam Lev',
+        'kind': 'singer',
+        'memberKeys': [],
+      },
+    ]);
+    await repository.replaceCatalog('local_library_items', [
+      {'id': 'one', 'artist': 'Adam Lev', 'variants': []},
+    ]);
+    final id =
+        (await repository.readArtistCandidates())['adam lev']!.single['id']
+            as String;
+    await repository.updateArtistAtomically(
+      sourceId: id,
+      profile: {
+        'displayName': 'Adam Levine',
+        'kind': 'singer',
+        'memberKeys': [],
+      },
+    );
+    expect(
+      (await repository.readArtistCandidates())['adam lev']!.single['id'],
+      id,
+    );
+    expect((await repository.readArtistCredits())['one']!.artistKeys, [id]);
+    await repository.replaceCatalog('local_library_items', [
+      {'id': 'one', 'artist': 'Adam Levine', 'variants': []},
+      {'id': 'two', 'artist': 'Adam Lev', 'variants': []},
+    ]);
+    expect((await repository.readArtistCredits())['two']!.artistKeys, [id]);
+    expect(
+      (await repository.readCatalog())['artist_profiles']!.single['key'],
+      id,
+    );
+  });
+  test(
+    'homonyms stay separate and ambiguous imports require a choice',
+    () async {
+      await repository.replaceCatalog('artist_profiles', [
+        {
+          'key': 'lisa',
+          'displayName': 'LiSA',
+          'kind': 'singer',
+          'country': 'Japan',
+          'memberKeys': [],
+        },
+      ]);
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'jp', 'artist': 'LiSA', 'variants': []},
+        {'id': 'kr', 'artist': 'LISA', 'variants': []},
+      ]);
+      final first =
+          (await repository.readArtistCredits())['jp']!.artistKeys!.single;
+      await repository.assignArtistCredits('kr', [{}]);
+      final second =
+          (await repository.readArtistCredits())['kr']!.artistKeys!.single;
+      expect(second, isNot(first));
+      await repository.updateArtistAtomically(
+        sourceId: second,
+        profile: {
+          'displayName': 'LISA',
+          'kind': 'singer',
+          'country': 'South Korea',
+          'memberKeys': [],
+        },
+      );
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'jp', 'artist': 'LiSA', 'variants': []},
+        {'id': 'kr', 'artist': 'LISA', 'variants': []},
+        {'id': 'new', 'artist': 'lisa', 'variants': []},
+      ]);
+      final credits = await repository.readArtistCredits();
+      expect(credits['jp']!.artistKeys, [first]);
+      expect(credits['kr']!.artistKeys, [second]);
+      expect(credits['new']!.artistKeys, isEmpty);
+      await repository.assignArtistCredits('new', [
+        {'id': second},
+      ]);
+      expect((await repository.readArtistCredits())['new']!.artistKeys, [
+        second,
+      ]);
+      final bundle = await repository.exportCompleteDatabase();
+      await repository.restoreCompleteDatabase(bundle);
+      expect(await repository.exportCompleteDatabase(), bundle);
+    },
+  );
+  test(
+    'explicit fusion preserves target profile and redirects source id',
+    () async {
+      await repository.replaceCatalog('artist_profiles', [
+        {
+          'key': 'adam lev',
+          'displayName': 'Adam Lev',
+          'kind': 'singer',
+          'country': 'Other',
+          'memberKeys': [],
+        },
+        {
+          'key': 'adam levine',
+          'displayName': 'Adam Levine',
+          'kind': 'singer',
+          'country': 'United States',
+          'memberKeys': [],
+        },
+        {
+          'key': 'maroon 5',
+          'displayName': 'Maroon 5',
+          'kind': 'band',
+          'memberKeys': ['adam lev', 'adam levine'],
+        },
+      ]);
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'one', 'artist': 'Adam Lev', 'variants': []},
+        {'id': 'two', 'artist': 'Adam Levine', 'variants': []},
+      ]);
+      final names = await repository.readArtistCandidates();
+      final source = names['adam lev']!.single['id'] as String;
+      final target = names['adam levine']!.single['id'] as String;
+      await repository.updateArtistAtomically(
+        sourceId: source,
+        profile: {
+          'displayName': 'Adam Levine',
+          'kind': 'singer',
+          'country': 'Other',
+          'memberKeys': [],
+        },
+        mergeTargetId: target,
+      );
+      final profiles = (await repository.readCatalog())['artist_profiles']!;
+      expect(profiles.where((p) => p['key'] == source), isEmpty);
+      expect(
+        profiles.singleWhere((p) => p['key'] == target)['country'],
+        'United States',
+      );
+      expect(profiles.singleWhere((p) => p['kind'] == 'band')['memberKeys'], [
+        target,
+      ]);
+      expect((await repository.readArtistCredits())['one']!.artistKeys, [
+        target,
+      ]);
+      expect(
+        (await repository.readArtistCandidates())['adam lev']!.single['id'],
+        target,
+      );
+      expect(
+        await db.customSelect('SELECT * FROM artist_redirect').get(),
+        hasLength(1),
+      );
+      expect(await db.customSelect('PRAGMA foreign_key_check').get(), isEmpty);
+    },
+  );
+  test(
+    'failed artist edit rolls back aliases credits profiles and memberships',
+    () async {
+      await repository.replaceCatalog('artist_profiles', [
+        {
+          'key': 'original',
+          'displayName': 'Original',
+          'kind': 'singer',
+          'memberKeys': [],
+        },
+      ]);
+      await repository.replaceCatalog('local_library_items', [
+        {'id': 'one', 'artist': 'Original', 'variants': []},
+      ]);
+      final id =
+          (await repository.readArtistCandidates())['original']!.single['id']
+              as String;
+      final before = await repository.exportCompleteDatabase();
+      await expectLater(
+        repository.updateArtistAtomically(
+          sourceId: id,
+          profile: {
+            'displayName': 'Renamed',
+            'kind': 'band',
+            'memberKeys': [123],
+          },
+        ),
+        throwsA(anything),
+      );
+      expect(await repository.exportCompleteDatabase(), before);
+    },
+  );
+  tearDown(() async {
+    Get.reset();
+    await repository.close();
+    await directory.delete(recursive: true);
+  });
+
+  test(
+    'Atlas preserves more than 1200 events and repeated event ids',
+    () async {
+      final storage = await load();
+      final events = List.generate(1205, (i) => {'id': 'same', 'sequence': i});
+      await storage.write('world_mode_playback_events_v1', events);
+      expect(storage.read<List>('world_mode_playback_events_v1'), events);
+      expect(
+        (await repository.readDomains())['world_mode_playback_events_v1'],
+        events,
+      );
+    },
+  );
+  test('capture rename and delete update file registry', () async {
+    final file = File('${captures.path}/original.jpg');
+    await file.writeAsBytes([1, 2, 3]);
+    final storage = await load();
+    Get.put<DomainStorage>(storage);
+    final store = CaptureGalleryStore(legacy);
+    final renamed = await store.renameCapture(file.path, 'renamed');
+    expect(
+      storage.read<Map>('capture_files_v1')!.containsKey(file.path),
+      isFalse,
+    );
+    expect(storage.read<Map>('capture_files_v1')!.containsKey(renamed), isTrue);
+    await store.deleteCapture(renamed);
+    expect(
+      storage.read<Map>('capture_files_v1')!.containsKey(renamed),
+      isFalse,
+    );
+    expect(await File(renamed).exists(), isFalse);
+  });
+  test(
+    'all declared domains migrate, files are indexed, original data retained',
+    () async {
+      final capture = File('${captures.path}/untagged.jpg');
+      await capture.writeAsBytes([1, 2, 3]);
+      legacy.values['appBackgroundImagePaths'] = ['/missing/background.png'];
+      final storage = await load();
+      for (final key in durableDomainKeys.keys.where(
+        (key) => key != 'capture_files_v1',
+      )) {
+        expect(storage.read(key), legacy.read(key), reason: key);
+      }
+      expect(
+        storage.read<Map>('capture_files_v1')!.containsKey(capture.path),
+        isTrue,
+      );
+      expect(
+        await db.customSelect('SELECT * FROM app_domain_file').get(),
+        hasLength(4),
+      );
+      expect(legacy.writes, isEmpty);
+    },
+  );
+  test(
+    'stores share SQL owner while preferences and station cache stay legacy',
+    () async {
+      final storage = await load();
+      Get.put<DomainStorage>(storage);
+      expect(SourceThemeTopicStore(legacy).readAllSync().single.id, 'topic');
+      expect(CaptureGalleryStore(legacy).tagsFor('/missing/capture.jpg'), [
+        'tag',
+      ]);
+      final world = WorldLocalDatasource(legacy);
+      await world.incrementCountryDiscovery('JP');
+      expect(await world.readDiscoveryMap(), {'JP': 3});
+      expect(legacy.values['world_mode_country_discovery_v1'], {'JP': 2});
+      final feedback = RecommendationFeedbackStore(legacy);
+      await feedback.writeState(await feedback.readState());
+      await storage.write('defaultVolume', 70.0);
+      expect(legacy.writes, ['defaultVolume']);
+      expect(storage.read('world_mode_stations_cache_v1'), {'cache': true});
+    },
+  );
+  test(
+    'job stage and result persist without ephemeral progress or message',
+    () async {
+      final storage = await load();
+      await storage.write('instrumental_tasks_v1', {
+        'job': {
+          'itemKey': 'job',
+          'stage': 'completed',
+          'updatedAt': 3,
+          'resultPath': '/missing/result.mp3',
+          'progress': 1.0,
+          'message': 'UI progress',
+          'error': null,
+        },
+      });
+      final durable = storage.read<Map>('instrumental_tasks_v1')!['job'] as Map;
+      expect(durable.containsKey('progress'), isFalse);
+      expect(durable.containsKey('message'), isFalse);
+      expect(durable['stage'], 'completed');
+      await repository.close();
+      await open();
+      expect(
+        (await load()).read<Map>('instrumental_tasks_v1')!['job'],
+        durable,
+      );
+      expect(
+        (legacy.values['instrumental_tasks_v1'] as Map)['job']['stage'],
+        'uploading',
+      );
+    },
+  );
+  test(
+    'failed replacement rolls back, cache stays truthful and flush fails',
+    () async {
+      final storage = await load();
+      await expectLater(
+        storage.write('source_theme_topics', [
+          {'id': 'same'},
+          {'id': 'same'},
+        ]),
+        throwsA(anything),
+      );
+      expect(storage.read<List>('source_theme_topics')!.single['id'], 'topic');
+      expect(
+        (await repository.readDomains())['source_theme_topics'].single['id'],
+        'topic',
+      );
+      await expectLater(storage.flush(), throwsStateError);
+    },
+  );
+  test('import failure rolls back all namespaces and receipt', () async {
+    await expectLater(
+      repository.importDomains('bad', 'hash', {
+        'world_mode_country_discovery_v1': {'JP': 1},
+        'source_theme_topics': 42,
+      }),
+      throwsFormatException,
+    );
+    expect(await repository.readDomains(), isEmpty);
+    expect(
+      await db.customSelect('SELECT * FROM app_domain_import').get(),
+      isEmpty,
+    );
+    await load();
+  });
+  test(
+    'restoring supplemental data is atomic and keeps preferences untouched',
+    () async {
+      final storage = await load();
+      await expectLater(
+        storage.restoreValues({
+          'world_mode_country_discovery_v1': {'JP': 9},
+          'source_theme_topics': 42,
+        }),
+        throwsFormatException,
+      );
+      expect(storage.read('world_mode_country_discovery_v1'), {'JP': 2});
+      await expectLater(storage.flush(), throwsStateError);
+      final recovered = await load();
+      await recovered.restoreValues({
+        'world_mode_country_discovery_v1': {'JP': 9},
+      });
+      expect(recovered.read('world_mode_country_discovery_v1'), {'JP': 9});
+      expect(legacy.writes, isEmpty);
+    },
+  );
+  test('frozen retry never resurrects removed SQL data', () async {
+    final storage = await load();
+    await storage.remove('world_mode_station_memory_v1');
+    await repository.close();
+    await open();
+    expect((await load()).read('world_mode_station_memory_v1'), isNull);
+    expect(
+      await db.customSelect('SELECT * FROM app_domain_import').get(),
+      hasLength(1),
+    );
+  });
+  test(
+    'backup codec rebases nested file locators and preserves metadata',
+    () async {
+      final original = {
+        'job': {
+          'sourcePath': '/old/audio.mp3',
+          'itemJson': {
+            'variants': [
+              {'localPath': '/old/result.mp3'},
+            ],
+          },
+          'stage': 'saving',
+        },
+      };
+      final encoded = await DomainBackupCodec.encode(
+        original,
+        (path) async => path.contains('result') ? null : 'Listenfy/audio.mp3',
+      );
+      final portable = jsonDecode(jsonEncode(encoded));
+      final restored = await DomainBackupCodec.decode(
+        portable,
+        (rel) async => '/new/$rel',
+      );
+      expect(restored['job']['sourcePath'], '/new/Listenfy/audio.mp3');
+      expect(restored['job']['itemJson']['variants'][0]['localPath'], isNull);
+      expect(restored['job']['stage'], 'saving');
+      await expectLater(
+        DomainBackupCodec.decode({
+          'sourcePath': {DomainBackupCodec.marker: '../unsafe'},
+        }, (path) async => path),
+        throwsFormatException,
+      );
+      await expectLater(
+        DomainBackupCodec.decode({
+          'sourcePath': '/old/unsafe',
+        }, (path) async => path),
+        throwsFormatException,
+      );
+    },
+  );
+}

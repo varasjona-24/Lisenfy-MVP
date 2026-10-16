@@ -33,18 +33,34 @@ class WorldMapCanvas extends StatefulWidget {
   State<WorldMapCanvas> createState() => _WorldMapCanvasState();
 }
 
-class _WorldMapCanvasState extends State<WorldMapCanvas> {
+class _WorldMapCanvasState extends State<WorldMapCanvas>
+    with SingleTickerProviderStateMixin {
   static const Size _sourceMapSize = Size(1500, 844);
   static const double _panEnableThreshold = 1.01;
+  static const double _focusedScale = 2.25;
 
   final TransformationController _transformController =
       TransformationController();
+  late final AnimationController _focusController;
+  Animation<Matrix4>? _focusAnimation;
+  Size? _viewportSize;
+  Rect? _mapRect;
   bool _panEnabled = false;
   List<GlobeLandShape> _landShapes = const [];
 
   @override
   void initState() {
     super.initState();
+    _focusController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 360),
+        )..addListener(() {
+          final transform = _focusAnimation?.value;
+          if (transform == null) return;
+          _transformController.value = transform;
+          _syncPanState();
+        });
     _loadLandShapes();
   }
 
@@ -52,17 +68,65 @@ class _WorldMapCanvasState extends State<WorldMapCanvas> {
   void didUpdateWidget(covariant WorldMapCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.interactive && !widget.interactive) {
+      _focusController.stop();
       _transformController.value = Matrix4.identity();
       if (_panEnabled) {
         setState(() => _panEnabled = false);
       }
     }
+    if (oldWidget.selectedCountryCode != widget.selectedCountryCode &&
+        widget.selectedCountryCode != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusSelectedCountry();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _focusController.dispose();
     _transformController.dispose();
     super.dispose();
+  }
+
+  void _focusSelectedCountry() {
+    final viewport = _viewportSize;
+    final mapRect = _mapRect;
+    final selectedCode = widget.selectedCountryCode;
+    if (viewport == null || mapRect == null || selectedCode == null) return;
+
+    final country = widget.countries.cast<CountryEntity?>().firstWhere(
+      (item) => item?.code == selectedCode,
+      orElse: () => null,
+    );
+    if (country == null) return;
+
+    final focalPoint = Offset(
+      mapRect.left + (country.mapX * mapRect.width),
+      mapRect.top + (country.mapY * mapRect.height),
+    );
+    final scale = _focusedScale.clamp(widget.minScale, widget.maxScale);
+    final desiredOffsetX = (viewport.width / 2) - (focalPoint.dx * scale);
+    final desiredOffsetY = (viewport.height / 2) - (focalPoint.dy * scale);
+
+    // No dejamos que el enfoque desplace el lienzo fuera del visor. En las
+    // regiones cercanas a un borde el punto queda tan centrado como permiten
+    // los límites, sin exponer áreas vacías fuera del mapa.
+    final offsetX = desiredOffsetX.clamp(viewport.width * (1 - scale), 0.0);
+    final offsetY = desiredOffsetY.clamp(viewport.height * (1 - scale), 0.0);
+    final target = Matrix4.identity()
+      ..translateByDouble(offsetX, offsetY, 0, 1)
+      ..scaleByDouble(scale, scale, 1, 1);
+    _focusAnimation =
+        Matrix4Tween(
+          begin: _transformController.value.clone(),
+          end: target,
+        ).animate(
+          CurvedAnimation(parent: _focusController, curve: Curves.easeOutCubic),
+        );
+    _focusController
+      ..stop()
+      ..forward(from: 0);
   }
 
   void _syncPanState() {
@@ -114,6 +178,8 @@ class _WorldMapCanvasState extends State<WorldMapCanvas> {
               src: _sourceMapSize,
               dst: Size(mapWidth, mapHeight),
             );
+            _viewportSize = Size(mapWidth, mapHeight);
+            _mapRect = mapRect;
 
             final mapLayer = SizedBox(
               width: mapWidth,
@@ -196,6 +262,8 @@ class _WorldMapCanvasState extends State<WorldMapCanvas> {
             if (!widget.interactive) return mapLayer;
             return InteractiveViewer(
               transformationController: _transformController,
+              boundaryMargin: EdgeInsets.zero,
+              clipBehavior: Clip.hardEdge,
               minScale: widget.minScale,
               maxScale: widget.maxScale,
               constrained: false,
@@ -387,7 +455,11 @@ class _WorldMapBackgroundPainter extends CustomPainter {
     final shader = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: const [Color(0xFF12365E), Color(0xFF1F6AAD), Color(0xFF072348)],
+      colors: [
+        colorScheme.primary.withValues(alpha: 0.28),
+        colorScheme.surfaceContainerHigh.withValues(alpha: 0.78),
+        colorScheme.surface.withValues(alpha: 0.86),
+      ],
       stops: const [0, 0.48, 1],
     ).createShader(rect);
     canvas.drawRect(rect, Paint()..shader = shader);

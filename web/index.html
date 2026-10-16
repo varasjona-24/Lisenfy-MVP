@@ -27,9 +27,34 @@
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/svg+xml" href="listenfy_connect.svg?v=2"/>
 
-  <title>listenfy</title>
+  <title>listenfy Connect</title>
+  <script>
+    (() => {
+      let source;
+      window.listenfySetFaviconColor = (color) => {
+        if (!/^#[0-9a-f]{6}$/i.test(color)) return;
+        const link = document.querySelector('link[rel="icon"]');
+        if (!link) return;
+        const apply = (svg) => {
+          const tinted = svg.replace(/#3e5642/gi, color);
+          link.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(tinted);
+        };
+        if (source) {
+          apply(source);
+          return;
+        }
+        fetch('listenfy_connect.svg')
+          .then((response) => response.text())
+          .then((svg) => {
+            source = svg;
+            apply(svg);
+          })
+          .catch(() => {});
+      };
+    })();
+  </script>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>

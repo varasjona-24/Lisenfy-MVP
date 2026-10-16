@@ -14,6 +14,8 @@ import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
 import '../data/artist_store.dart';
 import '../domain/artist_profile.dart';
+import '../domain/artist_relationship_resolver.dart';
+import '../../../app/data/local/catalog_storage.dart';
 
 enum ArtistSort { name, count, plays, recent, country, region, random }
 
@@ -123,22 +125,32 @@ class ArtistsController extends GetxController {
 
       final Map<String, _ArtistBucket> grouped = {};
       for (final item in items) {
-        final credits = ArtistCreditParser.parse(item.subtitle);
+        final credits = resolveArtistCredits(item);
         final artistNames = credits.allArtists;
 
         if (artistNames.isEmpty) {
-          final key = ArtistCreditParser.normalizeKey(item.subtitle);
+          final pending =
+              credits.artistKeys != null && item.subtitle.trim().isNotEmpty;
+          final key = pending
+              ? 'pending:${item.id}'
+              : ArtistCreditParser.normalizeKey(item.subtitle);
           final bucket = grouped.putIfAbsent(
             key,
-            () => _ArtistBucket(key: key, name: 'Artista desconocido'),
+            () => _ArtistBucket(
+              key: key,
+              name: pending ? item.subtitle : 'Artista desconocido',
+            ),
           );
           bucket.items.add(item);
           bucket.fallbackThumb ??= item.effectiveThumbnail;
           continue;
         }
 
-        for (final artistName in artistNames) {
-          final key = ArtistCreditParser.normalizeKey(artistName);
+        for (var i = 0; i < artistNames.length; i++) {
+          final artistName = artistNames[i];
+          final key =
+              credits.artistKeys?[i] ??
+              ArtistCreditParser.normalizeKey(artistName);
           final bucket = grouped.putIfAbsent(
             key,
             () => _ArtistBucket(key: key, name: artistName),
@@ -352,6 +364,10 @@ class ArtistsController extends GetxController {
       return;
     }
     if (await _artistStore.getByKey(key) != null) return;
+    if (Get.isRegistered<CatalogStorage>() &&
+        Get.find<CatalogStorage>().candidatesFor(artistName).length > 1) {
+      return;
+    }
 
     final country = CountryCatalog.countryNameFromCode(normalizedCountryCode);
     if (country == null) return;
@@ -380,7 +396,23 @@ class ArtistsController extends GetxController {
     required List<String> memberKeys,
     String? thumbnail,
     String? thumbnailLocalPath,
+    String? mergeTargetId,
   }) async {
+    if (Get.isRegistered<CatalogStorage>()) {
+      await Get.find<CatalogStorage>().updateArtistAtomically(key, {
+        'key': key,
+        'displayName': newName.trim(),
+        'country': country.trim(),
+        'countryCode': _normalizeCountryCode(countryCode),
+        'mainRegion': mainRegion.key,
+        'kind': kind.key,
+        'memberKeys': kind == ArtistProfileKind.band ? memberKeys : [],
+        'thumbnail': thumbnail,
+        'thumbnailLocalPath': thumbnailLocalPath,
+      }, mergeTargetId: mergeTargetId);
+      await load();
+      return;
+    }
     final normalizedCurrentKey = ArtistCreditParser.normalizeKey(key);
     final normalizedNewKey = ArtistCreditParser.normalizeKey(newName);
     final normalizedMembers = kind == ArtistProfileKind.band
@@ -411,7 +443,7 @@ class ArtistsController extends GetxController {
 
     final all = await _store.readAll();
     for (final item in all) {
-      final credits = ArtistCreditParser.parse(item.subtitle);
+      final credits = resolveArtistCredits(item);
       if (!credits.containsArtistKey(normalizedCurrentKey)) continue;
 
       final nextArtistField = ArtistCreditParser.replaceArtistName(
@@ -453,7 +485,7 @@ class ArtistsController extends GetxController {
 
   Future<void> removeLocalArtist(ArtistGroup artist) async {
     for (final item in artist.items) {
-      final credits = ArtistCreditParser.parse(item.subtitle);
+      final credits = resolveArtistCredits(item);
       if (!credits.isPrimaryArtistKey(artist.key)) continue;
       for (final v in item.variants) {
         await _deleteFile(v.localPath);

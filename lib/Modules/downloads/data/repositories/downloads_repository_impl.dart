@@ -41,11 +41,6 @@ class DownloadsRepositoryImpl implements DownloadsRepository {
   }
 
   int _latestStoredVariantCreatedAt(MediaItem item) {
-    var latest = 0;
-    for (final variant in item.variants) {
-      if (variant.localPath?.trim().isEmpty ?? true) continue;
-      if (variant.createdAt > latest) latest = variant.createdAt;
-    }
-    return latest;
+    return item.originalImportAt;
   }
 }

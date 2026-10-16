@@ -1,4 +1,33 @@
 {
+  "video_progress": {
+    "collection_complete": "Completed",
+    "pending": "Not watched",
+    "in_progress": "In progress",
+    "resume": "Continue watching",
+    "seen": "Watched"
+  },
+  "storage_startup": {
+    "title": "Preparing your data",
+    "capturing": "Saving a safe copy of your previous data…",
+    "importing": "Migrating your library, history and activity…",
+    "verifying": "Verifying migrated data…",
+    "activating": "Activating verified storage…",
+    "opening": "Opening your data…",
+    "failed": "Storage could not be prepared",
+    "preserved": "Your previous data is preserved. You can retry without deleting the app.",
+    "retry": "Retry"
+  },
+  "artist_identity": {
+    "collision_title": "Shared artist name",
+    "collision_message": "Other artists have this name. Keep them separate or explicitly merge with one of them. Merging preserves the target profile and transfers relationships.",
+    "keep_separate": "Keep separate",
+    "merge_with": "Merge with {}",
+    "resolve": "Resolve artist",
+    "resolve_message": "Some profiles share the same name. Choose who this song's credit belongs to; the artists will not be merged.",
+    "select": "Select the artist for {}",
+    "create_separate": "Create another artist with this name",
+    "failed": "The artist identity could not be updated."
+  },
   "app": {
     "name": "Listenfy"
   },
@@ -54,11 +83,12 @@
     "home": "Home",
     "playlists": "Playlists",
     "artists": "Artists",
+    "atlas": "Atlas",
     "imports": "Imports",
     "collections": "Collections",
     "more_options": "More options",
     "quick_access": "Quick access",
-    "listenfy_connect": "Listenfy Connect",
+    "listenfy_connect": "listenfy Connect",
     "listenfy_connect_subtitle": "Remote control and local session",
     "settings": "Settings",
     "settings_subtitle": "Preferences and tools",
@@ -66,9 +96,18 @@
     "video_mode_tooltip": "Video mode (tap for Audio)"
   },
   "home": {
+    "move": {
+      "title": "Move sections",
+      "hint": "Drag each section's heading to move it. Nothing is deleted or hidden.",
+      "done": "Done",
+      "up": "Move section up",
+      "down": "Move section down",
+      "drag": "Move {}"
+    },
     "temporary_playlists": "Temporary playlists",
     "actions": {
       "edit_home": "Edit home",
+      "resume_video": "Continue watching",
       "change_view": "Change view",
       "remove": "Remove"
     },
@@ -102,7 +141,7 @@
     "section": {
       "selected": "Selected: {}",
       "share_external": "External share (max. 300 MB)",
-      "connect_transfer": "Listenfy Connect (max. 1 GB)",
+      "connect_transfer": "listenfy Connect (max. 1 GB)",
       "delete_selected": "Delete selected",
       "cancel_selection": "Cancel selection",
       "grid_view": "Grid view",
@@ -132,6 +171,14 @@
       "randomMix": "Random mix"
     },
     "editor": {
+      "manage_add": "Add",
+      "shortcuts_only": "Only changes Home shortcuts; your saved data is not deleted.",
+      "hide_widget": "Hide widget",
+      "show_widget": "Show widget",
+      "manage_remove": "Remove",
+      "remove_selected": "Remove shortcuts ({})",
+      "remove_shortcuts_title": "Remove Home shortcuts",
+      "remove_empty": "There are no Home shortcuts to remove.",
       "title": "Edit home",
       "add_playlist": "Playlist",
       "add_artist": "Artist",
@@ -412,6 +459,11 @@
     "url_import_dialog_subtitle": "Paste the link and choose the file type to import."
   },
   "wrapped": {
+    "ui": {
+      "play_count": "{} plays",
+      "import_count": "{} imports",
+      "completion_ratio": "{}% of eligible sessions reached 92% listening coverage"
+    },
     "title": "Listenfy Wrapped",
     "tabs": {
       "imports": "Imports",
@@ -421,6 +473,7 @@
     "empty_title": "Not enough data yet",
     "empty_body": "Import songs and start listening to see your Wrapped.",
     "imports": {
+      "top_artist_badge": "Your most imported artist",
       "hero_title": "Your Downloads and Imports",
       "imported_songs": "{} imported songs",
       "files": "Files",
@@ -441,6 +494,10 @@
       "top_artists_subtitle": "Based on local files"
     },
     "audio": {
+      "top_artist_badge": "Your most played artist",
+      "favorites_title": "Most played favorites",
+      "favorites_subtitle": "The favorites you keep returning to",
+      "favorite_badge": "Your most played favorite",
       "songs": "Songs",
       "saved_duration": "{} saved",
       "listening_time": "Listening time",
@@ -461,7 +518,7 @@
       "regions_title": "Favorite Regions",
       "regions_subtitle": "Your music by origin",
       "completed_skipped_title": "Completed vs Skipped",
-      "completed_skipped_subtitle": "Your musical patience",
+      "completed_skipped_subtitle": "New sessions · your musical patience",
       "plays_unit": "plays",
       "hero_library": "your library",
       "hero_plays": "plays",
@@ -476,12 +533,22 @@
       "mood_explorer_desc": "You like discovering, although sometimes you skip quickly.",
       "mood_selective_desc": "You are very selective. Few songs make it to the end.",
       "key_metrics": "Key metrics",
-      "avg_listened": "Average listened",
+      "avg_listened": "Average listening per playback",
+      "coverage_caption": "Based on finalized sessions with recorded coverage",
+      "coverage_empty": "No finalized sessions with recorded coverage yet",
       "completion_rate": "Completion rate",
+      "listened_rate": "Listening rate",
+      "listened_rate_caption": "Listened versus skipped · includes historical estimates",
+      "mood_legacy_caption": "Includes estimates from earlier history",
+      "observed_completion_caption": "Finalized valid sessions with known duration; completed when at least 92% was listened to",
+      "legacy_completion_summary": "Earlier history: {} recorded completions and {} additional estimates across {} plays. Estimates use plays minus skips where no completions were recorded; excluded from the verifiable rate.",
+      "favorite_rate": "Favorite rate",
+      "favorite_rate_caption": "{} of {} audio items in your library marked as favorites",
       "recent_activity_30d": "Recent activity (30d)",
       "skipped": "Skipped"
     },
     "video": {
+      "top_video_badge": "Your most played video",
       "fallback": "Video",
       "videos_unit": "{} videos",
       "hero_title": "Video + Collections",
@@ -673,8 +740,8 @@
       "title": "Video",
       "hide_status": "Hide status labels",
       "hide_status_subtitle": "Hide Pending, Continue watching, Watched, and Completed without changing saved progress.",
-      "hide_short_status": "Hide labels on videos 13 min or shorter",
-      "hide_short_status_subtitle": "Useful for hiding visual status on short clips or brief episodes. Off by default."
+      "hide_short_status": "Hide labels between 2:30 and 13 minutes",
+      "hide_short_status_subtitle": "Videos under 2:30 never show progress labels. This option also hides labels up to 13 minutes. Off by default."
     },
     "data": {
       "title": "Data and downloads",
@@ -700,7 +767,7 @@
       "master_subtitle": "General control for all Listenfy alerts.",
       "imports_title": "Imports",
       "imports_subtitle": "Completed, failed, or blocked.",
-      "connect_title": "Listenfy Connect",
+      "connect_title": "listenfy Connect",
       "connect_subtitle": "Requests and synced devices.",
       "timers_title": "Playback and timers",
       "timers_subtitle": "Sleep timer and inactivity pause.",
@@ -834,7 +901,7 @@
           "title": "Connect and transfers",
           "subtitle": "Remote control, imports, and offline sharing.",
           "tips": {
-            "1": "Listenfy Connect opens a URL or QR so you can control playback from another device on the same network.",
+            "1": "listenfy Connect opens a URL or QR so you can control playback from another device on the same network.",
             "2": "With very large queues, Connect can feel slower because it has to sync more state.",
             "3": "If a remote track change feels delayed, pause from the phone or from Connect before choosing another song.",
             "4": "You can import URLs or files from Android's Share menu.",
@@ -860,7 +927,7 @@
     }
   },
   "connect": {
-    "title": "Listenfy Connect",
+    "title": "listenfy Connect",
     "open_computer": "Open on computer",
     "server_active": "Server active",
     "server_stopped": "Server stopped",
@@ -890,7 +957,7 @@
     "revoke": "Revoke",
     "revoke_all": "Revoke all",
     "revoke_title": "Revoke session",
-    "revoke_body": "This will close \"{}\" access to Listenfy Connect.",
+    "revoke_body": "This will close \"{}\" access to listenfy Connect.",
     "revoke_all_title": "Revoke all sessions",
     "revoke_all_body": "This will close access for every authorized client.",
     "session_revoked": "Session revoked: {}",
@@ -971,7 +1038,7 @@
     },
     "items_count": "{} items",
     "sub_collection": "Sub-collection",
-    "completed_count": "{}/{} completed"
+    "completed_count": "{} of {} watched"
   },
   "nearby": {
     "transfer": "Transfer",
@@ -1089,7 +1156,7 @@
       "no_items": "No items selected."
     },
     "connect": {
-      "title": "Listenfy Connect",
+      "title": "listenfy Connect",
       "no_items": "No items selected."
     },
     "favorites": {
@@ -1157,9 +1224,14 @@
     },
     "cover": {
       "search_video": "Search video",
+      "search_audio": "Search audio",
       "search_collection": "Search Collection",
       "videos": "Videos",
+      "audio": "Audio",
       "collections": "Collections",
+      "no_videos": "No videos available.",
+      "no_audio": "No audio available.",
+      "no_collections": "No Collections available.",
       "apply": "Apply cover",
       "sort_title": "Sort captures",
       "source_value": "Source: {}",
@@ -1167,6 +1239,29 @@
     }
   },
   "player": {
+    "video_jump_back": "Rewind by the selected interval",
+    "video_jump_forward": "Advance by the selected interval",
+    "video_controls": "Controls and gestures",
+    "video_seek_interval": "Double-tap seek interval",
+    "video_seek_seconds": "{} s",
+    "video_seek_feedback": "{} s",
+    "video_controls_save_error": "The seek preference could not be saved. Please retry.",
+    "video_gesture_tap": "Tap once to show or hide controls.",
+    "video_gesture_seek": "Double-tap on the left to rewind or on the right to advance by the selected interval.",
+    "video_gesture_volume": "Swipe vertically with one finger to adjust the volume.",
+    "video_gesture_speed": "Swipe vertically with two fingers to change the speed.",
+    "video_gesture_play": "Double-tap with two fingers to pause or resume.",
+    "video_gesture_lock": "Locking disables gestures and controls. Use the visible lock button to unlock.",
+    "video_lock": "Lock controls",
+    "video_unlock": "Unlock controls",
+    "video_fit": "Fit",
+    "video_fill": "Fill",
+    "video_file_missing": "The video file is unavailable. Check its location or select another file.",
+    "video_network_error": "The video could not load due to a connection problem. Check your network and retry.",
+    "video_timeout": "The video took too long to open. Retry or select another file.",
+    "video_format_error": "The engine could not decode this video. Another format or codec may be required.",
+    "video_engine_error": "The video could not be played. Retry or select another file.",
+    "audio_load_failed": "Playback could not start. Please try again.",
     "queue_title": "Playback queue",
     "queue_empty": "The queue is empty",
     "queue_audio_summary": "{} tracks • Total: {}",
@@ -1271,7 +1366,7 @@
   },
   "tooltips": {
     "share_external": "External share (max. 300 MB)",
-    "share_connect": "Listenfy Connect (max. 1 GB)",
+    "share_connect": "listenfy Connect (max. 1 GB)",
     "delete_selected": "Delete selected",
     "cancel_selection": "Cancel selection",
     "grid_view": "Grid view",
@@ -1281,6 +1376,9 @@
     "shuffle": "Shuffle playback"
   },
   "backup": {
+    "processing_busy": "Wait for processing jobs to finish before restoring a backup.",
+    "sqlite_legacy_empty_required": "Importing this legacy backup requires an empty SQLite history. Potentially overlapping metrics will not be merged.",
+    "sqlite_debug_required": "SQLite debug mode requires a backup created in the same mode. Older data is imported automatically on the first debug startup.",
     "title": "Backup",
     "estimate_error": "Could not calculate estimated size",
     "export_error": "Could not export",
@@ -1351,6 +1449,7 @@
     "inspect_fast_integrity_warning": "Fast backup: file sizes can be checked, but SHA-256 verification is not available.",
     "progress_percent": "{}% completed",
     "preparing_process": "Preparing process...",
+    "progress_indeterminate": "Processing library...",
     "operations": {
       "starting": "Starting...",
       "processing_songs": "Processing songs ({}/{})",
@@ -1391,6 +1490,8 @@
     }
   },
   "edit": {
+    "saving_changes": "Saving changes…",
+    "save_changes_error": "Saving could not be completed. Review your changes and try again.",
     "metadata_suggestions_title": "Metadata suggestions",
     "metadata_suggestions_subtitle": "Search MusicBrainz matches by title and artist. Only title and artist are replaced; your cover, lyrics, stats, and files are kept.",
     "metadata_suggestions_action": "Search suggestions online",
@@ -1438,10 +1539,19 @@
     "create_clean_version": "Create clean version",
     "data_transfer_no_candidates": "No other song is available to receive the data.",
     "data_transfer_completed_title": "Transfer completed",
-    "data_transfer_completed_body": "Data moved to \"{}\". Playlists updated: {}.",
+    "data_transfer_completed_body": "File replaced for \"{}\". Playlists updated: {}.",
     "library_title": "Library",
     "previous_version_deleted": "Previous version removed from the library.",
-    "data_transfer_confirm_body": "Title, artist, cover, lyrics, favorites, stats, and playlists will be copied to \"{}\". The destination file is kept.",
+    "data_transfer_confirm_body": "Use the file from \"{}\" while preserving this song's identity, import date, metadata and playlists. Both histories will be combined without changing their dates. Previous files are kept.",
+    "replacement_resume_title": "Continue {}",
+    "replacement_audio": "audio",
+    "replacement_video": "video",
+    "replacement_resume_body": "Choose a position. If the versions have different durations, the same time may refer to a different moment.",
+    "replacement_resume_source": "Original version · {}",
+    "replacement_resume_target": "Improved file · {}",
+    "replacement_resume_restart": "Start over",
+    "replacement_active_session": "Close playback for both versions before replacing them. Pausing does not end the session.",
+    "replacement_failed": "Could not replace the file. Check that both versions and their files are available.",
     "data_transfer_confirm": "Transfer",
     "apply_cover_title": "Apply cover to…",
     "apply_cover_audio_subtitle": "Copies this square cover to one or more songs.",
@@ -1507,7 +1617,7 @@
     "clean_sound_subtitle": "Detects long silences and creates a clean variant without touching the original file.",
     "processing": "Processing...",
     "analyze_silences": "Analyze silences",
-    "data_transfer_subtitle": "Move metadata, cover, playlists, and stats from this version to another song.",
+    "data_transfer_subtitle": "Use an improved file of the same song while keeping its data and history.",
     "transferring": "Transferring...",
     "transfer_to_song": "Transfer to another song",
     "edit_lyrics": "Edit lyrics",
@@ -1567,7 +1677,7 @@
       "tag": "Edit tag"
     },
     "collaboration_warning_title": "Possible collaboration",
-    "data_transfer_title": "Transfer data",
+    "data_transfer_title": "Replace file",
     "clean_sound_title": "Clean sound",
     "remove_cover": "Remove cover",
     "crop": "Crop",
@@ -1594,6 +1704,7 @@
     "no_results": "No results",
     "tracks_count": "{} tracks",
     "available_tracks_count": "{} tracks available",
+    "view_available_stations": "View available stations",
     "load_regions_error": "Could not load regions",
     "zoom_active_hint": "Zoom active · you can drag the map",
     "zoom_hint": "Pinch to zoom · then drag",
@@ -1785,15 +1896,22 @@
       "success_title": "Import completed",
       "success_body": "Your file was added to the library.",
       "failure_title": "Import error",
+      "variant_success_title": "Audio variant ready",
+      "variant_success_body": "{} for {} is now available.",
+      "variant_failure_title": "Could not create the variant",
+      "variant_failure_body": "Could not create {} for {}.\n{}",
+      "variant_failure_fallback": "Please try again later.",
+      "variant_instrumental": "The instrumental",
+      "variant_spatial8d": "The 8D version",
       "channel_name": "Imports",
       "channel_description": "Import and download results"
     },
     "connect": {
       "request_title": "Connection request",
-      "request_body": "{} is requesting access to Listenfy Connect.",
+      "request_body": "{} is requesting access to listenfy Connect.",
       "approved_title": "Device connected",
       "approved_body": "{} synced successfully with Listenfy.",
-      "channel_name": "Listenfy Connect",
+      "channel_name": "listenfy Connect",
       "channel_description": "Device requests and sync"
     },
     "timers": {
@@ -1806,13 +1924,19 @@
     },
     "weekly": {
       "title": "Your weekly summary is ready",
-      "body": "Discover your songs, artists, and listening habits from this week.",
+      "body": "{} plays · {} different tracks",
+      "body_with_artist": "{} plays · {} different tracks · Top artist: {}",
+      "body_with_time": "{} plays · {} min · {} different tracks",
+      "body_with_time_and_artist": "{} plays · {} min · {} different tracks · Top artist: {}",
       "channel_name": "Listenfy weekly summary",
       "channel_description": "Weekly activity summary in Listenfy"
     },
     "recommendations": {
       "title": "New mixes for you",
       "body": "Your personalized recommendations are ready.",
+      "cycle_title": "Your selection was refreshed",
+      "cycle_body": "{} · {} tracks picked for you",
+      "cycle_body_with_subtitle": "{} · {} tracks picked for you\n{}",
       "channel_name": "Personalized mixes",
       "channel_description": "Daily selection of recommended music"
     }
@@ -1914,7 +2038,7 @@
   },
   "local_connect": {
     "web": {
-      "title": "Listenfy Local Connect",
+      "title": "listenfy Connect",
       "not_paired": "Not paired",
       "pairing_required": "Pairing required",
       "pairing_instructions": "Request access from this browser and approve on your phone.",
@@ -1931,6 +2055,7 @@
       "queue_position": "Queue Position",
       "progress": "Progress",
       "track_history": "Track history",
+      "lyrics": "Lyrics",
       "real_app_data": "Real app data",
       "no_history_yet": "No history yet",
       "plays": "Plays",
@@ -1999,6 +2124,53 @@
     "private_playback_locked": {
       "message": "Lyrics synchronization is active on this device."
     }
+  },
+  "weekly_collage": {
+    "other_audio": "Other songs that shaped your week",
+    "video_highlights": "Your week in video",
+    "watched_time": "of active viewing",
+    "week_closing": "You closed Sunday with {} of playback: {} of your total weekly activity.",
+    "week_closing_empty": "No playback was recorded on Sunday. Your weekly activity happened on the earlier days.",
+    "footer_story": "Your story has a soundtrack too. One week, many ways to live it.",
+    "activity": "Your daily rhythm · minutes",
+    "protagonist": "Your week’s headliner",
+    "active_time": "of active playback",
+    "more_time": "{}% more time than the previous week",
+    "same_time": "A similar rhythm to the previous week",
+    "less_time": "{}% less time than the previous week",
+    "regions": "Most-listened regions",
+    "under_one_minute": "<1 min",
+    "region_latino": "Latin America",
+    "region_anglo": "Anglo",
+    "region_asiatico": "Asia",
+    "region_europeo": "Europe",
+    "region_africano": "Africa",
+    "region_medio_oriente": "Middle East",
+    "region_oceania": "Oceania",
+    "habit_repeat": "Your headliner on repeat ♫",
+    "habit_varied": "A week of variety ♫",
+    "habit_yours": "At your own rhythm ♫",
+    "open": "Weekly collage",
+    "title": "Your week in a collage",
+    "brand": "Listenfy",
+    "headline": "A WEEK\nALL YOUR OWN",
+    "export": "Save or share image",
+    "exporting": "Exporting…",
+    "export_error": "Could not export the collage. Please try again.",
+    "load_error": "Could not load your weekly activity.",
+    "empty": "No plays were recorded last week. Your next complete week will be available on Monday.",
+    "audio_plays": "audio plays",
+    "video_plays": "video plays",
+    "minutes": "{} min",
+    "listened_estimated": "listened · estimated",
+    "watched_estimated": "watched · estimated",
+    "headliner": "Your headliner: {}",
+    "last_week_plays": "{} plays last week",
+    "footer": "My little weekly collage ♫",
+    "audio": "Audio",
+    "video": "Video",
+    "stat": "{} · {}",
+    "cover_caption": "{} · {}×"
   },
   "karaoke_remote": {
     "status": {

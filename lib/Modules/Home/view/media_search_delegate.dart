@@ -183,7 +183,7 @@ class MediaSearchDelegate extends SearchDelegate<MediaItem?> {
         borderRadius: BorderRadius.circular(14),
         onTap: () {
           close(context, item);
-          controller.openMedia(item, index, list);
+          controller.openHomeMedia(item, index, list);
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -242,7 +242,7 @@ class MediaSearchDelegate extends SearchDelegate<MediaItem?> {
                           'title': tr('home.search.results_title'),
                           'items': list,
                           'onItemTap': (MediaItem tapped, int tapIndex) =>
-                              controller.openMedia(
+                              controller.openHomeMedia(
                                 tapped,
                                 tapIndex < 0 ? 0 : tapIndex,
                                 list,

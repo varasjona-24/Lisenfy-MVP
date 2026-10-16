@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:get/get.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../../app/routes/app_routes.dart';
 
@@ -94,14 +95,16 @@ enum _TopBarMenuAction { localConnect, settings }
 class _TopBarMenuEntryData {
   const _TopBarMenuEntryData({
     required this.action,
-    required this.icon,
+    this.icon,
+    this.svgAsset,
     required this.label,
     required this.subtitle,
     required this.tint,
   });
 
   final _TopBarMenuAction action;
-  final IconData icon;
+  final IconData? icon;
+  final String? svgAsset;
   final String label;
   final String subtitle;
   final Color tint;
@@ -129,7 +132,7 @@ class _TopBarOverflowMenu extends StatelessWidget {
       if (showLocalConnectAction)
         _TopBarMenuEntryData(
           action: _TopBarMenuAction.localConnect,
-          icon: Icons.cast_connected_rounded,
+          svgAsset: 'assets/logo/listenfy_connect.svg',
           label: tr('nav.listenfy_connect'),
           subtitle: tr('nav.listenfy_connect_subtitle'),
           tint: scheme.primary,
@@ -215,7 +218,18 @@ class _TopBarMenuItemRow extends StatelessWidget {
             color: item.tint.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(item.icon, size: 20, color: item.tint),
+          child: item.svgAsset == null
+              ? Icon(item.icon, size: 22, color: item.tint)
+              : Center(
+                  child: SizedBox.square(
+                    dimension: 22,
+                    child: SvgPicture.asset(
+                      item.svgAsset!,
+                      fit: BoxFit.contain,
+                      colorFilter: ColorFilter.mode(item.tint, BlendMode.srcIn),
+                    ),
+                  ),
+                ),
         ),
         const SizedBox(width: 12),
         Expanded(

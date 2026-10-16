@@ -54,6 +54,7 @@ class SourceLibraryPage extends StatefulWidget {
 }
 
 class _SourceLibraryPageState extends State<SourceLibraryPage> {
+  final _localMode = HomeMode.audio.obs;
   final SourcesController _sources = Get.find<SourcesController>();
   final MediaActionsController _actions = Get.find<MediaActionsController>();
   final GetStorage _storage = GetStorage();
@@ -68,6 +69,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
   @override
   void initState() {
     super.initState();
+    _gridView = _storage.read<bool>('source_library_items_grid_view') ?? false;
     _topicSort = _readTopicSort();
     _topicsGridView = _storage.read('source_library_topics_grid_view') ?? false;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -144,7 +146,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
     }
 
     return Obx(() {
-      final homeMode = home.mode.value;
+      final homeMode = _localMode.value;
       // Biblioteca offline: siempre en modo video
       final displayMode = widget.onlyOffline
           ? HomeMode.video
@@ -169,7 +171,9 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
           // Sin toggle cuando es offline (solo video) o forceKind fijo
           onToggleMode: (widget.onlyOffline || widget.forceKind != null)
               ? null
-              : home.toggleMode,
+              : () => _localMode.value = _localMode.value == HomeMode.audio
+                    ? HomeMode.video
+                    : HomeMode.audio,
           showLocalConnectAction: false,
           mode: displayMode == HomeMode.audio
               ? AppMediaMode.audio
@@ -206,78 +210,95 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                       },
                       child: ScrollConfiguration(
                         behavior: const _NoGlowScrollBehavior(),
-                        child: SingleChildScrollView(
+                        child: CustomScrollView(
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: EdgeInsets.only(
-                            top: 12,
-                            bottom: kBottomNavigationBarHeight + 18,
-                            left: 12,
-                            right: 12,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (widget.onlyOffline) ...[
-                                _offlineHeader(theme),
-                                const SizedBox(height: 10),
-                                _offlineSummary(
-                                  theme,
-                                  modeList.length,
-                                  displayMode,
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                              ],
-                              if (themeMeta != null &&
-                                  themeMeta.onlyOffline != true) ...[
-                                _topicHeader(themeMeta),
-                                const SizedBox(height: 8),
-                                _topicList(themeMeta),
-                                const SizedBox(height: 18),
-                              ],
-                              if (themeMeta == null ||
-                                  themeMeta.onlyOffline == true) ...[
-                                if (!widget.onlyOffline) ...[
-                                  _librarySummary(
-                                    theme,
-                                    modeList.length,
-                                    displayMode,
+                          slivers: [
+                            SliverPadding(
+                              padding: EdgeInsets.only(
+                                top: 12,
+                                bottom: kBottomNavigationBarHeight + 18,
+                                left: 12,
+                                right: 12,
+                              ),
+                              sliver: SliverMainAxisGroup(
+                                slivers: [
+                                  SliverToBoxAdapter(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (widget.onlyOffline) ...[
+                                          _offlineHeader(theme),
+                                          const SizedBox(height: 10),
+                                          _offlineSummary(
+                                            theme,
+                                            modeList.length,
+                                            displayMode,
+                                          ),
+                                          const SizedBox(height: AppSpacing.md),
+                                        ],
+                                        if (themeMeta != null &&
+                                            themeMeta.onlyOffline != true) ...[
+                                          _topicHeader(themeMeta),
+                                          const SizedBox(height: 8),
+                                          _topicList(themeMeta),
+                                          const SizedBox(height: 18),
+                                        ],
+                                        if (themeMeta == null ||
+                                            themeMeta.onlyOffline == true) ...[
+                                          if (!widget.onlyOffline) ...[
+                                            _librarySummary(
+                                              theme,
+                                              modeList.length,
+                                              displayMode,
+                                            ),
+                                            const SizedBox(height: 12),
+                                          ],
+                                          if (modeList.isEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 12,
+                                              ),
+                                              child: Text(
+                                                tr('sources.empty_content'),
+                                                style: theme
+                                                    .textTheme
+                                                    .bodyMedium
+                                                    ?.copyWith(
+                                                      color: theme
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                            ),
+                                        ],
+                                      ],
+                                    ),
                                   ),
-                                  const SizedBox(height: 12),
-                                ],
-                                if (modeList.isEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 12),
-                                    child: Text(
-                                      tr('sources.empty_content'),
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                            color: theme
-                                                .colorScheme
-                                                .onSurfaceVariant,
+                                  if ((themeMeta == null ||
+                                          themeMeta.onlyOffline == true) &&
+                                      modeList.isNotEmpty)
+                                    AppMediaItemsSliver(
+                                      items: modeList,
+                                      gridView: _gridView,
+                                      videoStyle: displayMode == HomeMode.video,
+                                      compactListCard: widget.onlyOffline,
+                                      onTap: (item, index) => _playSourceItem(
+                                        item,
+                                        modeList,
+                                        displayMode,
+                                      ),
+                                      onLongPress: (item, index) =>
+                                          _openGridItemActions(
+                                            item,
+                                            modeList,
+                                            displayMode,
                                           ),
                                     ),
-                                  )
-                                else
-                                  AppMediaItemsList(
-                                    items: modeList,
-                                    gridView: _gridView,
-                                    videoStyle: displayMode == HomeMode.video,
-                                    compactListCard: widget.onlyOffline,
-                                    onTap: (item, index) => _playSourceItem(
-                                      item,
-                                      modeList,
-                                      displayMode,
-                                    ),
-                                    onLongPress: (item, index) =>
-                                        _openGridItemActions(
-                                          item,
-                                          modeList,
-                                          displayMode,
-                                        ),
-                                  ),
-                              ],
-                            ],
-                          ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -291,7 +312,7 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                 right: 0,
                 bottom: 0,
                 child: AppBottomNav(
-                  currentIndex: 4,
+                  currentIndex: 5,
                   onTap: (index) {
                     switch (index) {
                       case 0:
@@ -304,9 +325,12 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                         home.goToArtists();
                         break;
                       case 3:
-                        home.goToDownloads();
+                        home.goToAtlas();
                         break;
                       case 4:
+                        home.goToDownloads();
+                        break;
+                      case 5:
                         home.goToSources();
                         break;
                     }
@@ -425,7 +449,10 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
           tooltip: _gridView
               ? tr('home.section.list_view')
               : tr('home.section.grid_view'),
-          onPressed: () => setState(() => _gridView = !_gridView),
+          onPressed: () {
+            setState(() => _gridView = !_gridView);
+            _storage.write('source_library_items_grid_view', _gridView);
+          },
           icon: Icon(
             _gridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
           ),

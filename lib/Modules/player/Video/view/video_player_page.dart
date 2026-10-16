@@ -13,6 +13,9 @@ import 'package:listenfy/Modules/captures/data/capture_gallery_store.dart';
 import 'package:listenfy/Modules/player/Video/controller/video_player_controller.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../app/ui/widgets/motion/app_motion.dart';
+import '../../../settings/controller/playback_settings_controller.dart';
+import 'video_controls_help_dialog.dart';
 
 class VideoPlayerPage extends StatefulWidget {
   const VideoPlayerPage({super.key});
@@ -25,6 +28,8 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   late final VideoPlayerController controller;
   bool _showControls = true;
   bool _isFullscreen = false;
+  bool _controlsLocked = false;
+  bool _fillVideo = false;
   Timer? _hideTimer;
   Timer? _speedTimer;
   Timer? _singleDoubleTapTimer;
@@ -171,24 +176,59 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
             return Stack(
               children: [
                 Positioned.fill(child: _buildVideoArea(theme)),
-                if (_showControls)
-                  Positioned.fill(child: _buildControls(theme, item)),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring:
+                        !_showControls ||
+                        _controlsLocked ||
+                        controller.error.value != null,
+                    child: ExcludeSemantics(
+                      excluding:
+                          !_showControls ||
+                          _controlsLocked ||
+                          controller.error.value != null,
+                      child: AppMotionSwap(
+                        child:
+                            _showControls &&
+                                !_controlsLocked &&
+                                controller.error.value == null
+                            ? KeyedSubtree(
+                                key: const ValueKey('controls'),
+                                child: _buildControls(theme, item),
+                              )
+                            : const SizedBox.shrink(key: ValueKey('hidden')),
+                      ),
+                    ),
+                  ),
+                ),
+                if (_controlsLocked)
+                  Positioned(
+                    right: 16,
+                    top: 16,
+                    child: IconButton.filled(
+                      tooltip: tr('player.video_unlock'),
+                      onPressed: () => _setControlsLocked(false),
+                      icon: const Icon(Icons.lock_open_rounded),
+                    ),
+                  ),
                 if (_toastMessage != null)
                   Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.65),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        _toastMessage!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
+                    child: AppMotionEntrance(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _toastMessage!,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
@@ -205,6 +245,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     return Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: (event) {
+        if (_controlsLocked) return;
         _activePointers++;
         _pointerDownPositions[event.pointer] = event.localPosition;
         if (_activePointers == 2) {
@@ -245,18 +286,22 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
       },
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: _toggleControls,
-        onDoubleTapDown: (details) {
-          _lastDoubleTapDownPosition = details.localPosition;
-        },
-        onDoubleTap: _scheduleDoubleTapSeek,
+        onTap: _controlsLocked ? null : _toggleControls,
+        onDoubleTapDown: _controlsLocked
+            ? null
+            : (details) {
+                _lastDoubleTapDownPosition = details.localPosition;
+              },
+        onDoubleTap: _controlsLocked ? null : _scheduleDoubleTapSeek,
         onVerticalDragStart: (_) {
+          if (_controlsLocked) return;
           _isVerticalDragActive = true;
           _resetSpeedGesture();
           _resetVolumeGesture();
           _cancelGestureTapState();
         },
         onVerticalDragUpdate: (details) {
+          if (_controlsLocked) return;
           if (_activePointers >= 2) {
             _onSpeedDragUpdate(details);
           } else if (_activePointers == 1) {
@@ -306,19 +351,29 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
             );
           }
 
-          return Container(
-            color: Colors.black,
-            child: SizedBox.expand(
-              child: FittedBox(
-                fit: BoxFit.contain,
-                alignment: Alignment.center,
-                child: SizedBox(
-                  width: size.width,
-                  height: size.height,
-                  child: vp.VideoPlayer(vpCtrl),
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(
+                decoration: const BoxDecoration(color: Colors.black),
+                clipBehavior: Clip.hardEdge,
+                child: SizedBox.expand(
+                  child: FittedBox(
+                    fit: _fillVideo ? BoxFit.cover : BoxFit.contain,
+                    alignment: Alignment.center,
+                    child: SizedBox(
+                      width: size.width,
+                      height: size.height,
+                      child: vp.VideoPlayer(vpCtrl),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              if (controller.videoService.isLoading.value)
+                const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+            ],
           );
         }),
       ),
@@ -367,6 +422,46 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Column(
               children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => setState(() => _fillVideo = !_fillVideo),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: Icon(
+                        _fillVideo
+                            ? Icons.fit_screen_rounded
+                            : Icons.crop_rounded,
+                      ),
+                      label: Text(
+                        tr(
+                          _fillVideo ? 'player.video_fit' : 'player.video_fill',
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: tr('player.video_lock'),
+                      onPressed: () => _setControlsLocked(true),
+                      icon: const Icon(Icons.lock_outline_rounded),
+                    ),
+                    IconButton(
+                      tooltip: tr('player.video_controls'),
+                      icon: const Icon(Icons.tune_rounded),
+                      onPressed: () async {
+                        _hideTimer?.cancel();
+                        await showDialog<void>(
+                          context: context,
+                          builder: (_) => VideoControlsHelpDialog(
+                            settings: Get.find<PlaybackSettingsController>(),
+                          ),
+                        );
+                        if (mounted && !_controlsLocked) _scheduleHide();
+                      },
+                    ),
+                  ],
+                ),
                 _buildProgress(theme, item),
                 const SizedBox(height: 6),
                 Row(
@@ -376,7 +471,16 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                       icon: const Icon(Icons.skip_previous),
                       onPressed: controller.previous,
                     ),
-                    const SizedBox(width: 12),
+                    IconButton(
+                      tooltip: tr('player.video_jump_back'),
+                      icon: const Icon(Icons.fast_rewind_rounded),
+                      onPressed: () => _seekBy(
+                        -Get.find<PlaybackSettingsController>()
+                            .videoSeekSeconds
+                            .value,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
                     Obx(() {
                       final playing = controller.isPlaying.value;
                       return ElevatedButton(
@@ -396,7 +500,16 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                         ),
                       );
                     }),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      tooltip: tr('player.video_jump_forward'),
+                      icon: const Icon(Icons.fast_forward_rounded),
+                      onPressed: () => _seekBy(
+                        Get.find<PlaybackSettingsController>()
+                            .videoSeekSeconds
+                            .value,
+                      ),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.skip_next),
                       onPressed: controller.next,
@@ -584,6 +697,20 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     if (_showControls) _scheduleHide();
   }
 
+  void _setControlsLocked(bool locked) {
+    _cancelGestureTapState();
+    _activePointers = 0;
+    _pointerDownPositions.clear();
+    _resetSpeedGesture();
+    _resetVolumeGesture();
+    _isVerticalDragActive = false;
+    setState(() {
+      _controlsLocked = locked;
+      _showControls = !locked;
+    });
+    if (!locked) _scheduleHide();
+  }
+
   void _showControlsTemp() {
     setState(() => _showControls = true);
     _scheduleHide();
@@ -597,6 +724,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   }
 
   void _scheduleDoubleTapSeek() {
+    if (_controlsLocked) return;
     if (_isVerticalDragActive) return;
     _cancelPendingSingleDoubleTapSeek();
     final tapPosition = _lastDoubleTapDownPosition;
@@ -613,15 +741,22 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   }
 
   Future<void> _handleDoubleTapSeek(Offset? tapPosition) async {
+    if (_controlsLocked) return;
     final width = MediaQuery.sizeOf(context).width;
     final tapDx = tapPosition?.dx ?? (width / 2);
+    final seconds =
+        Get.find<PlaybackSettingsController>().videoSeekSeconds.value;
+    await _seekBy(tapDx < width / 2 ? -seconds : seconds);
+  }
+
+  Future<void> _seekBy(int delta) async {
+    if (_controlsLocked) return;
     final current =
         controller.playerController?.value.position ??
         controller.position.value;
     final total =
         controller.playerController?.value.duration ??
         controller.duration.value;
-    final delta = tapDx < width / 2 ? -5 : 5;
 
     final target = current + Duration(seconds: delta);
     final clamped = total > Duration.zero
@@ -631,7 +766,12 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
         : (target < Duration.zero ? Duration.zero : target);
 
     await controller.seek(clamped);
-    _showToast(delta < 0 ? '-5s' : '+5s');
+    _showToast(
+      tr(
+        'player.video_seek_feedback',
+        args: [delta < 0 ? '$delta' : '+$delta'],
+      ),
+    );
     _showControlsTemp();
   }
 
@@ -702,6 +842,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   }
 
   Future<void> _togglePlayOnTwoFingerDoubleTap() async {
+    if (_controlsLocked) return;
     final wasPlaying = controller.isPlaying.value;
     await controller.togglePlay();
     _showToast(wasPlaying ? 'Pausa' : 'Play');
@@ -1090,14 +1231,15 @@ class _ErrorPanel extends StatelessWidget {
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
               children: [
                 ElevatedButton(
                   onPressed: onPickOther,
                   child: Text(tr('player.select_other')),
                 ),
-                const SizedBox(width: 12),
                 OutlinedButton(
                   onPressed: onRetry,
                   child: Text(tr('common.retry')),

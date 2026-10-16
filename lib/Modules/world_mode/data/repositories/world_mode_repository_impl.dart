@@ -8,6 +8,7 @@ import '../../../../app/models/media_item.dart';
 import '../../../../app/utils/artist_credit_parser.dart';
 import '../../../../app/utils/country_catalog.dart';
 import '../../../artists/data/artist_store.dart';
+import '../../../artists/domain/artist_relationship_resolver.dart';
 import '../../agent/local_affinity_engine.dart';
 import '../../agent/radio_station_planner.dart';
 import '../../data/models/world_cached_station_model.dart';
@@ -337,6 +338,11 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
     final profiles = _artistStore.readAllSync();
     if (profiles.isEmpty) return const <String, Set<String>>{};
     final index = <String, Set<String>>{};
+    final nameCounts = <String, int>{};
+    for (final profile in profiles) {
+      final name = ArtistCreditParser.normalizeKey(profile.displayName);
+      nameCounts[name] = (nameCounts[name] ?? 0) + 1;
+    }
 
     void addKey(String rawKey, Set<String> regions) {
       final key = ArtistCreditParser.normalizeKey(rawKey);
@@ -351,7 +357,9 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
       );
       if (regions.isEmpty) continue;
       addKey(profile.key, regions);
-      addKey(profile.displayName, regions);
+      if (nameCounts[ArtistCreditParser.normalizeKey(profile.displayName)] == 1) {
+        addKey(profile.displayName, regions);
+      }
       for (final memberKey in profile.memberKeys) {
         addKey(memberKey, regions);
       }
@@ -402,11 +410,15 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
   }) {
     final regions = <String>{};
 
-    final credits = ArtistCreditParser.parse(item.displaySubtitle);
+    final credits = resolveArtistCredits(item);
     final artistNames = <String>{
-      credits.primaryArtist,
-      ...credits.allArtists,
-      item.displaySubtitle,
+      if (credits.artistKeys != null)
+        ...credits.artistKeys!
+      else ...[
+        credits.primaryArtist,
+        ...credits.allArtists,
+        item.displaySubtitle,
+      ],
     };
     for (final artistName in artistNames) {
       final key = ArtistCreditParser.normalizeKey(artistName);

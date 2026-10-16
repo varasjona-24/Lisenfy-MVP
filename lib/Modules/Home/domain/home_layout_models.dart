@@ -55,6 +55,7 @@ extension HomeWidgetIdX on HomeWidgetId {
 
   bool get audioOnly => this == HomeWidgetId.recommendations;
   bool get videoOnly => this == HomeWidgetId.continueWatching;
+  bool get canDisable => this != HomeWidgetId.continueWatching;
 
   bool get videoHomeSupported =>
       this == HomeWidgetId.favorites ||
@@ -65,7 +66,9 @@ extension HomeWidgetIdX on HomeWidgetId {
       this == HomeWidgetId.recentlyPlayed;
 
   bool get hasFixedLayout =>
-      this == HomeWidgetId.recommendations || this == HomeWidgetId.mostPlayed;
+      this == HomeWidgetId.recommendations ||
+      this == HomeWidgetId.mostPlayed ||
+      this == HomeWidgetId.continueWatching;
 
   static HomeWidgetId? fromKey(String key) {
     for (final value in HomeWidgetId.values) {
@@ -73,6 +76,20 @@ extension HomeWidgetIdX on HomeWidgetId {
     }
     return null;
   }
+}
+
+/// Preserve customized order; insert a missing mandatory session widget after
+/// favorites, including layouts restored from older backups.
+List<HomeWidgetId> normalizeVideoHomeOrder(Iterable<HomeWidgetId> order) {
+  final result = order.where((id) => id.videoHomeSupported).toSet().toList();
+  if (!result.contains(HomeWidgetId.continueWatching)) {
+    final favorites = result.indexOf(HomeWidgetId.favorites);
+    result.insert(
+      favorites < 0 ? 0 : favorites + 1,
+      HomeWidgetId.continueWatching,
+    );
+  }
+  return result;
 }
 
 enum HomeMediaSort { title, artist, importedAt, size, plays, duration, recent }
@@ -174,6 +191,8 @@ class HomeCustomSection {
     required this.targetId,
     required this.title,
     this.layout = HomeCustomSectionLayout.cards,
+    this.enabled = true,
+    this.beforeWidget,
   });
 
   final String id;
@@ -181,6 +200,18 @@ class HomeCustomSection {
   final String targetId;
   final String title;
   final HomeCustomSectionLayout layout;
+  final bool enabled;
+  final String? beforeWidget;
+
+  HomeCustomSection withoutTargets(Iterable<String> removed) {
+    final excluded = removed.toSet();
+    return copyWith(
+      targetId: targetId
+          .split('|')
+          .where((id) => id.isNotEmpty && !excluded.contains(id))
+          .join('|'),
+    );
+  }
 
   factory HomeCustomSection.fromJson(Map<String, dynamic> json) {
     return HomeCustomSection(
@@ -189,12 +220,16 @@ class HomeCustomSection {
       targetId: (json['targetId'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
       layout: HomeCustomSectionLayoutX.fromRaw(json['layout']),
+      enabled: json['enabled'] != false,
+      beforeWidget: json['beforeWidget'] as String?,
     );
   }
 
   HomeCustomSection copyWith({
     String? targetId,
     HomeCustomSectionLayout? layout,
+    bool? enabled,
+    String? beforeWidget,
   }) {
     return HomeCustomSection(
       id: id,
@@ -202,6 +237,8 @@ class HomeCustomSection {
       targetId: targetId ?? this.targetId,
       title: title,
       layout: layout ?? this.layout,
+      enabled: enabled ?? this.enabled,
+      beforeWidget: beforeWidget ?? this.beforeWidget,
     );
   }
 
@@ -211,7 +248,69 @@ class HomeCustomSection {
     'targetId': targetId,
     'title': title,
     'layout': layout.key,
+    'enabled': enabled,
+    'beforeWidget': beforeWidget,
   };
+}
+
+List<Object> homeEditorEntries(
+  List<HomeWidgetId> order,
+  List<HomeCustomSection> custom,
+) {
+  final entries = <Object>[];
+  for (final id in order) {
+    entries.addAll(custom.where((section) => section.beforeWidget == id.key));
+    entries.add(id);
+  }
+  entries.addAll(
+    custom.where(
+      (section) => !order.any((id) => id.key == section.beforeWidget),
+    ),
+  );
+  return entries;
+}
+
+List<HomeCustomSection> homeCustomSectionsInEditorOrder(List<Object> entries) {
+  final result = <HomeCustomSection>[];
+  for (var i = 0; i < entries.length; i++) {
+    final entry = entries[i];
+    if (entry is! HomeCustomSection) continue;
+    String nextKey = '';
+    for (final next in entries.skip(i + 1)) {
+      if (next is HomeWidgetId) {
+        nextKey = next.key;
+        break;
+      }
+    }
+    result.add(entry.copyWith(beforeWidget: nextKey));
+  }
+  return result;
+}
+
+String homeSectionOrderKey(Object entry) => entry is HomeWidgetId
+    ? 'widget:${entry.key}'
+    : 'custom:${(entry as HomeCustomSection).id}';
+
+/// Only selected slots move. Hidden and newly added entries stay in place.
+List<Object> reorderHomeSectionSlots(
+  List<Object> entries,
+  List<String> requested,
+) {
+  if (requested.toSet().length != requested.length) {
+    throw ArgumentError('Duplicate section order keys');
+  }
+  final byKey = {
+    for (final entry in entries) homeSectionOrderKey(entry): entry,
+  };
+  final ordered = requested.where(byKey.containsKey).toList();
+  final moving = ordered.toSet();
+  var index = 0;
+  return [
+    for (final entry in entries)
+      moving.contains(homeSectionOrderKey(entry))
+          ? byKey[ordered[index++]]!
+          : entry,
+  ];
 }
 
 class HomeArtistChoice {

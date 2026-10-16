@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class GuideSection extends StatelessWidget {
   const GuideSection({super.key});
@@ -83,7 +84,17 @@ class _GuideTopicTile extends StatelessWidget {
       child: ExpansionTile(
         tilePadding: EdgeInsets.zero,
         childrenPadding: EdgeInsets.zero,
-        leading: Icon(topic.icon),
+        leading: topic.isListenfyConnect
+            ? SvgPicture.asset(
+                'assets/logo/listenfy_connect.svg',
+                width: 20,
+                height: 20,
+                colorFilter: ColorFilter.mode(
+                  IconTheme.of(context).color ?? theme.colorScheme.onSurface,
+                  BlendMode.srcIn,
+                ),
+              )
+            : Icon(topic.icon),
         title: Text(
           topic.title,
           style: theme.textTheme.titleSmall?.copyWith(
@@ -132,17 +143,20 @@ class _GuideTopic {
     required this.title,
     required this.subtitle,
     required this.tips,
+    this.isListenfyConnect = false,
   });
 
   factory _GuideTopic.i18n({
     required IconData icon,
     required String key,
     required int tipsCount,
+    bool isListenfyConnect = false,
   }) {
     return _GuideTopic(
       icon: icon,
       title: tr('settings.guide.topics.$key.title'),
       subtitle: tr('settings.guide.topics.$key.subtitle'),
+      isListenfyConnect: isListenfyConnect,
       tips: List.generate(
         tipsCount,
         (index) => tr('settings.guide.topics.$key.tips.${index + 1}'),
@@ -154,6 +168,7 @@ class _GuideTopic {
   final String title;
   final String subtitle;
   final List<String> tips;
+  final bool isListenfyConnect;
 }
 
 List<_GuideTopic> get _guideTopics => [
@@ -190,6 +205,7 @@ List<_GuideTopic> get _guideTopics => [
     icon: Icons.cast_connected_rounded,
     key: 'connect',
     tipsCount: 10,
+    isListenfyConnect: true,
   ),
   _GuideTopic.i18n(
     icon: Icons.warning_amber_rounded,

@@ -5,13 +5,13 @@ import 'package:easy_localization/easy_localization.dart'
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:timezone/data/latest.dart' as tz_data;
-import 'package:timezone/timezone.dart' as tz;
 
+import '../../Modules/stats/application/weekly_listening_summary.dart';
 import '../routes/app_routes.dart';
+
+enum GeneratedAudioVariantKind { instrumental, spatial8d }
 
 class NotificationService extends GetxService {
   NotificationService({FlutterLocalNotificationsPlugin? plugin})
@@ -24,6 +24,12 @@ class NotificationService extends GetxService {
   static const weeklyEnabledKey = 'notificationsWeeklyEnabled';
   static const recommendationsEnabledKey =
       'notificationsRecommendationsEnabled';
+  static const _lastRecommendationCycleKey =
+      'notificationsRecommendationsLastCycle';
+  static const _lastWeeklySummaryPeriodKey =
+      'notificationsWeeklyLastSummaryPeriod';
+  static const _dynamicNotificationMigrationKey =
+      'notificationsDynamicContentMigrationV1';
 
   static const _weeklyNotificationId = 4101;
   static const _recommendationsNotificationId = 4102;
@@ -36,6 +42,7 @@ class NotificationService extends GetxService {
 
   bool _initialized = false;
   String? _pendingPayload;
+  WeeklyListeningSummaryLoader? _weeklySummaryLoader;
 
   bool get isSupported => Platform.isAndroid || Platform.isIOS;
 
@@ -45,11 +52,12 @@ class NotificationService extends GetxService {
     return _storage.read<bool>(key) ?? defaultValue;
   }
 
+  void configureWeeklySummaryLoader(WeeklyListeningSummaryLoader loader) {
+    _weeklySummaryLoader = loader;
+  }
+
   Future<NotificationService> init() async {
     if (!isSupported) return this;
-
-    tz_data.initializeTimeZones();
-    await _configureLocalTimezone();
 
     const android = AndroidInitializationSettings('ic_listenfy_notification');
     const iOS = DarwinInitializationSettings(
@@ -72,19 +80,7 @@ class NotificationService extends GetxService {
     }
 
     _initialized = true;
-    if (isMasterEnabled) {
-      await syncScheduledNotifications();
-    }
     return this;
-  }
-
-  Future<void> _configureLocalTimezone() async {
-    try {
-      final timezone = await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(timezone.identifier));
-    } catch (_) {
-      tz.setLocalLocation(tz.UTC);
-    }
   }
 
   Future<bool> requestPermission() async {
@@ -116,21 +112,21 @@ class NotificationService extends GetxService {
       return;
     }
 
+    await _clearLegacySchedules();
+
     if (isCategoryEnabled(weeklyEnabledKey, defaultValue: false)) {
-      await _scheduleWeeklySummary();
+      await _showWeeklySummaryIfDue();
     } else {
       await _plugin.cancel(id: _weeklyNotificationId);
     }
 
-    if (isCategoryEnabled(recommendationsEnabledKey, defaultValue: false)) {
-      await _scheduleDailyRecommendations();
-    } else {
+    if (!isCategoryEnabled(recommendationsEnabledKey, defaultValue: false)) {
       await _plugin.cancel(id: _recommendationsNotificationId);
     }
   }
 
-  Future<void> showImportSuccess() {
-    return _showForCategory(
+  Future<void> showImportSuccess() async {
+    await _showForCategory(
       categoryKey: importsEnabledKey,
       defaultValue: true,
       id: _importNotificationId,
@@ -141,8 +137,8 @@ class NotificationService extends GetxService {
     );
   }
 
-  Future<void> showImportFailure(String message) {
-    return _showForCategory(
+  Future<void> showImportFailure(String message) async {
+    await _showForCategory(
       categoryKey: importsEnabledKey,
       defaultValue: true,
       id: _importNotificationId,
@@ -153,8 +149,65 @@ class NotificationService extends GetxService {
     );
   }
 
-  Future<void> showConnectRequest(String clientName) {
-    return _showForCategory(
+  Future<void> showGeneratedVariantSuccess({
+    required GeneratedAudioVariantKind variant,
+    required String mediaTitle,
+  }) async {
+    final title = mediaTitle.trim();
+    if (title.isEmpty) return;
+    await _showForCategory(
+      categoryKey: importsEnabledKey,
+      defaultValue: true,
+      id: _importNotificationId,
+      title: tr('notifications.imports.variant_success_title'),
+      body: tr(
+        'notifications.imports.variant_success_body',
+        args: [_generatedVariantLabel(variant), title],
+      ),
+      payload: AppRoutes.home,
+      details: _importsDetails,
+    );
+  }
+
+  Future<void> showGeneratedVariantFailure({
+    required GeneratedAudioVariantKind variant,
+    required String mediaTitle,
+    required String message,
+  }) async {
+    final title = mediaTitle.trim();
+    if (title.isEmpty) return;
+    final detail = message.trim();
+    await _showForCategory(
+      categoryKey: importsEnabledKey,
+      defaultValue: true,
+      id: _importNotificationId,
+      title: tr('notifications.imports.variant_failure_title'),
+      body: tr(
+        'notifications.imports.variant_failure_body',
+        args: [
+          _generatedVariantLabel(variant),
+          title,
+          detail.isEmpty
+              ? tr('notifications.imports.variant_failure_fallback')
+              : detail,
+        ],
+      ),
+      payload: AppRoutes.home,
+      details: _importsDetails,
+    );
+  }
+
+  String _generatedVariantLabel(GeneratedAudioVariantKind variant) {
+    return switch (variant) {
+      GeneratedAudioVariantKind.instrumental =>
+        tr('notifications.imports.variant_instrumental'),
+      GeneratedAudioVariantKind.spatial8d =>
+        tr('notifications.imports.variant_spatial8d'),
+    };
+  }
+
+  Future<void> showConnectRequest(String clientName) async {
+    await _showForCategory(
       categoryKey: connectEnabledKey,
       defaultValue: true,
       id: _connectNotificationId,
@@ -165,8 +218,8 @@ class NotificationService extends GetxService {
     );
   }
 
-  Future<void> showConnectApproved(String clientName) {
-    return _showForCategory(
+  Future<void> showConnectApproved(String clientName) async {
+    await _showForCategory(
       categoryKey: connectEnabledKey,
       defaultValue: true,
       id: _connectNotificationId,
@@ -177,8 +230,8 @@ class NotificationService extends GetxService {
     );
   }
 
-  Future<void> showSleepTimerFinished() {
-    return _showForCategory(
+  Future<void> showSleepTimerFinished() async {
+    await _showForCategory(
       categoryKey: timersEnabledKey,
       defaultValue: true,
       id: _timerNotificationId,
@@ -189,8 +242,8 @@ class NotificationService extends GetxService {
     );
   }
 
-  Future<void> showInactivityPause() {
-    return _showForCategory(
+  Future<void> showInactivityPause() async {
+    await _showForCategory(
       categoryKey: timersEnabledKey,
       defaultValue: true,
       id: _timerNotificationId,
@@ -201,7 +254,49 @@ class NotificationService extends GetxService {
     );
   }
 
-  Future<void> _showForCategory({
+  /// Publishes a preview of a mix that has already been generated locally.
+  /// [cycleKey] changes with the recommendation rotation, so a loaded home
+  /// page cannot emit the same notification repeatedly.
+  Future<void> showRecommendationCycle({
+    required String cycleKey,
+    required String mixTitle,
+    required String mixSubtitle,
+    required int trackCount,
+  }) async {
+    final normalizedCycleKey = cycleKey.trim();
+    final normalizedTitle = mixTitle.trim();
+    if (normalizedCycleKey.isEmpty || normalizedTitle.isEmpty) return;
+    if ((_storage.read<String>(_lastRecommendationCycleKey) ?? '') ==
+        normalizedCycleKey) {
+      return;
+    }
+
+    final normalizedSubtitle = mixSubtitle.trim();
+    final normalizedCount = trackCount < 0 ? 0 : trackCount;
+    final body = normalizedSubtitle.isEmpty
+        ? tr(
+            'notifications.recommendations.cycle_body',
+            args: [normalizedTitle, '$normalizedCount'],
+          )
+        : tr(
+            'notifications.recommendations.cycle_body_with_subtitle',
+            args: [normalizedTitle, '$normalizedCount', normalizedSubtitle],
+          );
+    final published = await _showForCategory(
+      categoryKey: recommendationsEnabledKey,
+      defaultValue: false,
+      id: _recommendationsNotificationId,
+      title: tr('notifications.recommendations.cycle_title'),
+      body: body,
+      payload: AppRoutes.home,
+      details: _recommendationsDetails,
+    );
+    if (published) {
+      await _storage.write(_lastRecommendationCycleKey, normalizedCycleKey);
+    }
+  }
+
+  Future<bool> _showForCategory({
     required String categoryKey,
     required bool defaultValue,
     required int id,
@@ -212,22 +307,22 @@ class NotificationService extends GetxService {
   }) async {
     if (!isSupported) {
       _debugLog('notification $id skipped: unsupported platform');
-      return;
+      return false;
     }
     if (!_initialized) {
       _debugLog('notification $id skipped: service not initialized');
-      return;
+      return false;
     }
     if (!isMasterEnabled) {
       _debugLog('notification $id skipped: master setting disabled');
-      return;
+      return false;
     }
     if (!isCategoryEnabled(categoryKey, defaultValue: defaultValue)) {
       _debugLog('notification $id skipped: category $categoryKey disabled');
-      return;
+      return false;
     }
     if (!await _canPostNotification(details)) {
-      return;
+      return false;
     }
 
     try {
@@ -239,11 +334,13 @@ class NotificationService extends GetxService {
         notificationDetails: details,
       );
       _debugLog('notification $id published: $title');
+      return true;
     } catch (error, stackTrace) {
       _debugLog('notification $id failed: $error');
       if (kDebugMode) {
         debugPrintStack(stackTrace: stackTrace);
       }
+      return false;
     }
   }
 
@@ -294,83 +391,88 @@ class NotificationService extends GetxService {
     }
   }
 
-  Future<void> _scheduleWeeklySummary() async {
-    final scheduledDate = _nextWeekday(weekday: DateTime.sunday, hour: 19);
+  Future<void> _clearLegacySchedules() async {
+    if (_storage.read<bool>(_dynamicNotificationMigrationKey) == true) return;
     try {
       await _plugin.cancel(id: _weeklyNotificationId);
-      await _plugin.zonedSchedule(
+      await _plugin.cancel(id: _recommendationsNotificationId);
+      await _storage.write(_dynamicNotificationMigrationKey, true);
+      _debugLog('legacy scheduled notifications cleared');
+    } catch (error, stackTrace) {
+      _debugLog('legacy notification cleanup failed: $error');
+      if (kDebugMode) {
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+  }
+
+  Future<void> _showWeeklySummaryIfDue() async {
+    final now = DateTime.now();
+    final isSundayEvening = now.weekday == DateTime.sunday && now.hour >= 19;
+    final isMondayMorning = now.weekday == DateTime.monday && now.hour < 12;
+    if (!isSundayEvening && !isMondayMorning) return;
+
+    final loader = _weeklySummaryLoader;
+    if (loader == null) return;
+    try {
+      final summary = await loader(now);
+      if (summary == null) return;
+      if ((_storage.read<String>(_lastWeeklySummaryPeriodKey) ?? '') ==
+          summary.periodKey) {
+        return;
+      }
+
+      final artist = summary.topArtistName?.trim() ?? '';
+      final body = summary.listenedMinutes > 0
+          ? artist.isEmpty
+                ? tr(
+                    'notifications.weekly.body_with_time',
+                    args: [
+                      '${summary.sessionCount}',
+                      '${summary.listenedMinutes}',
+                      '${summary.uniqueTrackCount}',
+                    ],
+                  )
+                : tr(
+                    'notifications.weekly.body_with_time_and_artist',
+                    args: [
+                      '${summary.sessionCount}',
+                      '${summary.listenedMinutes}',
+                      '${summary.uniqueTrackCount}',
+                      artist,
+                    ],
+                  )
+          : artist.isEmpty
+          ? tr(
+              'notifications.weekly.body',
+              args: ['${summary.sessionCount}', '${summary.uniqueTrackCount}'],
+            )
+          : tr(
+              'notifications.weekly.body_with_artist',
+              args: [
+                '${summary.sessionCount}',
+                '${summary.uniqueTrackCount}',
+                artist,
+              ],
+            );
+      final published = await _showForCategory(
+        categoryKey: weeklyEnabledKey,
+        defaultValue: false,
         id: _weeklyNotificationId,
         title: tr('notifications.weekly.title'),
-        body: tr('notifications.weekly.body'),
-        scheduledDate: scheduledDate,
-        notificationDetails: _weeklyDetails,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+        body: body,
         payload: AppRoutes.listeningStats,
+        details: _weeklyDetails,
       );
-      _debugLog('weekly summary scheduled for $scheduledDate');
+      if (published) {
+        await _storage.write(_lastWeeklySummaryPeriodKey, summary.periodKey);
+      }
     } catch (error, stackTrace) {
-      _logSchedulingFailure('weekly summary', error, stackTrace);
+      _debugLog('weekly summary generation failed: $error');
+      if (kDebugMode) {
+        debugPrintStack(stackTrace: stackTrace);
+      }
     }
-  }
-
-  Future<void> _scheduleDailyRecommendations() async {
-    final scheduledDate = _nextTime(hour: 9);
-    try {
-      await _plugin.cancel(id: _recommendationsNotificationId);
-      await _plugin.zonedSchedule(
-        id: _recommendationsNotificationId,
-        title: tr('notifications.recommendations.title'),
-        body: tr('notifications.recommendations.body'),
-        scheduledDate: scheduledDate,
-        notificationDetails: _recommendationsDetails,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
-        payload: AppRoutes.home,
-      );
-      _debugLog('daily recommendations scheduled for $scheduledDate');
-    } catch (error, stackTrace) {
-      _logSchedulingFailure('daily recommendations', error, stackTrace);
-    }
-  }
-
-  void _logSchedulingFailure(
-    String notification,
-    Object error,
-    StackTrace stackTrace,
-  ) {
-    _debugLog('$notification scheduling failed: $error');
-    if (kDebugMode) {
-      debugPrintStack(stackTrace: stackTrace);
-    }
-  }
-
-  tz.TZDateTime _nextTime({required int hour, int minute = 0}) {
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      hour,
-      minute,
-    );
-    if (!scheduled.isAfter(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
-    return scheduled;
-  }
-
-  tz.TZDateTime _nextWeekday({
-    required int weekday,
-    required int hour,
-    int minute = 0,
-  }) {
-    var scheduled = _nextTime(hour: hour, minute: minute);
-    while (scheduled.weekday != weekday) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
-    return scheduled;
   }
 
   void flushPendingNavigation() {

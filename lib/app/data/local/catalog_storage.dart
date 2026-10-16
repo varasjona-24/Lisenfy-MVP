@@ -1,0 +1,215 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:crypto/crypto.dart';
+import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:path_provider/path_provider.dart';
+
+import '../playback/playback_repository.dart';
+import '../../utils/artist_credit_parser.dart';
+
+GetStorage catalogStorage(GetStorage legacy) =>
+    Get.isRegistered<CatalogStorage>() ? Get.find<CatalogStorage>() : legacy;
+
+/// Transitional synchronous read projection. SQL commits own durable data.
+/// Only catalog keys are supported; preferences never pass through this adapter.
+class CatalogStorage implements GetStorage {
+  CatalogStorage._(this.repository, this._values);
+  final PlaybackRepository repository;
+  final Map<String, List<dynamic>> _values;
+  Map<String, ArtistCredits> _credits = {};
+  Map<String, List<Map<String, dynamic>>> _names = {};
+  List<Map<String, dynamic>> candidatesFor(String name) =>
+      _names[ArtistCreditParser.normalizeKey(name)] ?? [];
+  ArtistCredits? creditsFor(String id, String raw) {
+    final credits = _credits[id];
+    return credits?.rawArtist == raw ? credits : null;
+  }
+
+  bool needsArtistResolution(String id, String raw) {
+    final bound = creditsFor(id, raw);
+    final assigned = <String, String>{};
+    if (bound?.artistKeys != null) {
+      final names = bound!.allArtists;
+      for (var i = 0; i < names.length && i < bound.artistKeys!.length; i++) {
+        assigned[ArtistCreditParser.normalizeKey(names[i])] =
+            bound.artistKeys![i];
+      }
+    }
+    return ArtistCreditParser.parse(raw).allArtists.any((name) {
+      final candidates = candidatesFor(name);
+      return candidates.map((c) => c['id']).toSet().length > 1 &&
+          !candidates.any(
+            (c) => c['id'] == assigned[ArtistCreditParser.normalizeKey(name)],
+          );
+    });
+  }
+
+  Future<void> _tail = Future<void>.value();
+  Object? failure;
+
+  Future<void> flush() async {
+    await _tail;
+    if (failure != null) {
+      throw StateError('Catalog persistence failed: $failure');
+    }
+  }
+
+  static Future<CatalogStorage> loadExisting(
+    PlaybackRepository repository,
+  ) async {
+    final storage = CatalogStorage._(
+      repository,
+      await repository.readCatalog(),
+    );
+    storage._credits = await repository.readArtistCredits();
+    storage._names = await repository.readArtistCandidates();
+    return storage;
+  }
+
+  static Future<CatalogStorage> open(
+    PlaybackRepository repository,
+    GetStorage legacy,
+    String scope, {
+    Directory? supportDirectory,
+  }) async {
+    if (!RegExp(r'^[a-zA-Z0-9_-]{1,80}$').hasMatch(scope)) {
+      throw ArgumentError('Invalid catalog migration scope');
+    }
+    final support = supportDirectory ?? await getApplicationSupportDirectory();
+    final directory = Directory(
+      '${support.path}/playback/debug-migration-$scope',
+    );
+    await directory.create(recursive: true);
+    final source = File('${directory.path}/catalog_source.json');
+    if (!await source.exists()) {
+      final snapshot = jsonEncode({
+        for (final key in catalogKeys) key: legacy.read<List>(key) ?? [],
+      });
+      final pending = File('${source.path}.pending');
+      await pending.writeAsString(snapshot, flush: true);
+      await pending.rename(source.path);
+    }
+    final bytes = await source.readAsString();
+    final decoded = jsonDecode(bytes) as Map<String, dynamic>;
+    await repository.importCatalog(
+      sourceId: 'catalog-$scope',
+      sourceHash: sha256.convert(utf8.encode(bytes)).toString(),
+      data: {for (final key in catalogKeys) key: decoded[key] as List},
+    );
+    await repository.rebuildArtistRelations();
+    final storage = CatalogStorage._(
+      repository,
+      await repository.readCatalog(),
+    );
+    storage._credits = await repository.readArtistCredits();
+    storage._names = await repository.readArtistCandidates();
+    return storage;
+  }
+
+  Future<void> reload() async {
+    await flush();
+    final loaded = await repository.readCatalog();
+    final credits = await repository.readArtistCredits();
+    final names = await repository.readArtistCandidates();
+    _values
+      ..clear()
+      ..addAll(loaded);
+    _credits = credits;
+    _names = names;
+  }
+
+  @override
+  T? read<T>(String key) {
+    if (!catalogKeys.contains(key)) throw ArgumentError.value(key, 'key');
+    return _values[key] as T?;
+  }
+
+  @override
+  Future<void> write(String key, dynamic value) {
+    if (failure != null) {
+      return Future.error(StateError('Catalog persistence failed: $failure'));
+    }
+    if (!catalogKeys.contains(key) || value is! List) {
+      return Future.error(ArgumentError('Invalid catalog write: $key'));
+    }
+    final snapshot = jsonDecode(jsonEncode(value)) as List<dynamic>;
+    final operation = _tail.then((_) async {
+      if (failure != null) {
+        throw StateError('Catalog persistence failed: $failure');
+      }
+      await repository.replaceCatalog(key, snapshot);
+      final credits = await repository.readArtistCredits();
+      final names = await repository.readArtistCandidates();
+      final catalog = await repository.readCatalog();
+      _values[key] = catalog[key]!; // Publish only after SQL commit.
+      _credits = credits;
+      _names = names;
+    });
+    _tail = operation.catchError((Object error) {
+      failure = error;
+    });
+    return operation;
+  }
+
+  @override
+  Future<void> remove(String key) => write(key, <dynamic>[]);
+  Future<void> updateArtistAtomically(
+    String sourceId,
+    Map<String, dynamic> profile, {
+    String? mergeTargetId,
+  }) {
+    final operation = _tail.then((_) async {
+      if (failure != null) {
+        throw StateError('Catalog persistence failed: $failure');
+      }
+      await repository.updateArtistAtomically(
+        sourceId: sourceId,
+        profile: profile,
+        mergeTargetId: mergeTargetId,
+      );
+      final catalog = await repository.readCatalog();
+      final credits = await repository.readArtistCredits();
+      final names = await repository.readArtistCandidates();
+      _values
+        ..clear()
+        ..addAll(catalog);
+      _credits = credits;
+      _names = names;
+    });
+    _tail = operation.catchError((Object error) {
+      failure = error;
+    });
+    return operation;
+  }
+
+  Future<void> assignArtistCredits(
+    String itemId,
+    List<Map<String, dynamic>> choices,
+  ) {
+    final operation = _tail.then((_) async {
+      if (failure != null) {
+        throw StateError('Catalog persistence failed: $failure');
+      }
+      await repository.assignArtistCredits(itemId, choices);
+      final catalog = await repository.readCatalog();
+      final credits = await repository.readArtistCredits();
+      final names = await repository.readArtistCandidates();
+      _values
+        ..clear()
+        ..addAll(catalog);
+      _credits = credits;
+      _names = names;
+    });
+    _tail = operation.catchError((Object error) {
+      failure = error;
+    });
+    return operation;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('Catalog adapter only supports read/write/remove');
+}

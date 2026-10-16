@@ -32,6 +32,7 @@ android {
     defaultConfig {
         // Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.jv24dev.listenfy"
+        manifestPlaceholders["listenfyAppLabel"] = "Listenfy"
 
         // Flutter defaults
         minSdk = flutter.minSdkVersion
@@ -64,6 +65,7 @@ android {
 
     buildTypes {
         release {
+            isDebuggable = false
             signingConfig = signingConfigs.getByName("release")
         }
     }

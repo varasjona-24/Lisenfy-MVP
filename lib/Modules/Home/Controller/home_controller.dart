@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+import '../../../app/controllers/navigation_controller.dart';
+import '../../../app/data/local/catalog_storage.dart';
 
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
@@ -14,6 +16,7 @@ import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/services/local_media_metadata_service.dart';
+import '../../../app/services/notification_service.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
 import '../../player/Video/controller/video_player_controller.dart';
@@ -31,6 +34,8 @@ import '../../sources/data/source_theme_topic_playlist_store.dart';
 import '../../sources/domain/source_theme_topic.dart';
 import '../../sources/domain/source_theme_topic_playlist.dart';
 import '../domain/home_layout_models.dart';
+import '../domain/home_artist_targets.dart';
+import '../../../app/utils/playback_kind.dart';
 
 class HomeController extends GetxController {
   final GetStorage _layoutStorage = GetStorage();
@@ -132,6 +137,11 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setHomeVideoMode(
+        mode.value == HomeMode.video,
+      );
+    }
     _restoreHomeLayout();
     loadHome();
   }
@@ -161,12 +171,16 @@ class HomeController extends GetxController {
         .whereType<HomeWidgetId>()
         .where((id) => id.videoHomeSupported)
         .toList(growable: false);
-    videoHomeWidgetOrder.assignAll(<HomeWidgetId>[
-      ...(parsedVideoOrder ?? const <HomeWidgetId>[]),
-      ..._defaultVideoHomeWidgets.where(
-        (id) => parsedVideoOrder?.contains(id) != true,
-      ),
-    ]);
+    videoHomeWidgetOrder.assignAll(
+      normalizeVideoHomeOrder(<HomeWidgetId>[
+        ...normalizeVideoHomeOrder(
+          parsedVideoOrder ?? _defaultVideoHomeWidgets,
+        ),
+        ..._defaultVideoHomeWidgets.where(
+          (id) => parsedVideoOrder?.contains(id) != true,
+        ),
+      ]),
+    );
 
     final rawVideoEnabled = _layoutStorage.read<List>(
       _videoHomeWidgetEnabledKey,
@@ -176,9 +190,11 @@ class HomeController extends GetxController {
         .whereType<HomeWidgetId>()
         .where((id) => id.videoHomeSupported)
         .toList(growable: false);
-    enabledVideoHomeWidgets.assignAll(
-      parsedVideoEnabled ?? _defaultVideoHomeWidgets,
-    );
+    enabledVideoHomeWidgets.assignAll({
+      ...?parsedVideoEnabled,
+      if (parsedVideoEnabled == null) ..._defaultVideoHomeWidgets,
+      HomeWidgetId.continueWatching,
+    });
 
     final rawLayouts = _layoutStorage.read<Map>(_homeWidgetLayoutsKey);
     homeWidgetLayouts.value = <String, HomeCustomSectionLayout>{
@@ -278,6 +294,8 @@ class HomeController extends GetxController {
               targetId: '',
               title: tr('home.custom.artists'),
               layout: artistLayout,
+              enabled: section.enabled,
+              beforeWidget: section.beforeWidget,
             ),
           );
           insertedArtistSection = true;
@@ -305,6 +323,8 @@ class HomeController extends GetxController {
               targetId: '',
               title: tr('home.custom.playlists'),
               layout: playlistLayout,
+              enabled: section.enabled,
+              beforeWidget: section.beforeWidget,
             ),
           );
           insertedPlaylistSection = true;
@@ -327,6 +347,8 @@ class HomeController extends GetxController {
               targetId: artistKeys.join('|'),
               title: tr('home.custom.artists'),
               layout: section.layout,
+              enabled: section.enabled,
+              beforeWidget: section.beforeWidget,
             );
           }
           if (section.id == playlistSectionId) {
@@ -337,6 +359,8 @@ class HomeController extends GetxController {
               targetId: playlistIds.join('|'),
               title: tr('home.custom.playlists'),
               layout: section.layout,
+              enabled: section.enabled,
+              beforeWidget: section.beforeWidget,
             );
           }
           return section;
@@ -378,6 +402,12 @@ class HomeController extends GetxController {
         targetId: collectionIds.join('|'),
         title: tr('home.custom.collections'),
         layout: collectionLayout,
+        enabled: sections
+            .firstWhere((s) => s.kind == HomeCustomSectionKind.collection)
+            .enabled,
+        beforeWidget: sections
+            .firstWhere((s) => s.kind == HomeCustomSectionKind.collection)
+            .beforeWidget,
       ),
     ];
   }
@@ -394,7 +424,9 @@ class HomeController extends GetxController {
           left.kind != right.kind ||
           left.targetId != right.targetId ||
           left.title != right.title ||
-          left.layout != right.layout) {
+          left.layout != right.layout ||
+          left.enabled != right.enabled ||
+          left.beforeWidget != right.beforeWidget) {
         return false;
       }
     }
@@ -405,7 +437,7 @@ class HomeController extends GetxController {
     if (currentMode == HomeMode.video) {
       return videoHomeWidgetOrder
           .where((id) => id.videoHomeSupported)
-          .where((id) => enabledVideoHomeWidgets.contains(id))
+          .where((id) => !id.canDisable || enabledVideoHomeWidgets.contains(id))
           .toList(growable: false);
     }
     return homeWidgetOrder
@@ -623,12 +655,11 @@ class HomeController extends GetxController {
     required List<HomeCustomSection> customSections,
   }) {
     if (mode == HomeMode.video) {
-      videoHomeWidgetOrder.assignAll(
-        order.where((id) => id.videoHomeSupported),
-      );
-      enabledVideoHomeWidgets.assignAll(
-        enabled.where((id) => id.videoHomeSupported),
-      );
+      videoHomeWidgetOrder.assignAll(normalizeVideoHomeOrder(order));
+      enabledVideoHomeWidgets.assignAll({
+        ...enabled.where((id) => id.videoHomeSupported),
+        HomeWidgetId.continueWatching,
+      });
       videoCustomHomeSections.assignAll(
         _normalizeVideoCustomHomeSections(customSections),
       );
@@ -645,6 +676,24 @@ class HomeController extends GetxController {
     customHomeSections.assignAll(_normalizeCustomHomeSections(customSections));
     isHomeEditing.value = false;
     _persistHomeLayout();
+  }
+
+  void reorderHomeSectionsForMode(HomeMode currentMode, List<String> keys) {
+    final sections = currentMode == HomeMode.video
+        ? videoCustomHomeSections.toList()
+        : customHomeSections.toList();
+    final entries = homeEditorEntries(
+      editableHomeWidgetOrderForMode(currentMode),
+      sections,
+    );
+    final reordered = reorderHomeSectionSlots(entries, keys);
+    applyHomeLayoutSnapshot(
+      mode: currentMode,
+      order: reordered.whereType<HomeWidgetId>().toList(),
+      enabled: enabledHomeWidgetIdsForMode(currentMode),
+      layouts: Map<String, HomeCustomSectionLayout>.from(homeWidgetLayouts),
+      customSections: homeCustomSectionsInEditorOrder(reordered),
+    );
   }
 
   void addCustomPlaylistSection({
@@ -672,6 +721,8 @@ class HomeController extends GetxController {
         targetId: ids.join('|'),
         title: tr('home.custom.playlists'),
         layout: current.layout,
+        enabled: current.enabled,
+        beforeWidget: current.beforeWidget,
       );
       _persistHomeLayout();
       return;
@@ -713,6 +764,8 @@ class HomeController extends GetxController {
         targetId: keys.join('|'),
         title: tr('home.custom.artists'),
         layout: current.layout,
+        enabled: current.enabled,
+        beforeWidget: current.beforeWidget,
       );
       _persistHomeLayout();
       return;
@@ -873,14 +926,25 @@ class HomeController extends GetxController {
     final profiles = <String, ArtistProfile>{
       for (final profile
           in _artistStore?.readAllSync() ?? const <ArtistProfile>[])
-        ArtistCreditParser.normalizeKey(profile.key): profile,
+        profile.key: profile,
     };
     for (final item in _allItems) {
       if (!item.variants.any((v) => v.kind == MediaVariantKind.audio)) {
         continue;
       }
-      for (final name in ArtistCreditParser.parse(item.subtitle).allArtists) {
-        final key = ArtistCreditParser.normalizeKey(name);
+      final storage = catalogStorage(_layoutStorage);
+      final credits = storage is CatalogStorage
+          ? storage.creditsFor(item.id, item.subtitle)
+          : null;
+      final names =
+          (credits ?? ArtistCreditParser.parse(item.subtitle)).allArtists;
+      for (var i = 0; i < names.length; i++) {
+        final name = names[i];
+        final ids = credits?.artistKeys;
+        final key = ids != null && i < ids.length
+            ? ids[i]
+            : _artistStore?.getByKeySync(name)?.key ??
+                  ArtistCreditParser.normalizeKey(name);
         if (key.isEmpty || key == 'unknown') continue;
         final current = buckets[key];
         buckets[key] = (
@@ -942,14 +1006,24 @@ class HomeController extends GetxController {
     if (section.kind == HomeCustomSectionKind.smart) {
       return _resolveSmartSectionItems(section.targetId);
     }
-    final target = ArtistCreditParser.normalizeKey(section.targetId);
+    final targets = resolveHomeArtistTargets(section.targetId, artistChoices());
     return _allItems
         .where((item) {
           if (!item.variants.any((v) => v.kind == MediaVariantKind.audio)) {
             return false;
           }
+          final storage = catalogStorage(_layoutStorage);
+          final credits = storage is CatalogStorage
+              ? storage.creditsFor(item.id, item.subtitle)
+              : null;
+          if (credits?.artistKeys != null) {
+            return credits!.artistKeys!.any(targets.contains);
+          }
           return ArtistCreditParser.parse(item.subtitle).allArtists.any(
-            (name) => ArtistCreditParser.normalizeKey(name) == target,
+            (name) => targets.contains(
+              _artistStore?.getByKeySync(name)?.key ??
+                  ArtistCreditParser.normalizeKey(name),
+            ),
           );
         })
         .toList(growable: false);
@@ -961,13 +1035,10 @@ class HomeController extends GetxController {
     if (section.kind != HomeCustomSectionKind.artist) {
       return const <HomeArtistChoice>[];
     }
-    final keys = section.targetId
-        .split('|')
-        .map(ArtistCreditParser.normalizeKey)
-        .where((e) => e.isNotEmpty && e != 'unknown')
-        .toSet();
+    final choices = artistChoices();
+    final keys = resolveHomeArtistTargets(section.targetId, choices);
     if (keys.isEmpty) return const <HomeArtistChoice>[];
-    return artistChoices()
+    return choices
         .where((artist) => keys.contains(artist.key))
         .toList(growable: false);
   }
@@ -1173,7 +1244,7 @@ class HomeController extends GetxController {
   }
 
   List<MediaItem> _resolvePlaylistItems(String playlistId) {
-    final rawPlaylists = _layoutStorage.read<List>('playlists');
+    final rawPlaylists = catalogStorage(_layoutStorage).read<List>('playlists');
     Playlist? playlist;
     for (final raw in rawPlaylists ?? const <dynamic>[]) {
       if (raw is! Map) continue;
@@ -1431,12 +1502,7 @@ class HomeController extends GetxController {
   }
 
   int _latestVariantCreatedAt(MediaItem item) {
-    var maxTs = 0;
-    for (final v in item.variants) {
-      if (v.localPath?.trim().isNotEmpty != true) continue;
-      if (v.createdAt > maxTs) maxTs = v.createdAt;
-    }
-    return maxTs;
+    return item.originalImportAt;
   }
 
   int _localSizeBytes(MediaItem item) {
@@ -1450,6 +1516,11 @@ class HomeController extends GetxController {
 
   void toggleMode() {
     mode.value = mode.value == HomeMode.audio ? HomeMode.video : HomeMode.audio;
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setHomeVideoMode(
+        mode.value == HomeMode.video,
+      );
+    }
     _splitHomeSections(_allItems);
     if (mode.value == HomeMode.audio) {
       _loadRecommendationsForCurrentMode();
@@ -1495,21 +1566,50 @@ class HomeController extends GetxController {
   }
 
   void onSearch() {
-    Get.toNamed(AppRoutes.homeSearch);
+    Get.toNamed(
+      AppRoutes.homeSearch,
+      arguments: {
+        'mediaKind': mode.value == HomeMode.video
+            ? MediaVariantKind.video
+            : MediaVariantKind.audio,
+      },
+    );
   }
 
   Future<void> openMedia(
     MediaItem item,
     int index,
-    List<MediaItem> list,
-  ) async {
-    final route = mode.value == HomeMode.audio
+    List<MediaItem> list, {
+    MediaVariantKind preferredKind = MediaVariantKind.audio,
+  }) async {
+    final kind = playbackKindFor(item, preferred: preferredKind);
+    final route = kind == MediaVariantKind.audio
         ? AppRoutes.audioPlayer
         : AppRoutes.videoPlayer;
 
-    await Get.toNamed(route, arguments: {'queue': list, 'index': index});
+    final queue = list
+        .where(
+          (entry) => entry.variants.any((v) => v.kind == kind && v.isValid),
+        )
+        .toList();
+    var selected = queue.indexWhere((entry) => entry.id == item.id);
+    if (selected < 0) {
+      queue.insert(0, item);
+      selected = 0;
+    }
+    await Get.toNamed(route, arguments: {'queue': queue, 'index': selected});
     await loadHome();
   }
+
+  Future<void> openHomeMedia(MediaItem item, int index, List<MediaItem> list) =>
+      openMedia(
+        item,
+        index,
+        list,
+        preferredKind: mode.value == HomeMode.audio
+            ? MediaVariantKind.audio
+            : MediaVariantKind.video,
+      );
 
   Future<void> deleteLocalItem(MediaItem item) async {
     try {
@@ -1603,7 +1703,7 @@ class HomeController extends GetxController {
     loadHome();
   }
 
-  void goToAtlas() => Get.toNamed(AppRoutes.worldMode);
+  void goToAtlas() => Get.toNamed(AppRoutes.atlas);
 
   void goToSettings() => Get.toNamed(AppRoutes.settings);
 
@@ -1728,6 +1828,7 @@ class HomeController extends GetxController {
   }
 
   Future<void> _applyRecommendationSet(RecommendationDailySet set) async {
+    final previousCycleKey = _recommendationCycleKey(recommendationCollections);
     final isAudioMode = mode.value == HomeMode.audio;
     bool matchesMode(MediaItem item) =>
         isAudioMode ? item.hasAudioLocal : item.hasVideoLocal;
@@ -1808,7 +1909,40 @@ class HomeController extends GetxController {
     recommended.assignAll(mixedItems.take(_recommendedPreviewLimit));
     recommendationReasonsById.assignAll(reasons);
     recommendationCollections.assignAll(collections);
+    final nextCycleKey = _recommendationCycleKey(collections);
+    if (previousCycleKey != null &&
+        nextCycleKey != null &&
+        previousCycleKey != nextCycleKey) {
+      unawaited(_notifyRecommendationCycle(collections, nextCycleKey));
+    }
     _scheduleRecommendationCycleRefresh(collections);
+  }
+
+  String? _recommendationCycleKey(
+    Iterable<RecommendationCollection> collections,
+  ) {
+    final values = collections.toList(growable: false);
+    if (values.isEmpty) return null;
+    final expiresAt = values.first.expiresAt;
+    if (expiresAt == null || expiresAt <= 0) return null;
+    final mixIds = values.map((collection) => collection.id).join('|');
+    return '$expiresAt|$mixIds';
+  }
+
+  Future<void> _notifyRecommendationCycle(
+    List<RecommendationCollection> collections,
+    String cycleKey,
+  ) async {
+    if (!Get.isRegistered<NotificationService>() || collections.isEmpty) {
+      return;
+    }
+    final featured = collections.first;
+    await Get.find<NotificationService>().showRecommendationCycle(
+      cycleKey: cycleKey,
+      mixTitle: featured.title,
+      mixSubtitle: featured.subtitle,
+      trackCount: featured.items.length,
+    );
   }
 
   void _scheduleRecommendationCycleRefresh(

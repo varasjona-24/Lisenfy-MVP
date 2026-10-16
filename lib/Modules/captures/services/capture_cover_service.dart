@@ -11,6 +11,7 @@ class CaptureCoverService {
   Future<List<CaptureCoverTarget>> loadTargets() async {
     final targets = <CaptureCoverTarget>[];
     targets.addAll(_videoTargets());
+    targets.addAll(_audioTargets());
     targets.addAll(await _collectionTargets());
     return targets;
   }
@@ -31,6 +32,28 @@ class CaptureCoverService {
           label: item.title,
           subtitle: item.subtitle,
           type: CaptureCoverTargetType.video,
+          thumbnailLocalPath: item.thumbnailLocalPath,
+          thumbnailUrl: item.thumbnail,
+        ),
+    ];
+  }
+
+  List<CaptureCoverTarget> _audioTargets() {
+    if (!Get.isRegistered<LocalLibraryStore>()) return const [];
+
+    final store = Get.find<LocalLibraryStore>();
+    final audio = store
+        .readAllSync()
+        .where((item) => item.hasAudioLocal || item.localAudioVariant != null)
+        .toList(growable: false);
+
+    return [
+      for (final item in audio)
+        CaptureCoverTarget(
+          id: item.id,
+          label: item.title,
+          subtitle: item.subtitle,
+          type: CaptureCoverTargetType.audio,
           thumbnailLocalPath: item.thumbnailLocalPath,
           thumbnailUrl: item.thumbnail,
         ),
@@ -75,6 +98,7 @@ class CaptureCoverService {
   }) async {
     switch (target.type) {
       case CaptureCoverTargetType.video:
+      case CaptureCoverTargetType.audio:
         if (!Get.isRegistered<LocalLibraryStore>()) return;
         final store = Get.find<LocalLibraryStore>();
         final item = store.readAllSync().firstWhereOrNull((item) {

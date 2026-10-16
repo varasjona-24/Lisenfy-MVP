@@ -14,10 +14,221 @@ import 'package:just_audio/just_audio.dart';
 import '../config/api_config.dart';
 import '../controllers/theme_controller.dart';
 import '../models/media_item.dart';
+import 'playback_history_recorder.dart';
+import 'engine_history_recorder.dart';
+import 'audio_history_position_clock.dart';
+import 'audio_effect_load_guard.dart';
+import '../data/playback/playback_boundary_command.dart';
+import '../data/playback/playback_state_storage.dart';
+import '../data/local/local_library_store.dart';
+import '../../Modules/recommendations/data/listening_event_store.dart';
+import '../../Modules/recommendations/domain/recommendation_models.dart';
 
 enum PlaybackState { stopped, loading, playing, paused }
 
-class AudioService extends GetxService {
+class AudioService extends GetxService with WidgetsBindingObserver {
+  AudioService({EngineHistoryRecorder? historyRecorder})
+    : _providedHistory = historyRecorder;
+  final EngineHistoryRecorder? _providedHistory;
+  late final EngineHistoryRecorder _history =
+      _providedHistory ??
+      PlaybackHistoryRecorder(
+        events: Get.find<ListeningEventStore>(),
+        library: Get.find<LocalLibraryStore>(),
+        mode: RecommendationMode.audio,
+      );
+  Future<void> flushPlaybackHistory() async {
+    await _history.flush();
+    final storage = _storage;
+    if (storage is PlaybackStateStorage) await storage.flush();
+  }
+
+  final Rxn<Object> historyPersistenceFailure = Rxn<Object>();
+  StreamSubscription<PlayerException>? _historyErrorSubscription;
+  Future<void> _flushEngineHistory() async {
+    try {
+      await flushPlaybackHistory();
+    } catch (error) {
+      historyPersistenceFailure.value = error;
+      debugPrint('Audio history persistence failed: $error');
+    }
+  }
+
+  Duration _lastEngineHistoryPosition = Duration.zero;
+  bool _historySeekInProgress = false;
+  bool _historySourceReload = false;
+  final _historyPositionClock = AudioHistoryPositionClock();
+  final _historyMonotonic = Stopwatch()..start();
+  StreamSubscription<PlayerEvent>? _historyObservationSubscription;
+  Timer? _historyObservationTimer;
+  String? _historyClockSource;
+  int? _historyLastSampleTime;
+  int _historyLastSamplePosition = 0;
+  double _historyLastSampleSpeed = 1;
+
+  void _observeEngineHistory({bool engineEvent = false}) {
+    if (_historySourceReload || _historySeekInProgress) return;
+    final event = _player.playbackEvent;
+    final index = event.currentIndex;
+    final item = index != null && index >= 0 && index < _queueItems.length
+        ? _queueItems[index]
+        : currentItem.value;
+    final variant = index != null && index >= 0 && index < _queueVariants.length
+        ? _queueVariants[index]
+        : currentVariant.value;
+    if (item == null || variant == null) return;
+    final source = jsonEncode([item.id, index, variant.toJson()]);
+    final mono = _historyMonotonic.elapsedMilliseconds;
+    final playing =
+        _player.playing && event.processingState == ProcessingState.ready;
+    final looped = engineEvent && _consumeEngineLoop();
+    final occurrenceChanged =
+        _historyClockSource != null && _historyClockSource != source;
+    if (_historyClockSource != source || looped) {
+      _historyLastSampleTime = null;
+      _historyPositionClock.reset(event.updatePosition.inMilliseconds, mono);
+      _historyClockSource = source;
+    }
+    if (engineEvent) {
+      _historyPositionClock.observe(
+        positionMs: event.updatePosition.inMilliseconds,
+        monotonicMs: mono,
+        playing: playing,
+        speed: _player.speed,
+        durationMs: event.duration?.inMilliseconds,
+      );
+    }
+    _history.select(
+      item,
+      variant: variant,
+      occurrenceChanged: occurrenceChanged,
+    );
+    final positionMs = _historyPositionClock.sample(mono);
+    final previousTime = _historyLastSampleTime;
+    if (previousTime != null &&
+        !looped &&
+        (positionMs < _historyLastSamplePosition - 250 ||
+            positionMs - _historyLastSamplePosition >
+                (mono - previousTime) * _historyLastSampleSpeed + 1000)) {
+      debugPrint(
+        'Audio history engine anchor correction: '
+        '$_historyLastSamplePosition -> $positionMs; uncertain gap excluded',
+      );
+      _history.reconcileEnginePosition(
+        Duration(milliseconds: positionMs),
+        playing: playing,
+      );
+    }
+    _historyLastSampleTime = mono;
+    _historyLastSamplePosition = positionMs;
+    _historyLastSampleSpeed = _player.speed;
+    _history.update(
+      position: Duration(milliseconds: positionMs),
+      duration: event.duration ?? Duration.zero,
+      playing: playing,
+      speed: _player.speed,
+      buffering: event.processingState == ProcessingState.buffering,
+      completed: event.processingState == ProcessingState.completed,
+      looped: looped,
+    );
+  }
+
+  String? _lastEngineHistoryTrack;
+  MediaVariant? _lastEngineHistoryVariant;
+  Future<void> _loadHistoryAwareSources(
+    List<AudioSource> sources, {
+    required int initialIndex,
+    required Duration initialPosition,
+    required MediaItem item,
+    required MediaVariant variant,
+  }) async {
+    if (_historySourceReload) {
+      throw StateError('Concurrent audio source reload');
+    }
+    _observeEngineHistory();
+    _historySourceReload = true;
+    _historySeekInProgress = true;
+    _history.select(item, variant: variant);
+    _history.beforeSeek(initialPosition);
+    var loaded = false;
+    try {
+      await loadWithEqualizerFallback(
+        equalizerAvailable: eqSupported,
+        load: () async {
+          await _player.setAudioSources(
+            sources,
+            initialIndex: initialIndex,
+            initialPosition: initialPosition,
+          );
+        },
+        disableEqualizer: () async {
+          _equalizerUnavailable = true;
+          // Keep the same player and its subscriptions. stop releases the
+          // failed platform; the next load creates it without native effects.
+          _audioPipeline.androidAudioEffects.clear();
+          await _player.stop();
+        },
+      );
+      loaded = true;
+    } catch (_) {
+      isLoading.value = false;
+      isPlaying.value = false;
+      state.value = PlaybackState.stopped;
+      _history.intent(PlaybackTermination.engineError);
+      _history.select(null);
+      rethrow;
+    } finally {
+      _history.afterSeek(
+        playing:
+            loaded &&
+            _player.playing &&
+            _player.processingState == ProcessingState.ready,
+      );
+      _historySourceReload = false;
+      _historySeekInProgress = false;
+      _historyLastSampleTime = null;
+      _lastEngineHistoryPosition = _player.position;
+      _lastEngineHistoryTrack = item.id;
+      _lastEngineHistoryVariant = variant;
+      if (loaded) {
+        // The variant-reload caller commits its rebuilt queue after this await.
+        // Publish the actual loaded target, not that caller's old variant.
+        if (initialIndex >= 0 &&
+            initialIndex < _queueItems.length &&
+            initialIndex < _queueVariants.length) {
+          _queueItems[initialIndex] = item;
+          _queueVariants[initialIndex] = variant;
+        }
+        _historyClockSource = null;
+        _observeEngineHistory(engineEvent: true);
+      }
+    }
+  }
+
+  bool _consumeEngineLoop() {
+    final position = _player.position;
+    final duration = _player.duration;
+    final sameSource =
+        _lastEngineHistoryTrack == currentItem.value?.id &&
+        _lastEngineHistoryVariant?.sameIdentityAs(
+              currentVariant.value ?? _lastEngineHistoryVariant!,
+            ) ==
+            true;
+    final looped =
+        sameSource &&
+        !_historySeekInProgress &&
+        _player.loopMode == LoopMode.one &&
+        duration != null &&
+        duration > Duration.zero &&
+        _lastEngineHistoryPosition.inMilliseconds * 10000 >=
+            duration.inMilliseconds * 9200 &&
+        position < _lastEngineHistoryPosition;
+    _lastEngineHistoryPosition = position;
+    _lastEngineHistoryTrack = currentItem.value?.id;
+    _lastEngineHistoryVariant = currentVariant.value;
+    return looped;
+  }
+
   static const _defaultAndroidAutoArtworkAuthority =
       'com.jv24dev.listenfy.android_auto_artwork';
   static const MethodChannel _androidAutoArtworkChannel = MethodChannel(
@@ -30,12 +241,14 @@ class AudioService extends GetxService {
   late final AndroidEqualizer? _androidEqualizer = Platform.isAndroid
       ? AndroidEqualizer()
       : null;
-  late final AudioPlayer _player = AudioPlayer(
-    audioPipeline: _androidEqualizer == null
-        ? null
-        : AudioPipeline(androidAudioEffects: [_androidEqualizer]),
+  bool _equalizerUnavailable = false;
+  late final AudioPipeline _audioPipeline = AudioPipeline(
+    androidAudioEffects: <AndroidAudioEffect>[
+      if (_androidEqualizer != null) _androidEqualizer,
+    ],
   );
-  final GetStorage _storage = GetStorage();
+  late final AudioPlayer _player = AudioPlayer(audioPipeline: _audioPipeline);
+  final GetStorage _storage = playbackStateStorage();
 
   Future<void> initializeAndroidAutoArtwork() async {
     if (!Platform.isAndroid) return;
@@ -89,6 +302,7 @@ class AudioService extends GetxService {
   List<MediaVariant> _linearVariants = <MediaVariant>[];
   int _activeIndex = 0;
   int _queueRevision = 0;
+  int _persistedSessionQueueRevision = -1;
   int _lastHandlerQueueRevision = -1;
   bool _shuffleEnabled = false;
   bool _suppressCurrentIndexUpdates = false;
@@ -135,7 +349,8 @@ class AudioService extends GetxService {
     );
   }
 
-  bool get eqSupported => Platform.isAndroid && _androidEqualizer != null;
+  bool get eqSupported =>
+      Platform.isAndroid && !_equalizerUnavailable && _androidEqualizer != null;
   Stream<void> get equalizerRefreshRequests =>
       _equalizerRefreshController.stream;
   int? get androidAudioSessionId => _player.androidAudioSessionId;
@@ -210,6 +425,7 @@ class AudioService extends GetxService {
   @override
   Future<void> onInit() async {
     super.onInit();
+    WidgetsBinding.instance.addObserver(this);
 
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
@@ -225,6 +441,11 @@ class AudioService extends GetxService {
     crossfadeSeconds.value = storedCrossfade.clamp(0, 12);
     _restoreLastItem();
 
+    _historyErrorSubscription = _player.errorStream.listen((error) {
+      _history.intent(PlaybackTermination.engineError);
+      _history.select(null);
+      unawaited(_flushEngineHistory());
+    });
     _player.playerStateStream.listen((ps) {
       final loading =
           ps.processingState == ProcessingState.loading ||
@@ -273,11 +494,28 @@ class AudioService extends GetxService {
       _persistSessionPlaybackState(throttle: true);
     });
 
+    _historyObservationSubscription = _player.playerEventStream.listen((_) {
+      _observeEngineHistory(engineEvent: true);
+    });
+    _historyObservationTimer = Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) {
+        _observeEngineHistory();
+      },
+    );
+
     await _restoreSessionIfAny();
   }
 
   @override
   void onClose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _history.intent(PlaybackTermination.appShutdown);
+    _history.select(null);
+    unawaited(_historyErrorSubscription?.cancel());
+    unawaited(_historyObservationSubscription?.cancel());
+    _historyObservationTimer?.cancel();
+    unawaited(_flushEngineHistory());
     _flushPendingLastItem();
     _lastItemPersistTimer?.cancel();
     _homeWidgetUpdateTimer?.cancel();
@@ -287,6 +525,11 @@ class AudioService extends GetxService {
     }
     _player.dispose();
     super.onClose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) unawaited(_flushEngineHistory());
   }
 
   void attachHandler(dynamic handler) {
@@ -378,6 +621,15 @@ class AudioService extends GetxService {
   }) async {
     _showMiniPlayerForPlayback();
 
+    final oldItem = currentItem.value;
+    playbackIntentRevision++;
+    if (oldItem != null && !_sameItem(oldItem, item)) {
+      _history.intent(PlaybackTermination.manualSelection);
+    } else if (oldItem != null &&
+        currentVariant.value?.sameIdentityAs(variant) == false) {
+      _history.intent(PlaybackTermination.explicitStop);
+    }
+
     final incomingQueue = queue;
     if (forceReload &&
         hasSourceLoaded &&
@@ -467,10 +719,12 @@ class AudioService extends GetxService {
         );
       }
       _beginTrackPositionLifecycle(initialPosition);
-      await _player.setAudioSources(
+      await _loadHistoryAwareSources(
         sources,
         initialIndex: _activeIndex,
         initialPosition: initialPosition,
+        item: _queueItems[_activeIndex],
+        variant: _queueVariants[_activeIndex],
       );
       _requestEqualizerRefresh();
 
@@ -521,10 +775,12 @@ class AudioService extends GetxService {
       }
 
       _beginTrackPositionLifecycle(Duration.zero);
-      await _player.setAudioSources(
+      await _loadHistoryAwareSources(
         sources,
         initialIndex: targetIndex,
         initialPosition: Duration.zero,
+        item: nextQueueItems[targetIndex],
+        variant: nextQueueVariants[targetIndex],
       );
       _requestEqualizerRefresh();
 
@@ -589,6 +845,7 @@ class AudioService extends GetxService {
   }
 
   Future<void> toggle() async {
+    playbackIntentRevision++;
     if (_player.playing) {
       await _player.pause();
       return;
@@ -599,9 +856,18 @@ class AudioService extends GetxService {
     }
   }
 
-  Future<void> pause() => _player.pause();
+  int playbackIntentRevision = 0;
+
+  /// Context pauses do not revoke the user's pre-existing play intent.
+  Future<void> pauseForVideoContext() => _player.pause();
+
+  Future<void> pause() {
+    playbackIntentRevision++;
+    return _player.pause();
+  }
 
   Future<void> pauseAndHideMiniPlayer() async {
+    playbackIntentRevision++;
     miniPlayerDismissed.value = true;
     if (hasSourceLoaded && _player.playing) {
       await _player.pause();
@@ -615,12 +881,18 @@ class AudioService extends GetxService {
   }
 
   Future<void> resume() async {
+    playbackIntentRevision++;
     if (!hasSourceLoaded) return;
     _showMiniPlayerForPlayback();
     _playWithoutBlocking();
   }
 
   Future<void> stop() async {
+    playbackIntentRevision++;
+    _observeEngineHistory();
+    _history.intent(PlaybackTermination.explicitStop);
+    await _flushEngineHistory();
+    _history.select(null);
     _hiddenSessionSnapshotPreserved = false;
     _clearPendingLastItem();
     await _player.stop();
@@ -642,6 +914,11 @@ class AudioService extends GetxService {
   }
 
   Future<void> stopAndHidePreservingSession() async {
+    playbackIntentRevision++;
+    _observeEngineHistory();
+    _history.intent(PlaybackTermination.explicitStop);
+    await _flushEngineHistory();
+    _history.select(null);
     final shouldPersist = hasSourceLoaded && _player.playing;
 
     miniPlayerDismissed.value = true;
@@ -710,7 +987,7 @@ class AudioService extends GetxService {
       next[key] = position.inMilliseconds;
     }
 
-    if (next.length > 300) {
+    if (_storage is! PlaybackStateStorage && next.length > 300) {
       final overflow = next.length - 300;
       final keys = next.keys.take(overflow).toList(growable: false);
       for (final oldKey in keys) {
@@ -723,8 +1000,25 @@ class AudioService extends GetxService {
 
   Future<void> seek(Duration position) async {
     if (!hasSourceLoaded) return;
+    _observeEngineHistory();
+    _historySeekInProgress = true;
+    _history.beforeSeek(position);
     _beginSeekPositionLifecycle(position);
-    await _player.seek(position);
+    try {
+      await _player.seek(position);
+    } finally {
+      _historySeekInProgress = false;
+      _historyPositionClock.reset(
+        position.inMilliseconds,
+        _historyMonotonic.elapsedMilliseconds,
+      );
+      _historyLastSampleTime = null;
+      _history.afterSeek(
+        playing:
+            _player.playing && _player.processingState == ProcessingState.ready,
+      );
+      _observeEngineHistory(engineEvent: true);
+    }
     _beginSeekPositionLifecycle(position);
     _persistSessionSnapshot();
   }
@@ -733,6 +1027,7 @@ class AudioService extends GetxService {
     if (_queueItems.isEmpty) return;
     final target = currentQueueIndex + 1;
     if (target < 0 || target >= _queueItems.length) return;
+    _history.intent(PlaybackTermination.manualNext);
     if (withTransition) {
       await _transitionToIndex(target, autoPlay: true);
       return;
@@ -744,6 +1039,7 @@ class AudioService extends GetxService {
     if (_queueItems.isEmpty) return;
     final target = currentQueueIndex - 1;
     if (target < 0 || target >= _queueItems.length) return;
+    _history.intent(PlaybackTermination.manualPrevious);
     if (withTransition) {
       await _transitionToIndex(target, autoPlay: true);
       return;
@@ -757,6 +1053,7 @@ class AudioService extends GetxService {
   }) async {
     if (_queueItems.isEmpty) return;
     if (index < 0 || index >= _queueItems.length) return;
+    _history.intent(PlaybackTermination.manualSelection);
     await _transitionToIndex(
       index,
       autoPlay: true,
@@ -884,6 +1181,7 @@ class AudioService extends GetxService {
   }
 
   Future<void> setSpeed(double value) async {
+    _observeEngineHistory();
     speed.value = value;
     _storage.write(_speedKey, value);
     await _player.setSpeed(value);
@@ -1010,10 +1308,12 @@ class AudioService extends GetxService {
     _beginTrackPositionLifecycle(position);
     _suppressCurrentIndexUpdates = true;
     try {
-      await _player.setAudioSources(
+      await _loadHistoryAwareSources(
         sources,
         initialIndex: _activeIndex,
         initialPosition: position,
+        item: _queueItems[_activeIndex],
+        variant: _queueVariants[_activeIndex],
       );
     } finally {
       _suppressCurrentIndexUpdates = false;
@@ -1083,10 +1383,12 @@ class AudioService extends GetxService {
     }
 
     _beginTrackPositionLifecycle(pos);
-    await _player.setAudioSources(
+    await _loadHistoryAwareSources(
       sources,
       initialIndex: _activeIndex,
       initialPosition: pos,
+      item: _queueItems[_activeIndex],
+      variant: _queueVariants[_activeIndex],
     );
     _requestEqualizerRefresh();
     if (wasPlaying) {
@@ -1229,10 +1531,12 @@ class AudioService extends GetxService {
       }
 
       _beginTrackPositionLifecycle(initialPos);
-      await _player.setAudioSources(
+      await _loadHistoryAwareSources(
         sources,
         initialIndex: _activeIndex,
         initialPosition: initialPos,
+        item: _queueItems[_activeIndex],
+        variant: _queueVariants[_activeIndex],
       );
       _requestEqualizerRefresh();
 
@@ -1296,11 +1600,18 @@ class AudioService extends GetxService {
       _trustedCurrentPosition.inMilliseconds,
     );
     _storage.write(_sessionWasPlayingKey, _player.playing);
+    _persistedSessionQueueRevision = _queueRevision;
   }
 
   void _persistSessionPlaybackState({bool throttle = false}) {
     if (_queueItems.isEmpty || _queueVariants.isEmpty) return;
     if (_queueItems.length != _queueVariants.length) return;
+    // Engine callbacks can arrive before setAudioSources completes. Never save
+    // an index for a queue that has not reached operational storage yet.
+    if (_persistedSessionQueueRevision != _queueRevision) {
+      _persistSessionSnapshot(throttle: throttle);
+      return;
+    }
 
     if (throttle) {
       final now = DateTime.now();
@@ -1325,6 +1636,7 @@ class AudioService extends GetxService {
   }
 
   void _clearSessionSnapshot() {
+    _persistedSessionQueueRevision = -1;
     _storage.remove(_sessionQueueItemsKey);
     _storage.remove(_sessionQueueVariantsKey);
     _storage.remove(_sessionIndexKey);

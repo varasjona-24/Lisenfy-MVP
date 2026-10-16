@@ -1,9 +1,10 @@
 import 'package:get_storage/get_storage.dart';
+import '../../../../app/data/local/domain_storage.dart';
 
 import '../models/world_cached_station_model.dart';
 
 class WorldLocalDatasource {
-  WorldLocalDatasource(this._storage);
+  WorldLocalDatasource(GetStorage storage) : _storage = domainStorage(storage);
 
   WorldLocalDatasource.memory([Map<String, dynamic>? initialState])
     : _storage = null,
@@ -167,7 +168,7 @@ class WorldLocalDatasource {
     final raw = _read(_playbackEventsKey);
     final list = raw is List ? List<dynamic>.from(raw) : <dynamic>[];
     list.add(event);
-    if (list.length > 1200) {
+    if (_storage is! DomainStorage && list.length > 1200) {
       list.removeRange(0, list.length - 1200);
     }
     await _write(_playbackEventsKey, list);

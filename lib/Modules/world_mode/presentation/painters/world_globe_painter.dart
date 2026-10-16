@@ -55,9 +55,9 @@ class WorldGlobePainter extends CustomPainter {
       center: const Alignment(-0.25, -0.35),
       radius: 1.1,
       colors: [
-        const Color(0xFF122B4B).withValues(alpha: 0.72),
-        const Color(0xFF061326),
-        Colors.black,
+        colorScheme.primary.withValues(alpha: 0.18),
+        colorScheme.surfaceContainerHigh.withValues(alpha: 0.68),
+        colorScheme.surface.withValues(alpha: 0.84),
       ],
     ).createShader(rect);
 

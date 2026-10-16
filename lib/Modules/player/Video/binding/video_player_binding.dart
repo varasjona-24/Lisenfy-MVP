@@ -1,7 +1,7 @@
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
 
 import '../../../../app/models/media_item.dart';
+import '../../../../app/data/playback/playback_state_storage.dart';
 import '../../../../app/services/video_service.dart';
 import '../controller/video_player_controller.dart';
 
@@ -9,7 +9,7 @@ class VideoPlayerBinding extends Bindings {
   @override
   void dependencies() {
     final args = (Get.arguments as Map?) ?? const {};
-    final storage = GetStorage();
+    final storage = playbackStateStorage();
 
     final rawQueue = args['queue'];
     var queue = (rawQueue is List)

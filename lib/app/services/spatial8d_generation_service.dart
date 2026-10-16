@@ -6,9 +6,11 @@ import 'package:path/path.dart' as p;
 
 import '../../Modules/player/audio/controller/audio_player_controller.dart';
 import '../data/local/local_library_store.dart';
+import '../data/local/domain_storage.dart';
 import '../data/network/backend_api_error.dart';
 import '../models/media_item.dart';
 import 'karaoke_remote_pipeline_service.dart';
+import 'notification_service.dart';
 
 enum Spatial8dTaskStage {
   preparing,
@@ -118,7 +120,7 @@ class Spatial8dTaskSnapshot {
 class Spatial8dGenerationService extends GetxService {
   static const String _storageKey = 'spatial8d_tasks_v1';
 
-  final GetStorage _storage = Get.find<GetStorage>();
+  final GetStorage _storage = domainStorage(Get.find<GetStorage>());
   final LocalLibraryStore _library = Get.find<LocalLibraryStore>();
   final KaraokeRemotePipelineService _remote =
       Get.find<KaraokeRemotePipelineService>();
@@ -378,6 +380,12 @@ class Spatial8dGenerationService extends GetxService {
           itemJson: updated.toJson(),
         ),
       );
+      if (Get.isRegistered<NotificationService>()) {
+        await Get.find<NotificationService>().showGeneratedVariantSuccess(
+          variant: GeneratedAudioVariantKind.spatial8d,
+          mediaTitle: updated.title,
+        );
+      }
 
       return updated;
     } catch (e) {
@@ -397,6 +405,13 @@ class Spatial8dGenerationService extends GetxService {
           itemJson: currentItem.toJson(),
         ),
       );
+      if (Get.isRegistered<NotificationService>()) {
+        await Get.find<NotificationService>().showGeneratedVariantFailure(
+          variant: GeneratedAudioVariantKind.spatial8d,
+          mediaTitle: currentItem.title,
+          message: message,
+        );
+      }
       return null;
     }
   }
@@ -553,7 +568,8 @@ class Spatial8dGenerationService extends GetxService {
     final keep = <String, Spatial8dTaskSnapshot>{};
     for (final entry in tasks.entries) {
       final snapshot = entry.value;
-      if (snapshot.isTerminal &&
+      if (_storage is! DomainStorage &&
+          snapshot.isTerminal &&
           now - snapshot.updatedAt > 24 * 60 * 60 * 1000) {
         continue;
       }
@@ -568,7 +584,17 @@ class Spatial8dGenerationService extends GetxService {
     for (final entry in keep.entries) {
       encoded[entry.key] = entry.value.toJson();
     }
-    _storage.write(_storageKey, encoded);
+    _storage.write(_storageKey, encoded).catchError((Object error) {
+      persistenceFailure.value = error;
+      Get.log('8D persistence failed: $error', isError: true);
+    });
+  }
+
+  final Rxn<Object> persistenceFailure = Rxn<Object>();
+  bool get hasRunningJobs => _running.isNotEmpty;
+  void reloadDurableTasks() {
+    if (hasRunningJobs) throw StateError('Cannot reload running jobs');
+    _restoreSnapshots();
   }
 
   bool _sameItem(MediaItem a, MediaItem b) {

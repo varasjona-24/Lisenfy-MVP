@@ -10,6 +10,9 @@ import '../../../../app/models/media_item.dart';
 import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../controller/listening_stats_controller.dart';
 import '../../domain/entities/listening_stats_entities.dart';
+import 'weekly_collage_page.dart';
+import '../widgets/wrapped_panel_style.dart';
+import '../widgets/wrapped_artwork.dart';
 
 part '../widgets/imports_tab.dart';
 part '../widgets/audio_tab.dart';
@@ -42,7 +45,7 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
     final scheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: scheme.surface,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text(
           tr('wrapped.title'),
@@ -51,9 +54,17 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
           ),
         ),
         centerTitle: true,
-        forceMaterialTransparency: true,
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
         foregroundColor: scheme.onSurface,
         leading: const BackButton(),
+        actions: [
+          IconButton(
+            tooltip: tr('weekly_collage.open'),
+            icon: const Icon(Icons.photo_library_outlined),
+            onPressed: () => Get.to(() => const WeeklyCollagePage()),
+          ),
+        ],
       ),
       body: AppGradientBackground(
         child: Obx(() {
@@ -66,30 +77,32 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.music_off_rounded,
-                      size: 72,
-                      color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      tr('wrapped.empty_title'),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                child: StatsCard(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.music_off_rounded,
+                        size: 72,
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      tr('wrapped.empty_body'),
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                      const SizedBox(height: 16),
+                      Text(
+                        tr('wrapped.empty_title'),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        tr('wrapped.empty_body'),
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -97,7 +110,12 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
 
           return RefreshIndicator(
             onRefresh: controller.refreshStats,
-            child: _WrappedBody(stats: stats),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1000),
+                child: _WrappedBody(stats: stats),
+              ),
+            ),
           );
         }),
       ),
@@ -191,27 +209,18 @@ class _WrappedBodyState extends State<_WrappedBody>
             child: Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: scheme.surface.withValues(alpha: 0.15),
+                color: scheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: scheme.outline.withValues(alpha: 0.1),
-                ),
+                border: Border.all(color: scheme.outlineVariant),
               ),
               child: TabBar(
                 dividerColor: Colors.transparent,
                 indicatorSize: TabBarIndicatorSize.tab,
                 indicator: BoxDecoration(
-                  gradient: const LinearGradient(colors: kMusicGradient),
+                  color: scheme.primary,
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: kMusicGradient[0].withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
-                labelColor: Colors.white,
+                labelColor: scheme.onPrimary,
                 unselectedLabelColor: scheme.onSurfaceVariant,
                 labelStyle: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w800,
@@ -224,7 +233,13 @@ class _WrappedBodyState extends State<_WrappedBody>
                       children: [
                         const Icon(Icons.download_rounded, size: 16),
                         const SizedBox(width: 6),
-                        Text(tr('wrapped.tabs.imports')),
+                        Flexible(
+                          child: Text(
+                            tr('wrapped.tabs.imports'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -234,7 +249,13 @@ class _WrappedBodyState extends State<_WrappedBody>
                       children: [
                         const Icon(Icons.graphic_eq_rounded, size: 16),
                         const SizedBox(width: 6),
-                        Text(tr('wrapped.tabs.audio')),
+                        Flexible(
+                          child: Text(
+                            tr('wrapped.tabs.audio'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -244,7 +265,13 @@ class _WrappedBodyState extends State<_WrappedBody>
                       children: [
                         const Icon(Icons.video_collection_rounded, size: 16),
                         const SizedBox(width: 6),
-                        Text(tr('wrapped.tabs.video')),
+                        Flexible(
+                          child: Text(
+                            tr('wrapped.tabs.video'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -293,7 +320,7 @@ class _ImportsTab extends StatelessWidget {
               'wrapped.imports.imported_songs',
               args: ['${artist.tracks}'],
             ),
-            value: '${artist.imports}',
+            value: tr('wrapped.ui.import_count', args: ['${artist.imports}']),
             maxValue: stats.topImportedArtists.isEmpty
                 ? 1
                 : stats.topImportedArtists.first.imports,
@@ -311,33 +338,25 @@ class _ImportsTab extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: kImportGradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: kImportGradient[0].withValues(alpha: 0.3),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
+            decoration: wrappedPanelDecoration(context, highlighted: true),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Text('📥', style: TextStyle(fontSize: 26)),
+                    Icon(
+                      Icons.download_rounded,
+                      color: theme.colorScheme.primary,
+                      size: 26,
+                    ),
                     const SizedBox(width: 8),
-                    Text(
-                      tr('wrapped.imports.hero_title'),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
+                    Flexible(
+                      child: Text(
+                        tr('wrapped.imports.hero_title'),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ],
@@ -346,7 +365,7 @@ class _ImportsTab extends StatelessWidget {
                 Text(
                   stats.latestImportLabel,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: theme.colorScheme.onSurfaceVariant,
                     height: 1.3,
                   ),
                 ),
@@ -360,7 +379,7 @@ class _ImportsTab extends StatelessWidget {
           1,
           LayoutBuilder(
             builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 520;
+              final isWide = constraints.maxWidth >= 300;
               final itemWidth = isWide
                   ? (constraints.maxWidth - 10) / 2
                   : constraints.maxWidth;
@@ -456,7 +475,24 @@ class _ImportsTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          fade(3, CompactRankedRows(rows: rows)),
+          fade(
+            3,
+            WrappedRankedRecap(
+              rows: rows,
+              artworkItems: stats.topImportedArtists
+                  .map(
+                    (a) =>
+                        a.artwork ??
+                        MediaItem.fromJson({
+                          'id': a.name,
+                          'title': a.name,
+                          'variants': [],
+                        }),
+                  )
+                  .toList(),
+              badge: tr('wrapped.imports.top_artist_badge'),
+            ),
+          ),
           const SizedBox(height: 14),
         ],
       ],
@@ -498,7 +534,7 @@ class _AudioTab extends StatelessWidget {
           2,
           LayoutBuilder(
             builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 520;
+              final isWide = constraints.maxWidth >= 300;
               final itemWidth = isWide
                   ? (constraints.maxWidth - 10) / 2
                   : constraints.maxWidth;
@@ -539,12 +575,6 @@ class _AudioTab extends StatelessWidget {
                     'wrapped.audio.recent_tracks_caption',
                     args: ['${stats.recentTracks}'],
                   ),
-                ),
-                FieldMetricData(
-                  icon: Icons.done_all_rounded,
-                  label: tr('wrapped.audio.completed'),
-                  value: '${stats.totalCompleted}',
-                  caption: stats.audioCompletionRateLabel,
                 ),
               ];
 
@@ -595,12 +625,7 @@ class _AudioTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          fade(5, _ArtistBarChart(artists: stats.topArtists)),
-          const SizedBox(height: 14),
-        ],
-
-        if (topTrack != null) ...[
-          fade(6, _TopTrackHero(item: topTrack, stats: stats)),
+          fade(5, _ArtistRecap(artists: stats.topArtists)),
           const SizedBox(height: 14),
         ],
 
@@ -617,28 +642,79 @@ class _AudioTab extends StatelessWidget {
           const SizedBox(height: 10),
           fade(
             7,
-            AnimatedRankedList(
-              rows: stats.topTracks
-                  .map(
-                    (item) => RankedRowData(
-                      title: item.title,
-                      subtitle: item.displaySubtitle,
-                      value:
-                          '${ListeningStats.listenScoreFor(item)} ${tr('wrapped.audio.plays_unit')}',
-                      maxValue: stats.topTracks.isNotEmpty
-                          ? ListeningStats.listenScoreFor(stats.topTracks.first)
-                          : 1,
-                      currentValue: ListeningStats.listenScoreFor(item),
-                      color: kMusicGradient[0],
-                    ),
-                  )
-                  .toList(),
-              masterCtrl: masterCtrl,
+            Column(
+              children: [
+                if (topTrack != null) ...[
+                  _TopTrackHero(item: topTrack, stats: stats),
+                  const SizedBox(height: 14),
+                ],
+                if (stats.topTracks.length > 1)
+                  AnimatedRankedList(
+                    startRank: 2,
+                    artworkItems: stats.topTracks.skip(1).toList(),
+                    rows: stats.topTracks
+                        .skip(1)
+                        .map(
+                          (item) => RankedRowData(
+                            title: item.title,
+                            subtitle: item.displaySubtitle,
+                            value:
+                                '${ListeningStats.listenScoreFor(item)} ${tr('wrapped.audio.plays_unit')}',
+                            maxValue: stats.topTracks.isNotEmpty
+                                ? ListeningStats.listenScoreFor(
+                                    stats.topTracks.first,
+                                  )
+                                : 1,
+                            currentValue: ListeningStats.listenScoreFor(item),
+                            color: kMusicGradient[0],
+                          ),
+                        )
+                        .toList(),
+                    masterCtrl: masterCtrl,
+                  ),
+              ],
             ),
           ),
           const SizedBox(height: 14),
         ],
 
+        if (stats.topFavoriteTracks.isNotEmpty) ...[
+          fade(
+            8,
+            SectionHeader(
+              emoji: '❤️',
+              title: tr('wrapped.audio.favorites_title'),
+              subtitle: tr('wrapped.audio.favorites_subtitle'),
+              gradient: kMusicGradient,
+            ),
+          ),
+          const SizedBox(height: 10),
+          fade(
+            8,
+            WrappedRankedRecap(
+              badge: tr('wrapped.audio.favorite_badge'),
+              artworkItems: stats.topFavoriteTracks,
+              rows: stats.topFavoriteTracks
+                  .map(
+                    (item) => RankedRowData(
+                      title: item.title,
+                      subtitle: item.displaySubtitle,
+                      value: tr(
+                        'wrapped.ui.play_count',
+                        args: ['${ListeningStats.listenScoreFor(item)}'],
+                      ),
+                      maxValue: ListeningStats.listenScoreFor(
+                        stats.topFavoriteTracks.first,
+                      ),
+                      currentValue: ListeningStats.listenScoreFor(item),
+                      color: kMusicGradient.first,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
         if (stats.topRegions.isNotEmpty) ...[
           fade(
             8,
@@ -731,33 +807,25 @@ class _VideoTab extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: kVideoGradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: kVideoGradient[0].withValues(alpha: 0.3),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
+            decoration: wrappedPanelDecoration(context, highlighted: true),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Text('🎬', style: TextStyle(fontSize: 26)),
+                    Icon(
+                      Icons.video_collection_rounded,
+                      color: theme.colorScheme.primary,
+                      size: 26,
+                    ),
                     const SizedBox(width: 8),
-                    Text(
-                      tr('wrapped.video.hero_title'),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
+                    Flexible(
+                      child: Text(
+                        tr('wrapped.video.hero_title'),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ],
@@ -774,10 +842,17 @@ class _VideoTab extends StatelessWidget {
                           ],
                         ),
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: theme.colorScheme.onSurfaceVariant,
                     height: 1.35,
                   ),
                 ),
+                if (stats.topVideos.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  WrappedCoverStrip(
+                    items: stats.topVideos,
+                    aspectRatio: 16 / 9,
+                  ),
+                ],
               ],
             ),
           ),
@@ -788,7 +863,7 @@ class _VideoTab extends StatelessWidget {
           1,
           LayoutBuilder(
             builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 520;
+              final isWide = constraints.maxWidth >= 300;
               final itemWidth = isWide
                   ? (constraints.maxWidth - 10) / 2
                   : constraints.maxWidth;
@@ -878,7 +953,15 @@ class _VideoTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          fade(2, AnimatedRankedList(rows: videoRows, masterCtrl: masterCtrl)),
+          fade(
+            2,
+            WrappedRankedRecap(
+              rows: videoRows,
+              artworkItems: stats.topVideos,
+              artworkAspectRatio: 16 / 9,
+              badge: tr('wrapped.video.top_video_badge'),
+            ),
+          ),
           const SizedBox(height: 14),
         ],
 
@@ -930,54 +1013,51 @@ class FieldMetricTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
-      ),
-      child: Row(
+      decoration: wrappedPanelDecoration(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(data.icon, color: accent, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(data.icon, color: scheme.onSurface, size: 18),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
                   data.label,
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  data.value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  data.caption,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    height: 1.2,
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            data.value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            data.caption,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.2,
             ),
           ),
         ],
@@ -987,92 +1067,106 @@ class FieldMetricTile extends StatelessWidget {
 }
 
 class CompactRankedRows extends StatelessWidget {
-  const CompactRankedRows({super.key, required this.rows});
+  const CompactRankedRows({
+    super.key,
+    required this.rows,
+    this.artworkItems = const [],
+    this.startRank = 1,
+    this.artworkAspectRatio = 1,
+  });
 
   final List<RankedRowData> rows;
+  final List<MediaItem> artworkItems;
+  final int startRank;
+  final double artworkAspectRatio;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Column(
-      children: List.generate(rows.take(5).length, (index) {
-        final row = rows[index];
-        final ratio = row.maxValue <= 0 ? 0.0 : row.currentValue / row.maxValue;
-        final color = kArtistColors[index % kArtistColors.length];
-        return Padding(
-          padding: EdgeInsets.only(bottom: index == rows.length - 1 ? 0 : 10),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.16),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    '${index + 1}',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w900,
+    return StatsCard(
+      child: Column(
+        children: List.generate(rows.take(5).length, (index) {
+          final row = rows[index];
+          final ratio = row.maxValue <= 0
+              ? 0.0
+              : row.currentValue / row.maxValue;
+          final color = kArtistColors[index % kArtistColors.length];
+          return Padding(
+            padding: EdgeInsets.only(bottom: index == rows.length - 1 ? 0 : 10),
+            child: Row(
+              children: [
+                if (index < artworkItems.length) ...[
+                  WrappedArtwork(
+                    item: artworkItems[index],
+                    aspectRatio: artworkAspectRatio,
+                    size: artworkAspectRatio == 1 ? 52 : 88,
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.16),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${index + startRank}',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: scheme.onSurface,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            row.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        row.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          row.value,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: color,
-                            fontWeight: FontWeight.w900,
-                          ),
+                      ),
+                      Text(
+                        row.value,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w900,
                         ),
-                      ],
-                    ),
-                    Text(
-                      row.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
                       ),
-                    ),
-                    const SizedBox(height: 5),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: ratio.clamp(0.0, 1.0),
-                        minHeight: 4,
-                        backgroundColor: scheme.surfaceContainerHighest,
-                        valueColor: AlwaysStoppedAnimation<Color>(color),
+                      Text(
+                        row.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 5),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: ratio.clamp(0.0, 1.0),
+                          minHeight: 4,
+                          backgroundColor: scheme.surfaceContainerHighest,
+                          valueColor: AlwaysStoppedAnimation<Color>(color),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      }),
+              ],
+            ),
+          );
+        }),
+      ),
     );
   }
 }
@@ -1080,6 +1174,53 @@ class CompactRankedRows extends StatelessWidget {
 // ─────────────────────────────────────────────
 // Section Header
 // ─────────────────────────────────────────────
+class WrappedRankedRecap extends StatelessWidget {
+  const WrappedRankedRecap({
+    super.key,
+    required this.rows,
+    required this.artworkItems,
+    required this.badge,
+    this.artworkAspectRatio = 1,
+  });
+  final List<RankedRowData> rows;
+  final List<MediaItem> artworkItems;
+  final String badge;
+  final double artworkAspectRatio;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final first = rows.first;
+    final image = artworkItems.isEmpty
+        ? MediaItem.fromJson({
+            'id': first.title,
+            'title': first.title,
+            'variants': [],
+          })
+        : artworkItems.first;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        WrappedTrackSpotlight(
+          aspectRatio: artworkAspectRatio,
+          item: image.copyWith(title: first.title, subtitle: first.subtitle),
+          badge: badge,
+          caption: first.value,
+        ),
+        if (rows.length > 1) ...[
+          const SizedBox(height: 14),
+          CompactRankedRows(
+            rows: rows.skip(1).toList(),
+            artworkItems: artworkItems.skip(1).toList(),
+            startRank: 2,
+            artworkAspectRatio: artworkAspectRatio,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
     super.key,
@@ -1097,38 +1238,55 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: gradient),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Center(
-            child: Text(emoji, style: const TextStyle(fontSize: 18)),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+    return Container(
+      decoration: wrappedPanelDecoration(context),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(10),
             ),
-            Text(
-              subtitle,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            child: Icon(
+              switch (emoji) {
+                '📊' => Icons.bar_chart_rounded,
+                '🎤' => Icons.mic_rounded,
+                '🏆' => Icons.emoji_events_rounded,
+                '❤️' => Icons.favorite_rounded,
+                '🌍' => Icons.public_rounded,
+                '⏭' => Icons.skip_next_rounded,
+                '📺' => Icons.video_library_rounded,
+                _ => Icons.folder_rounded,
+              },
+              color: theme.colorScheme.onPrimaryContainer,
+              size: 22,
             ),
-          ],
-        ),
-      ],
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1150,35 +1308,27 @@ class _AnimatedHeroCard extends StatelessWidget {
         : stats.topArtists.first.name;
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: kMusicGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: kMusicGradient[0].withValues(alpha: 0.4),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: wrappedPanelDecoration(context, highlighted: true),
       padding: const EdgeInsets.all(22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text('🎵', style: TextStyle(fontSize: 28)),
+              Icon(
+                Icons.graphic_eq_rounded,
+                color: theme.colorScheme.primary,
+                size: 28,
+              ),
               const SizedBox(width: 10),
-              Text(
-                tr('wrapped.title'),
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
+              Flexible(
+                child: Text(
+                  tr('wrapped.title'),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: theme.colorScheme.onSurface,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ),
             ],
@@ -1189,14 +1339,16 @@ class _AnimatedHeroCard extends StatelessWidget {
             animation: counterCtrl,
             builder: (context, child) {
               final current = (stats.totalPlays * counterCtrl.value).round();
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.end,
                 children: [
                   Text(
                     '$current',
                     style: theme.textTheme.displayMedium?.copyWith(
                       fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                      color: theme.colorScheme.onSurface,
                       height: 1,
                     ),
                   ),
@@ -1206,7 +1358,7 @@ class _AnimatedHeroCard extends StatelessWidget {
                     child: Text(
                       tr('wrapped.audio.hero_plays'),
                       style: theme.textTheme.titleSmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.8),
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -1215,7 +1367,9 @@ class _AnimatedHeroCard extends StatelessWidget {
             },
           ),
           const SizedBox(height: 12),
-          Container(height: 1, color: Colors.white.withValues(alpha: 0.25)),
+          Divider(color: theme.colorScheme.outlineVariant),
+          if (stats.topTracks.isNotEmpty)
+            WrappedCoverStrip(items: stats.topTracks),
           const SizedBox(height: 12),
           Text(
             tr(
@@ -1226,7 +1380,7 @@ class _AnimatedHeroCard extends StatelessWidget {
               ],
             ),
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.9),
+              color: theme.colorScheme.onSurfaceVariant,
               height: 1.4,
             ),
           ),
@@ -1244,9 +1398,7 @@ class _MoodCard extends StatelessWidget {
   final ListeningStats stats;
 
   String get _emoji {
-    final ratio = stats.totalPlays == 0
-        ? 0.0
-        : stats.totalCompleted / stats.totalPlays;
+    final ratio = stats.moodCompletionRatio;
     if (ratio >= 0.75) return '🔥';
     if (ratio >= 0.5) return '🎯';
     if (ratio >= 0.25) return '⚡';
@@ -1254,9 +1406,7 @@ class _MoodCard extends StatelessWidget {
   }
 
   String get _mood {
-    final ratio = stats.totalPlays == 0
-        ? 0.0
-        : stats.totalCompleted / stats.totalPlays;
+    final ratio = stats.moodCompletionRatio;
     if (ratio >= 0.75) return tr('wrapped.audio.mood_faithful');
     if (ratio >= 0.5) return tr('wrapped.audio.mood_melomaniac');
     if (ratio >= 0.25) return tr('wrapped.audio.mood_explorer');
@@ -1264,9 +1414,7 @@ class _MoodCard extends StatelessWidget {
   }
 
   String get _desc {
-    final ratio = stats.totalPlays == 0
-        ? 0.0
-        : stats.totalCompleted / stats.totalPlays;
+    final ratio = stats.moodCompletionRatio;
     if (ratio >= 0.75) {
       return tr('wrapped.audio.mood_faithful_desc');
     }
@@ -1280,9 +1428,7 @@ class _MoodCard extends StatelessWidget {
   }
 
   Color get _color {
-    final ratio = stats.totalPlays == 0
-        ? 0.0
-        : stats.totalCompleted / stats.totalPlays;
+    final ratio = stats.moodCompletionRatio;
     if (ratio >= 0.75) return const Color(0xFFFF6B6B);
     if (ratio >= 0.5) return const Color(0xFF06D6A0);
     if (ratio >= 0.25) return const Color(0xFFFFD166);
@@ -1293,11 +1439,7 @@ class _MoodCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      decoration: BoxDecoration(
-        color: _color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _color.withValues(alpha: 0.35), width: 1.5),
-      ),
+      decoration: wrappedPanelDecoration(context),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
@@ -1317,7 +1459,7 @@ class _MoodCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
                   children: [
                     Text(
                       tr('wrapped.audio.mood_prefix'),
@@ -1329,7 +1471,7 @@ class _MoodCard extends StatelessWidget {
                       _mood,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w800,
-                        color: _color,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                   ],
@@ -1339,6 +1481,15 @@ class _MoodCard extends StatelessWidget {
                   _desc,
                   style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
                 ),
+                if (stats.moodIncludesEstimates) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    tr('wrapped.audio.mood_legacy_caption'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1413,19 +1564,61 @@ class _MetricsCardState extends State<_MetricsCard>
                 _ProgressMetric(
                   label: tr('wrapped.audio.avg_listened'),
                   value: s.averageProgressPercent / 100,
-                  displayText: '${s.averageProgressPercent}%',
+                  displayText: s.hasAverageCoverage
+                      ? '${s.averageProgressPercent}%'
+                      : '—',
                   color: kMusicGradient[0],
                   anim: _anim.value,
                 ),
+                Text(
+                  tr(
+                    s.hasAverageCoverage
+                        ? 'wrapped.audio.coverage_caption'
+                        : 'wrapped.audio.coverage_empty',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 _ProgressMetric(
-                  label: tr('wrapped.audio.completion_rate'),
-                  value: s.totalPlays == 0
-                      ? 0
-                      : s.totalCompleted / s.totalPlays,
-                  displayText: '${s.totalCompleted} / ${s.totalPlays}',
+                  label: tr('wrapped.audio.listened_rate'),
+                  value: s.listenedRate,
+                  displayText: s.combinedListened + s.combinedSkips == 0
+                      ? '—'
+                      : '${(s.listenedRate * 100).round()}%',
                   color: const Color(0xFF06D6A0),
                   anim: _anim.value,
+                ),
+                Text(
+                  tr('wrapped.audio.listened_rate_caption'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _ProgressMetric(
+                  label: tr('wrapped.audio.favorite_rate'),
+                  value: s.importedAudioItems == 0
+                      ? 0
+                      : s.favoriteAudioCount / s.importedAudioItems,
+                  displayText: s.importedAudioItems == 0
+                      ? '—'
+                      : '${(s.favoriteAudioCount / s.importedAudioItems * 100).round()}%',
+                  color: scheme.primary,
+                  anim: _anim.value,
+                ),
+                Text(
+                  tr(
+                    'wrapped.audio.favorite_rate_caption',
+                    args: [
+                      '${s.favoriteAudioCount}',
+                      '${s.importedAudioItems}',
+                    ],
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _ProgressMetric(
@@ -1480,17 +1673,19 @@ class _ProgressMetric extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
             ),
             Text(
               displayText,
               style: theme.textTheme.labelMedium?.copyWith(
                 fontWeight: FontWeight.w700,
-                color: color,
+                color: theme.colorScheme.onSurface,
               ),
             ),
           ],
@@ -1511,146 +1706,42 @@ class _ProgressMetric extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-// Artist Bar Chart horizontal
+// Artist recap: featured first place and illustrated remaining rows
 // ─────────────────────────────────────────────
-class _ArtistBarChart extends StatefulWidget {
-  const _ArtistBarChart({required this.artists});
+class _ArtistRecap extends StatelessWidget {
+  const _ArtistRecap({required this.artists});
   final List<ArtistStats> artists;
 
   @override
-  State<_ArtistBarChart> createState() => _ArtistBarChartState();
-}
-
-class _ArtistBarChartState extends State<_ArtistBarChart>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _ctrl.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final artists = widget.artists;
-    final maxPlays = artists.isEmpty
-        ? 1
-        : artists.map((a) => a.plays).reduce(max);
-
-    return StatsCard(
-      child: AnimatedBuilder(
-        animation: _anim,
-        builder: (context, child) {
-          return Column(
-            children: List.generate(artists.length, (i) {
-              final artist = artists[i];
-              final ratio = maxPlays == 0 ? 0.0 : artist.plays / maxPlays;
-              final animRatio = ratio * _anim.value;
-              final color = kArtistColors[i % kArtistColors.length];
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${i + 1}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: color,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            artist.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '${artist.plays} plays',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    Row(
-                      children: [
-                        const SizedBox(width: 30),
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Stack(
-                              children: [
-                                Container(
-                                  height: 10,
-                                  color: scheme.surfaceContainerHighest,
-                                ),
-                                FractionallySizedBox(
-                                  widthFactor: animRatio.clamp(0.0, 1.0),
-                                  child: Container(
-                                    height: 10,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          color,
-                                          color.withValues(alpha: 0.6),
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            }),
-          );
-        },
-      ),
+    return WrappedRankedRecap(
+      badge: tr('wrapped.audio.top_artist_badge'),
+      artworkItems: artists
+          .map(
+            (a) =>
+                a.artwork ??
+                MediaItem.fromJson({
+                  'id': a.name,
+                  'title': a.name,
+                  'variants': [],
+                }),
+          )
+          .toList(),
+      rows: artists
+          .map(
+            (a) => RankedRowData(
+              title: a.name,
+              subtitle: tr(
+                'wrapped.imports.imported_songs',
+                args: ['${a.tracks}'],
+              ),
+              value: tr('wrapped.ui.play_count', args: ['${a.plays}']),
+              maxValue: artists.isEmpty ? 1 : artists.first.plays,
+              currentValue: a.plays,
+              color: kMusicGradient.first,
+            ),
+          )
+          .toList(),
     );
   }
 }
@@ -1665,94 +1756,11 @@ class _TopTrackHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final plays = ListeningStats.listenScoreFor(item);
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: kMusicGradient[0].withValues(alpha: 0.4),
-          width: 1.5,
-        ),
-      ),
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: kMusicGradient),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.music_note_rounded,
-              color: Colors.white,
-              size: 32,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: kMusicGradient),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    tr('wrapped.labels.top_track_badge'),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  item.displaySubtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.65),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$plays reproducciones',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: kMusicGradient[1],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return WrappedTrackSpotlight(
+      item: item,
+      badge: tr('wrapped.labels.top_track_badge'),
+      caption: tr('wrapped.ui.play_count', args: ['$plays']),
     );
   }
 }
@@ -1765,9 +1773,15 @@ class AnimatedRankedList extends StatefulWidget {
     super.key,
     required this.rows,
     required this.masterCtrl,
+    this.artworkItems = const [],
+    this.startRank = 1,
+    this.artworkAspectRatio = 1,
   });
 
   final List<RankedRowData> rows;
+  final List<MediaItem> artworkItems;
+  final int startRank;
+  final double artworkAspectRatio;
   final AnimationController masterCtrl;
 
   @override
@@ -1825,13 +1839,21 @@ class AnimatedRankedListState extends State<AnimatedRankedList>
                     ),
                   Row(
                     children: [
+                      if (i < widget.artworkItems.length) ...[
+                        WrappedArtwork(
+                          item: widget.artworkItems[i],
+                          aspectRatio: widget.artworkAspectRatio,
+                          size: widget.artworkAspectRatio == 1 ? 52 : 88,
+                        ),
+                        const SizedBox(width: 10),
+                      ],
                       SizedBox(
                         width: 24,
                         child: Text(
-                          '${i + 1}',
+                          '${i + widget.startRank}',
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w900,
-                            color: color,
+                            color: scheme.onSurface,
                           ),
                         ),
                       ),
@@ -1863,7 +1885,7 @@ class AnimatedRankedListState extends State<AnimatedRankedList>
                                 Text(
                                   row.value,
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    color: color,
+                                    color: scheme.onSurface,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -1938,15 +1960,13 @@ class _DonutDistributionCardState extends State<_DonutDistributionCard>
     final s = widget.stats;
     final audio = s.importedAudioItems.toDouble();
     final video = s.importedVideoItems.toDouble();
-    final favs = s.topFavoriteTracks.length.toDouble();
-    final total = audio + video + favs;
+    final total = audio + video;
 
     if (total == 0) return const SizedBox.shrink();
 
     final sections = [
       _DonutSection('Audio', audio, kMusicGradient[0]),
       _DonutSection('Video', video, kVideoGradient[0]),
-      _DonutSection('Favoritos', favs, const Color(0xFF06D6A0)),
     ].where((s) => s.value > 0).toList();
 
     return StatsCard(
@@ -2123,7 +2143,7 @@ class _MonthlyImportsChartState extends State<_MonthlyImportsChart>
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipItem: (group, gIdx, rod, rIdx) {
                       return BarTooltipItem(
-                        '${months[gIdx].label}\n${rod.toY.toInt()} imports',
+                        '${months[gIdx].label}\n${tr('wrapped.ui.import_count', args: ['${rod.toY.toInt()}'])}',
                         const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
@@ -2272,7 +2292,7 @@ class _RegionsBarCardState extends State<_RegionsBarCard>
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
-                              color: color,
+                              color: scheme.onSurface,
                             ),
                           ),
                         ),
@@ -2286,7 +2306,7 @@ class _RegionsBarCardState extends State<_RegionsBarCard>
                           ),
                         ),
                         Text(
-                          '${r.plays} plays',
+                          tr('wrapped.ui.play_count', args: ['${r.plays}']),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
@@ -2362,11 +2382,9 @@ class _CompletedVsSkippedCardState extends State<_CompletedVsSkippedCard>
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final s = widget.stats;
-    final totalSkips = s.mostSkipped.fold<int>(
-      0,
-      (acc, i) => acc + i.skipCount,
-    );
-    final total = s.totalCompleted + totalSkips;
+    final totalSkips = s.observedSkips;
+    final totalCompleted = s.observedCompleted;
+    final total = totalCompleted + totalSkips;
 
     return StatsCard(
       child: Column(
@@ -2376,7 +2394,7 @@ class _CompletedVsSkippedCardState extends State<_CompletedVsSkippedCard>
             children: [
               StatBubble(
                 label: tr('wrapped.audio.completed'),
-                value: '${s.totalCompleted}',
+                value: '$totalCompleted',
                 color: const Color(0xFF06D6A0),
               ),
               const SizedBox(width: 12),
@@ -2392,8 +2410,8 @@ class _CompletedVsSkippedCardState extends State<_CompletedVsSkippedCard>
             AnimatedBuilder(
               animation: _anim,
               builder: (context, child) {
-                final completedRatio =
-                    ((s.totalCompleted / total) * _anim.value).clamp(0.0, 1.0);
+                final completedRatio = ((totalCompleted / total) * _anim.value)
+                    .clamp(0.0, 1.0);
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2437,12 +2455,21 @@ class _CompletedVsSkippedCardState extends State<_CompletedVsSkippedCard>
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      '${(s.totalCompleted / total * 100).toStringAsFixed(0)}% de tus reproducciones fueron completadas',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                    if (s.observedCompletionSamples > 0)
+                      Text(
+                        tr(
+                          'wrapped.ui.completion_ratio',
+                          args: [
+                            (s.observedCompleted /
+                                    s.observedCompletionSamples *
+                                    100)
+                                .toStringAsFixed(0),
+                          ],
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
                   ],
                 );
               },
@@ -2483,7 +2510,7 @@ class StatBubble extends StatelessWidget {
               value,
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w900,
-                color: color,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             Text(
@@ -2508,20 +2535,8 @@ class StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: wrappedPanelDecoration(context),
       padding: const EdgeInsets.all(16),
       child: child,
     );

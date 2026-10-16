@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../../app/utils/artist_credit_parser.dart';
 import '../../../artists/data/artist_store.dart';
+import '../../application/wrapped_artist_artwork.dart';
 import '../../../sources/controller/sources_controller.dart';
 import '../../../world_mode/agent/local_affinity_engine.dart';
 import '../../../world_mode/domain/entities/world_region_catalog.dart';
@@ -33,11 +34,13 @@ class ArtistStats {
     required this.name,
     required this.plays,
     required this.tracks,
+    this.artwork,
   });
 
   final String name;
   final int plays;
   final int tracks;
+  final MediaItem? artwork;
 }
 
 class ImportArtistStats {
@@ -45,11 +48,13 @@ class ImportArtistStats {
     required this.name,
     required this.imports,
     required this.tracks,
+    this.artwork,
   });
 
   final String name;
   final int imports;
   final int tracks;
+  final MediaItem? artwork;
 }
 
 class ImportPeak {
@@ -101,7 +106,11 @@ class ListeningStats {
   const ListeningStats({
     required this.totalPlays,
     required this.totalCompleted,
+    this.favoriteAudioCount = 0,
+    required this.totalSkips,
     required this.averageProgressPercent,
+    this.hasAverageCoverage = false,
+    this.audioCompletionSummary = const {},
     required this.recentTracks,
     required this.totalImportFiles,
     required this.importedAudioFiles,
@@ -150,7 +159,37 @@ class ListeningStats {
 
   final int totalPlays;
   final int totalCompleted;
+  final int favoriteAudioCount;
+  final int totalSkips;
   final int averageProgressPercent;
+  final bool hasAverageCoverage;
+  final Map<String, int> audioCompletionSummary;
+  int get observedCompletionSamples => audioCompletionSummary['samples'] ?? 0;
+  int get observedCompleted => audioCompletionSummary['completed'] ?? 0;
+  int get observedSkips => audioCompletionSummary['skips'] ?? 0;
+  int get combinedListened =>
+      (audioCompletionSummary['legacyCompleted'] ?? 0) +
+      (audioCompletionSummary['legacyEstimated'] ?? 0) +
+      observedCompleted;
+  int get combinedSkips =>
+      (audioCompletionSummary['legacySkips'] ?? 0) + observedSkips;
+  double get listenedRate => combinedListened + combinedSkips == 0
+      ? 0
+      : combinedListened / (combinedListened + combinedSkips);
+  bool get moodIncludesEstimates =>
+      (audioCompletionSummary['legacyEstimated'] ?? 0) > 0;
+  double get moodCompletionRatio {
+    final plays =
+        (audioCompletionSummary['legacyPlays'] ?? 0) +
+        observedCompletionSamples;
+    if (plays == 0) return 0;
+    final completed =
+        (audioCompletionSummary['legacyCompleted'] ?? 0) +
+        (audioCompletionSummary['legacyEstimated'] ?? 0) +
+        observedCompleted;
+    return (completed / plays).clamp(0.0, 1.0);
+  }
+
   final int recentTracks;
   final int totalImportFiles;
   final int importedAudioFiles;
@@ -210,12 +249,20 @@ class ListeningStats {
     List<MediaItem> items, {
     ArtistStore? artistStore,
     SourcesController? sourcesController,
+    List<MediaItem>? audioPlaybackItems,
+    List<MediaItem>? videoPlaybackItems,
+    double? averageAudioCoverage,
+    Map<String, int> audioCompletionSummary = const {},
   }) {
-    final audioItems = items
+    final audioItems = (audioPlaybackItems ?? items)
         .where((item) => item.hasAudioLocal)
         .toList(growable: false);
-    final videoItems = items
-        .where((item) => item.hasVideoLocal && !item.hasAudioLocal)
+    final videoItems = (videoPlaybackItems ?? items)
+        .where(
+          (item) =>
+              item.hasVideoLocal &&
+              (videoPlaybackItems != null || !item.hasAudioLocal),
+        )
         .toList(growable: false);
 
     final listened = audioItems
@@ -245,16 +292,7 @@ class ListeningStats {
       0,
       (sum, item) => sum + effectiveCompletedFor(item),
     );
-    final progressItems = listened
-        .where((item) => item.avgListenProgress > 0)
-        .toList(growable: false);
-    final averageProgress = progressItems.isEmpty
-        ? 0
-        : progressItems.fold<double>(
-                0,
-                (sum, item) => sum + item.avgListenProgress.clamp(0, 1),
-              ) /
-              progressItems.length;
+    final averageProgress = averageAudioCoverage ?? 0;
 
     final recentCutoff = DateTime.now()
         .subtract(const Duration(days: 30))
@@ -288,6 +326,20 @@ class ListeningStats {
     final skipped = listened.where((item) => item.skipCount > 0).toList()
       ..sort((a, b) => b.skipCount.compareTo(a.skipCount));
     final importStats = ImportStats.fromItems(items);
+    final profiles = artistStore?.readAllSync() ?? [];
+    MediaItem artwork(String name) =>
+        wrappedArtistArtwork(name, profiles: profiles, items: items);
+    List<ImportArtistStats> importedArtists(List<ImportArtistStats> artists) =>
+        artists
+            .map(
+              (a) => ImportArtistStats(
+                name: a.name,
+                imports: a.imports,
+                tracks: a.tracks,
+                artwork: artwork(a.name),
+              ),
+            )
+            .toList(growable: false);
     final videosByPlays =
         watched.where((item) => listenScoreFor(item) > 0).toList()
           ..sort((a, b) {
@@ -497,7 +549,11 @@ class ListeningStats {
     return ListeningStats(
       totalPlays: totalPlays,
       totalCompleted: totalCompleted,
+      favoriteAudioCount: audioItems.where((item) => item.isFavorite).length,
+      totalSkips: listened.fold<int>(0, (sum, item) => sum + item.skipCount),
       averageProgressPercent: (averageProgress * 100).round().clamp(0, 100),
+      hasAverageCoverage: averageAudioCoverage != null,
+      audioCompletionSummary: audioCompletionSummary,
       recentTracks: recentTracks,
       totalImportFiles: importStats.totalFiles,
       importedAudioFiles: importStats.audioFiles,
@@ -511,8 +567,10 @@ class ListeningStats {
               'wrapped.labels.latest_import',
               args: [_relativeDateLabel(importStats.latestImportAt)],
             ),
-      topImportedArtistsLastMonth: importStats.topArtistsLastMonth,
-      topImportedArtists: importStats.topArtistsAllTime,
+      topImportedArtistsLastMonth: importedArtists(
+        importStats.topArtistsLastMonth,
+      ),
+      topImportedArtists: importedArtists(importStats.topArtistsAllTime),
       topImportMonthLabel: importStats.topMonth.count <= 0
           ? tr('wrapped.labels.no_data')
           : importStats.topMonth.label,
@@ -527,7 +585,16 @@ class ListeningStats {
       topTracks: byPlays.take(5).toList(growable: false),
       topFavoriteTracks: favoritesByPlays.take(5).toList(growable: false),
       topRegions: topRegions,
-      topArtists: _buildTopArtists(listened),
+      topArtists: _buildTopArtists(listened)
+          .map(
+            (a) => ArtistStats(
+              name: a.name,
+              plays: a.plays,
+              tracks: a.tracks,
+              artwork: artwork(a.name),
+            ),
+          )
+          .toList(growable: false),
       mostCompleted: completed.take(5).toList(growable: false),
       mostSkipped: skipped.take(5).toList(growable: false),
       monthlyImports: monthlyImports,
@@ -702,11 +769,9 @@ class ListeningStats {
   }
 
   static int effectiveCompletedFor(MediaItem item) {
-    if (item.fullListenCount > 0) {
-      return item.fullListenCount;
-    }
-    if (item.playCount <= 0) return 0;
-    return max(item.playCount - item.skipCount, 0);
+    // A missing/zero completion counter is not evidence of completion.
+    // Preserve explicit legacy counts just like newly recorded completions.
+    return max(item.fullListenCount, 0);
   }
 
   static int listenScoreFor(MediaItem item) {
@@ -722,8 +787,8 @@ class ListeningStats {
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     var value = bytes.toDouble();
     var unit = 0;
-    while (value >= 1024 && unit < units.length - 1) {
-      value /= 1024;
+    while (value >= 1000 && unit < units.length - 1) {
+      value /= 1000;
       unit++;
     }
     final decimals = unit == 0 || value >= 10 ? 0 : 1;
@@ -806,30 +871,29 @@ class ImportStats {
     for (final item in items) {
       var hasAudio = false;
       var hasVideo = false;
+      final importedAt = item.originalImportAt;
       var audioImportsForItem = 0;
       var recentAudioImportsForItem = 0;
       for (final variant in item.variants) {
         if ((variant.localPath ?? '').trim().isEmpty) continue;
         totalFiles++;
         totalBytes += max(variant.size ?? 0, 0);
-        if (variant.createdAt > latestImportAt) {
-          latestImportAt = variant.createdAt;
-        }
         if (variant.kind == MediaVariantKind.audio) {
           audioFiles++;
           hasAudio = true;
           audioImportsForItem++;
-          if (variant.createdAt >= lastMonthCutoff) {
+          if (importedAt >= lastMonthCutoff) {
             recentAudioImportsForItem++;
           }
         } else {
           videoFiles++;
           hasVideo = true;
         }
-        if (variant.createdAt > 0) {
-          _increment(monthCounts, _monthKey(variant.createdAt));
-          _increment(weekCounts, _weekKey(variant.createdAt));
-        }
+      }
+      if ((hasAudio || hasVideo) && importedAt > 0) {
+        if (importedAt > latestImportAt) latestImportAt = importedAt;
+        _increment(monthCounts, _monthKey(importedAt));
+        _increment(weekCounts, _weekKey(importedAt));
       }
       if (hasAudio) audioItems++;
       if (hasVideo) videoItems++;

@@ -1,0 +1,298 @@
+part of 'playback_repository.dart';
+
+const catalogKeys = ['local_library_items', 'playlists', 'artist_profiles'];
+
+int? _catalogImportedAt(Map<String, dynamic> json) {
+  final stored = (json['importedAt'] as num?)?.toInt();
+  if (stored != null && stored > 0) return stored;
+  int? first;
+  for (final variant in (json['variants'] as List? ?? []).whereType<Map>()) {
+    final date = (variant['createdAt'] as num?)?.toInt() ?? 0;
+    if ((variant['localPath'] as String? ?? '').trim().isEmpty || date <= 0) {
+      continue;
+    }
+    if (first == null || date < first) first = date;
+  }
+  return first;
+}
+
+extension CatalogPersistence on PlaybackRepository {
+  Future<T> _catalogCommand<T>(Future<T> Function() action) {
+    if (_closing) return Future.error(StateError('Repository is closing'));
+    final result = Completer<T>();
+    _tail = _tail.then((_) async {
+      try {
+        result.complete(await action());
+      } catch (error, stack) {
+        result.completeError(error, stack);
+      }
+    });
+    return result.future;
+  }
+
+  Future<void> importCatalog({
+    required String sourceId,
+    required String sourceHash,
+    required Map<String, List<dynamic>> data,
+  }) {
+    return _catalogCommand(
+      () => _database.transaction(() async {
+        final receipt = await _database
+            .customSelect(
+              'SELECT source_hash FROM catalog_import WHERE source_id=?',
+              variables: [Variable(sourceId)],
+            )
+            .getSingleOrNull();
+        if (receipt != null) {
+          if (receipt.read<String>('source_hash') != sourceHash) {
+            throw StateError('Catalog import source changed');
+          }
+          return;
+        }
+        for (final table in [
+          'library_record',
+          'playlist_record',
+          'artist_record',
+        ]) {
+          if ((await _database
+                  .customSelect('SELECT 1 FROM $table LIMIT 1')
+                  .get())
+              .isNotEmpty) {
+            throw StateError(
+              'Catalog baseline import requires an empty catalog',
+            );
+          }
+        }
+        for (final key in catalogKeys) {
+          await _replaceCatalog(key, data[key] ?? []);
+        }
+        await _rebuildArtistRelations();
+        await _database.customStatement(
+          'INSERT INTO catalog_import VALUES (?,?,?)',
+          [sourceId, sourceHash, DateTime.now().millisecondsSinceEpoch],
+        );
+      }),
+    );
+  }
+
+  Future<void> replaceCatalog(String key, List<dynamic> data) =>
+      _catalogCommand(
+        () => _database.transaction(() async {
+          await _replaceCatalog(key, data);
+          await _rebuildArtistRelations();
+        }),
+      );
+
+  Future<void> _replaceCatalog(String key, List<dynamic> data) async {
+    final (table, owner, idField) = switch (key) {
+      'local_library_items' => ('library_record', 'library', 'id'),
+      'playlists' => ('playlist_record', 'playlist', 'id'),
+      'artist_profiles' => ('artist_record', 'artist', 'key'),
+      _ => throw ArgumentError.value(key, 'key'),
+    };
+    if (key == 'local_library_items') {
+      final ids = data.whereType<Map>().map((r) => r['id']).toSet();
+      for (final row
+          in await _database
+              .customSelect('SELECT id FROM library_record')
+              .get()) {
+        if (!ids.contains(row.read<String>('id'))) {
+          await _database.customStatement(
+            'DELETE FROM library_record WHERE id=?',
+            [row.read<String>('id')],
+          );
+        }
+      }
+    } else {
+      await _database.customStatement('DELETE FROM $table');
+    }
+    await _database.customStatement(
+      'DELETE FROM catalog_file_reference WHERE owner_kind=?',
+      [owner],
+    );
+    Future<void> file(
+      String id,
+      String slot,
+      dynamic value,
+      String kind,
+    ) async {
+      if (value == null || value == '') return;
+      if (value is! String) throw FormatException('Invalid file locator');
+      await _database.customStatement(
+        'INSERT INTO catalog_file_reference VALUES (?,?,?,?,?)',
+        [owner, id, slot, kind, value],
+      );
+    }
+
+    final seenIds = <String>{};
+    for (var ordinal = 0; ordinal < data.length; ordinal++) {
+      final raw = data[ordinal];
+      if (raw is! Map) throw FormatException('Invalid catalog row');
+      final json = Map<String, dynamic>.from(raw);
+      if (key == 'artist_profiles') {
+        json['key'] = await _artistIdentity(json['key'] as String);
+        final members = <String>[];
+        for (final member in json['memberKeys'] as List? ?? []) {
+          members.add(await _artistIdentity(member as String));
+        }
+        json['memberKeys'] = members;
+      }
+      final id = json[idField];
+      if (id is! String || id.isEmpty) {
+        throw FormatException('Missing catalog identity');
+      }
+      if (!seenIds.add(id)) throw FormatException('Duplicate catalog identity');
+      if (key == 'local_library_items') {
+        final previous = await _database
+            .customSelect(
+              'SELECT metadata_json FROM library_record WHERE id=?',
+              variables: [Variable(id)],
+            )
+            .getSingleOrNull();
+        int? oldDate;
+        if (previous != null) {
+          final old =
+              jsonDecode(previous.read<String>('metadata_json'))
+                  as Map<String, dynamic>;
+          oldDate = _catalogImportedAt(old);
+          if (oldDate == null) {
+            old['variants'] =
+                (await _database
+                        .customSelect(
+                          'SELECT payload_json FROM library_variant WHERE item_id=?',
+                          variables: [Variable(id)],
+                        )
+                        .get())
+                    .map((row) => jsonDecode(row.read<String>('payload_json')))
+                    .toList();
+            oldDate = _catalogImportedAt(old);
+          }
+        }
+        final importDate = oldDate ?? _catalogImportedAt(json);
+        if (importDate != null) {
+          json['importedAt'] = importDate;
+        } else {
+          json.remove('importedAt');
+        }
+      }
+      final variants = key == 'local_library_items'
+          ? json.remove('variants')
+          : null;
+      final members = key == 'playlists' ? json.remove('itemIds') : null;
+      if (key == 'local_library_items') {
+        await _database.customStatement(
+          'DELETE FROM library_variant WHERE item_id=?',
+          [id],
+        );
+      }
+      await _database.customStatement(
+        'INSERT INTO $table VALUES (?,?,?) ${key == 'local_library_items' ? 'ON CONFLICT(id) DO UPDATE SET ordinal=excluded.ordinal,metadata_json=excluded.metadata_json' : ''}',
+        [id, ordinal, jsonEncode(json)],
+      );
+      await file(
+        id,
+        'thumbnailLocalPath',
+        json['thumbnailLocalPath'],
+        'local_path',
+      );
+      await file(id, 'thumbnail', json['thumbnail'], 'http_url');
+      await file(id, 'coverLocalPath', json['coverLocalPath'], 'local_path');
+      if (variants != null && variants is! List) {
+        throw FormatException('Invalid variants');
+      }
+      final variantList = variants as List? ?? [];
+      for (var i = 0; i < variantList.length; i++) {
+        final variant = Map<String, dynamic>.from(variantList[i] as Map);
+        await _database.customStatement(
+          'INSERT INTO library_variant VALUES (?,?,?,?,?)',
+          [id, i, variant['kind'], variant['format'], jsonEncode(variant)],
+        );
+        await file(id, 'variant:$i', variant['localPath'], 'local_path');
+      }
+      if (members != null && members is! List) {
+        throw FormatException('Invalid playlist members');
+      }
+      final memberList = members as List? ?? [];
+      for (var i = 0; i < memberList.length; i++) {
+        if (memberList[i] is! String) {
+          throw FormatException('Invalid playlist member');
+        }
+        await _database.customStatement(
+          'INSERT INTO playlist_member VALUES (?,?,?)',
+          [id, i, memberList[i]],
+        );
+      }
+    }
+  }
+
+  Future<Map<String, List<dynamic>>> readCatalog() => _catalogCommand(
+    () => _database.transaction(() async {
+      final result = <String, List<dynamic>>{};
+      for (final key in catalogKeys) {
+        final (table, idColumn) = switch (key) {
+          'local_library_items' => ('library_record', 'id'),
+          'playlists' => ('playlist_record', 'id'),
+          _ => ('artist_record', 'artist_key'),
+        };
+        final list = <dynamic>[];
+        final rows = await _database
+            .customSelect('SELECT * FROM $table ORDER BY ordinal')
+            .get();
+        for (final row in rows) {
+          final json =
+              jsonDecode(row.read<String>('metadata_json'))
+                  as Map<String, dynamic>;
+          final id = row.read<String>(idColumn);
+          if (key == 'local_library_items') {
+            json['variants'] =
+                (await _database
+                        .customSelect(
+                          'SELECT payload_json FROM library_variant WHERE item_id=? ORDER BY ordinal',
+                          variables: [Variable(id)],
+                        )
+                        .get())
+                    .map((v) => jsonDecode(v.read<String>('payload_json')))
+                    .toList();
+            if (!json.containsKey('importedAt') ||
+                ((json['importedAt'] as num?)?.toInt() ?? 0) <= 0) {
+              final date = _catalogImportedAt(json);
+              if (date != null) {
+                json['importedAt'] = date;
+                final metadata = Map<String, dynamic>.from(json)
+                  ..remove('variants');
+                await _database.customStatement(
+                  'UPDATE library_record SET metadata_json=? WHERE id=?',
+                  [jsonEncode(metadata), id],
+                );
+              }
+            }
+          } else if (key == 'playlists') {
+            json['itemIds'] =
+                (await _database
+                        .customSelect(
+                          'SELECT item_key FROM playlist_member WHERE playlist_id=? ORDER BY ordinal',
+                          variables: [Variable(id)],
+                        )
+                        .get())
+                    .map((v) => v.read<String>('item_key'))
+                    .toList();
+          }
+          if (key == 'artist_profiles' && json['kind'] == 'band') {
+            json['memberKeys'] =
+                (await _database
+                        .customSelect(
+                          'SELECT member_key FROM artist_membership WHERE band_key=? ORDER BY ordinal',
+                          variables: [Variable(id)],
+                        )
+                        .get())
+                    .map((r) => r.read<String>('member_key'))
+                    .toList();
+          }
+          list.add(json);
+        }
+        result[key] = list;
+      }
+      return result;
+    }),
+  );
+}

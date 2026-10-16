@@ -7,25 +7,72 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 import '../../../app/models/media_item.dart';
+import '../../../app/data/local/catalog_storage.dart';
+import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/controllers/media_actions_controller.dart';
 import '../../../app/controllers/navigation_controller.dart';
-import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
 import 'package:listenfy/Modules/Home/Controller/home_controller.dart';
 import '../../../app/routes/app_routes.dart';
 import '../controller/artists_controller.dart';
 import '../domain/artist_profile.dart';
+import '../domain/artist_relationship_resolver.dart';
 import '../../edit/controller/edit_entity_controller.dart';
 import '../../../app/ui/widgets/dialogs/sort_options_sheet.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../app/ui/widgets/media/app_media_items_view.dart';
 import 'widgets/artist_avatar.dart';
+import 'widgets/artist_identity_dialog.dart';
 import '../../../app/ui/widgets/branding/listenfy_logo.dart';
 
 class ArtistDetailPage extends GetView<ArtistsController> {
   const ArtistDetailPage({super.key, required this.artistKey});
 
   final String artistKey;
+  Future<void> _identify(MediaItem item) async {
+    final storage = Get.find<CatalogStorage>();
+    final choices = <Map<String, dynamic>>[];
+    final bound = storage.creditsFor(item.id, item.subtitle);
+    final assigned = <String, String>{};
+    if (bound?.artistKeys != null) {
+      for (
+        var i = 0;
+        i < bound!.allArtists.length && i < bound.artistKeys!.length;
+        i++
+      ) {
+        assigned[ArtistCreditParser.normalizeKey(bound.allArtists[i])] =
+            bound.artistKeys![i];
+      }
+    }
+    for (final name in ArtistCreditParser.parse(item.subtitle).allArtists) {
+      final candidates = storage.candidatesFor(name);
+      final existing = assigned[ArtistCreditParser.normalizeKey(name)];
+      if (existing != null && candidates.any((c) => c['id'] == existing)) {
+        choices.add({'id': existing});
+        continue;
+      }
+      if (candidates.length <= 1) {
+        choices.add(
+          candidates.isEmpty ? <String, dynamic>{} : candidates.single,
+        );
+        continue;
+      }
+      final selected = await Get.dialog<Map<String, dynamic>>(
+        ArtistIdentityDialog(
+          title: tr('artist_identity.select', args: [name]),
+          candidates: candidates,
+        ),
+      );
+      if (selected == null) return;
+      choices.add(selected);
+    }
+    try {
+      await storage.assignArtistCredits(item.id, choices);
+      await controller.load();
+    } catch (_) {
+      Get.snackbar(tr('edit.entity_type.artist'), tr('artist_identity.failed'));
+    }
+  }
 
   String _localizedCountry(ArtistGroup artist, BuildContext context) {
     final byCode = CountryCatalog.countryNameFromCodeForLocale(
@@ -82,13 +129,14 @@ class ArtistDetailPage extends GetView<ArtistsController> {
 
       final primarySongs = resolved.items
           .where((item) {
-            final credits = ArtistCreditParser.parse(item.subtitle);
-            return credits.isPrimaryArtistKey(resolved.key);
+            final credits = resolveArtistCredits(item);
+            return resolved.key.startsWith('pending:') ||
+                credits.isPrimaryArtistKey(resolved.key);
           })
           .toList(growable: false);
       final collaborationSongs = resolved.items
           .where((item) {
-            final credits = ArtistCreditParser.parse(item.subtitle);
+            final credits = resolveArtistCredits(item);
             return credits.isCollaborationForArtistKey(resolved.key);
           })
           .toList(growable: false);
@@ -106,7 +154,7 @@ class ArtistDetailPage extends GetView<ArtistsController> {
           memberArtists.expand((entry) => entry.items),
         );
         for (final item in memberPool) {
-          final credits = ArtistCreditParser.parse(item.subtitle);
+          final credits = resolveArtistCredits(item);
           if (credits.containsArtistKey(resolved.key)) continue;
 
           final memberAsPrimary = memberKeySet.any(credits.isPrimaryArtistKey);
@@ -130,6 +178,16 @@ class ArtistDetailPage extends GetView<ArtistsController> {
       ]);
 
       final thumb = resolved.thumbnailLocalPath ?? resolved.thumbnail;
+      final unresolved = Get.isRegistered<CatalogStorage>()
+          ? resolved.items
+                .where(
+                  (item) => Get.find<CatalogStorage>().needsArtistResolution(
+                    item.id,
+                    item.subtitle,
+                  ),
+                )
+                .toList()
+          : <MediaItem>[];
       final country = _localizedCountry(resolved, context);
       final countryFlag = CountryCatalog.flagFromIso(resolved.countryCode);
       final typeLabel = resolved.kind.label;
@@ -146,13 +204,42 @@ class ArtistDetailPage extends GetView<ArtistsController> {
           foregroundColor: theme.colorScheme.onSurface,
           elevation: 0,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.more_vert),
-              onPressed: () => Get.toNamed(
-                AppRoutes.editEntity,
-                arguments: EditEntityArgs.artist(resolved),
+            if (unresolved.isNotEmpty)
+              IconButton(
+                tooltip: tr('artist_identity.resolve'),
+                icon: const Icon(Icons.person_search),
+                onPressed: () async {
+                  if (unresolved.length == 1) {
+                    await _identify(unresolved.single);
+                    return;
+                  }
+                  final selected = await Get.dialog<Map<String, dynamic>>(
+                    ArtistIdentityDialog(
+                      title: tr('artist_identity.resolve'),
+                      allowCreate: false,
+                      candidates: [
+                        for (final item in unresolved)
+                          {'id': item.id, 'name': item.title},
+                      ],
+                    ),
+                  );
+                  if (selected != null) {
+                    await _identify(
+                      unresolved.firstWhere(
+                        (item) => item.id == selected['id'],
+                      ),
+                    );
+                  }
+                },
               ),
-            ),
+            if (!resolved.key.startsWith('pending:'))
+              IconButton(
+                icon: const Icon(Icons.more_vert),
+                onPressed: () => Get.toNamed(
+                  AppRoutes.editEntity,
+                  arguments: EditEntityArgs.artist(resolved),
+                ),
+              ),
           ],
         ),
         body: AppGradientBackground(
@@ -660,12 +747,7 @@ class _SongSectionState extends State<_SongSection> {
   }
 
   int _latestVariantCreatedAt(MediaItem item) {
-    var maxTs = 0;
-    for (final variant in item.variants) {
-      if (variant.localPath?.trim().isNotEmpty != true) continue;
-      if (variant.createdAt > maxTs) maxTs = variant.createdAt;
-    }
-    return maxTs;
+    return item.originalImportAt;
   }
 
   int _localSizeBytes(MediaItem item) {

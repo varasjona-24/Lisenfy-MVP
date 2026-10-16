@@ -3,6 +3,7 @@ import 'package:easy_localization/easy_localization.dart'
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../app/controllers/navigation_controller.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../edit/controller/edit_entity_controller.dart';
@@ -72,14 +73,26 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
   }
 
   Future<void> _useAsCover(CaptureItem capture) async {
-    final target = await showModalBottomSheet<CaptureCoverTarget>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (context) {
-        return CaptureCoverTargetSheet(targets: _controller.loadCoverTargets());
-      },
-    );
+    final navigation = Get.isRegistered<NavigationController>()
+        ? Get.find<NavigationController>()
+        : null;
+    navigation?.setOverlayOpen(true);
+
+    CaptureCoverTarget? target;
+    try {
+      target = await showModalBottomSheet<CaptureCoverTarget>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (context) {
+          return CaptureCoverTargetSheet(
+            targets: _controller.loadCoverTargets(),
+          );
+        },
+      );
+    } finally {
+      navigation?.setOverlayOpen(false);
+    }
     if (target == null) return;
     await _controller.applyCover(capture: capture, target: target);
     if (!mounted) return;

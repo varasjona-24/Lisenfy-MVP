@@ -26,6 +26,7 @@ import '../../sources/domain/source_theme_topic_playlist.dart';
 import '../../sources/domain/source_origin.dart';
 import '../../sources/ui/source_color_picker_field.dart';
 import '../controller/edit_entity_controller.dart';
+import 'edit_save_button.dart';
 import '../../../app/ui/widgets/dialogs/image_search_dialog.dart';
 
 class EditEntityPage extends StatefulWidget {
@@ -58,6 +59,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
   bool _coverTransferBusy = false;
   bool _coverGallerySaving = false;
   bool _metadataSuggestionBusy = false;
+  bool _saving = false;
   MediaItem? _mediaDraft;
   ArtistProfileKind _artistKind = ArtistProfileKind.singer;
   ArtistMainRegion _artistMainRegion = ArtistMainRegion.none;
@@ -879,9 +881,35 @@ class _EditEntityPageState extends State<EditEntityPage> {
       if (!mounted || confirmed != true) return;
 
       final source = _media!;
+      final positions = await _controller.replacementResumePositions(
+        source,
+        target,
+      );
+      final choices = <String, String>{};
+      for (final entry in positions.entries) {
+        final values = entry.value;
+        final differentDuration =
+            values[2] > 0 &&
+            values[3] > 0 &&
+            (values[2] - values[3]).abs() > values[2] * .05;
+        if ((values[0] > 0 && values[1] > 0) ||
+            (differentDuration && (values[0] > 0 || values[1] > 0))) {
+          if (!mounted) return;
+          final choice = await _chooseReplacementResume(entry.key, values);
+          if (choice == null) return;
+          choices[entry.key] = choice;
+        } else {
+          choices[entry.key] = values[0] > 0
+              ? 'source'
+              : values[1] > 0
+              ? 'target'
+              : 'restart';
+        }
+      }
       final result = await _controller.transferMediaData(
         source: source,
         target: target,
+        resumeChoices: choices,
       );
       if (!mounted || result == null) return;
 
@@ -894,24 +922,81 @@ class _EditEntityPageState extends State<EditEntityPage> {
         snackPosition: SnackPosition.BOTTOM,
       );
 
-      final deleteSource = await _confirmDeleteTransferredSource(source);
-      if (!mounted) return;
-      if (deleteSource == true) {
-        await _controller.deleteMediaFromLibrary(source);
-        if (mounted) {
-          Get.back(result: true);
-          Get.snackbar(
-            tr('edit.library_title'),
-            tr('edit.previous_version_deleted'),
-            snackPosition: SnackPosition.BOTTOM,
-          );
-        }
-      } else if (mounted) {
-        Get.back(result: true);
+      if (mounted) Get.back(result: true);
+    } catch (error) {
+      if (mounted) {
+        Get.snackbar(
+          tr('edit.data_transfer_title'),
+          tr(
+            error.toString().contains('replacement_active_session')
+                ? 'edit.replacement_active_session'
+                : 'edit.replacement_failed',
+          ),
+          snackPosition: SnackPosition.BOTTOM,
+        );
       }
     } finally {
       if (mounted) setState(() => _dataTransferBusy = false);
     }
+  }
+
+  Future<String?> _chooseReplacementResume(String mode, List<int> positions) {
+    String time(int ms) {
+      final seconds = ms ~/ 1000;
+      return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+    }
+
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(
+          tr(
+            'edit.replacement_resume_title',
+            args: [
+              tr(
+                mode == 'audio'
+                    ? 'edit.replacement_audio'
+                    : 'edit.replacement_video',
+              ),
+            ],
+          ),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(tr('edit.replacement_resume_body')),
+          ),
+          if (positions[0] > 0)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(ctx).pop('source'),
+              child: Text(
+                tr(
+                  'edit.replacement_resume_source',
+                  args: [time(positions[0])],
+                ),
+              ),
+            ),
+          if (positions[1] > 0)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(ctx).pop('target'),
+              child: Text(
+                tr(
+                  'edit.replacement_resume_target',
+                  args: [time(positions[1])],
+                ),
+              ),
+            ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop('restart'),
+            child: Text(tr('edit.replacement_resume_restart')),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(tr('common.cancel')),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _runCoverTransferFlow() async {
@@ -1365,31 +1450,32 @@ class _EditEntityPageState extends State<EditEntityPage> {
     );
   }
 
-  Future<bool?> _confirmDeleteTransferredSource(MediaItem source) {
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(tr('edit.delete_previous_title')),
-          content: Text(tr('edit.delete_previous_body', args: [source.title])),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(tr('common.cancel')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(tr('edit.delete_previous_confirm')),
-            ),
-          ],
+  Future<void> _save() async {
+    if (_saving || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      // Allow the waiting state to paint before starting persistence/refreshes.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      await _performSave();
+    } catch (error, stackTrace) {
+      debugPrint('Metadata save failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        Get.snackbar(
+          tr('common.error'),
+          tr('edit.save_changes_error'),
+          snackPosition: SnackPosition.BOTTOM,
         );
-      },
-    );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
-  Future<void> _save() async {
+  Future<void> _performSave() async {
     final canContinue = await _confirmTitleCollaborationWarning();
-    if (!canContinue) return;
+    if (!canContinue || !mounted) return;
 
     final ok = await switch (_args.type) {
       EditEntityType.media => _controller.saveMedia(
@@ -2210,6 +2296,13 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_saving,
+      child: AbsorbPointer(absorbing: _saving, child: _buildPage(context)),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -2224,11 +2317,13 @@ class _EditEntityPageState extends State<EditEntityPage> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: FilledButton(
+          child: EditSaveButton(
+            busy: _saving,
+            label: tr('common.save_changes'),
+            busyLabel: tr('edit.saving_changes'),
             onPressed: _audioCleanupBusy || _metadataSuggestionBusy
                 ? null
                 : _save,
-            child: Text(tr('common.save_changes')),
           ),
         ),
       ),

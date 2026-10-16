@@ -3,15 +3,23 @@ class ArtistCredits {
     required this.rawArtist,
     required this.primaryArtist,
     required this.collaborators,
+    this.artistKeys,
   });
 
   final String rawArtist;
   final String primaryArtist;
   final List<String> collaborators;
+  final List<String>? artistKeys;
 
   bool get hasCollaborators => collaborators.isNotEmpty;
 
   List<String> get allArtists {
+    if (artistKeys != null) {
+      return [
+        primaryArtist,
+        ...collaborators,
+      ].where((name) => name.isNotEmpty).toList();
+    }
     final ordered = <String>[];
     final seen = <String>{};
 
@@ -29,12 +37,20 @@ class ArtistCredits {
   bool containsArtistKey(String artistKey) {
     final key = ArtistCreditParser.normalizeKey(artistKey);
     if (key.isEmpty) return false;
-    return allArtists.any((name) => ArtistCreditParser.normalizeKey(name) == key);
+    if (artistKeys != null && artistKeys!.contains(key)) return true;
+    return allArtists.any(
+      (name) => ArtistCreditParser.normalizeKey(name) == key,
+    );
   }
 
   bool isPrimaryArtistKey(String artistKey) {
     final key = ArtistCreditParser.normalizeKey(artistKey);
     if (key.isEmpty) return false;
+    if (artistKeys != null &&
+        artistKeys!.isNotEmpty &&
+        artistKeys!.first == key) {
+      return true;
+    }
     return ArtistCreditParser.normalizeKey(primaryArtist) == key;
   }
 
@@ -138,7 +154,8 @@ class ArtistCreditParser {
 
     final updatedCollaborators = _dedupe(
       parsed.collaborators.map(
-        (name) => normalizeKey(name) == normalizedTarget ? cleanedNewName : name,
+        (name) =>
+            normalizeKey(name) == normalizedTarget ? cleanedNewName : name,
       ),
     );
 
