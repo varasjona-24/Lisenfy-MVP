@@ -7,10 +7,7 @@ import 'package:get/get.dart';
 import 'package:app_settings/app_settings.dart';
 
 import '../../controller/settings_controller.dart';
-import '../../controller/playback_settings_controller.dart';
 import '../../controller/backup_restore_controller.dart';
-import '../widgets/section_header.dart';
-import '../widgets/choice_chip_row.dart';
 import '../widgets/info_tile.dart';
 
 class DataSection extends StatelessWidget {
@@ -19,7 +16,6 @@ class DataSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final playback = Get.find<PlaybackSettingsController>();
     final backup = Get.find<BackupRestoreController>();
     final settings = Get.find<SettingsController>();
 
@@ -56,38 +52,6 @@ class DataSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Data usage
-                Obx(() {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SectionHeader(
-                        title: tr('settings.data.usage'),
-                        subtitle: tr('settings.data.usage_subtitle'),
-                      ),
-                      const SizedBox(height: 8),
-                      ChoiceChipRow(
-                        options: [
-                          ChoiceOption(
-                            value: 'wifi_only',
-                            label: tr('settings.data.wifi_only'),
-                          ),
-                          ChoiceOption(
-                            value: 'all',
-                            label: tr('settings.data.wifi_mobile'),
-                          ),
-                        ],
-                        selectedValue: playback.dataUsage.value,
-                        onSelected: (v) => playback.setDataUsage(v),
-                      ),
-                    ],
-                  );
-                }),
-
-                const SizedBox(height: 12),
-                Divider(color: theme.dividerColor.withValues(alpha: .12)),
-                const SizedBox(height: 12),
-
                 // Actions
                 SizedBox(
                   width: double.infinity,

@@ -51,8 +51,6 @@ Usa `GetStorage` para guardar las preferencias del usuario:
 - `selectedPalette` - Paleta seleccionada
 - `brightness` - Modo claro/oscuro
 - `defaultVolume` - Volumen por defecto
-- `downloadQuality` - Calidad de descarga
-- `dataUsage` - Uso de datos
 - `autoPlayNext` - Reproducción automática
 
 ## 🚀 Acceso

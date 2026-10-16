@@ -332,27 +332,6 @@ class SourcesController extends GetxController {
   void clearLocal() => localFiles.clear();
 
   // ============================
-  // ⬇️ DESCARGAS (BACKEND)
-  // ============================
-  Future<bool> requestAndFetchMedia({
-    required String mediaId,
-    String? url,
-    required String kind,
-    required String format,
-    String? quality,
-    void Function(int received, int total)? onProgress,
-  }) async {
-    return _repo.requestAndFetchMedia(
-      mediaId: mediaId,
-      url: url,
-      kind: kind,
-      format: format,
-      quality: quality,
-      onProgress: onProgress,
-    );
-  }
-
-  // ============================
   // 🧹 CACHE / ALMACENAMIENTO
   // ============================
   /// 🗑️ Limpia el caché de descargas y archivos temporales

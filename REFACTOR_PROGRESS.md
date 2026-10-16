@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-16 — Limpieza del descargador online en play-store
+
+- Retirados los métodos de descarga de medios, resolución/importación de playlists por URL y sus helpers del repositorio. Se conserva la biblioteca local y el caché de portadas.
+- Eliminados los diálogos residuales de URL, selección de playlists remotas, panel de calidad/red y administración de cookies de YouTube. Ajustes deja de leer/escribir preferencias del descargador.
+- Textos ES/EN ajustados a importaciones locales y transferencias. Se mantienen identidad/procedencia histórica, respaldos, radio, letras, portadas, procesamiento y enlaces informativos; no se borran datos de usuarios ni archivos multimedia.
+- Los enlaces de Acerca de se abren en el navegador externo mediante url_launcher; retirado Custom Tabs tras su fallo de compilación Kotlin. Pruebas de frontera específicas impiden reintroducir endpoints y controles del descargador en esta rama.
+
 ## 2026-10-15 — Movimiento sin adornos ni asas visibles
 
 - Retirados el borde, las flechas de subir/bajar y el icono de arrastre del modo de movimiento del Home. El encabezado completo sigue siendo el área de arrastre invisible.

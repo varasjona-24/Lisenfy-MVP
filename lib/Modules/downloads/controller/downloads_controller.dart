@@ -4,8 +4,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:easy_localization/easy_localization.dart'
-    hide StringTranslateExtension;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -294,36 +292,6 @@ class DownloadsController extends GetxStateController<DownloadsState> {
       AppRoutes.audioPlayer,
       arguments: {'queue': queue, 'index': idx < 0 ? 0 : idx},
     );
-  }
-
-  // ============================
-  // 🗑️ ELIMINAR
-  // ============================
-  // ============================
-  // 🧾 DESCRIPCIONES UI
-  // ============================
-  String getQualityDescription(String quality) {
-    switch (quality) {
-      case 'low':
-        return tr('downloads.quality_low');
-      case 'medium':
-        return tr('downloads.quality_medium');
-      case 'high':
-        return tr('downloads.quality_high');
-      default:
-        return tr('downloads.quality_high');
-    }
-  }
-
-  String getDataUsageDescription(String usage) {
-    switch (usage) {
-      case 'wifi_only':
-        return tr('downloads.usage_wifi_only');
-      case 'all':
-        return tr('downloads.usage_all');
-      default:
-        return tr('downloads.usage_all');
-    }
   }
 
   // ============================

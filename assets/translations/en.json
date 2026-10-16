@@ -155,7 +155,7 @@
       "high_to_low": "High to low"
     },
     "entry": {
-      "tagline": "Listen, download, and organize your music",
+      "tagline": "Listen, import, and organize your music",
       "enter": "Enter",
       "footer": "Your library, at your pace."
     },
@@ -393,45 +393,19 @@
       "custom_with_range": "Custom ({})",
       "max_range": "Maximum 2.5 months (75 days)"
     },
-    "invalid_url_title": "Invalid URL",
-    "invalid_url_body": "Could not interpret: {}",
-    "open_failed_title": "Could not open",
-    "open_failed_body": "No compatible browser (Custom Tabs) available or disabled.",
     "media_music": "Music",
     "media_videos": "Videos",
     "search_hint": "Search by title or artist…",
     "clear_search": "Clear search",
-    "settings_title": "Download settings",
-    "quality_title": "Download quality",
-    "data_usage_title": "Data usage",
-    "standards_note": "Downloads use different standards depending on the type: audio (MP3/M4A) or video (MP4/MKV).",
-    "quality_low": "Low: 128 kbps (audio) / 360p (video) - Lower data usage",
-    "quality_medium": "Medium: 192 kbps (audio) / 720p (video) - Quality/data balance",
-    "quality_high": "High: 320 kbps (audio) / 1080p (video) - Maximum quality",
-    "usage_wifi_only": "Downloads only on Wi‑Fi networks",
-    "usage_all": "Downloads on Wi‑Fi and mobile networks",
     "local_import_title": "Import from local file",
     "local_import_subtitle": "Select files from your storage",
     "scan_qr_title": "Scan Listenfy QR",
     "scan_qr_subtitle": "Receive a song from another Listenfy device",
-    "web_search_title": "Web search",
-    "web_search_subtitle": "Paste a link to open the browser",
     "select_files_hint": "Select which files you want to import to the library.",
     "select_files": "Select files",
     "selected_count": "{} selected",
     "importing": "Importing...",
     "import_all": "Import all",
-    "url": "URL",
-    "url_required": "Please enter a URL",
-    "open_browser": "Open browser",
-    "import_type": "Import type",
-    "webview_hint": "Open an external browser to copy links quickly.",
-    "status_preparing": "Preparing download...",
-    "status_downloading": "Downloading...",
-    "status_importing_playlist_item": "Importing track {} of {}...",
-    "status_saving": "Saving to library...",
-    "wifi_waiting": "Import is waiting for a Wi‑Fi connection.",
-    "web_slow": "The website took too long or is not compatible.",
     "date_filter_title": "Date filter",
     "history_empty_range": "No imports in this range.",
     "select_range": "Select range",
@@ -453,10 +427,7 @@
       "november": "November",
       "december": "December"
     },
-    "pill_subtitle": "Import from links, local files, or the web browser.",
-    "url_import_title": "Import from URL",
-    "url_import_subtitle": "Share or paste a link to import it",
-    "url_import_dialog_subtitle": "Paste the link and choose the file type to import."
+    "pill_subtitle": "Import local files or receive them from another Listenfy device."
   },
   "wrapped": {
     "ui": {
@@ -485,7 +456,7 @@
       "common_format": "Common format",
       "common_format_caption": "Predominant file type",
       "strong_month": "Strong month",
-      "strong_month_caption": "Highest number of downloads",
+      "strong_month_caption": "Highest number of imports",
       "active_day": "Active day",
       "active_day_caption": "Favorite day to import",
       "activity_title": "Import Activity",
@@ -744,11 +715,7 @@
       "hide_short_status_subtitle": "Videos under 2:30 never show progress labels. This option also hides labels up to 13 minutes. Off by default."
     },
     "data": {
-      "title": "Data and downloads",
-      "usage": "Data usage",
-      "usage_subtitle": "Control when to use mobile data.",
-      "wifi_only": "Wi‑Fi only",
-      "wifi_mobile": "Wi‑Fi and mobile",
+      "title": "Data and imports",
       "clear_cache": "Clear cache",
       "clear_cache_with_size": "Clear cache ({})",
       "battery_note": "To show the player on the lock screen, temporarily disable battery saving and then enable it again.",
@@ -787,7 +754,7 @@
           "subtitle": "Where your content lives and how to prevent data loss.",
           "tips": {
             "1": "Listenfy stores files, covers, playlists, and metadata inside the app's private storage.",
-            "2": "Before uninstalling or clearing data, create a ZIP backup from Data and downloads.",
+            "2": "Before uninstalling or clearing data, create a ZIP backup from Data and imports.",
             "3": "A full backup can take a while on large libraries because it includes files and metadata.",
             "4": "If you include variants, versions such as 8D, instrumental, or processed files are also saved."
           }
@@ -826,9 +793,9 @@
           "title": "Wrapped and stats",
           "subtitle": "Listening summary, imports, and local trends.",
           "tips": {
-            "1": "From Data and downloads you can open Check your stats to see your Wrapped-style summary.",
+            "1": "From Data and imports you can open Check your stats to see your Wrapped-style summary.",
             "2": "Music metrics separate songs, favorites, artists, Atlas regions, completed tracks, and early skips.",
-            "3": "Import metrics separate songs and videos, show most downloaded artists, top imports, strongest month, and strongest week.",
+            "3": "Import metrics separate songs and videos, show most imported artists, top imports, strongest month, and strongest week.",
             "4": "Regions depend on country and region metadata used by Atlas; the more consistent it is, the better the summary gets.",
             "5": "Exporting and restoring the ZIP also keeps the metadata that powers these stats."
           }
@@ -853,7 +820,7 @@
             "1": "Open Atlas from the Listenfly Atlas card inside Artists.",
             "2": "Atlas does not guess everything by itself: it depends on the region and country you have on artists and songs.",
             "3": "If you close the miniplayer, Continue should try to resume the locally saved station, song, and position.",
-            "4": "If app data, cookies, or internal storage are cleared, saved sessions can be lost.",
+            "4": "If app data or internal storage are cleared, saved sessions can be lost.",
             "5": "Local recommendations improve as your library gets more consistent metadata."
           }
         },
@@ -904,7 +871,7 @@
             "1": "listenfy Connect opens a URL or QR so you can control playback from another device on the same network.",
             "2": "With very large queues, Connect can feel slower because it has to sync more state.",
             "3": "If a remote track change feels delayed, pause from the phone or from Connect before choosing another song.",
-            "4": "You can import URLs or files from Android's Share menu.",
+            "4": "You can import local files from Android's Share menu.",
             "5": "Audio or video multi-selection can share several files through external apps up to 300 MB total.",
             "6": "Multi-selection can also be sent through internal Listenfy transfer with metadata and a 1 GB total limit.",
             "7": "If a selection exceeds the allowed limit, Listenfy keeps the selection and shows the warning before starting the send.",
@@ -920,7 +887,7 @@
             "1": "Libraries with more than 400 or 500 items can make a screen slower if every element loads at once.",
             "2": "Exporting a ZIP can take a long time; restoring is usually faster.",
             "3": "Some videos may not report the correct duration if their metadata is incomplete.",
-            "4": "If certain downloads fail, update cookies.txt from Data and downloads."
+            "4": "Only local files and transfers from another Listenfy device can be imported."
           }
         }
       }
@@ -1480,13 +1447,6 @@
       "cleared": "Freed {} of regenerable cache.",
       "empty": "There was no temporary cache to clear.",
       "error": "Could not clear cache"
-    },
-    "cookies": {
-      "title": "Cookies",
-      "file_not_found": "File not found",
-      "token_required": "Enter an admin token before uploading.",
-      "success": "Cookies updated successfully.",
-      "error": "Could not upload cookies"
     }
   },
   "edit": {
@@ -1812,28 +1772,7 @@
     "no_files_selected": "No files selected for import.",
     "import_success_single": "Imported {} file.",
     "import_success_multiple": "Imported: {} · Failed: {}",
-    "wifi_only_title": "Downloads blocked",
-    "wifi_only_body": "You have 'Wi-Fi Only' enabled. Connect to a Wi-Fi network to download.",
-    "empty_url": "Please enter a valid URL",
-    "downloading_in_progress": "There is already an import in progress",
     "completed": "Import completed ✅",
-    "failed": "Import failed. The website may be slow or incompatible.",
-    "playlist_title": "Playlist imported",
-    "playlist_completed": "Imported: {} of {}. Failed: {}.",
-    "playlist_failed": "Could not import any track from the playlist.",
-    "playlist_loading": "Reading playlist...",
-    "playlist_selection_title": "Select tracks",
-    "playlist_selection_subtitle": "{} tracks found. Choose which ones to import.",
-    "playlist_selected_count": "{} selected",
-    "playlist_select_all": "Select all",
-    "playlist_clear_selection": "Clear selection",
-    "playlist_import_selected": "Import selected",
-    "playlist_no_selection": "Select at least one track.",
-    "playlist_unknown_track": "Untitled track",
-    "playlist_unavailable_notice": "{} tracks are not available on YouTube. They are shown for reference, but will not be imported.",
-    "playlist_unavailable_item": "Unavailable",
-    "playlist_private_item": "Private",
-    "playlist_deleted_item": "Deleted",
     "timeout_msg": "Server took too long to respond. Try again.",
     "connection_error": "Could not connect to the server.",
     "receive_timeout": "The server took too long to respond. Try again.",
@@ -1849,12 +1788,7 @@
       "VALIDATION_ERROR": "Missing information",
       "MEDIA_INVALID_URL": "URL not allowed",
       "MEDIA_UNSUPPORTED_SOURCE": "Unsupported source",
-      "MEDIA_COOKIES_REQUIRED": "Cookies required",
-      "MEDIA_PROTECTED_CONTENT": "Protected content",
-      "MEDIA_DOWNLOAD_FAILED": "Download failed",
-      "MEDIA_DOWNLOAD_TIMEOUT": "Slow download",
       "MEDIA_FORMAT_UNAVAILABLE": "Format unavailable",
-      "MEDIA_VARIANT_EXPIRED": "File expired",
       "MEDIA_FILE_NOT_FOUND": "File unavailable",
       "KARAOKE_BACKEND_BUSY": "Server busy",
       "KARAOKE_UPLOAD_TOO_LARGE": "File too large",
@@ -1872,12 +1806,7 @@
       "VALIDATION_ERROR": "Some information is missing or invalid. Review it and try again.",
       "MEDIA_INVALID_URL": "The URL is invalid or points to a destination blocked for safety.",
       "MEDIA_UNSUPPORTED_SOURCE": "Could not read information from that source.",
-      "MEDIA_COOKIES_REQUIRED": "The source requires cookies or sign-in before it can be downloaded.",
-      "MEDIA_PROTECTED_CONTENT": "That content is protected and cannot be downloaded.",
-      "MEDIA_DOWNLOAD_FAILED": "The server could not complete the download.",
-      "MEDIA_DOWNLOAD_TIMEOUT": "The download took too long on the server.",
       "MEDIA_FORMAT_UNAVAILABLE": "There is no compatible format available for this source.",
-      "MEDIA_VARIANT_EXPIRED": "The temporary file expired. Generate the download again.",
       "MEDIA_FILE_NOT_FOUND": "The file is no longer available on the server.",
       "KARAOKE_BACKEND_BUSY": "There are too many active processes on the server.",
       "KARAOKE_UPLOAD_TOO_LARGE": "The audio is too large to process.",

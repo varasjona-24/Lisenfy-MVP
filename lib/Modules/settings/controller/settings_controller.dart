@@ -13,13 +13,11 @@ import 'package:get_storage/get_storage.dart';
 import '../../../app/data/local/domain_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
-import 'package:dio/dio.dart' as dio;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:audio_session/audio_session.dart';
 
 import '../../../app/controllers/theme_controller.dart';
-import '../../../app/data/network/dio_client.dart';
 import '../../../app/data/repo/media_repository.dart';
 import '../../../app/services/bluetooth_audio_service.dart';
 import '../../edit/view/desktop_image_cropper_dialog.dart';
@@ -34,7 +32,7 @@ class LauncherIconOption {
   const LauncherIconOption({required this.id, required this.assetPath});
 }
 
-/// Gestiona: apariencia, caché, bluetooth, cookies YouTube, storage info y reset.
+/// Gestiona: apariencia, caché, bluetooth, storage info y reset.
 ///
 /// Las demás responsabilidades fueron extraídas a:
 /// - [PlaybackSettingsController] — volumen, autoplay, crossfade, calidad, datos
@@ -98,11 +96,6 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
   final RxString cacheSummary = 'Calculando...'.obs;
   final BluetoothAudioService _bluetoothAudio = BluetoothAudioService();
 
-  // 🍪 YouTube cookies
-  final TextEditingController ytdlpAdminTokenController =
-      TextEditingController();
-  final RxString ytdlpAdminToken = ''.obs;
-
   @override
   void onInit() {
     super.onInit();
@@ -142,9 +135,6 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
         _storage.read<bool>(_smartCarouselEnabledKey) ?? false;
     orderedBackgroundCarouselEnabled.value =
         _storage.read<bool>(_orderedCarouselEnabledKey) ?? false;
-
-    ytdlpAdminToken.value = _storage.read('ytdlpAdminToken') ?? '';
-    ytdlpAdminTokenController.text = ytdlpAdminToken.value;
 
     _applyTheme();
   }
@@ -682,71 +672,6 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
   }
 
   // ============================
-  // 🍪 YOUTUBE COOKIES
-  // ============================
-  void setYtDlpAdminToken(String token) {
-    ytdlpAdminToken.value = token.trim();
-    _storage.write('ytdlpAdminToken', ytdlpAdminToken.value);
-  }
-
-  Future<void> uploadYtDlpCookies() async {
-    try {
-      final res = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: const ['txt'],
-      );
-      if (res == null || res.files.isEmpty) return;
-
-      final path = res.files.first.path;
-      if (path == null || path.trim().isEmpty) return;
-
-      final cookieFile = File(path);
-      if (!await cookieFile.exists()) {
-        Get.snackbar(
-          tr('settings_messages.cookies.title'),
-          tr('settings_messages.cookies.file_not_found'),
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        return;
-      }
-
-      final dioClient = Get.find<DioClient>();
-      final formData = dio.FormData.fromMap({
-        'file': await dio.MultipartFile.fromFile(path, filename: 'cookies.txt'),
-      });
-
-      final token = ytdlpAdminToken.value.trim();
-      if (token.isEmpty) {
-        Get.snackbar(
-          tr('settings_messages.cookies.title'),
-          tr('settings_messages.cookies.token_required'),
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        return;
-      }
-
-      await dioClient.dio.post(
-        '/api/v1/admin/ytdlp/cookies',
-        data: formData,
-        options: dio.Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-
-      Get.snackbar(
-        tr('settings_messages.cookies.title'),
-        tr('settings_messages.cookies.success'),
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    } catch (e) {
-      debugPrint('uploadYtDlpCookies error: $e');
-      Get.snackbar(
-        tr('settings_messages.cookies.title'),
-        tr('settings_messages.cookies.error'),
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    }
-  }
-
-  // ============================
   // 🔄 RESET
   // ============================
   Future<void> resetSettings() async {
@@ -761,9 +686,6 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
     brightness.value = Brightness.dark;
     await _storage.write('selectedPalette', 'green');
     await _storage.write('brightness', 'dark');
-    ytdlpAdminToken.value = '';
-    ytdlpAdminTokenController.clear();
-    await _storage.remove('ytdlpAdminToken');
     _applyTheme();
 
     if (Get.isRegistered<PlaybackSettingsController>()) {
@@ -784,7 +706,6 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
   void onClose() {
     WidgetsBinding.instance.removeObserver(this);
     _backgroundCarouselTimer?.cancel();
-    ytdlpAdminTokenController.dispose();
     super.onClose();
   }
 }

@@ -29,12 +29,6 @@ class PlaybackSettingsController extends GetxController {
   final RxBool autoPlayNext = true.obs;
   final RxInt crossfadeSeconds = 0.obs;
 
-  // 📱 Calidad de descarga
-  final Rx<String> downloadQuality = 'high'.obs; // low, medium, high
-
-  // 📡 Uso de datos
-  final Rx<String> dataUsage = 'all'.obs; // wifi_only, all
-
   // 🎬 Etiquetas visuales de video
   final RxBool hideVideoStatusLabels = false.obs;
   final RxBool hideShortVideoStatusLabels = false.obs;
@@ -50,8 +44,6 @@ class PlaybackSettingsController extends GetxController {
     final storedSeek = _storage.read<int>(videoSeekSecondsKey);
     videoSeekSeconds.value = [5, 10, 15].contains(storedSeek) ? storedSeek! : 5;
     defaultVolume.value = _storage.read('defaultVolume') ?? 100.0;
-    downloadQuality.value = _storage.read('downloadQuality') ?? 'high';
-    dataUsage.value = _storage.read('dataUsage') ?? 'all';
     autoPlayNext.value = _storage.read('autoPlayNext') ?? true;
     crossfadeSeconds.value = _storage.read('audio_crossfade_seconds') ?? 0;
     hideVideoStatusLabels.value =
@@ -107,22 +99,6 @@ class PlaybackSettingsController extends GetxController {
   }
 
   // ============================
-  // 📱 Calidad de descarga
-  // ============================
-  void setDownloadQuality(String quality) {
-    downloadQuality.value = quality;
-    _storage.write('downloadQuality', quality);
-  }
-
-  // ============================
-  // 📡 Uso de datos
-  // ============================
-  void setDataUsage(String usage) {
-    dataUsage.value = usage;
-    _storage.write('dataUsage', usage);
-  }
-
-  // ============================
   // 🎬 Etiquetas visuales de video
   // ============================
   void setHideVideoStatusLabels(bool value) {
@@ -136,68 +112,16 @@ class PlaybackSettingsController extends GetxController {
   }
 
   // ============================
-  // 📊 Quality helpers
-  // ============================
-  String getAudioBitrate(String? quality) {
-    final q = quality ?? downloadQuality.value;
-    switch (q) {
-      case 'low':
-        return '128 kbps';
-      case 'medium':
-        return '192 kbps';
-      case 'high':
-        return '320 kbps';
-      default:
-        return '320 kbps';
-    }
-  }
-
-  String getVideoResolution(String? quality) {
-    final q = quality ?? downloadQuality.value;
-    switch (q) {
-      case 'low':
-        return '360p';
-      case 'medium':
-        return '720p';
-      case 'high':
-        return '1080p';
-      default:
-        return '1080p';
-    }
-  }
-
-  String getQualityDescription(String? quality) {
-    final q = quality ?? downloadQuality.value;
-    final audio = getAudioBitrate(q);
-    final video = getVideoResolution(q);
-    return 'Audio: $audio | Video: $video';
-  }
-
-  Map<String, dynamic> getDownloadSpecs() {
-    return {
-      'quality': downloadQuality.value,
-      'audio_bitrate': getAudioBitrate(null),
-      'video_resolution': getVideoResolution(null),
-      'data_usage': dataUsage.value,
-      'wifi_only': dataUsage.value == 'wifi_only',
-    };
-  }
-
-  // ============================
   // 🔄 Reset
   // ============================
   Future<void> resetPlaybackSettings() async {
     defaultVolume.value = 100.0;
-    downloadQuality.value = 'high';
-    dataUsage.value = 'all';
     autoPlayNext.value = true;
     crossfadeSeconds.value = 0;
     hideVideoStatusLabels.value = false;
     hideShortVideoStatusLabels.value = false;
 
     await _storage.write('defaultVolume', defaultVolume.value);
-    await _storage.write('downloadQuality', downloadQuality.value);
-    await _storage.write('dataUsage', dataUsage.value);
     await _storage.write('autoPlayNext', autoPlayNext.value);
     await _storage.write('audio_crossfade_seconds', crossfadeSeconds.value);
     await _storage.write(hideVideoStatusLabelsKey, hideVideoStatusLabels.value);
