@@ -837,7 +837,7 @@
           "title": "Artists and collaborations",
           "subtitle": "Metadata needed for Atlas and relationships.",
           "tips": {
-            "1": "From Artists you can open Listenfly Atlas.",
+            "1": "Open Atlas using its action in the bottom navigation bar.",
             "2": "Atlas works best when you edit artists and define main region, country, and artist type.",
             "3": "Song, artist, playlist, and themed-list covers can come from a local file or web search.",
             "4": "If a collaboration should count for multiple artists, write it in Artist with patterns such as ft., feat., featuring, or with.",
@@ -848,10 +848,10 @@
         },
         "atlas": {
           "title": "Atlas",
-          "subtitle": "Regional map integrated into Artists.",
+          "subtitle": "Explore your local library by region and artist.",
           "tips": {
-            "1": "Open Atlas from the Listenfly Atlas card inside Artists.",
-            "2": "Atlas does not guess everything by itself: it depends on the region and country you have on artists and songs.",
+            "1": "Open Atlas from the bottom navigation bar. Stations are generated only from local audio in your library.",
+            "2": "Atlas organizes your audio using the region and country of its artists and songs. It does not search for or stream music from the Internet.",
             "3": "Continue resumes that station's saved queue, song, and position, even after closing the miniplayer or playing another playlist. Files that are no longer available are skipped.",
             "4": "If app data, cookies, or internal storage are cleared, saved sessions can be lost.",
             "5": "Local recommendations improve as your library gets more consistent metadata."
@@ -1719,8 +1719,7 @@
     "station_title_mix": "{} · Mix {}",
     "station_subtitle_tracks": "{} tracks · {}",
     "station_sources": {
-      "local": "local",
-      "hybrid": "hybrid"
+      "local": "Local library"
     },
     "station_types": {
       "gateway": "Gateway",

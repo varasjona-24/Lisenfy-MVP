@@ -74,7 +74,7 @@ class CountryStationCard extends StatelessWidget {
                           ),
                           _ChipLabel(
                             icon: Icons.memory_rounded,
-                            text: _sourceLabel(station.source),
+                            text: tr('world_mode.station_sources.local'),
                           ),
                         ],
                       ),
@@ -125,13 +125,6 @@ class CountryStationCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _sourceLabel(String source) {
-    final key = source.trim().toLowerCase();
-    if (key == 'local') return tr('world_mode.station_sources.local');
-    if (key == 'hybrid') return tr('world_mode.station_sources.hybrid');
-    return source;
   }
 }
 

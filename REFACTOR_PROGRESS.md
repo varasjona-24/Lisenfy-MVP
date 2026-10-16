@@ -1,5 +1,12 @@
 # Registro de refactor
 
+## 2026-10-16 — Atlas explícitamente local
+
+- Auditoría: generación, ranking y continuación de estaciones ya usan audios locales. No existe un datasource online de Atlas. La carga opcional de portadas remotas no es un catálogo ni una radio online y se conserva.
+- Retirados el discriminador source de estaciones/cache y la etiqueta híbrida ES/EN. Los cachés antiguos siguen leyéndose: se ignora el campo source obsoleto, sin borrar IDs, pistas ni sesiones.
+- Atlas lee LocalLibraryStore directamente, sin depender de MediaRepository ni registrar un cliente de red para generar estaciones. La ayuda aclara el alcance local y el acceso independiente por la barra inferior.
+- Pruebas de compatibilidad de caché, ausencia de dependencias de red y exclusión de pistas sin audio local; se conservan reanudación y backups SQLite.
+
 ## 2026-10-16 — Reanudación independiente por estación de Atlas
 
 - Sesiones identificadas por stationId en el dominio SQLite world_mode_station_sessions_v1; cola por referencias id/publicId, índice y posición. Sin escrituras nuevas en GetStorage ni duplicación del historial de escucha.

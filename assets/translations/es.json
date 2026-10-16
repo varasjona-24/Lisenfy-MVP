@@ -837,7 +837,7 @@
           "title": "Artistas y colaboraciones",
           "subtitle": "Metadata necesaria para Atlas y relaciones.",
           "tips": {
-            "1": "Desde Artistas puedes abrir Listenfly Atlas.",
+            "1": "Abre Atlas desde su acción en la barra de navegación inferior.",
             "2": "Atlas funciona mejor cuando editas artistas y defines región principal, país y tipo de artista.",
             "3": "Las portadas de canciones, artistas, playlists y listas temáticas pueden venir de archivo local o búsqueda web.",
             "4": "Si una colaboración debe contarse para varios artistas, escríbela en Artista con patrones como ft., feat., featuring o with.",
@@ -848,10 +848,10 @@
         },
         "atlas": {
           "title": "Atlas",
-          "subtitle": "Mapa regional integrado en Artistas.",
+          "subtitle": "Explora tu biblioteca local por regiones y artistas.",
           "tips": {
-            "1": "Abre Atlas desde la tarjeta Listenfly Atlas dentro de Artistas.",
-            "2": "Atlas no adivina todo por sí solo: depende de la región y país que tengas en artistas y canciones.",
+            "1": "Abre Atlas desde la barra de navegación inferior. Las estaciones se generan solo con los audios locales de tu biblioteca.",
+            "2": "Atlas organiza tus audios según la región y país de sus artistas y canciones. No busca ni transmite música por Internet.",
             "3": "Continuar retoma la cola, canción y posición guardadas de esa estación, aunque cierres el miniplayer o escuches otra lista. Los archivos que ya no estén disponibles se omiten.",
             "4": "Si se borran datos de la app, cookies o almacenamiento interno, las sesiones guardadas pueden perderse.",
             "5": "Las recomendaciones locales mejoran mientras más metadata consistente tenga tu biblioteca."
@@ -1719,8 +1719,7 @@
     "station_title_mix": "{} · Mix {}",
     "station_subtitle_tracks": "{} pistas · {}",
     "station_sources": {
-      "local": "local",
-      "hybrid": "híbrida"
+      "local": "Biblioteca local"
     },
     "station_types": {
       "gateway": "Puerta de entrada",

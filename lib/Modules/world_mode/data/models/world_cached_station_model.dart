@@ -9,7 +9,6 @@ class WorldCachedStationModel {
     required this.title,
     required this.subtitle,
     required this.trackIds,
-    required this.source,
     required this.generatedAtMs,
     required this.ttlSec,
     required this.seed,
@@ -21,7 +20,6 @@ class WorldCachedStationModel {
   final String title;
   final String subtitle;
   final List<String> trackIds;
-  final String source;
   final int generatedAtMs;
   final int ttlSec;
   final StationSeedEntity seed;
@@ -38,7 +36,6 @@ class WorldCachedStationModel {
     'title': title,
     'subtitle': subtitle,
     'trackIds': trackIds,
-    'source': source,
     'generatedAtMs': generatedAtMs,
     'ttlSec': ttlSec,
     'seed': seed.toJson(),
@@ -68,7 +65,6 @@ class WorldCachedStationModel {
       title: (json['title'] as String? ?? '').trim(),
       subtitle: (json['subtitle'] as String? ?? '').trim(),
       trackIds: trackIds,
-      source: (json['source'] as String? ?? 'local').trim(),
       generatedAtMs: (json['generatedAtMs'] as num?)?.toInt() ?? 0,
       ttlSec: (json['ttlSec'] as num?)?.toInt() ?? 21600,
       seed: seed,
