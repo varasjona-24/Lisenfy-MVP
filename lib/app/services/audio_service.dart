@@ -20,6 +20,8 @@ import 'audio_history_position_clock.dart';
 import 'audio_effect_load_guard.dart';
 import '../data/playback/playback_boundary_command.dart';
 import '../data/playback/playback_state_storage.dart';
+import '../data/playback/playback_repository.dart';
+import '../data/playback/atlas_station_session_store.dart';
 import '../data/local/local_library_store.dart';
 import '../../Modules/recommendations/data/listening_event_store.dart';
 import '../../Modules/recommendations/domain/recommendation_models.dart';
@@ -38,9 +40,50 @@ class AudioService extends GetxService with WidgetsBindingObserver {
         mode: RecommendationMode.audio,
       );
   Future<void> flushPlaybackHistory() async {
+    await _saveAtlasCheckpoint();
     await _history.flush();
     final storage = _storage;
     if (storage is PlaybackStateStorage) await storage.flush();
+    await _atlasSessions?.flush();
+  }
+
+  AtlasStationSessionStore? _atlasSessions;
+  String? _atlasStationId;
+  bool _atlasSourceChanging = false;
+  String? get activeAtlasStationId => _atlasStationId;
+
+  AtlasStationSessionStore get atlasSessions => _atlasSessions ??=
+      AtlasStationSessionStore(Get.find<PlaybackRepository>());
+
+  Future<void> _saveAtlasCheckpoint() async {
+    final id = _atlasStationId;
+    if (id == null || _atlasSourceChanging || _queueItems.isEmpty) return;
+    await atlasSessions.save(
+      AtlasStationSession(
+        stationId: id,
+        queue: _queueItems.map(AtlasTrackReference.fromItem).toList(),
+        index: currentQueueIndex,
+        positionMs: _trustedCurrentPosition.inMilliseconds.clamp(0, 86400000),
+      ),
+      activeId: id,
+    );
+  }
+
+  void _scheduleAtlasCheckpoint() {
+    unawaited(
+      _saveAtlasCheckpoint().catchError((Object error) {
+        historyPersistenceFailure.value = error;
+        debugPrint('Atlas session persistence failed: $error');
+      }),
+    );
+  }
+
+  Future<void> detachAtlasStation() async {
+    await _saveAtlasCheckpoint();
+    _atlasStationId = null;
+    if (_atlasSessions != null) {
+      await _atlasSessions!.save(null, activeId: null);
+    }
   }
 
   final Rxn<Object> historyPersistenceFailure = Rxn<Object>();
@@ -618,6 +661,50 @@ class AudioService extends GetxService with WidgetsBindingObserver {
     int? queueIndex,
     bool forceReload = false,
     Duration initialPosition = Duration.zero,
+    String? atlasStationId,
+    bool preserveQueueOrder = false,
+  }) async {
+    await _saveAtlasCheckpoint();
+    _atlasSourceChanging = true;
+    _atlasStationId = atlasStationId;
+    var succeeded = false;
+    try {
+      if (atlasStationId != null || _atlasSessions != null) {
+        await atlasSessions.save(null, activeId: null);
+      }
+      await _play(
+        item,
+        variant,
+        autoPlay: autoPlay,
+        queue: queue,
+        queueIndex: queueIndex,
+        forceReload: forceReload,
+        initialPosition: initialPosition,
+        preserveQueueOrder: preserveQueueOrder,
+      );
+      succeeded = true;
+    } finally {
+      _atlasSourceChanging = false;
+      if (succeeded) {
+        await _saveAtlasCheckpoint();
+      } else {
+        _atlasStationId = null;
+        if (_atlasSessions != null) {
+          await _atlasSessions!.save(null, activeId: null);
+        }
+      }
+    }
+  }
+
+  Future<void> _play(
+    MediaItem item,
+    MediaVariant variant, {
+    bool autoPlay = true,
+    List<MediaItem>? queue,
+    int? queueIndex,
+    bool forceReload = false,
+    Duration initialPosition = Duration.zero,
+    bool preserveQueueOrder = false,
   }) async {
     _showMiniPlayerForPlayback();
 
@@ -696,7 +783,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
       _linearItems = List<MediaItem>.from(built.items);
       _linearVariants = List<MediaVariant>.from(built.variants);
 
-      if (_shuffleEnabled && _linearItems.length > 1) {
+      if (_shuffleEnabled && !preserveQueueOrder && _linearItems.length > 1) {
         final shuffled = _buildShuffledIndices(
           _linearItems.length,
           startAt: built.index,
@@ -888,6 +975,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
   }
 
   Future<void> stop() async {
+    await detachAtlasStation();
     playbackIntentRevision++;
     _observeEngineHistory();
     _history.intent(PlaybackTermination.explicitStop);
@@ -914,6 +1002,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
   }
 
   Future<void> stopAndHidePreservingSession() async {
+    await detachAtlasStation();
     playbackIntentRevision++;
     _observeEngineHistory();
     _history.intent(PlaybackTermination.explicitStop);
@@ -1474,6 +1563,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
   }
 
   Future<bool> _restoreSessionIfAny({bool? autoPlayOverride}) async {
+    _atlasStationId = null;
     final rawItems = _storage.read<List>(_sessionQueueItemsKey);
     final rawVariants = _storage.read<List>(_sessionQueueVariantsKey);
     if (rawItems == null || rawVariants == null) return false;
@@ -1545,6 +1635,20 @@ class AudioService extends GetxService with WidgetsBindingObserver {
       _persistLastItem(_queueItems[_activeIndex], _queueVariants[_activeIndex]);
       _keepLastItem = true;
 
+      // Recover context only from an explicit station ID and the exact queue.
+      if (Get.isRegistered<PlaybackRepository>()) {
+        final id = await atlasSessions.readActiveStationId();
+        final saved = id == null ? null : await atlasSessions.read(id);
+        if (saved != null &&
+            saved.queue.length == _queueItems.length &&
+            List.generate(
+              _queueItems.length,
+              (i) => saved.queue[i].matches(_queueItems[i]),
+            ).every((v) => v)) {
+          _atlasStationId = id;
+        }
+      }
+
       final shouldAutoPlay = autoPlayOverride ?? wasPlaying;
       if (shouldAutoPlay) {
         _showMiniPlayerForPlayback();
@@ -1601,6 +1705,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
     );
     _storage.write(_sessionWasPlayingKey, _player.playing);
     _persistedSessionQueueRevision = _queueRevision;
+    _scheduleAtlasCheckpoint();
   }
 
   void _persistSessionPlaybackState({bool throttle = false}) {
@@ -1627,6 +1732,7 @@ class AudioService extends GetxService with WidgetsBindingObserver {
       _trustedCurrentPosition.inMilliseconds,
     );
     _storage.write(_sessionWasPlayingKey, _player.playing);
+    _scheduleAtlasCheckpoint();
   }
 
   Duration get _trustedCurrentPosition {

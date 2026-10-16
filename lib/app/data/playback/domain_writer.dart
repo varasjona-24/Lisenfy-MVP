@@ -18,6 +18,7 @@ const durableDomainKeys = {
   'world_mode_station_memory_v1': 'map',
   'world_mode_country_affinity_v1': 'map',
   'world_mode_playback_events_v1': 'list',
+  'world_mode_station_sessions_v1': 'map',
   'instrumental_tasks_v1': 'map',
   'spatial8d_tasks_v1': 'map',
 };
@@ -132,12 +133,19 @@ extension DomainPersistence on PlaybackRepository {
     }
   }
 
-  Future<Map<String, dynamic>> readDomains() => _catalogCommand(
+  Future<Map<String, dynamic>> readDomains({
+    String? namespace,
+  }) => _catalogCommand(
     () => _database.transaction(() async {
       final values = <String, dynamic>{};
       for (final state
           in await _database
-              .customSelect('SELECT * FROM app_domain_state')
+              .customSelect(
+                namespace == null
+                    ? 'SELECT * FROM app_domain_state'
+                    : 'SELECT * FROM app_domain_state WHERE namespace=?',
+                variables: namespace == null ? [] : [Variable(namespace)],
+              )
               .get()) {
         final key = state.read<String>('namespace');
         final rows = await _database

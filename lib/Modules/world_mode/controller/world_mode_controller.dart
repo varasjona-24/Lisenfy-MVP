@@ -114,7 +114,11 @@ class WorldModeController extends GetxController {
     final queue = station.tracks.where((track) => track.hasAudioLocal).toList();
     final index = queue.indexWhere((track) => track.id == item.id);
     if (queue.isEmpty || index < 0) return;
-    await _playbackFacade.playQueue(queue, startIndex: index);
+    await _playbackFacade.playQueue(
+      queue,
+      startIndex: index,
+      stationId: station.stationId,
+    );
     await _repository.registerPlayback(
       station: station,
       item: item,
@@ -135,7 +139,11 @@ class WorldModeController extends GetxController {
       );
       return;
     }
-    await _playbackFacade.playQueue(next, startIndex: 0);
+    await _playbackFacade.playQueue(
+      next,
+      startIndex: 0,
+      stationId: station.stationId,
+    );
   }
 
   Future<void> _loadStations(CountryEntity country) async {

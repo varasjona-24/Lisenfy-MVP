@@ -819,7 +819,7 @@
           "tips": {
             "1": "Abre Atlas desde la tarjeta Listenfly Atlas dentro de Artistas.",
             "2": "Atlas no adivina todo por sí solo: depende de la región y país que tengas en artistas y canciones.",
-            "3": "Si cierras el miniplayer, Continuar debe intentar retomar la estación, canción y posición guardadas localmente.",
+            "3": "Continuar retoma la cola, canción y posición guardadas de esa estación, aunque cierres el miniplayer o escuches otra lista. Los archivos que ya no estén disponibles se omiten.",
             "4": "Si se borran los datos de la app o su almacenamiento interno, las sesiones guardadas pueden perderse.",
             "5": "Las recomendaciones locales mejoran mientras más metadata consistente tenga tu biblioteca."
           }
