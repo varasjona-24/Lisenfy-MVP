@@ -659,13 +659,13 @@ class _AudioTab extends StatelessWidget {
                             title: item.title,
                             subtitle: item.displaySubtitle,
                             value:
-                                '${ListeningStats.listenScoreFor(item)} ${tr('wrapped.audio.plays_unit')}',
+                                '${ListeningStats.countedPlaysFor(item)} ${tr('wrapped.audio.plays_unit')}',
                             maxValue: stats.topTracks.isNotEmpty
-                                ? ListeningStats.listenScoreFor(
+                                ? ListeningStats.countedPlaysFor(
                                     stats.topTracks.first,
                                   )
                                 : 1,
-                            currentValue: ListeningStats.listenScoreFor(item),
+                            currentValue: ListeningStats.countedPlaysFor(item),
                             color: kMusicGradient[0],
                           ),
                         )
@@ -701,12 +701,12 @@ class _AudioTab extends StatelessWidget {
                       subtitle: item.displaySubtitle,
                       value: tr(
                         'wrapped.ui.play_count',
-                        args: ['${ListeningStats.listenScoreFor(item)}'],
+                        args: ['${ListeningStats.countedPlaysFor(item)}'],
                       ),
-                      maxValue: ListeningStats.listenScoreFor(
+                      maxValue: ListeningStats.countedPlaysFor(
                         stats.topFavoriteTracks.first,
                       ),
-                      currentValue: ListeningStats.listenScoreFor(item),
+                      currentValue: ListeningStats.countedPlaysFor(item),
                       color: kMusicGradient.first,
                     ),
                   )
@@ -774,11 +774,11 @@ class _VideoTab extends StatelessWidget {
                 ? tr('wrapped.video.fallback')
                 : item.displaySubtitle,
             value:
-                '${ListeningStats.listenScoreFor(item)} ${tr('wrapped.audio.plays_unit')}',
+                '${ListeningStats.countedPlaysFor(item)} ${tr('wrapped.audio.plays_unit')}',
             maxValue: stats.topVideos.isEmpty
                 ? 1
-                : ListeningStats.listenScoreFor(stats.topVideos.first),
-            currentValue: ListeningStats.listenScoreFor(item),
+                : ListeningStats.countedPlaysFor(stats.topVideos.first),
+            currentValue: ListeningStats.countedPlaysFor(item),
             color: kVideoGradient.first,
           ),
         )
@@ -1756,7 +1756,7 @@ class _TopTrackHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final plays = ListeningStats.listenScoreFor(item);
+    final plays = ListeningStats.countedPlaysFor(item);
     return WrappedTrackSpotlight(
       item: item,
       badge: tr('wrapped.labels.top_track_badge'),
