@@ -5,6 +5,7 @@ import 'package:flutter_custom_tabs/flutter_custom_tabs.dart';
 import 'package:get/get.dart';
 
 import '../../controller/settings_controller.dart';
+import '../../../../app/utils/app_locales.dart';
 import '../widgets/info_tile.dart';
 import '../widgets/value_pill.dart';
 
@@ -86,11 +87,14 @@ class AboutSection extends GetView<SettingsController> {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                // Version (aquí sigue fijo porque pediste misma lógica)
-                InfoTile(
-                  icon: Icons.verified_rounded,
-                  title: tr('settings.about.version'),
-                  subtitle: '1.0.0',
+                Obx(
+                  () => InfoTile(
+                    icon: Icons.verified_rounded,
+                    title: tr('settings.about.version'),
+                    subtitle: controller.installedVersion.value.isEmpty
+                        ? tr('settings.about.info_unavailable')
+                        : controller.installedVersion.value,
+                  ),
                 ),
 
                 const SizedBox(height: 10),
@@ -130,11 +134,17 @@ class AboutSection extends GetView<SettingsController> {
 
                 const SizedBox(height: 10),
 
-                // Last update (si no es real, idealmente quítalo o automatízalo luego)
-                InfoTile(
-                  icon: Icons.update_rounded,
-                  title: tr('settings.about.last_update'),
-                  subtitle: tr('settings.about.last_update_value'),
+                // Installed package update time supplied by Android.
+                Obx(
+                  () => InfoTile(
+                    icon: Icons.update_rounded,
+                    title: tr('settings.about.last_update'),
+                    subtitle: controller.installedUpdatedAt.value == null
+                        ? tr('settings.about.info_unavailable')
+                        : DateFormat.yMMMd(
+                            context.locale.toString(),
+                          ).format(controller.installedUpdatedAt.value!),
+                  ),
                 ),
 
                 const SizedBox(height: 14),
@@ -202,7 +212,13 @@ class AboutSection extends GetView<SettingsController> {
                       );
 
                       if (ok == true) {
-                        controller.resetSettings();
+                        await controller.resetSettings();
+                        if (!context.mounted) return;
+                        await context.setLocale(
+                          AppLocales.forDevice(
+                            WidgetsBinding.instance.platformDispatcher.locale,
+                          ),
+                        );
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(

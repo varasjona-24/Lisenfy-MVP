@@ -187,6 +187,14 @@ class PlaybackSettingsController extends GetxController {
   // 🔄 Reset
   // ============================
   Future<void> resetPlaybackSettings() async {
+    await setVideoSeekSeconds(5);
+    await _storage.write('audio_speed', 1.0);
+    if (Get.isRegistered<AudioService>()) {
+      await Get.find<AudioService>().setSpeed(1.0);
+    }
+    if (Get.isRegistered<VideoService>()) {
+      await Get.find<VideoService>().setSpeed(1.0);
+    }
     defaultVolume.value = 100.0;
     downloadQuality.value = 'high';
     dataUsage.value = 'all';

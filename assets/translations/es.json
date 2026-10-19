@@ -633,6 +633,8 @@
         "cyberpunk": "Cyberpunk"
       },
       "wallpaper_title": "Fondo de pantalla",
+      "wallpaper_enabled": "Usar fondos personalizados",
+      "wallpaper_enabled_hint": "Desactívalos sin eliminar las imágenes guardadas.",
       "wallpaper_subtitle": "Ajusta una imagen en formato vertical y úsala detrás del contenido.",
       "smart_carousel": "Carrusel inteligente",
       "smart_carousel_subtitle": "Cambia el fondo cada 1 hora y 30 minutos.",
@@ -658,6 +660,7 @@
       "subtitle": "Elige el idioma de la interfaz.",
       "spanish": "Español",
       "english": "Inglés",
+      "portuguese": "Portugués",
       "system_note": "Más pantallas se traducirán progresivamente."
     },
     "about": {
@@ -665,8 +668,8 @@
       "version": "Versión",
       "storage": "Almacenamiento",
       "calculating": "Calculando…",
-      "last_update": "Última actualización",
-      "last_update_value": "20 de enero de 2026",
+      "last_update": "Actualizada en este dispositivo",
+      "info_unavailable": "No disponible",
       "support_title": "Apoya Listenfy",
       "support_subtitle": "Donación voluntaria para apoyar el desarrollo del proyecto.",
       "kofi_error": "No se pudo abrir Ko-fi. Inténtalo nuevamente.",
@@ -674,7 +677,7 @@
       "privacy_subtitle": "Cómo Listenfy accede, usa y protege tus datos.",
       "privacy_error": "No se pudo abrir la política de privacidad.",
       "reset_title": "Restablecer ajustes",
-      "reset_body": "Esto restaurará los ajustes a sus valores por defecto. No elimina tu biblioteca, solo preferencias.",
+      "reset_body": "Restaura los ajustes y la organización de Inicio. El idioma vuelve al del dispositivo (español si no es compatible). Los fondos se desactivan y los accesos personalizados se ocultan, sin borrar sus imágenes ni selecciones. No elimina biblioteca ni historial.",
       "reset_done": "Ajustes restablecidos."
     },
     "audio": {
@@ -779,6 +782,11 @@
     "guide": {
       "title": "Guía rápida",
       "manual_title": "Manual de uso",
+      "read_manual": "Leer el manual de uso",
+      "search_hint": "Buscar en el manual",
+      "clear_search": "Limpiar búsqueda",
+      "no_results": "No encontramos temas. Prueba con otra palabra.",
+      "topic_count": "{count} temas",
       "manual_subtitle": "Puntos clave para cuidar tu biblioteca, organizar contenido y usar funciones avanzadas.",
       "artist_sort_tip": "En cada página de artista puedes ordenar sus canciones por nombre, artista, tiempo añadido, tamaño, reproducciones, duración o última reproducción.",
       "topics": {
@@ -786,75 +794,77 @@
           "title": "Biblioteca y respaldo",
           "subtitle": "Donde vive tu contenido y cómo evitar pérdidas.",
           "tips": {
-            "1": "Listenfy guarda archivos, portadas, listas y metadata dentro del almacenamiento privado de la app.",
+            "1": "Tu biblioteca conserva archivos, portadas, listas y metadatos. Los archivos permanecen en el almacenamiento privado de la app y sus registros se guardan en SQLite.",
             "2": "Antes de desinstalar o limpiar datos, crea un respaldo ZIP desde Datos y descargas.",
-            "3": "El respaldo completo puede tardar bastante en bibliotecas grandes porque incluye archivos y metadata.",
-            "4": "Si marcas incluir variantes, también se guardan versiones como 8D, instrumental o archivos procesados."
+            "3": "El respaldo conserva el historial de reproducción y los datos de biblioteca, artistas, playlists, Collections, recomendaciones y Atlas. Los archivos incluidos dependen de las opciones elegidas al exportar.",
+            "4": "Para trasladar también tus archivos, elige el respaldo completo y revisa la opción de incluir variantes, como instrumental, 8D y otras versiones procesadas."
           }
         },
         "music": {
           "title": "Música",
           "subtitle": "Reproducción, cola y extras de audio.",
           "tips": {
-            "1": "El player de audio mantiene cola, miniplayer, favoritos, repetición y reproducción aleatoria.",
-            "2": "Si cierras el miniplayer mientras suena una canción, Listenfy conserva la cola para continuar después; si pausas primero y luego lo cierras, esa sesión no se restaura al volver a abrir la app.",
-            "3": "En el reproductor completo puedes tocar atrás o deslizar hacia abajo para minimizar y volver al miniplayer.",
-            "4": "Si notas latencia o un corte breve al cambiar de canción, pausa primero y luego elige la siguiente pista; ayuda especialmente con colas grandes, archivos pesados o Connect activo.",
-            "5": "El crossfade, ecualizador, temporizador de apagado y volumen por defecto viven en Configuración > Audio.",
-            "6": "Sonido limpio detecta silencios largos y permite recortar solo los segmentos que elijas; conserva la metadata principal de la canción original.",
-            "7": "Modo 8D e instrumental requieren el backend externo; cuando terminan, se guardan como variantes reutilizables offline."
+            "1": "El reproductor de audio ofrece cola, miniplayer, favoritos, repetición y reproducción aleatoria.",
+            "2": "Puedes pausar y continuar desde el miniplayer. La cola y las posiciones de reproducción se guardan para retomar tu escucha.",
+            "3": "En el reproductor completo puedes tocar atrás o deslizar hacia abajo para minimizarlo.",
+            "4": "Al entrar en Collections, el audio se pausa y el miniplayer se oculta sin eliminar su cola; al regresar a una pantalla de audio puedes retomar la escucha.",
+            "5": "Configura crossfade, ecualizador, temporizador de apagado y volumen por defecto desde Configuración > Audio.",
+            "6": "Sonido limpio permite detectar silencios largos y elegir los segmentos que quieres recortar.",
+            "7": "Los modos 8D e instrumental requieren un servicio externo de procesamiento. Sus resultados se guardan como variantes que puedes reproducir sin conexión."
           }
         },
         "editable_home": {
           "title": "Inicio editable",
           "subtitle": "Personaliza qué widgets aparecen en la home.",
           "tips": {
-            "1": "En Home toca el icono de editar inicio en la barra superior para abrir el editor en una ventana aparte.",
-            "2": "Puedes activar, desactivar y reordenar Mis favoritos, Para ti hoy, Más reproducido, Reproducciones recientes, Destacado, Últimos imports, Por escuchar y Mix aleatorio.",
-            "3": "Los widgets compatibles permiten alternar entre vista de cards y lista; el editor muestra el modo elegido antes de guardar.",
-            "4": "También puedes agregar secciones conjuntas de Artistas, Listas de reproducción y Collections; cada una conserva su modo de vista.",
-            "5": "En las secciones conjuntas, mantén presionado un item para quitarlo sin rehacer todo el widget.",
-            "6": "Las vistas ampliadas de los widgets muestran el botón de ordenar junto al cambio grid/lista; Inicio se mantiene limpio y solo abre la sección.",
-            "7": "Al mantener presionado un audio o video dentro de un widget editable, Seleccionar varios abre la vista ampliada del módulo con el primer item ya marcado.",
-            "8": "En la vista ampliada puedes borrar, compartir por apps externas o enviar por transferencia Listenfy sin salir del flujo del widget.",
-            "9": "El orden se guarda por widget: Últimos imports, Más reproducido y Reproducciones recientes usan su criterio propio; Favoritos, Destacado y Para ti hoy permiten más parámetros.",
-            "10": "Toca Guardar para aplicar los cambios. Restablecer vuelve al layout por defecto dentro del editor.",
-            "11": "En modo video se ocultan automáticamente los widgets que solo aplican a audio, como Para ti hoy."
+            "1": "Abre Editar inicio desde la barra superior de Home para elegir qué secciones mostrar.",
+            "2": "Activa o desactiva secciones como Favoritos, Para ti hoy, Más reproducido, Reproducciones recientes, Destacado, Últimos imports, Por escuchar y Mix aleatorio.",
+            "3": "Mantén pulsado el encabezado de una sección para entrar en el modo de movimiento. Las secciones tiemblan y puedes arrastrarlas para cambiar su orden.",
+            "4": "Los widgets compatibles permiten elegir entre tarjetas y lista. Las preferencias de visualización se conservan al cerrar la app.",
+            "5": "En modo audio puedes añadir accesos a artistas y playlists; en modo video, a Collections. Usa Agregar o Eliminar para gestionar los accesos sin borrar su contenido.",
+            "6": "Ocultar una sección de accesos directos no elimina los artistas, playlists o Collections que habías elegido.",
+            "7": "Abre una sección para ver su contenido ampliado y usar las opciones de orden y vista disponibles.",
+            "8": "Mantén pulsado un audio o video y elige Seleccionar varios para gestionar varios archivos desde la vista ampliada.",
+            "9": "Continuar viendo aparece en el Home de video para retomar el video y su cola. Puedes mover la sección, pero no desactivarla desde el editor.",
+            "10": "El selector audio/video de Home solo cambia el contenido de Inicio; no cambia el modo de los demás módulos.",
+            "11": "Toca Guardar para aplicar los cambios del editor o Restablecer para recuperar su organización predeterminada."
           }
         },
         "wrapped": {
           "title": "Wrapped y estadísticas",
           "subtitle": "Resumen de escucha, imports y tendencias locales.",
           "tips": {
-            "1": "Desde Datos y descargas puedes abrir Revisa tus estadísticas para ver tu resumen tipo Wrapped.",
-            "2": "Las métricas de música separan canciones, favoritos, artistas, regiones de Atlas, completadas y saltadas temprano.",
-            "3": "Las métricas de imports separan canciones y videos, muestran artistas más descargados, top de imports, mes fuerte y semana fuerte.",
-            "4": "Las regiones dependen de la metadata de país y región usada por Atlas; mientras más consistente sea, mejor será el resumen.",
-            "5": "Al exportar y restaurar el ZIP también se conserva la metadata que alimenta estas estadísticas."
+            "1": "Abre Revisa tus estadísticas desde Datos y descargas para consultar tu Wrapped.",
+            "2": "Explora las métricas de reproducción, favoritos, artistas, regiones e importaciones. Las portadas ayudan a reconocer los contenidos destacados.",
+            "3": "Las regiones se obtienen de la información de los artistas; no representan un ranking de países.",
+            "4": "El collage semanal abre por defecto la última semana completa. Usa el selector para consultar otras semanas disponibles con actividad registrada.",
+            "5": "El resumen semanal distingue audio y video e incluye canciones destacadas, actividad diaria y regiones cuando hay datos disponibles.",
+            "6": "Puedes compartir el collage semanal en dos imágenes PNG. Ambas corresponden a la semana seleccionada.",
+            "7": "Las estadísticas de importación usan la fecha de incorporación del contenido a la biblioteca; añadir otra variante no lo convierte en una nueva importación."
           }
         },
         "artists": {
           "title": "Artistas y colaboraciones",
           "subtitle": "Metadata necesaria para Atlas y relaciones.",
           "tips": {
-            "1": "Abre Atlas desde su acción en la barra de navegación inferior.",
-            "2": "Atlas funciona mejor cuando editas artistas y defines región principal, país y tipo de artista.",
-            "3": "Las portadas de canciones, artistas, playlists y listas temáticas pueden venir de archivo local o búsqueda web.",
-            "4": "Si una colaboración debe contarse para varios artistas, escríbela en Artista con patrones como ft., feat., featuring o with.",
-            "5": "Después del marcador de colaboración, separa invitados con coma, x o &: Artista ft. Invitado1, Invitado2 & Invitado3.",
-            "6": "Si el título sugiere feat o ft pero el campo Artista no lo refleja, al guardar se muestra una advertencia para corregirlo.",
-            "7": "En cada página de artista puedes ordenar sus canciones por nombre, artista, tiempo añadido, tamaño, reproducciones, duración o última reproducción."
+            "1": "Cada artista puede tener su propia portada, país, región principal y tipo de artista. Esta información también alimenta Atlas y los resúmenes.",
+            "2": "Edita los créditos de una canción para indicar sus artistas principales e invitados.",
+            "3": "Puedes escribir colaboraciones con marcadores como ft., feat., featuring o with.",
+            "4": "Después del marcador de colaboración, separa los invitados con coma, x o &: Artista ft. Invitado1, Invitado2 & Invitado3.",
+            "5": "Cuando aparezcan identidades con nombres coincidentes, revisa a qué artista pertenece cada canción. Un nombre parecido no significa que sean la misma persona.",
+            "6": "La fusión de artistas requiere tu elección. Úsala solo cuando las identidades representen al mismo artista, no para unir homónimos.",
+            "7": "En la página de artista puedes ordenar sus canciones por nombre, artista, fecha de incorporación, tamaño, reproducciones, duración o última reproducción."
           }
         },
         "atlas": {
           "title": "Atlas",
           "subtitle": "Explora tu biblioteca local por regiones y artistas.",
           "tips": {
-            "1": "Abre Atlas desde la barra de navegación inferior. Las estaciones se generan solo con los audios locales de tu biblioteca.",
-            "2": "Atlas organiza tus audios según la región y país de sus artistas y canciones. No busca ni transmite música por Internet.",
-            "3": "Continuar retoma la cola, canción y posición guardadas de esa estación, aunque cierres el miniplayer o escuches otra lista. Los archivos que ya no estén disponibles se omiten.",
-            "4": "Si se borran datos de la app, cookies o almacenamiento interno, las sesiones guardadas pueden perderse.",
-            "5": "Las recomendaciones locales mejoran mientras más metadata consistente tenga tu biblioteca."
+            "1": "Abre Atlas desde la barra de navegación inferior. Las estaciones se generan con los audios locales de tu biblioteca.",
+            "2": "Atlas organiza tu música según la región y el país de sus artistas y canciones; no transmite estaciones por Internet.",
+            "3": "Toca una región para enfocar el mapa y después usa Ver estaciones disponibles para abrir la lista.",
+            "4": "Continuar retoma la cola, canción y posición guardadas de esa estación, aunque hayas cerrado el miniplayer o escuchado otra lista. Los archivos no disponibles se omiten.",
+            "5": "Completa la región y el país de tus artistas para enriquecer la exploración y los resúmenes regionales."
           }
         },
         "collections": {
@@ -887,40 +897,31 @@
           "title": "Video",
           "subtitle": "Gestos y utilidades del reproductor de video.",
           "tips": {
-            "1": "Doble toque en la mitad izquierda o derecha del video retrocede o adelanta segundos.",
-            "2": "Arrastre vertical con un dedo cambia el volumen; con dos dedos cambia la velocidad.",
-            "3": "Doble toque con dos dedos alterna entre play y pausa.",
-            "4": "Al mover la barra de progreso puede aparecer previsualización; también puedes guardar una captura desde el icono de cámara.",
-            "5": "En Android, si el video sigue reproduciéndose al salir, puede entrar en PiP automáticamente.",
-            "6": "Las tarjetas de video pueden mostrar etiquetas de estado como Pendiente, Seguir viendo, Visto o Completado según el progreso guardado.",
-            "7": "Desde Configuración > Video puedes ocultar esas etiquetas en todos los videos o solo en videos cortos de 13 minutos o menos.",
-            "8": "Ocultar etiquetas solo cambia la vista: no borra progreso, posiciones guardadas ni estadísticas."
+            "1": "Toca el video para mostrar u ocultar los controles de reproducción.",
+            "2": "Haz doble toque en la mitad izquierda o derecha para retroceder o adelantar. El salto se puede configurar en Controles y gestos.",
+            "3": "Arrastra verticalmente con un dedo para ajustar el volumen; con dos dedos, para cambiar la velocidad.",
+            "4": "Haz doble toque con dos dedos para alternar entre reproducción y pausa.",
+            "5": "Usa el candado para bloquear los controles y evitar toques involuntarios. El botón de desbloqueo permite recuperarlos.",
+            "6": "Alterna entre ajustar la imagen completa o llenar la pantalla. Llenar puede recortar parte de la imagen.",
+            "7": "Desde los controles puedes elegir velocidad, mover la barra de progreso y guardar fotogramas con el botón de captura.",
+            "8": "En Android, el reproductor puede pasar a imagen en imagen (PiP) al salir mientras el video sigue reproduciéndose.",
+            "9": "Los videos de menos de 2:30 no muestran etiquetas de estado. Entre 2:30 y 13:00 puedes ocultarlas con la opción correspondiente de Configuración > Video.",
+            "10": "También puedes ocultar todas las etiquetas. Esto no elimina posiciones guardadas ni estadísticas.",
+            "11": "Usa Continuar viendo en el Home de video para retomar el contenido pendiente."
           }
         },
         "connect": {
           "title": "Connect y transferencias",
           "subtitle": "Control remoto, imports y compartir offline.",
           "tips": {
-            "1": "listenfy Connect abre una URL o QR para controlar la reproducción desde otro dispositivo en la misma red.",
-            "2": "Con colas muy grandes, Connect puede sentirse más lento porque debe sincronizar más estado.",
-            "3": "Si un cambio de pista remoto se siente retrasado, pausa desde el teléfono o desde Connect antes de elegir otra canción.",
-            "4": "Puedes importar URLs o archivos desde el menú Compartir de Android.",
-            "5": "La selección múltiple de audio o video permite compartir varios archivos por apps externas hasta 300 MB en total.",
-            "6": "La selección múltiple también puede enviarse por transferencia interna Listenfy con metadata y límite de 1 GB en total.",
-            "7": "Si una selección supera el límite permitido, Listenfy conserva la selección y muestra el aviso antes de iniciar el envío.",
-            "8": "La transferencia P2P usa QR para enviar archivos y metadata sin depender de internet cuando el dispositivo lo permite.",
-            "9": "La transferencia de datos entre canciones mueve título, artista, portada, letras, favoritos, estadísticas y playlists hacia otra versión sin cambiar el archivo destino.",
-            "10": "Después de transferir datos puedes eliminar la versión anterior de la biblioteca o conservarla."
-          }
-        },
-        "limits": {
-          "title": "Límites conocidos",
-          "subtitle": "Comportamientos que todavía se están puliendo.",
-          "tips": {
-            "1": "Bibliotecas de más de 400 o 500 items pueden hacer más lenta una pantalla si se cargan todos los elementos a la vez.",
-            "2": "Exportar ZIP puede tardar mucho; restaurar normalmente es más rápido.",
-            "3": "Algunos videos pueden no reportar duración correcta si su metadata viene incompleta.",
-            "4": "Si ciertas descargas fallan, actualiza cookies.txt desde Datos y descargas."
+            "1": "listenfy Connect ofrece una dirección y un QR para abrir el control remoto desde otro dispositivo en la misma red.",
+            "2": "Vincula el navegador mediante el flujo de conexión y controla la reproducción desde su interfaz.",
+            "3": "La selección múltiple permite compartir archivos por otras apps, hasta el límite indicado en la pantalla.",
+            "4": "La transferencia interna Listenfy envía archivos y metadatos entre dispositivos compatibles mediante un QR de conexión.",
+            "5": "El QR sirve para vincular los dispositivos; los archivos se transfieren mediante la conexión entre ellos.",
+            "6": "La transferencia de datos entre canciones sirve para sustituir una versión por otra del mismo contenido conservando su información.",
+            "7": "El historial de ambas versiones se reúne bajo el contenido resultante, sin convertir las escuchas antiguas en nuevas reproducciones.",
+            "8": "Revisa las opciones de la transferencia antes de confirmar y elige si quieres conservar o eliminar la versión anterior."
           }
         }
       }
@@ -2138,7 +2139,9 @@
     "habit_repeat": "Tu protagonista en repeat ♫",
     "habit_varied": "Una semana con variedad ♫",
     "habit_yours": "A tu propio ritmo ♫",
-    "open": "Collage semanal",
+    "open": "Wrapped semanal",
+    "calendar_title": "Buscar semana por fecha",
+    "calendar_hint": "Toca un día para abrir su semana completa. Solo están habilitadas las semanas disponibles.",
     "title": "Tu semana en collage",
     "select_week": "Elige una semana",
     "weeks_error": "No pudimos cargar las semanas disponibles.",

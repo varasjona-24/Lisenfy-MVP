@@ -5,6 +5,7 @@ import 'package:easy_localization/src/localization.dart';
 import 'package:easy_localization/src/translations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:listenfy/Modules/stats/application/weekly_collage_summary.dart';
 import 'package:listenfy/Modules/stats/application/weekly_collage_activity.dart';
 import 'package:listenfy/Modules/stats/presentation/views/weekly_collage_page.dart';
@@ -19,6 +20,42 @@ void main() {
             as Map<String, dynamic>,
       ),
     );
+  });
+  testWidgets('calendar selects complete weeks and disables unavailable days', (
+    tester,
+  ) async {
+    final requested = <DateTime>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WeeklyCollagePage(
+          now: DateTime(2026, 10, 19),
+          availableWeeksLoader: () async => [DateTime(2026, 9, 28)],
+          weekLoader: (start) async {
+            requested.add(start);
+            return WeeklyCollageSummary(
+              start: start,
+              end: DateTime(start.year, start.month, start.day + 7),
+              entries: [],
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('weekly-calendar-button')));
+    await tester.pumpAndSettle();
+    final calendar = tester.widget<TableCalendar<void>>(
+      find.byType(TableCalendar<void>),
+    );
+    expect(calendar.enabledDayPredicate!(DateTime(2026, 10, 3)), isTrue);
+    expect(calendar.enabledDayPredicate!(DateTime(2026, 10, 7)), isFalse);
+    expect(calendar.enabledDayPredicate!(DateTime(2026, 10, 19)), isFalse);
+    expect(calendar.selectedDayPredicate!(DateTime(2026, 10, 18)), isTrue);
+    calendar.onDaySelected!(DateTime(2026, 10, 3), DateTime(2026, 10, 3));
+    await tester.pumpAndSettle();
+    expect(requested.last, DateTime(2026, 9, 28));
+    expect(find.byType(TableCalendar<void>), findsNothing);
+    expect(tester.takeException(), isNull);
   });
   testWidgets('chooses an older complete week even when last week is empty', (
     tester,

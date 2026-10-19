@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 import '../../../../app/data/local/local_library_store.dart';
 import '../../../../app/data/playback/playback_repository.dart';
@@ -121,6 +122,97 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
     });
   }
 
+  Future<void> _openCalendar(List<DateTime> weeks) async {
+    final ordered = [...weeks]..sort();
+    var focused = _selectedWeek;
+    DateTime weekOf(DateTime day) =>
+        DateTime(day.year, day.month, day.day - day.weekday + 1);
+    final available = weeks.map(weekOf).toSet();
+    final picked = await showModalBottomSheet<DateTime>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: StatefulBuilder(
+            builder: (context, setCalendarState) {
+              final theme = Theme.of(context);
+              final scheme = theme.colorScheme;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    tr('weekly_collage.calendar_title'),
+                    style: theme.textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    tr('weekly_collage.calendar_hint'),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  TableCalendar<void>(
+                    locale: Localizations.localeOf(context).toString(),
+                    firstDay: ordered.first,
+                    lastDay: DateTime(
+                      ordered.last.year,
+                      ordered.last.month,
+                      ordered.last.day + 6,
+                    ),
+                    focusedDay: focused,
+                    startingDayOfWeek: StartingDayOfWeek.monday,
+                    availableGestures: AvailableGestures.horizontalSwipe,
+                    enabledDayPredicate: (day) =>
+                        available.contains(weekOf(day)),
+                    selectedDayPredicate: (day) => weekOf(day) == _selectedWeek,
+                    onPageChanged: (day) =>
+                        setCalendarState(() => focused = day),
+                    onDaySelected: (day, _) =>
+                        Navigator.pop(context, weekOf(day)),
+                    headerStyle: HeaderStyle(
+                      formatButtonVisible: false,
+                      titleCentered: true,
+                      leftChevronIcon: Icon(
+                        Icons.chevron_left_rounded,
+                        color: scheme.primary,
+                      ),
+                      rightChevronIcon: Icon(
+                        Icons.chevron_right_rounded,
+                        color: scheme.primary,
+                      ),
+                    ),
+                    calendarStyle: CalendarStyle(
+                      outsideDaysVisible: false,
+                      selectedTextStyle: TextStyle(color: scheme.onPrimary),
+                      selectedDecoration: BoxDecoration(
+                        color: scheme.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      defaultDecoration: BoxDecoration(
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: .2),
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      weekendDecoration: BoxDecoration(
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: .2),
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    if (mounted && picked != null) _selectWeek(picked);
+  }
+
   Widget _weekSelector() => FutureBuilder<List<DateTime>>(
     future: _weeks,
     builder: (context, snapshot) {
@@ -136,6 +228,14 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
             ),
             constraints: const BoxConstraints(minHeight: 48),
             labelText: tr('weekly_collage.select_week'),
+            suffixIcon: IconButton(
+              key: const ValueKey('weekly-calendar-button'),
+              tooltip: tr('weekly_collage.calendar_title'),
+              icon: const Icon(Icons.calendar_month_rounded, size: 20),
+              onPressed: _exporting || !snapshot.hasData || weeks.isEmpty
+                  ? null
+                  : () => _openCalendar(weeks),
+            ),
             prefixIcon: const Icon(Icons.date_range_rounded, size: 18),
             prefixIconConstraints: const BoxConstraints(
               minWidth: 40,

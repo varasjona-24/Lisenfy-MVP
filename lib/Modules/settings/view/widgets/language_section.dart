@@ -3,12 +3,11 @@ import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 
 import 'info_tile.dart';
+import '../../../../app/ui/widgets/forms/app_option_selector.dart';
+import '../../../../app/utils/app_locales.dart';
 
 class LanguageSection extends StatelessWidget {
   const LanguageSection({super.key});
-
-  static const _spanish = Locale('es');
-  static const _english = Locale('en');
 
   @override
   Widget build(BuildContext context) {
@@ -53,26 +52,23 @@ class LanguageSection extends StatelessWidget {
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
-                  child: SegmentedButton<Locale>(
-                    segments: [
-                      ButtonSegment<Locale>(
-                        value: _spanish,
-                        label: Text(tr('settings.language.spanish')),
-                      ),
-                      ButtonSegment<Locale>(
-                        value: _english,
-                        label: Text(tr('settings.language.english')),
-                      ),
-                    ],
-                    selected: {
-                      currentLocale.languageCode == _english.languageCode
-                          ? _english
-                          : _spanish,
+                  child: AppOptionSelector<Locale>(
+                    value: AppLocales.forDevice(currentLocale),
+                    icon: Icons.language_rounded,
+                    options: {
+                      for (final locale in AppLocales.supported)
+                        locale: tr(
+                          'settings.language.${switch (locale.languageCode) {
+                            'en' => 'english',
+                            'pt' => 'portuguese',
+                            _ => 'spanish',
+                          }}',
+                        ),
                     },
-                    onSelectionChanged: (selection) async {
-                      final locale = selection.first;
-                      if (locale == context.locale) return;
-                      await context.setLocale(locale);
+                    onChanged: (locale) async {
+                      if (locale != context.locale) {
+                        await context.setLocale(locale);
+                      }
                     },
                   ),
                 ),

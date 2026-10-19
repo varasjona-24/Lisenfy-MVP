@@ -633,6 +633,8 @@
         "cyberpunk": "Cyberpunk"
       },
       "wallpaper_title": "Wallpaper",
+      "wallpaper_enabled": "Use custom wallpapers",
+      "wallpaper_enabled_hint": "Turn them off without deleting saved images.",
       "wallpaper_subtitle": "Set a vertical image and use it behind the content.",
       "smart_carousel": "Smart carousel",
       "smart_carousel_subtitle": "Changes the wallpaper every 1 hour and 30 minutes.",
@@ -658,6 +660,7 @@
       "subtitle": "Choose the interface language.",
       "spanish": "Spanish",
       "english": "English",
+      "portuguese": "Portuguese",
       "system_note": "More screens will be translated progressively."
     },
     "about": {
@@ -665,8 +668,8 @@
       "version": "Version",
       "storage": "Storage",
       "calculating": "Calculating…",
-      "last_update": "Last update",
-      "last_update_value": "January 20, 2026",
+      "last_update": "Updated on this device",
+      "info_unavailable": "Unavailable",
       "support_title": "Support Listenfy",
       "support_subtitle": "Voluntary donation to support project development.",
       "kofi_error": "Could not open Ko-fi. Please try again.",
@@ -674,7 +677,7 @@
       "privacy_subtitle": "How Listenfy accesses, uses, and protects your data.",
       "privacy_error": "Could not open the privacy policy.",
       "reset_title": "Reset settings",
-      "reset_body": "This will restore settings to their defaults. It does not delete your library, only preferences.",
+      "reset_body": "Restores settings and the Home layout. Language returns to your device language (Spanish if unsupported). Wallpapers are disabled and custom shortcuts hidden, without deleting images or selections. Your library and history are not deleted.",
       "reset_done": "Settings reset."
     },
     "audio": {
@@ -779,6 +782,11 @@
     "guide": {
       "title": "Quick guide",
       "manual_title": "User manual",
+      "read_manual": "Read the user manual",
+      "search_hint": "Search the manual",
+      "clear_search": "Clear search",
+      "no_results": "No topics found. Try another word.",
+      "topic_count": "{count} topics",
       "manual_subtitle": "Key points to protect your library, organize content, and use advanced features.",
       "artist_sort_tip": "On each artist page you can sort songs by name, artist, time added, size, plays, duration, or last played.",
       "topics": {
@@ -786,75 +794,77 @@
           "title": "Library and backup",
           "subtitle": "Where your content lives and how to prevent data loss.",
           "tips": {
-            "1": "Listenfy stores files, covers, playlists, and metadata inside the app's private storage.",
+            "1": "Your library keeps files, covers, playlists, and metadata. Files remain in the app's private storage and their records are stored in SQLite.",
             "2": "Before uninstalling or clearing data, create a ZIP backup from Data and downloads.",
-            "3": "A full backup can take a while on large libraries because it includes files and metadata.",
-            "4": "If you include variants, versions such as 8D, instrumental, or processed files are also saved."
+            "3": "Backups preserve playback history and library, artist, playlist, Collection, recommendation, and Atlas data. Included files depend on the export options you choose.",
+            "4": "To move your files too, choose a full backup and review the option to include variants such as instrumental, 8D, and other processed versions."
           }
         },
         "music": {
           "title": "Music",
           "subtitle": "Playback, queue, and audio extras.",
           "tips": {
-            "1": "The audio player keeps the queue, miniplayer, favorites, repeat, and shuffle playback.",
-            "2": "If you close the miniplayer while a song is playing, Listenfy keeps the queue so you can continue later; if you pause first and then close it, that session is not restored when the app opens again.",
-            "3": "In the full player you can tap back or swipe down to minimize and return to the miniplayer.",
-            "4": "If you notice latency or a brief cut when changing songs, pause first and then choose the next track; this helps especially with large queues, heavy files, or Connect active.",
-            "5": "Crossfade, equalizer, sleep timer, and default volume live in Settings > Audio.",
-            "6": "Clean sound detects long silences and lets you trim only the segments you choose; it keeps the main metadata from the original song.",
-            "7": "8D and instrumental modes require the external backend; when finished, they are saved as reusable offline variants."
+            "1": "The audio player offers a queue, miniplayer, favorites, repeat, and shuffle.",
+            "2": "Pause and continue from the miniplayer. Playback queues and positions are saved so you can resume listening.",
+            "3": "In the full player, go back or swipe down to minimize it.",
+            "4": "Entering Collections pauses audio and hides the miniplayer without deleting its queue; return to an audio screen to resume listening.",
+            "5": "Configure crossfade, equalizer, sleep timer, and default volume in Settings > Audio.",
+            "6": "Clean sound detects long silences and lets you choose which segments to trim.",
+            "7": "8D and instrumental modes require an external processing service. Their results are saved as variants you can play offline."
           }
         },
         "editable_home": {
           "title": "Editable home",
           "subtitle": "Customize which widgets appear on Home.",
           "tips": {
-            "1": "On Home, tap the edit home icon in the top bar to open the editor in a separate window.",
-            "2": "You can enable, disable, and reorder My favorites, For you today, Most played, Recently played, Featured, Latest imports, To listen, and Random mix.",
-            "3": "Compatible widgets can switch between card and list views; the editor shows the chosen mode before saving.",
-            "4": "You can also add combined sections for Artists, Playlists, and Collections; each one keeps its view mode.",
-            "5": "In combined sections, long-press an item to remove it without rebuilding the whole widget.",
-            "6": "Expanded widget views show the sort button next to the grid/list switch; Home stays clean and only opens the section.",
-            "7": "Long-pressing an audio or video inside an editable widget makes Select multiple open the expanded module view with the first item already selected.",
-            "8": "In the expanded view you can delete, share through external apps, or send through Listenfy transfer without leaving the widget flow.",
-            "9": "Sorting is saved per widget: Latest imports, Most played, and Recently played use their own criteria; Favorites, Featured, and For you today allow more parameters.",
-            "10": "Tap Save to apply changes. Reset returns to the default layout inside the editor.",
-            "11": "In video mode, widgets that only apply to audio, such as For you today, are hidden automatically."
+            "1": "Open Edit home from Home's top bar to choose which sections to display.",
+            "2": "Enable or disable sections such as Favorites, For you today, Most played, Recently played, Featured, Latest imports, To listen, and Random mix.",
+            "3": "Long-press a section heading to enter move mode. Sections wiggle and you can drag them to change their order.",
+            "4": "Compatible widgets offer card and list views. Display preferences persist after closing the app.",
+            "5": "In audio mode, add artist and playlist shortcuts; in video mode, add Collections. Use Add or Remove to manage shortcuts without deleting their content.",
+            "6": "Hiding a shortcut section does not delete the artists, playlists, or Collections you selected.",
+            "7": "Open a section to see its expanded content and use the available sorting and view options.",
+            "8": "Long-press an audio or video and choose Select multiple to manage several files from the expanded view.",
+            "9": "Continue watching appears on video Home to resume a video and its queue. You can move this section but cannot disable it in the editor.",
+            "10": "Home's audio/video selector only changes Home content, not the playback mode of other modules.",
+            "11": "Tap Save to apply editor changes or Reset to restore the default layout."
           }
         },
         "wrapped": {
           "title": "Wrapped and stats",
           "subtitle": "Listening summary, imports, and local trends.",
           "tips": {
-            "1": "From Data and downloads you can open Check your stats to see your Wrapped-style summary.",
-            "2": "Music metrics separate songs, favorites, artists, Atlas regions, completed tracks, and early skips.",
-            "3": "Import metrics separate songs and videos, show most downloaded artists, top imports, strongest month, and strongest week.",
-            "4": "Regions depend on country and region metadata used by Atlas; the more consistent it is, the better the summary gets.",
-            "5": "Exporting and restoring the ZIP also keeps the metadata that powers these stats."
+            "1": "Open Check your stats from Data and downloads to view your Wrapped.",
+            "2": "Explore playback, favorite, artist, region, and import metrics. Artwork helps you recognize featured content.",
+            "3": "Regions come from artist information; they are not a ranking of countries.",
+            "4": "The weekly collage defaults to the last complete week. Use the selector to view other available weeks with recorded activity.",
+            "5": "The weekly recap distinguishes audio and video and includes featured songs, daily activity, and regions when data is available.",
+            "6": "Share the weekly collage as two PNG images. Both represent the selected week.",
+            "7": "Import statistics use the date content first joined your library; adding a variant does not count as a new import."
           }
         },
         "artists": {
           "title": "Artists and collaborations",
           "subtitle": "Metadata needed for Atlas and relationships.",
           "tips": {
-            "1": "Open Atlas using its action in the bottom navigation bar.",
-            "2": "Atlas works best when you edit artists and define main region, country, and artist type.",
-            "3": "Song, artist, playlist, and themed-list covers can come from a local file or web search.",
-            "4": "If a collaboration should count for multiple artists, write it in Artist with patterns such as ft., feat., featuring, or with.",
-            "5": "After the collaboration marker, separate guests with commas, x, or &: Artist ft. Guest1, Guest2 & Guest3.",
-            "6": "If the title suggests feat or ft but the Artist field does not reflect it, saving shows a warning so you can fix it.",
-            "7": "On each artist page you can sort songs by name, artist, time added, size, plays, duration, or last played."
+            "1": "Each artist can have a cover, country, main region, and artist type. This information also powers Atlas and recaps.",
+            "2": "Edit song credits to specify main and guest artists.",
+            "3": "Write collaborations using markers such as ft., feat., featuring, or with.",
+            "4": "After a collaboration marker, separate guests with commas, x, or &: Artist ft. Guest1, Guest2 & Guest3.",
+            "5": "When identities have matching names, review which artist each song belongs to. Similar names do not mean they are the same person.",
+            "6": "Merging artists requires your choice. Only merge identities representing the same artist, not different artists sharing a name.",
+            "7": "On an artist page, sort songs by name, artist, date added, size, plays, duration, or last played."
           }
         },
         "atlas": {
           "title": "Atlas",
           "subtitle": "Explore your local library by region and artist.",
           "tips": {
-            "1": "Open Atlas from the bottom navigation bar. Stations are generated only from local audio in your library.",
-            "2": "Atlas organizes your audio using the region and country of its artists and songs. It does not search for or stream music from the Internet.",
-            "3": "Continue resumes that station's saved queue, song, and position, even after closing the miniplayer or playing another playlist. Files that are no longer available are skipped.",
-            "4": "If app data, cookies, or internal storage are cleared, saved sessions can be lost.",
-            "5": "Local recommendations improve as your library gets more consistent metadata."
+            "1": "Open Atlas from the bottom navigation bar. Stations are generated from local audio in your library.",
+            "2": "Atlas organizes music by the region and country of artists and songs; it does not stream Internet stations.",
+            "3": "Tap a region to focus the map, then use View available stations to open the list.",
+            "4": "Continue resumes that station's saved queue, song, and position, even after closing the miniplayer or playing another playlist. Unavailable files are skipped.",
+            "5": "Complete artist region and country information to enrich exploration and regional recaps."
           }
         },
         "collections": {
@@ -887,40 +897,31 @@
           "title": "Video",
           "subtitle": "Gestures and tools in the video player.",
           "tips": {
-            "1": "Double tap the left or right half of the video to rewind or fast-forward seconds.",
-            "2": "A vertical one-finger drag changes volume; a two-finger drag changes speed.",
-            "3": "Double tap with two fingers toggles play and pause.",
-            "4": "When moving the progress bar, a preview can appear; you can also save a capture from the camera icon.",
-            "5": "On Android, if the video keeps playing when you leave, it can enter PiP automatically.",
-            "6": "Video cards can show status labels such as Pending, Continue watching, Watched, or Completed depending on saved progress.",
-            "7": "From Settings > Video you can hide those labels on all videos or only on short videos of 13 minutes or less.",
-            "8": "Hiding labels only changes the view: it does not delete progress, saved positions, or stats."
+            "1": "Tap the video to show or hide playback controls.",
+            "2": "Double-tap the left or right half to rewind or fast-forward. Configure the jump in Controls and gestures.",
+            "3": "Drag vertically with one finger to adjust volume or with two fingers to change speed.",
+            "4": "Double-tap with two fingers to toggle playback and pause.",
+            "5": "Use the lock to block controls and prevent accidental touches. The unlock button restores them.",
+            "6": "Switch between fitting the entire image and filling the screen. Filling may crop part of the image.",
+            "7": "Use the controls to choose speed, seek on the progress bar, and save frames with the capture button.",
+            "8": "On Android, the player can enter picture-in-picture (PiP) when you leave while a video is playing.",
+            "9": "Videos under 2:30 do not show status labels. For videos from 2:30 to 13:00, hide them using the corresponding Settings > Video option.",
+            "10": "You can also hide all labels. This does not remove saved positions or statistics.",
+            "11": "Use Continue watching on video Home to resume unfinished content."
           }
         },
         "connect": {
           "title": "Connect and transfers",
           "subtitle": "Remote control, imports, and offline sharing.",
           "tips": {
-            "1": "listenfy Connect opens a URL or QR so you can control playback from another device on the same network.",
-            "2": "With very large queues, Connect can feel slower because it has to sync more state.",
-            "3": "If a remote track change feels delayed, pause from the phone or from Connect before choosing another song.",
-            "4": "You can import URLs or files from Android's Share menu.",
-            "5": "Audio or video multi-selection can share several files through external apps up to 300 MB total.",
-            "6": "Multi-selection can also be sent through internal Listenfy transfer with metadata and a 1 GB total limit.",
-            "7": "If a selection exceeds the allowed limit, Listenfy keeps the selection and shows the warning before starting the send.",
-            "8": "P2P transfer uses QR to send files and metadata without depending on the internet when the device allows it.",
-            "9": "Data transfer between songs moves title, artist, cover, lyrics, favorites, stats, and playlists to another version without changing the destination file.",
-            "10": "After transferring data, you can delete the previous version from the library or keep it."
-          }
-        },
-        "limits": {
-          "title": "Known limits",
-          "subtitle": "Behaviors that are still being polished.",
-          "tips": {
-            "1": "Libraries with more than 400 or 500 items can make a screen slower if every element loads at once.",
-            "2": "Exporting a ZIP can take a long time; restoring is usually faster.",
-            "3": "Some videos may not report the correct duration if their metadata is incomplete.",
-            "4": "If certain downloads fail, update cookies.txt from Data and downloads."
+            "1": "listenfy Connect provides an address and QR code to open remote control from another device on the same network.",
+            "2": "Pair the browser through the connection flow and control playback from its interface.",
+            "3": "Multi-selection lets you share files through other apps, up to the limit shown on screen.",
+            "4": "Listenfy's internal transfer sends files and metadata between compatible devices using a connection QR code.",
+            "5": "The QR code pairs devices; files travel over the connection between them.",
+            "6": "Song data transfer replaces one version with another version of the same content while preserving its information.",
+            "7": "Both versions' listening histories are brought together under the resulting content, without turning old listens into new plays.",
+            "8": "Review the transfer options before confirming and choose whether to keep or delete the previous version."
           }
         }
       }
@@ -2138,7 +2139,9 @@
     "habit_repeat": "Your headliner on repeat ♫",
     "habit_varied": "A week of variety ♫",
     "habit_yours": "At your own rhythm ♫",
-    "open": "Weekly collage",
+    "open": "Weekly Wrapped",
+    "calendar_title": "Find a week by date",
+    "calendar_hint": "Tap a day to open its complete week. Only available weeks are enabled.",
     "title": "Your week in a collage",
     "select_week": "Choose a week",
     "weeks_error": "Could not load the available weeks.",

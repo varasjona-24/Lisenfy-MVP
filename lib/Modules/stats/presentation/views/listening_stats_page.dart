@@ -59,9 +59,9 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
         foregroundColor: scheme.onSurface,
         leading: const BackButton(),
         actions: [
-          IconButton(
-            tooltip: tr('weekly_collage.open'),
-            icon: const Icon(Icons.photo_library_outlined),
+          TextButton.icon(
+            label: Text(tr('weekly_collage.open')),
+            icon: const Icon(Icons.calendar_view_week_rounded),
             onPressed: () => Get.to(() => const WeeklyCollagePage()),
           ),
         ],

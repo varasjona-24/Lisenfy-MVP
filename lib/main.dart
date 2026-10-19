@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'app/utils/app_locales.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -107,7 +108,8 @@ Future<void> main() async {
     Completer<void>? retry;
     runApp(
       EasyLocalization(
-        supportedLocales: const [Locale('es'), Locale('en')],
+        supportedLocales: AppLocales.supported,
+        useOnlyLangCode: true,
         path: 'assets/translations',
         fallbackLocale: const Locale('es'),
         child: Builder(
@@ -379,7 +381,8 @@ Future<void> main() async {
 
   runApp(
     EasyLocalization(
-      supportedLocales: const [Locale('es'), Locale('en')],
+      supportedLocales: AppLocales.supported,
+      useOnlyLangCode: true,
       path: 'assets/translations',
       fallbackLocale: const Locale('es'),
       child: const MyApp(),

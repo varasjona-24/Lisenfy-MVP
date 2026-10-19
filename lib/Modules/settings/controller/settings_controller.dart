@@ -26,6 +26,7 @@ import '../../edit/view/desktop_image_cropper_dialog.dart';
 import 'playback_settings_controller.dart';
 import 'sleep_timer_controller.dart';
 import 'equalizer_controller.dart';
+import '../../Home/Controller/home_controller.dart';
 
 class LauncherIconOption {
   final String id;
@@ -42,7 +43,9 @@ class LauncherIconOption {
 /// - [EqualizerController] — ecualizador completo
 /// - [BackupRestoreController] — export/import de librería
 class SettingsController extends GetxController with WidgetsBindingObserver {
-  final GetStorage _storage = domainStorage(GetStorage());
+  SettingsController({GetStorage? storage})
+    : _storage = storage ?? domainStorage(GetStorage());
+  final GetStorage _storage;
   static const MethodChannel _appIconChannel = MethodChannel(
     'listenfy/app_icon',
   );
@@ -86,6 +89,38 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
 
   // 🖼️ Fondo personalizado
   final RxString appBackgroundImagePath = ''.obs;
+  final RxBool appBackgroundEnabled = true.obs;
+  final RxString installedVersion = ''.obs;
+  final Rxn<DateTime> installedUpdatedAt = Rxn<DateTime>();
+
+  Future<void> loadInstalledAppInfo() async {
+    try {
+      final info = await _appIconChannel.invokeMapMethod<String, dynamic>(
+        'getAppInfo',
+      );
+      final version = info?['version'] as String?;
+      final build = info?['build']?.toString();
+      if (version != null) {
+        installedVersion.value = build == null ? version : '$version ($build)';
+      }
+      final updated = info?['updatedAt'] as num?;
+      if (updated != null) {
+        installedUpdatedAt.value = DateTime.fromMillisecondsSinceEpoch(
+          updated.toInt(),
+        );
+      }
+    } on MissingPluginException {
+      // Unsupported platforms do not display invented package information.
+    } on PlatformException catch (error) {
+      debugPrint('App information unavailable: $error');
+    }
+  }
+
+  Future<void> setAppBackgroundEnabled(bool enabled) async {
+    await _storage.write('appBackgroundEnabled', enabled);
+    appBackgroundEnabled.value = enabled;
+  }
+
   final RxList<String> appBackgroundImagePaths = <String>[].obs;
   final RxBool smartBackgroundCarouselEnabled = false.obs;
   final RxBool orderedBackgroundCarouselEnabled = false.obs;
@@ -108,6 +143,7 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
     super.onInit();
     WidgetsBinding.instance.addObserver(this);
     _loadSettings();
+    unawaited(loadInstalledAppInfo());
     unawaited(_loadSelectedAppIcon());
     _startBackgroundCarouselTimer();
     _rotateBackgroundIfDue();
@@ -116,6 +152,8 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
   }
 
   void _loadSettings() {
+    appBackgroundEnabled.value =
+        _storage.read<bool>('appBackgroundEnabled') ?? true;
     selectedPalette.value = _storage.read('selectedPalette') ?? 'green';
     brightness.value = (_storage.read('brightness') ?? 'dark') == 'light'
         ? Brightness.light
@@ -247,6 +285,7 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
 
   Future<void> _rotateBackgroundIfDue({bool force = false}) async {
     if (_isRotatingBackground ||
+        !appBackgroundEnabled.value ||
         !smartBackgroundCarouselEnabled.value ||
         appBackgroundImagePaths.length < 2) {
       return;
@@ -751,7 +790,7 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
   // ============================
   Future<void> resetSettings() async {
     await setAppIcon('original', showFeedback: false);
-    await removeAllAppBackgroundImages();
+    await setAppBackgroundEnabled(false);
     smartBackgroundCarouselEnabled.value = false;
     orderedBackgroundCarouselEnabled.value = false;
     await _storage.remove(_smartCarouselEnabledKey);
@@ -775,6 +814,8 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
     if (Get.isRegistered<EqualizerController>()) {
       await Get.find<EqualizerController>().resetEqualizerSettings();
     }
+
+    await HomeController.resetSavedHomeLayout(preferences: _storage);
 
     storageTick.value++;
     bluetoothTick.value++;

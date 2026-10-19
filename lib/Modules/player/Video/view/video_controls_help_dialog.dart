@@ -3,6 +3,7 @@ import 'package:easy_localization/easy_localization.dart'
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../settings/controller/playback_settings_controller.dart';
+import '../../../../app/ui/widgets/forms/app_option_selector.dart';
 
 class VideoControlsHelpDialog extends StatelessWidget {
   const VideoControlsHelpDialog({super.key, required this.settings});
@@ -45,54 +46,29 @@ class VideoControlsHelpDialog extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Obx(
-              () => Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
+              () => AppOptionSelector<int>(
+                value: settings.videoSeekSeconds.value,
+                icon: Icons.fast_forward_rounded,
+                options: {
                   for (final seconds in [5, 10, 15])
-                    ChoiceChip(
-                      showCheckmark: false,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      labelPadding: EdgeInsets.zero,
-                      materialTapTargetSize: MaterialTapTargetSize.padded,
-                      shape: const StadiumBorder(),
-                      side: BorderSide(
-                        color: settings.videoSeekSeconds.value == seconds
-                            ? scheme.primary
-                            : scheme.outlineVariant,
-                      ),
-                      selectedColor: scheme.primaryContainer,
-                      backgroundColor: scheme.surfaceContainerHigh,
-                      labelStyle: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: settings.videoSeekSeconds.value == seconds
-                            ? scheme.onPrimaryContainer
-                            : scheme.onSurfaceVariant,
-                      ),
-                      label: Text(
-                        tr('player.video_seek_seconds', args: ['$seconds']),
-                      ),
-                      selected: settings.videoSeekSeconds.value == seconds,
-                      onSelected: (_) async {
-                        try {
-                          await settings.setVideoSeekSeconds(seconds);
-                        } catch (_) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  tr('player.video_controls_save_error'),
-                                ),
-                              ),
-                            );
-                          }
-                        }
-                      },
+                    seconds: tr(
+                      'player.video_seek_seconds',
+                      args: ['$seconds'],
                     ),
-                ],
+                },
+                onChanged: (seconds) async {
+                  try {
+                    await settings.setVideoSeekSeconds(seconds);
+                  } catch (_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(tr('player.video_controls_save_error')),
+                        ),
+                      );
+                    }
+                  }
+                },
               ),
             ),
             hint(Icons.touch_app_rounded, 'player.video_gesture_tap'),

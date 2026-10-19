@@ -116,6 +116,22 @@ class MainActivity : AudioServiceActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getCurrentIcon" -> result.success(getCurrentLauncherIcon())
+                    "getAppInfo" -> {
+                        try {
+                            @Suppress("DEPRECATION")
+                            val info = packageManager.getPackageInfo(packageName, 0)
+                            val build = if (android.os.Build.VERSION.SDK_INT >= 28) {
+                                info.longVersionCode.toString()
+                            } else {
+                                @Suppress("DEPRECATION")
+                                info.versionCode.toString()
+                            }
+                            result.success(mapOf("version" to info.versionName,
+                                "build" to build, "updatedAt" to info.lastUpdateTime))
+                        } catch (error: Exception) {
+                            result.error("app_info_failed", error.message, null)
+                        }
+                    }
                     "setIcon" -> {
                         val iconId = call.argument<String>("iconId")
                         if (iconId == null || !launcherAliases.containsKey(iconId)) {
