@@ -1,5 +1,17 @@
 # Registro de refactor
 
+## 2026-10-19 — Selector de semanas completas del collage
+
+- El collage permite elegir semanas históricas con actividad fechada y mantiene por defecto la última semana completa, incluso si está vacía. No se ofrece la semana en curso ni se inventan semanas a partir de contadores acumulados.
+- Las opciones proceden de sesiones e intervalos SQLite, incluyendo intervalos que cruzan un lunes; el fallback legacy usa eventos fechados. Consultas de resumen, gráfica y comparación se acotan a la semana seleccionada y su anterior.
+- Exportación mantiene las dos imágenes y su resolución, con fecha de la semana en el nombre. Selector bloqueado durante exportación; al cambiar semana se oculta el resultado anterior durante la carga. Textos propios ES/EN y pruebas de calendario/selección.
+
+## 2026-10-19 — Rankings Wrapped por reproducciones contables
+
+- Canciones, artistas, regiones, favoritas y videos usan playCount no negativo tanto para ordenar como para mostrar cifras y barras. Retirado listenScoreFor, que sustituía reproducciones por completadas cuando había alguna, o restaba saltadas en el resto.
+- Completadas, saltadas, tasas y mood mantienen sus métricas independientes; no se alteran contadores en SQLite ni se fabrican reproducciones. La proyección audio/video del repositorio sigue siendo la fuente de los contadores.
+- Regresiones cubren 30 reproducciones frente a 17 completadas, selección del top cinco tras ordenar toda la biblioteca, totales por artista/región, favoritas/videos, counters incompletos y proyección por modo.
+
 ## 2026-10-16 — Tarjetas de Atlas sin chips redundantes
 
 - Quitados los chips de biblioteca local y número de pistas, además del subtítulo con cantidad y categoría. Se conservan título, portada, reproducir/continuar y vista previa con sus acciones.
