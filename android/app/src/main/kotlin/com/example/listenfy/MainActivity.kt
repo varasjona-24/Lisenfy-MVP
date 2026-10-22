@@ -48,6 +48,7 @@ import kotlin.math.pow
 import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : AudioServiceActivity() {
+    private var wifiDirectTransferBridge: WifiDirectTransferBridge? = null
     private val channel = "listenfy/bluetooth_audio"
     private val mediaMetadataChannel = "listenfy/media_metadata"
     private val androidAutoArtworkChannel = "listenfy/android_auto_artwork"
@@ -101,6 +102,8 @@ class MainActivity : AudioServiceActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        wifiDirectTransferBridge?.close()
+        wifiDirectTransferBridge = WifiDirectTransferBridge(this, flutterEngine)
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, androidAutoArtworkChannel)
             .setMethodCallHandler { call, result ->
@@ -731,6 +734,8 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun onDestroy() {
+        wifiDirectTransferBridge?.close()
+        wifiDirectTransferBridge = null
         releaseSpatial()
         super.onDestroy()
     }

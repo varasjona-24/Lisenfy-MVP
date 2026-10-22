@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:crypto/crypto.dart';
 import 'package:easy_localization/easy_localization.dart'
@@ -15,44 +15,110 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../app/data/local/local_library_store.dart';
+import '../../../app/data/playback/playback_repository.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/utils/listenfy_deep_link.dart';
 import '../../downloads/controller/downloads_controller.dart';
 import '../../sources/domain/source_origin.dart';
+import '../data/wifi_direct_transport.dart';
+import '../domain/hybrid_transfer_protocol.dart';
 
-class NearbyTransferPeer {
-  final String endpointId;
-  final String name;
-
-  const NearbyTransferPeer({required this.endpointId, required this.name});
+enum TransferPhase {
+  idle,
+  advertising,
+  discovering,
+  pairing,
+  preparingWifi,
+  connected,
+  closed,
+  failed,
 }
 
-class _OutgoingShareFile {
-  const _OutgoingShareFile({
-    required this.item,
-    required this.variant,
-    required this.sizeBytes,
-  });
-
-  final MediaItem item;
-  final MediaVariant variant;
-  final int sizeBytes;
+class TransferEntry {
+  TransferEntry({
+    required this.id,
+    required this.title,
+    required this.bytes,
+    required this.state,
+    this.progress = 0,
+    this.bytesPerSecond = 0,
+    this.sessionId = '',
+    this.itemId,
+    this.direction = 'sent',
+    int? recordedAt,
+  }) : recordedAt = recordedAt ?? DateTime.now().millisecondsSinceEpoch;
+  final int id;
+  final String title, state, sessionId, direction;
+  final int bytes;
+  final int recordedAt;
+  final double progress, bytesPerSecond;
+  final String? itemId;
+  TransferEntry copy({
+    String? state,
+    double? progress,
+    double? bytesPerSecond,
+    String? itemId,
+  }) => TransferEntry(
+    id: id,
+    title: title,
+    bytes: bytes,
+    state: state ?? this.state,
+    progress: progress ?? this.progress,
+    bytesPerSecond: bytesPerSecond ?? this.bytesPerSecond,
+    sessionId: sessionId,
+    itemId: itemId ?? this.itemId,
+    direction: direction,
+    recordedAt: recordedAt,
+  );
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'bytes': bytes,
+    'state': state,
+    'sessionId': sessionId,
+    'direction': direction,
+    'itemId': itemId,
+    'recordedAt': recordedAt,
+  };
+  factory TransferEntry.fromJson(Map data) => TransferEntry(
+    id: (data['id'] as num).toInt(),
+    title: data['title'] as String,
+    bytes: (data['bytes'] as num).toInt(),
+    sessionId: data['sessionId'] as String,
+    direction: data['direction'] as String,
+    itemId: data['itemId'] as String?,
+    recordedAt: (data['recordedAt'] as num?)?.toInt(),
+    state: data['state'] == 'completed' ? 'completed' : 'failed',
+    progress: data['state'] == 'completed' ? 1 : 0,
+  );
 }
 
+/// Nearby exchanges authenticated session credentials only. Files use pinned TLS
+/// over our own Wi-Fi Direct group, never Nearby's file payload API.
 class NearbyTransferController extends GetxController {
-  final LocalLibraryStore _store = Get.find<LocalLibraryStore>();
-  final Nearby _nearby = Nearby();
+  NearbyTransferController({
+    LocalLibraryStore? library,
+    PlaybackRepository? repository,
+    Nearby? nearby,
+    WifiDirectTransport? transport,
+    Future<bool> Function()? permissionCheck,
+  }) : _store = library ?? Get.find<LocalLibraryStore>(),
+       _repository = repository ?? Get.find<PlaybackRepository>(),
+       _nearby = nearby ?? Nearby(),
+       _direct = transport ?? MethodChannelWifiDirectTransport(),
+       _permissionCheck = permissionCheck;
 
-  static const String _serviceId = 'com.listenfy.nearby.transfer';
-  static const String _schema = 'listenfy.nearby.transfer.v1';
-  static const String _inviteHandshakeSchema = 'listenfy.nearby.invite.v1';
-  static const String _inviteEventHello = 'hello';
-  static const String _inviteEventImported = 'imported';
-  static const int _maxTransferBytes = 1024 * 1024 * 1024;
-  static const int _maxDescriptorBytes = 256 * 1024;
-  static const int _maxCoverBytes = 2 * 1024 * 1024;
-  static const Duration _inviteTtl = Duration(minutes: 5);
-  static const Set<String> _allowedFormats = <String>{
+  final LocalLibraryStore _store;
+  final PlaybackRepository _repository;
+  final Nearby _nearby;
+  final WifiDirectTransport _direct;
+  final Future<bool> Function()? _permissionCheck;
+  static const _schema = 'listenfy.nearby.transfer.v2';
+  static const _serviceId = 'com.listenfy.transfer.pairing.v2';
+  static const _historyKey = 'nearby_transfer_history_v1';
+  static const _maxTransferBytes = 1024 * 1024 * 1024;
+  static const _maxCoverBytes = 2 * 1024 * 1024;
+  static const _allowedFormats = {
     'mp3',
     'm4a',
     'aac',
@@ -65,366 +131,225 @@ class NearbyTransferController extends GetxController {
     'webm',
   };
 
-  final Rxn<MediaItem> selectedItem = Rxn<MediaItem>();
-  final RxList<MediaItem> selectedItems = <MediaItem>[].obs;
+  final phase = TransferPhase.idle.obs;
+  final statusKey = 'nearby_session.ready'.obs;
+  final statusDetail = ''.obs;
+  final inviteCode = ''.obs;
+  final inviteUri = Rxn<Uri>();
+  final peerName = ''.obs;
+  final busy = false.obs;
+  final sent = <TransferEntry>[].obs;
+  final received = <TransferEntry>[].obs;
+  final selectedItems = <MediaItem>[].obs;
+  final String _nickName =
+      'Listenfy-${HybridTransferProtocol.newCode().substring(0, 4)}';
+  String get nickName => _nickName;
+  bool get isConnected => phase.value == TransferPhase.connected;
+  List<MediaItem> get outgoingItems => selectedItems.toList();
+  MediaVariant? shareVariant(MediaItem item) => _pickShareVariant(item);
+  List<MediaItem> libraryItems() => _store
+      .readAllSync()
+      .where((item) => _pickShareVariant(item) != null)
+      .toList();
 
-  final RxBool isAdvertising = false.obs;
-  final RxBool isDiscovering = false.obs;
-  final RxString statusText = ''.obs;
-  final RxList<NearbyTransferPeer> discoveredPeers = <NearbyTransferPeer>[].obs;
-  final RxList<NearbyTransferPeer> connectedPeers = <NearbyTransferPeer>[].obs;
-  final RxMap<int, double> transferProgress = <int, double>{}.obs;
-
-  final Map<String, String> _endpointNames = <String, String>{};
-  final Map<int, _IncomingNearbyDescriptor> _descriptorByPayloadId =
-      <int, _IncomingNearbyDescriptor>{};
-  final Map<int, Payload> _filePayloadById = <int, Payload>{};
-  final Set<int> _filePayloadIds = <int>{};
-  final Set<int> _completedPayloadIds = <int>{};
-  final Set<int> _importedPayloadIds = <int>{};
-  final Set<int> _importRetryInFlight = <int>{};
-
-  late final String _nickName;
-  String? _outgoingInviteSessionId;
-  DateTime? _outgoingInviteExpiresAt;
-  String? _expectedInviteSessionId;
-  DateTime? _expectedInviteExpiresAt;
-
-  bool _autoConnectInProgress = false;
-  final Set<String> _inviteHandshakeSent = <String>{};
-  final Set<String> _autoSentBySessionEndpoint = <String>{};
-  final Set<String> _autoSendingBySessionEndpoint = <String>{};
-  final Map<String, int> _importedAckCountBySession = <String, int>{};
-
-  bool get isAutoInviteSenderMode => _outgoingInviteSessionId != null;
-  List<MediaItem> get outgoingItems {
-    if (selectedItems.isNotEmpty) return selectedItems.toList(growable: false);
-    final item = selectedItem.value;
-    return item == null ? <MediaItem>[] : <MediaItem>[item];
-  }
+  StreamSubscription<Map<String, dynamic>>? _events;
+  Timer? _deadline;
+  String? _sessionId, _expectedSession, _endpoint, _approvedEndpoint;
+  DateTime? _expiresAt;
+  bool _host = false,
+      _handoff = false,
+      _disposed = false,
+      _pairingDialog = false,
+      _failureInFlight = false;
+  int _generation = 0;
+  Map<String, dynamic>? _offer;
+  final _names = <String, String>{};
+  final _receiveIds = <String>{};
+  final _speedSamples = <String, (DateTime, int)>{};
+  Future<void> _receiveTail = Future.value();
+  Future<void> _historyLoaded = Future.value();
 
   @override
   void onInit() {
     super.onInit();
-    statusText.value = tr('nearby.ready');
-    _nickName = 'Listenfy-${DateTime.now().millisecondsSinceEpoch % 10000}';
+    _events = _direct.events.listen(
+      _onDirectEvent,
+      onError: (Object error) => unawaited(_fail('transport_unavailable')),
+    );
+    _historyLoaded = _restoreHistory();
+    acceptArguments(Get.arguments);
+  }
 
-    final args = Get.arguments;
+  void acceptArguments(dynamic args) {
     if (args is Map) {
-      final item = args['item'];
-      if (item is MediaItem) {
-        selectedItem.value = item;
-        selectedItems.assignAll(<MediaItem>[item]);
+      final list = args['items'];
+      if (list is List) selectedItems.assignAll(list.whereType<MediaItem>());
+      if (args['item'] is MediaItem && selectedItems.isEmpty) {
+        selectedItems.add(args['item'] as MediaItem);
       }
-
-      final items = args['items'];
-      if (items is List) {
-        final mediaItems = items.whereType<MediaItem>().toList(growable: false);
-        if (mediaItems.isNotEmpty) {
-          selectedItems.assignAll(mediaItems);
-          selectedItem.value = mediaItems.first;
-        }
-      }
-
-      final inviteRaw = args['inviteUri']?.toString().trim() ?? '';
-      if (inviteRaw.isNotEmpty) {
-        final invite = ListenfyDeepLink.parseNearbyInviteRaw(inviteRaw);
-        if (invite != null) {
-          Future<void>.microtask(() => startReceiveFromInvite(invite));
-        }
-      }
+    }
+    if (!isConnected && args is Map && args['inviteUri'] is String) {
+      final invite = ListenfyDeepLink.parseNearbyInviteRaw(
+        args['inviteUri'] as String,
+      );
+      if (invite != null) unawaited(startReceiveFromInvite(invite));
     }
   }
 
-  @override
-  void onClose() {
-    stopAll();
-    super.onClose();
-  }
-
-  Future<void> startAdvertisingMode() async {
-    if (!Platform.isAndroid) {
-      statusText.value = tr('nearby.android_only');
-      return;
-    }
-
-    final okPerm = await _ensureNearbyPermissions();
-    if (!okPerm) return;
-
-    await _safeStopDiscovery();
-    discoveredPeers.clear();
-
+  Future<void> _restoreHistory() async {
     try {
-      final ok = await _nearby.startAdvertising(
-        _nickName,
+      final values = await _repository.readDomains();
+      final records = values[_historyKey];
+      if (records is List) {
+        for (final raw in records.whereType<Map>()) {
+          final entry = TransferEntry.fromJson(raw);
+          (entry.direction == 'received' ? received : sent).add(entry);
+        }
+      }
+    } catch (_) {
+      statusKey.value = 'nearby_session.history_error';
+    }
+  }
+
+  Future<void> _persistHistory() {
+    final records = [...sent, ...received].map((e) => e.toJson()).toList();
+    // Queue immediately on the repository's single writer, before a backup or
+    // history query can overtake an ACK that has already reached the UI.
+    final write = _repository.replaceDomain(_historyKey, records);
+    unawaited(
+      write.catchError((Object _) {
+        statusKey.value = 'nearby_session.history_error';
+      }),
+    );
+    return write;
+  }
+
+  Future<bool> _permissions() async {
+    if (_permissionCheck != null) return _permissionCheck();
+    if (!Platform.isAndroid) {
+      statusKey.value = 'nearby_session.android_only';
+      return false;
+    }
+    final results = await [
+      Permission.bluetoothScan,
+      Permission.bluetoothAdvertise,
+      Permission.bluetoothConnect,
+      Permission.nearbyWifiDevices,
+      Permission.location,
+    ].request();
+    // Different Android versions do not expose all permission groups.
+    if (!results.values.any((status) => status.isGranted)) {
+      statusKey.value = 'nearby_session.permissions';
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> prepareInvitation() async {
+    if (isConnected || busy.value) return;
+    await closeConnection();
+    if (!await _permissions()) return;
+    _host = true;
+    inviteCode.value = HybridTransferProtocol.newCode();
+    _sessionId = HybridTransferProtocol.newSessionId(inviteCode.value);
+    _expiresAt = DateTime.now().add(const Duration(minutes: 5));
+    inviteUri.value = ListenfyDeepLink.buildNearbyInviteUri(
+      sessionId: _sessionId!,
+      senderName: nickName,
+      title: tr('nearby_session.title'),
+      subtitle: '',
+      expiresAt: _expiresAt!.millisecondsSinceEpoch,
+    );
+    try {
+      final okay = await _nearby.startAdvertising(
+        'LF2-${inviteCode.value}-$nickName',
         Strategy.P2P_POINT_TO_POINT,
         serviceId: _serviceId,
         onConnectionInitiated: _onConnectionInitiated,
         onConnectionResult: _onConnectionResult,
-        onDisconnected: _onDisconnected,
+        onDisconnected: _onNearbyDisconnected,
       );
-      isAdvertising.value = ok;
-      statusText.value = ok
-          ? tr('nearby.sender_waiting')
-          : tr('nearby.sender_failed');
-    } catch (e) {
-      isAdvertising.value = false;
-      statusText.value = tr('nearby.sender_start_error', args: ['$e']);
+      if (!okay) throw StateError('advertising');
+      phase.value = TransferPhase.advertising;
+      statusKey.value = 'nearby_session.waiting';
+      _deadline = Timer(
+        const Duration(minutes: 5),
+        () => unawaited(_fail('expired')),
+      );
+    } catch (_) {
+      await _fail('advertising_failed');
     }
   }
 
-  Future<void> stopAdvertisingMode() async {
-    await _safeStopAdvertising();
-    isAdvertising.value = false;
-  }
+  Future<void> joinCode(String code) => _joinCode(code);
 
-  Future<void> startDiscoveryMode() async {
-    if (!Platform.isAndroid) {
-      statusText.value = tr('nearby.android_only');
+  Future<void> _joinCode(String code, {String? expectedSession}) async {
+    code = code.trim().toUpperCase();
+    if (!HybridTransferProtocol.validCode(code)) {
+      statusKey.value = 'nearby_session.invalid_code';
       return;
     }
-
-    final okPerm = await _ensureNearbyPermissions();
-    if (!okPerm) return;
-
-    await _safeStopAdvertising();
-
+    if (isConnected || busy.value) return;
+    await closeConnection();
+    _expectedSession = expectedSession;
+    if (!await _permissions()) return;
+    _host = false;
+    inviteCode.value = code;
+    phase.value = TransferPhase.discovering;
+    statusKey.value = 'nearby_session.searching';
+    _deadline = Timer(
+      const Duration(seconds: 60),
+      () => unawaited(_fail('not_found')),
+    );
     try {
-      final ok = await _nearby.startDiscovery(
-        _nickName,
+      final okay = await _nearby.startDiscovery(
+        nickName,
         Strategy.P2P_POINT_TO_POINT,
         serviceId: _serviceId,
-        onEndpointFound: (id, endpointName, serviceId) {
-          _endpointNames[id] = endpointName;
-          _upsertDiscovered(
-            NearbyTransferPeer(endpointId: id, name: endpointName),
-          );
-
-          if (_expectedInviteSessionId != null &&
-              !_autoConnectInProgress &&
-              connectedPeers.every((e) => e.endpointId != id)) {
-            _autoConnectInProgress = true;
-            connectToPeer(
-              NearbyTransferPeer(endpointId: id, name: endpointName),
-            );
+        onEndpointFound: (id, name, service) {
+          if (phase.value != TransferPhase.discovering ||
+              !name.startsWith('LF2-$code-')) {
+            return;
           }
+          _endpoint = id;
+          _names[id] = name.substring(12);
+          phase.value = TransferPhase.pairing;
+          unawaited(
+            _nearby
+                .requestConnection(
+                  nickName,
+                  id,
+                  onConnectionInitiated: _onConnectionInitiated,
+                  onConnectionResult: _onConnectionResult,
+                  onDisconnected: _onNearbyDisconnected,
+                )
+                .catchError((Object _) {
+                  unawaited(_fail('pairing_failed'));
+                  return false;
+                }),
+          );
         },
-        onEndpointLost: (id) {
-          if (id == null) return;
-          discoveredPeers.removeWhere((e) => e.endpointId == id);
-        },
+        onEndpointLost: (id) {},
       );
-
-      isDiscovering.value = ok;
-      statusText.value = ok
-          ? tr('nearby.searching_devices')
-          : tr('nearby.search_failed');
-    } catch (e) {
-      isDiscovering.value = false;
-      statusText.value = tr('nearby.search_error', args: ['$e']);
+      if (!okay) throw StateError('discovery');
+    } catch (_) {
+      await _fail('discovery_failed');
     }
-  }
-
-  Future<void> stopDiscoveryMode() async {
-    await _safeStopDiscovery();
-    isDiscovering.value = false;
-  }
-
-  Future<void> stopAll() async {
-    await _safeStopAdvertising();
-    await _safeStopDiscovery();
-    try {
-      await _nearby.stopAllEndpoints();
-    } catch (_) {}
-
-    isAdvertising.value = false;
-    isDiscovering.value = false;
-    connectedPeers.clear();
-    _outgoingInviteSessionId = null;
-    _outgoingInviteExpiresAt = null;
-    _expectedInviteSessionId = null;
-    _expectedInviteExpiresAt = null;
-
-    _autoConnectInProgress = false;
-    _inviteHandshakeSent.clear();
-    _autoSentBySessionEndpoint.clear();
-    _autoSendingBySessionEndpoint.clear();
-    _importedAckCountBySession.clear();
-    statusText.value = tr('nearby.stopped');
-  }
-
-  String get nickName => _nickName;
-
-  Future<Uri?> prepareInviteUriForSelectedItem() async {
-    final items = outgoingItems;
-    if (items.isEmpty) {
-      statusText.value = tr('nearby.open_from_song');
-      return null;
-    }
-
-    final shareFiles = await _validatedOutgoingShareFiles(items);
-    if (shareFiles == null) {
-      return null;
-    }
-
-    final item = items.first;
-    final variant = shareFiles.first.variant;
-
-    final sessionId = _createInviteSessionId(items, variant);
-    final expiresAt = DateTime.now().add(_inviteTtl);
-    _outgoingInviteSessionId = sessionId;
-    _outgoingInviteExpiresAt = expiresAt;
-    _autoSentBySessionEndpoint.clear();
-    _autoSendingBySessionEndpoint.clear();
-    _inviteHandshakeSent.clear();
-    _importedAckCountBySession[sessionId] = 0;
-
-    await startAdvertisingMode();
-    statusText.value = items.length == 1
-        ? tr('nearby.scan_to_receive_single')
-        : tr('nearby.scan_to_receive_multiple', args: ['${items.length}']);
-
-    return ListenfyDeepLink.buildNearbyInviteUri(
-      sessionId: sessionId,
-      senderName: _nickName,
-      title: items.length == 1
-          ? item.title
-          : tr('nearby.files_listenfy', args: ['${items.length}']),
-      subtitle: items.length == 1
-          ? item.subtitle
-          : tr('nearby.internal_transfer'),
-      expiresAt: expiresAt.millisecondsSinceEpoch,
-    );
   }
 
   Future<void> startReceiveFromInvite(ListenfyNearbyInvite invite) async {
+    if (isConnected || busy.value) return;
     if (invite.isExpired) {
-      statusText.value = tr('nearby.invite_expired');
-      Get.snackbar(
-        tr('nearby.invalid_qr'),
-        tr('nearby.invite_expired'),
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      statusKey.value = 'nearby_session.expired';
       return;
     }
-
-    _expectedInviteSessionId = invite.sessionId;
-    _expectedInviteExpiresAt = invite.expiresAt == null
-        ? null
-        : DateTime.fromMillisecondsSinceEpoch(invite.expiresAt!);
-
-    _autoConnectInProgress = false;
-    statusText.value = tr('nearby.searching_sender', args: [invite.senderName]);
-    await startDiscoveryMode();
-  }
-
-  Future<void> connectToPeer(NearbyTransferPeer peer) async {
     try {
-      final ok = await _nearby.requestConnection(
-        _nickName,
-        peer.endpointId,
-        onConnectionInitiated: _onConnectionInitiated,
-        onConnectionResult: _onConnectionResult,
-        onDisconnected: _onDisconnected,
+      await _joinCode(
+        HybridTransferProtocol.codeFromSession(invite.sessionId),
+        expectedSession: invite.sessionId,
       );
-      statusText.value = ok
-          ? tr('nearby.request_sent', args: [peer.name])
-          : tr('nearby.request_failed', args: [peer.name]);
-    } catch (e) {
-      statusText.value = tr('nearby.connect_error', args: [peer.name, '$e']);
-    }
-  }
-
-  Future<bool> sendSelectedItemToPeer(String endpointId) async {
-    final items = outgoingItems;
-    if (items.isEmpty) {
-      Get.snackbar(tr('nearby.transfer_action'), tr('nearby.no_song'));
-      return false;
-    }
-
-    if (items.length > 1) {
-      var sentCount = 0;
-      for (final item in items) {
-        final sent = await _sendItemToPeer(endpointId, item);
-        if (sent) sentCount++;
-      }
-      statusText.value = sentCount == items.length
-          ? tr('nearby.sending_files', args: ['${items.length}'])
-          : tr('nearby.sent_partial', args: ['$sentCount', '${items.length}']);
-      return sentCount > 0;
-    }
-
-    return _sendItemToPeer(endpointId, items.first);
-  }
-
-  Future<bool> _sendItemToPeer(String endpointId, MediaItem item) async {
-    final variant = _pickShareVariant(item);
-    if (variant == null) {
-      Get.snackbar(tr('nearby.transfer_action'), tr('nearby.no_file'));
-      return false;
-    }
-
-    final sourcePath = variant.localPath?.trim() ?? '';
-    if (sourcePath.isEmpty) {
-      Get.snackbar(tr('nearby.transfer_action'), tr('nearby.no_path'));
-      return false;
-    }
-
-    final sourceFile = File(sourcePath);
-    if (!await sourceFile.exists()) {
-      Get.snackbar(tr('nearby.transfer_action'), tr('nearby.file_missing'));
-      return false;
-    }
-    final sourceSize = await sourceFile.length();
-    if (sourceSize <= 0 || sourceSize > _maxTransferBytes) {
-      statusText.value = tr('nearby.file_size_blocked');
-      Get.snackbar(
-        tr('nearby.transfer_action'),
-        tr('nearby.file_size_blocked'),
-      );
-      return false;
-    }
-    if (!_allowedFormats.contains(_formatForVariant(variant))) {
-      statusText.value = tr('nearby.file_type_blocked');
-      Get.snackbar(
-        tr('nearby.transfer_action'),
-        tr('nearby.file_type_blocked'),
-      );
-      return false;
-    }
-
-    try {
-      final fileSha256 = await _sha256ForFile(sourceFile);
-      final payloadId = await _nearby.sendFilePayload(
-        endpointId,
-        sourceFile.path,
-      );
-      debugPrint(
-        '[NearbyTransfer] sendFilePayload ok endpoint=$endpointId payloadId=$payloadId file=${sourceFile.path}',
-      );
-      _filePayloadIds.add(payloadId);
-      transferProgress[payloadId] = 0;
-
-      final descriptor = await _OutgoingNearbyDescriptor.fromItem(
-        schema: _schema,
-        payloadId: payloadId,
-        sessionId: _outgoingInviteSessionId ?? '',
-        sizeBytes: sourceSize,
-        sha256Hex: fileSha256,
-        item: item,
-        variant: variant,
-      );
-      final descriptorBytes = Uint8List.fromList(
-        utf8.encode(jsonEncode(descriptor.toJson())),
-      );
-      await _nearby.sendBytesPayload(endpointId, descriptorBytes);
-
-      statusText.value = tr('nearby.sending_song', args: [item.title]);
-      return true;
-    } catch (e) {
-      statusText.value = tr('nearby.send_error_detail', args: ['$e']);
-      Get.snackbar(tr('nearby.transfer_action'), tr('nearby.send_error'));
-      return false;
+    } on FormatException {
+      statusKey.value = 'nearby_session.invalid_code';
     }
   }
 
@@ -432,440 +357,459 @@ class NearbyTransferController extends GetxController {
     String endpointId,
     ConnectionInfo info,
   ) async {
-    _endpointNames[endpointId] = info.endpointName;
-
-    final accepted = await _showSecurityDialog(
-      endpointName: info.endpointName,
-      token: info.authenticationToken,
-      incoming: info.isIncomingConnection,
-    );
-    if (!accepted) {
+    if (_pairingDialog ||
+        (_endpoint != null && _endpoint != endpointId) ||
+        (_host &&
+            (_expiresAt == null || DateTime.now().isAfter(_expiresAt!)))) {
       await _nearby.rejectConnection(endpointId);
-      statusText.value = tr('nearby.connection_rejected');
       return;
     }
-
-    final ok = await _nearby.acceptConnection(
+    _pairingDialog = true;
+    final generation = _generation;
+    _names[endpointId] = info.endpointName;
+    phase.value = TransferPhase.pairing;
+    final accepted = await Get.dialog<bool>(
+      AlertDialog(
+        title: Text(tr('nearby.incoming_connection')),
+        content: Text(
+          tr(
+            'nearby.security_body',
+            args: [info.endpointName, info.authenticationToken],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: Text(tr('nearby.reject')),
+          ),
+          FilledButton(
+            onPressed: () => Get.back(result: true),
+            child: Text(tr('nearby.accept')),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+    _pairingDialog = false;
+    if (generation != _generation || _disposed) {
+      await _nearby.rejectConnection(endpointId);
+      return;
+    }
+    if (accepted != true || _disposed) {
+      await _nearby.rejectConnection(endpointId);
+      phase.value = _host ? TransferPhase.advertising : TransferPhase.idle;
+      statusKey.value = 'nearby_session.rejected';
+      _endpoint = null;
+      return;
+    }
+    _endpoint = endpointId;
+    _approvedEndpoint = endpointId;
+    final okay = await _nearby.acceptConnection(
       endpointId,
       onPayLoadRecieved: _onPayloadReceived,
-      onPayloadTransferUpdate: _onPayloadTransferUpdate,
+      onPayloadTransferUpdate: (_, _) {},
     );
-
-    statusText.value = ok
-        ? tr('nearby.connecting_peer', args: [info.endpointName])
-        : tr('nearby.accept_failed');
+    if (!okay) await _fail('pairing_failed');
   }
 
-  void _onConnectionResult(String endpointId, Status status) {
-    switch (status) {
-      case Status.CONNECTED:
-        _autoConnectInProgress = false;
-        _upsertConnected(
-          NearbyTransferPeer(
-            endpointId: endpointId,
-            name: _endpointNames[endpointId] ?? endpointId,
-          ),
-        );
-        discoveredPeers.removeWhere((e) => e.endpointId == endpointId);
-        statusText.value = tr(
-          'nearby.connected_peer',
-          args: [_endpointNames[endpointId] ?? endpointId],
-        );
-        final expectedSession = _expectedInviteSessionId;
-        if (expectedSession != null && expectedSession.isNotEmpty) {
-          unawaited(stopDiscoveryMode());
-          _sendInviteHandshake(
-            endpointId,
-            expectedSession,
-            event: _inviteEventHello,
-          );
-        }
-        break;
-      case Status.REJECTED:
-        _autoConnectInProgress = false;
-        connectedPeers.removeWhere((e) => e.endpointId == endpointId);
-        statusText.value = tr('nearby.connection_rejected');
-        break;
-      case Status.ERROR:
-        _autoConnectInProgress = false;
-        connectedPeers.removeWhere((e) => e.endpointId == endpointId);
-        statusText.value = tr('nearby.connection_error');
-        break;
+  void _onConnectionResult(String id, Status status) {
+    if (id != _approvedEndpoint) return;
+    if (status != Status.CONNECTED) {
+      phase.value = _host ? TransferPhase.advertising : TransferPhase.idle;
+      statusKey.value = 'nearby_session.rejected';
+      _endpoint = null;
+      _approvedEndpoint = null;
+      return;
+    }
+    peerName.value = _names[id] ?? 'Listenfy';
+    if (_host) unawaited(_sendOffer(id));
+  }
+
+  Future<void> _sendOffer(String endpoint) async {
+    try {
+      final provisional = HybridTransferProtocol.createOffer(
+        sessionId: _sessionId!,
+        fingerprint: '0' * 64,
+      );
+      final fingerprint = await _direct.prepare(provisional);
+      if (_approvedEndpoint != endpoint) return;
+      provisional['fingerprint'] = fingerprint;
+      _offer = provisional;
+      await _sendControl(endpoint, provisional);
+    } catch (error, stack) {
+      assert(() {
+        debugPrint('Wi-Fi Direct preparation: ${error.runtimeType}');
+        debugPrintStack(stackTrace: stack);
+        return true;
+      }());
+      await _fail('wifi_prepare_failed');
     }
   }
 
-  void _onDisconnected(String endpointId) {
-    connectedPeers.removeWhere((e) => e.endpointId == endpointId);
-    _autoSendingBySessionEndpoint.removeWhere(
-      (key) => key.endsWith('|$endpointId'),
-    );
-    _autoSentBySessionEndpoint.removeWhere(
-      (key) => key.endsWith('|$endpointId'),
-    );
-    statusText.value = tr(
-      'nearby.disconnected_peer',
-      args: [_endpointNames[endpointId] ?? endpointId],
-    );
+  Future<void> _sendControl(String endpoint, Map<String, dynamic> message) =>
+      _nearby.sendBytesPayload(
+        endpoint,
+        Uint8List.fromList(utf8.encode(jsonEncode(message))),
+      );
+
+  Future<void> _onPayloadReceived(String id, Payload payload) async {
+    if (id != _approvedEndpoint || _handoff) return;
+    if (payload.type != PayloadType.BYTES || payload.bytes == null) {
+      await _fail('unexpected_payload');
+      return;
+    }
+    try {
+      final message = HybridTransferProtocol.decodeMessage(payload.bytes!);
+      if (message['schema'] != HybridTransferProtocol.schema) {
+        throw const FormatException();
+      }
+      if (!_host && message['type'] == 'offer') {
+        _offer = HybridTransferProtocol.validateOffer(
+          message,
+          expectedCode: inviteCode.value,
+          expectedSessionId: _expectedSession,
+        );
+        _sessionId = _offer!['sessionId'] as String;
+        await _sendControl(id, {
+          'schema': HybridTransferProtocol.schema,
+          'type': 'ack',
+          'sessionId': _sessionId,
+        });
+      } else if (_host &&
+          message['type'] == 'ack' &&
+          message['sessionId'] == _sessionId &&
+          _offer != null) {
+        await _sendControl(id, {
+          'schema': HybridTransferProtocol.schema,
+          'type': 'commit',
+          'sessionId': _sessionId,
+        });
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        await _beginHandoff();
+      } else if (!_host &&
+          message['type'] == 'commit' &&
+          message['sessionId'] == _sessionId &&
+          _offer != null) {
+        await _beginHandoff();
+      } else {
+        throw const FormatException();
+      }
+    } catch (_) {
+      await _fail('invalid_handshake');
+    }
   }
 
-  Future<void> _onPayloadReceived(String endpointId, Payload payload) async {
-    if (payload.type == PayloadType.BYTES) {
-      if (await _handleInviteHandshakeBytes(payload.bytes, endpointId)) {
-        return;
+  Future<void> _beginHandoff() async {
+    if (_handoff) return;
+    if (_offer == null ||
+        (_offer!['expiresAt'] as int) <=
+            DateTime.now().millisecondsSinceEpoch) {
+      await _fail('expired');
+      return;
+    }
+    final generation = _generation;
+    _handoff = true;
+    _deadline?.cancel();
+    phase.value = TransferPhase.preparingWifi;
+    statusKey.value = 'nearby_session.preparing_wifi';
+    _deadline = Timer(
+      const Duration(seconds: 75),
+      () => unawaited(_fail('wifi_timeout')),
+    );
+    await _stopNearby();
+    // Leave time for the peer's final pairing message and radio resources to settle.
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    if (_disposed || !_handoff || generation != _generation) return;
+    try {
+      if (_host) {
+        await _direct.startHost();
+      } else {
+        await _direct.join(_offer!);
       }
-      final descriptor = _handleDescriptorBytes(payload.bytes);
-      if (descriptor != null) {
-        debugPrint(
-          '[NearbyTransfer] descriptor received endpoint=$endpointId payloadId=${descriptor.payloadId} file=${descriptor.fileName}',
+    } catch (_) {
+      await _fail('wifi_unavailable');
+    }
+  }
+
+  void _onNearbyDisconnected(String id) {
+    if (_handoff || id != _approvedEndpoint) return;
+    unawaited(_fail('pairing_lost'));
+  }
+
+  void _onDirectEvent(Map<String, dynamic> event) {
+    if (_disposed) return;
+    if (event['sessionId'] != null && event['sessionId'] != _sessionId) return;
+    final type = event['type'];
+    if (type == 'connected' && event['sessionId'] == _sessionId && _handoff) {
+      _deadline?.cancel();
+      phase.value = TransferPhase.connected;
+      statusKey.value = 'nearby_session.connected';
+      inviteUri.value = null;
+      return;
+    }
+    if (type == 'closed' || type == 'error') {
+      if (_handoff || isConnected) {
+        unawaited(
+          _fail(type == 'error' ? 'wifi_unavailable' : 'connection_lost'),
         );
-        statusText.value = tr('nearby.metadata_received');
-        if (_completedPayloadIds.contains(descriptor.payloadId)) {
-          await _scheduleImportRetry(descriptor.payloadId, endpointId);
-        } else {
-          await _tryImportReceivedPayload(descriptor.payloadId, endpointId);
-        }
       }
       return;
     }
-
-    if (payload.type == PayloadType.FILE) {
-      debugPrint(
-        '[NearbyTransfer] file payload received endpoint=$endpointId payloadId=${payload.id} uri=${payload.uri}',
+    if (!isConnected) return;
+    if (type == 'progress') {
+      final id = (event['payloadId'] as num?)?.toInt();
+      if (id == null) return;
+      final receiving = event['direction'] == 'received';
+      final list = receiving ? received : sent;
+      final index = list.indexWhere(
+        (e) => e.id == id && e.sessionId == _sessionId,
       );
-      _filePayloadIds.add(payload.id);
-      _filePayloadById[payload.id] = payload;
-      if (_completedPayloadIds.contains(payload.id)) {
-        await _scheduleImportRetry(payload.id, endpointId);
-      } else {
-        await _tryImportReceivedPayload(payload.id, endpointId);
+      final bytes = (event['bytes'] as num?)?.toInt() ?? 0;
+      final total = (event['total'] as num?)?.toInt() ?? 1;
+      if (index >= 0) {
+        final sampleKey =
+            '${_sessionId!}:${receiving ? 'received' : 'sent'}:$id';
+        final now = DateTime.now(), last = _speedSamples[sampleKey];
+        final seconds = last == null
+            ? 0
+            : now.difference(last.$1).inMilliseconds / 1000;
+        final speed = seconds > 0 ? (bytes - last!.$2) / seconds : 0.0;
+        _speedSamples[sampleKey] = (now, bytes);
+        list[index] = list[index].copy(
+          progress: (bytes / total).clamp(0, 1),
+          bytesPerSecond: speed < 0 ? 0 : speed,
+        );
+      } else if (receiving) {
+        received.add(
+          TransferEntry(
+            id: id,
+            title: tr('nearby_session.receiving'),
+            bytes: total,
+            state: 'receiving',
+            direction: 'received',
+            sessionId: _sessionId!,
+          ),
+        );
       }
-    }
-  }
-
-  _IncomingNearbyDescriptor? _handleDescriptorBytes(Uint8List? bytes) {
-    if (bytes == null || bytes.isEmpty) return null;
-    if (bytes.length > _maxDescriptorBytes) {
-      statusText.value = tr('nearby.metadata_too_large');
-      return null;
-    }
-    try {
-      final decoded = jsonDecode(utf8.decode(bytes));
-      if (decoded is! Map) return null;
-      final descriptor = _IncomingNearbyDescriptor.fromJson(
-        Map<String, dynamic>.from(decoded),
-      );
-      if (descriptor == null) return null;
-      if (!_isDescriptorAllowed(descriptor)) return null;
-      _descriptorByPayloadId[descriptor.payloadId] = descriptor;
-      return descriptor;
-    } catch (_) {
-      // Ignore bytes payloads from other apps.
-      return null;
-    }
-  }
-
-  Future<void> _onPayloadTransferUpdate(
-    String endpointId,
-    PayloadTransferUpdate update,
-  ) async {
-    debugPrint(
-      '[NearbyTransfer] update endpoint=$endpointId payloadId=${update.id} status=${update.status.name} bytes=${update.bytesTransferred}/${update.totalBytes}',
-    );
-    final isFilePayload = _filePayloadIds.contains(update.id);
-
-    if (update.totalBytes > 0) {
-      if (isFilePayload) {
-        transferProgress[update.id] =
-            update.bytesTransferred / update.totalBytes;
-      }
-      if (update.bytesTransferred >= update.totalBytes) {
-        _completedPayloadIds.add(update.id);
-        if (isFilePayload) {
-          transferProgress[update.id] = 1;
-        }
-        if (_isIncomingPayload(update.id)) {
-          await _scheduleImportRetry(update.id, endpointId);
-        }
-      }
-    }
-
-    switch (update.status) {
-      case PayloadStatus.IN_PROGRESS:
-        return;
-      case PayloadStatus.SUCCESS:
-        _completedPayloadIds.add(update.id);
-        if (isFilePayload) {
-          transferProgress[update.id] = 1;
-        }
-        if (_isIncomingPayload(update.id)) {
-          await _scheduleImportRetry(update.id, endpointId);
-        } else {
-          statusText.value = tr('nearby.file_sent_waiting');
-        }
-        if (isFilePayload) {
-          Future<void>.delayed(const Duration(seconds: 3), () {
-            transferProgress.remove(update.id);
+    } else if (type == 'received') {
+      _receiveTail = _receiveTail
+          .then((_) => _importReceived(event))
+          .catchError((Object _) {
+            statusKey.value = 'nearby_session.import_failed';
           });
-        }
-        return;
-      case PayloadStatus.FAILURE:
-      case PayloadStatus.CANCELED:
-        if (isFilePayload) {
-          transferProgress.remove(update.id);
-        }
-        _filePayloadById.remove(update.id);
-        _descriptorByPayloadId.remove(update.id);
-        statusText.value = tr(
-          'nearby.transfer_failed_payload',
-          args: ['${update.id}'],
-        );
-        return;
-      case PayloadStatus.NONE:
-        return;
+    } else if (type == 'sent') {
+      final id = (event['payloadId'] as num).toInt();
+      final index = sent.indexWhere(
+        (e) => e.id == id && e.sessionId == _sessionId,
+      );
+      if (index >= 0) {
+        sent[index] = sent[index].copy(state: 'completed', progress: 1);
+        unawaited(_persistHistory());
+        statusKey.value = 'nearby_session.sent_success';
+      }
     }
   }
 
-  bool _isIncomingPayload(int payloadId) =>
-      _descriptorByPayloadId.containsKey(payloadId) ||
-      _filePayloadById.containsKey(payloadId);
-
-  Future<void> _scheduleImportRetry(int payloadId, String endpointId) async {
-    if (_importedPayloadIds.contains(payloadId)) return;
-    if (_importRetryInFlight.contains(payloadId)) return;
-
-    _importRetryInFlight.add(payloadId);
+  Future<void> sendItems(List<MediaItem> items) async {
+    if (!isConnected || busy.value || items.isEmpty) return;
+    busy.value = true;
+    final generation = _generation;
+    final session = _sessionId;
     try {
-      const maxAttempts = 12;
-      for (var i = 0; i < maxAttempts; i++) {
-        final done = await _tryImportReceivedPayload(payloadId, endpointId);
-        if (done) return;
-        await Future<void>.delayed(const Duration(milliseconds: 800));
+      await _historyLoaded;
+      var total = 0;
+      final files = <(MediaItem, MediaVariant, File)>[];
+      for (final item in items) {
+        final variant = _pickShareVariant(item);
+        if (variant == null ||
+            !_allowedFormats.contains(_formatForVariant(variant))) {
+          throw const FormatException('format');
+        }
+        final file = File(variant.localPath!);
+        final size = await file.length();
+        total += size;
+        if (size <= 0 || total > _maxTransferBytes) {
+          throw const FormatException('size');
+        }
+        files.add((item, variant, file));
       }
-
-      if (_completedPayloadIds.contains(payloadId) &&
-          !_importedPayloadIds.contains(payloadId)) {
-        transferProgress.remove(payloadId);
-        final hasDescriptor = _descriptorByPayloadId.containsKey(payloadId);
-        final hasFilePayload = _filePayloadById.containsKey(payloadId);
-        debugPrint(
-          '[NearbyTransfer] import timeout payloadId=$payloadId hasDescriptor=$hasDescriptor hasFilePayload=$hasFilePayload',
+      for (final (item, variant, file) in files) {
+        if (!isConnected || generation != _generation) break;
+        final id = DateTime.now().microsecondsSinceEpoch;
+        final descriptor = await _OutgoingNearbyDescriptor.fromItem(
+          schema: _schema,
+          payloadId: id,
+          sessionId: session!,
+          sizeBytes: await file.length(),
+          sha256Hex: await _sha256ForFile(file),
+          item: item,
+          variant: variant,
         );
-        if (hasDescriptor && !hasFilePayload) {
-          statusText.value = tr(
-            'nearby.metadata_without_file',
-            args: ['$payloadId'],
-          );
-          final expected = _expectedInviteSessionId;
-          if (expected != null && expected.isNotEmpty) {
-            await _sendInviteHandshake(
-              endpointId,
-              expected,
-              event: _inviteEventHello,
-              force: true,
-            );
-          }
-        } else if (!hasDescriptor && hasFilePayload) {
-          statusText.value = tr(
-            'nearby.file_without_metadata',
-            args: ['$payloadId'],
-          );
-        } else {
-          statusText.value = tr(
-            'nearby.import_finish_failed',
-            args: ['$payloadId'],
-          );
+        if (utf8.encode(jsonEncode(descriptor.toJson())).length > 256 * 1024) {
+          throw const FormatException('metadata');
         }
-      }
-    } finally {
-      _importRetryInFlight.remove(payloadId);
-    }
-  }
-
-  Future<bool> _handleInviteHandshakeBytes(
-    Uint8List? bytes,
-    String endpointId,
-  ) async {
-    if (bytes == null || bytes.isEmpty) return false;
-    try {
-      final decoded = jsonDecode(utf8.decode(bytes));
-      if (decoded is! Map) return false;
-      final map = Map<String, dynamic>.from(decoded);
-      final schema = (map['schema'] as String?)?.trim();
-      if (schema != _inviteHandshakeSchema) return false;
-
-      final sessionId = (map['sessionId'] as String?)?.trim() ?? '';
-      final event = ((map['event'] as String?) ?? _inviteEventHello)
-          .trim()
-          .toLowerCase();
-      if (sessionId.isEmpty) return false;
-
-      final expected = _expectedInviteSessionId;
-      if (expected != null &&
-          expected == sessionId &&
-          !_isExpectedInviteExpired()) {
-        if (event == _inviteEventImported) {
-          statusText.value = tr('nearby.receiver_confirmed');
-          return true;
+        if (!isConnected ||
+            generation != _generation ||
+            _sessionId != session) {
+          break;
         }
-        statusText.value = tr('nearby.session_validated_receiving');
-        return true;
-      }
-
-      final outgoing = _outgoingInviteSessionId;
-      if (outgoing != null &&
-          outgoing == sessionId &&
-          !_isOutgoingInviteExpired()) {
-        if (event == _inviteEventImported) {
-          final expectedCount = outgoingItems.length;
-          final currentCount = (_importedAckCountBySession[sessionId] ?? 0) + 1;
-          _importedAckCountBySession[sessionId] = currentCount;
-          if (expectedCount <= 1 || currentCount >= expectedCount) {
-            statusText.value = expectedCount <= 1
-                ? tr('nearby.receiver_completed_single')
-                : tr(
-                    'nearby.receiver_completed_multiple',
-                    args: ['$expectedCount'],
-                  );
-            _outgoingInviteSessionId = null;
-            _outgoingInviteExpiresAt = null;
-            unawaited(stopAdvertisingMode());
-          } else {
-            statusText.value = tr(
-              'nearby.receiver_imported_progress',
-              args: ['$currentCount', '$expectedCount'],
-            );
-          }
-          return true;
+        sent.add(
+          TransferEntry(
+            id: id,
+            title: item.title,
+            bytes: descriptor.sizeBytes,
+            state: 'sending',
+            sessionId: session,
+          ),
+        );
+        await _persistHistory();
+        if (!isConnected ||
+            generation != _generation ||
+            _sessionId != session) {
+          break;
         }
-
-        final dedupeKey = '$sessionId|$endpointId';
-        if (_autoSentBySessionEndpoint.contains(dedupeKey)) {
-          statusText.value = tr('nearby.receiver_validated_waiting');
-          return true;
-        }
-        if (_autoSendingBySessionEndpoint.contains(dedupeKey)) return true;
-
-        _autoSendingBySessionEndpoint.add(dedupeKey);
-        statusText.value = outgoingItems.length == 1
-            ? tr('nearby.receiver_validated_sending_single')
-            : tr(
-                'nearby.receiver_validated_sending_multiple',
-                args: ['${outgoingItems.length}'],
-              );
-        final sent = await sendSelectedItemToPeer(endpointId);
-        _autoSendingBySessionEndpoint.remove(dedupeKey);
-        if (sent) {
-          _autoSentBySessionEndpoint.add(dedupeKey);
-        } else {
-          statusText.value = tr('nearby.auto_send_retry');
-        }
-        return true;
+        await _direct.send(file.path, descriptor.toJson());
       }
     } catch (_) {
-      return false;
+      statusKey.value = 'nearby_session.send_failed';
+      for (var i = 0; i < sent.length; i++) {
+        if (sent[i].state == 'sending') sent[i] = sent[i].copy(state: 'failed');
+      }
+      await _persistHistory();
+    } finally {
+      busy.value = false;
     }
-    return false;
   }
 
-  Future<void> _sendInviteHandshake(
-    String endpointId,
-    String sessionId, {
-    String event = _inviteEventHello,
-    bool force = false,
-  }) async {
-    final dedupeKey = '$sessionId|$endpointId|$event';
-    if (!force && _inviteHandshakeSent.contains(dedupeKey)) return;
-    if (force) {
-      _inviteHandshakeSent.remove(dedupeKey);
+  Future<void> _importReceived(Map<String, dynamic> event) async {
+    await _historyLoaded;
+    final session = _sessionId;
+    final raw = Map<String, dynamic>.from(event['descriptor'] as Map);
+    final descriptor = _IncomingNearbyDescriptor.fromJson(raw);
+    if (descriptor == null ||
+        descriptor.sessionId != session ||
+        !_allowedFormats.contains(descriptor.format) ||
+        descriptor.sizeBytes > _maxTransferBytes) {
+      throw const FormatException('Invalid incoming descriptor');
     }
-    _inviteHandshakeSent.add(dedupeKey);
-    try {
-      final payload = <String, dynamic>{
-        'schema': _inviteHandshakeSchema,
-        'sessionId': sessionId,
-        'event': event,
-        'from': _nickName,
-        'ts': DateTime.now().millisecondsSinceEpoch,
-      };
-      await _nearby.sendBytesPayload(
-        endpointId,
-        Uint8List.fromList(utf8.encode(jsonEncode(payload))),
-      );
-    } catch (_) {}
-  }
-
-  String _createInviteSessionId(List<MediaItem> items, MediaVariant variant) {
-    final random = Random.secure();
-    final bytes = List<int>.generate(24, (_) => random.nextInt(256));
-    return base64UrlEncode(bytes).replaceAll('=', '');
-  }
-
-  Future<bool> _tryImportReceivedPayload(
-    int payloadId,
-    String endpointId,
-  ) async {
-    if (_importedPayloadIds.contains(payloadId)) return true;
-    if (!_completedPayloadIds.contains(payloadId)) return false;
-
-    final descriptor = _descriptorByPayloadId[payloadId];
-    final payload = _filePayloadById[payloadId];
-    if (descriptor == null || payload == null) return false;
-    if (!_isDescriptorAllowed(descriptor)) return false;
-
+    final key = '$session:${descriptor.payloadId}';
+    if (_receiveIds.contains(key)) {
+      await _direct.confirm(descriptor.payloadId);
+      return;
+    }
+    final source = File(event['path'] as String);
+    if (!await _verifyReceivedFile(source.path, descriptor)) {
+      throw const FormatException('integrity');
+    }
     final destination = await _buildDestinationPath(
-      payloadId,
+      descriptor.payloadId,
       descriptor.fileName,
     );
-    if (destination == null) return false;
-
-    final copied = await _copyNearbyPayloadTo(destination, payload);
-    if (!copied) {
-      statusText.value = tr('nearby.save_received_failed');
-      return false;
-    }
-    final verified = await _verifyReceivedFile(destination, descriptor);
-    if (!verified) {
-      await _deleteIfExists(destination);
-      statusText.value = tr('nearby.integrity_failed');
-      return false;
-    }
-
-    final importedItem = await _buildImportedItemFromDescriptor(
+    if (destination == null) throw const FileSystemException('destination');
+    await source.copy(destination);
+    final item = await _buildImportedItemFromDescriptor(
       descriptor: descriptor,
       destinationPath: destination,
     );
-    if (importedItem == null) {
-      statusText.value = tr('nearby.import_received_failed');
-      return false;
+    if (item == null) {
+      await File(destination).delete();
+      throw StateError('import');
     }
-
-    await _store.upsert(importedItem);
+    await _store.upsert(item);
+    final entry = TransferEntry(
+      id: descriptor.payloadId,
+      title: item.title,
+      bytes: descriptor.sizeBytes,
+      state: 'completed',
+      progress: 1,
+      direction: 'received',
+      sessionId: session!,
+      itemId: item.id,
+    );
+    final index = received.indexWhere(
+      (e) => e.id == entry.id && e.sessionId == session,
+    );
+    if (index < 0) {
+      received.add(entry);
+    } else {
+      received[index] = entry;
+    }
+    await _persistHistory();
+    _receiveIds.add(key);
+    await source.delete();
     if (Get.isRegistered<DownloadsController>()) {
-      await Get.find<DownloadsController>().load();
+      unawaited(Get.find<DownloadsController>().load());
     }
-
-    _importedPayloadIds.add(payloadId);
-    transferProgress[payloadId] = 1;
-    statusText.value = tr(
-      'nearby.song_received_from',
-      args: [_endpointNames[endpointId] ?? endpointId],
-    );
-
-    final expectedSession = _expectedInviteSessionId;
-    if (expectedSession != null && expectedSession.isNotEmpty) {
-      await _sendInviteHandshake(
-        endpointId,
-        expectedSession,
-        event: _inviteEventImported,
-      );
+    // Do not acknowledge a transfer on a newer session.
+    if (_sessionId == session && isConnected) {
+      await _direct.confirm(descriptor.payloadId);
     }
+    statusKey.value = 'nearby_session.received_success';
+  }
 
-    Get.snackbar(
-      tr('nearby.complete'),
-      tr('nearby.imported', args: [importedItem.title]),
-      snackPosition: SnackPosition.BOTTOM,
-    );
-    return true;
+  Future<void> _stopNearby() async {
+    try {
+      await _nearby.stopAdvertising();
+    } catch (_) {}
+    try {
+      await _nearby.stopDiscovery();
+    } catch (_) {}
+    try {
+      await _nearby.stopAllEndpoints();
+    } catch (_) {}
+  }
+
+  Future<void> closeConnection() async {
+    _generation++;
+    _handoff = false;
+    _deadline?.cancel();
+    _approvedEndpoint = null;
+    _endpoint = null;
+    _offer = null;
+    _sessionId = null;
+    _expiresAt = null;
+    inviteUri.value = null;
+    inviteCode.value = '';
+    _speedSamples.clear();
+    _receiveIds.clear();
+    phase.value = TransferPhase.closed;
+    await _stopNearby();
+    try {
+      await _direct.close();
+    } catch (_) {}
+    for (final list in [sent, received]) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].state != 'completed') {
+          list[i] = list[i].copy(state: 'failed');
+        }
+      }
+    }
+    if (sent.isNotEmpty || received.isNotEmpty) await _persistHistory();
+    statusKey.value = 'nearby_session.closed';
+  }
+
+  Future<void> _fail(String code) async {
+    if (_failureInFlight || _disposed) return;
+    _failureInFlight = true;
+    try {
+      await closeConnection();
+      if (_disposed) return;
+      phase.value = TransferPhase.failed;
+      statusDetail.value = code;
+      statusKey.value = 'nearby_session.$code';
+    } finally {
+      _failureInFlight = false;
+    }
+  }
+
+  @override
+  void onClose() {
+    if (_disposed) return;
+    _disposed = true;
+    _deadline?.cancel();
+    _events?.cancel();
+    unawaited(closeConnection());
+    super.onClose();
   }
 
   Future<MediaItem?> _buildImportedItemFromDescriptor({
@@ -926,7 +870,7 @@ class NearbyTransferController extends GetxController {
         translations: descriptor.translations,
       );
     } catch (e) {
-      statusText.value = 'Error al crear media importada: $e';
+      statusKey.value = 'nearby_session.import_failed';
       return null;
     }
   }
@@ -957,44 +901,6 @@ class NearbyTransferController extends GetxController {
       return p.join(mediaDir.path, fileName);
     } catch (_) {
       return null;
-    }
-  }
-
-  Future<bool> _copyNearbyPayloadTo(
-    String destinationPath,
-    Payload payload,
-  ) async {
-    try {
-      if (payload.uri != null && payload.uri!.trim().isNotEmpty) {
-        final ok = await _nearby.copyFileAndDeleteOriginal(
-          payload.uri!,
-          destinationPath,
-        );
-        if (!ok) return false;
-        return _hasValidFile(destinationPath);
-      }
-
-      // ignore: deprecated_member_use
-      final fp = payload.filePath;
-      if (fp != null && fp.trim().isNotEmpty) {
-        final source = File(fp);
-        if (await source.exists()) {
-          await source.copy(destinationPath);
-          return _hasValidFile(destinationPath);
-        }
-      }
-    } catch (_) {}
-    return false;
-  }
-
-  bool _hasValidFile(String path) {
-    try {
-      final file = File(path);
-      if (!file.existsSync()) return false;
-      final stat = file.statSync();
-      return stat.size > 0;
-    } catch (_) {
-      return false;
     }
   }
 
@@ -1035,101 +941,6 @@ class NearbyTransferController extends GetxController {
     return 'jpg';
   }
 
-  Future<List<_OutgoingShareFile>?> _validatedOutgoingShareFiles(
-    List<MediaItem> items,
-  ) async {
-    var totalBytes = 0;
-    final out = <_OutgoingShareFile>[];
-
-    for (final item in items) {
-      final variant = _pickShareVariant(item);
-      if (variant == null) {
-        statusText.value = tr('nearby.no_file');
-        return null;
-      }
-
-      final sourcePath = variant.localPath?.trim() ?? '';
-      if (sourcePath.isEmpty) {
-        statusText.value = tr('nearby.no_path');
-        return null;
-      }
-
-      final file = File(sourcePath);
-      if (!await file.exists()) {
-        statusText.value = tr('nearby.file_local_missing');
-        return null;
-      }
-
-      final size = await file.length();
-      if (size <= 0 || size > _maxTransferBytes) {
-        statusText.value = tr('nearby.file_size_blocked');
-        return null;
-      }
-
-      totalBytes += size;
-      if (totalBytes > _maxTransferBytes) {
-        statusText.value = tr('nearby.total_size_blocked');
-        return null;
-      }
-
-      final format = _formatForVariant(variant);
-      if (!_allowedFormats.contains(format)) {
-        statusText.value = tr('nearby.file_type_blocked');
-        return null;
-      }
-      out.add(
-        _OutgoingShareFile(item: item, variant: variant, sizeBytes: size),
-      );
-    }
-
-    return out;
-  }
-
-  bool _isExpectedInviteExpired() {
-    final expires = _expectedInviteExpiresAt;
-    return expires != null && DateTime.now().isAfter(expires);
-  }
-
-  bool _isOutgoingInviteExpired() {
-    final expires = _outgoingInviteExpiresAt;
-    if (expires == null) return false;
-    if (!DateTime.now().isAfter(expires)) return false;
-    _outgoingInviteSessionId = null;
-    _outgoingInviteExpiresAt = null;
-    unawaited(stopAdvertisingMode());
-    statusText.value = tr('nearby.invite_expired');
-    return true;
-  }
-
-  bool _isDescriptorAllowed(_IncomingNearbyDescriptor descriptor) {
-    if (descriptor.sizeBytes <= 0 || descriptor.sizeBytes > _maxTransferBytes) {
-      statusText.value = tr('nearby.file_size_blocked');
-      return false;
-    }
-    if (!_allowedFormats.contains(descriptor.format)) {
-      statusText.value = tr('nearby.file_type_blocked');
-      return false;
-    }
-    if (descriptor.sha256Hex.length != 64) {
-      statusText.value = tr('nearby.integrity_failed');
-      return false;
-    }
-
-    final expected = _expectedInviteSessionId;
-    if (expected != null && expected.isNotEmpty) {
-      if (_isExpectedInviteExpired()) {
-        statusText.value = tr('nearby.invite_expired');
-        return false;
-      }
-      if (descriptor.sessionId != expected) {
-        statusText.value = tr('nearby.session_mismatch');
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   Future<bool> _verifyReceivedFile(
     String destinationPath,
     _IncomingNearbyDescriptor descriptor,
@@ -1160,80 +971,6 @@ class NearbyTransferController extends GetxController {
     return ext.isNotEmpty ? ext : variant.format.toLowerCase().trim();
   }
 
-  Future<void> _deleteIfExists(String path) async {
-    try {
-      final file = File(path);
-      if (await file.exists()) {
-        await file.delete();
-      }
-    } catch (_) {}
-  }
-
-  Future<bool> _showSecurityDialog({
-    required String endpointName,
-    required String token,
-    required bool incoming,
-  }) async {
-    final result = await Get.dialog<bool>(
-      AlertDialog(
-        title: Text(
-          incoming
-              ? tr('nearby.incoming_connection')
-              : tr('nearby.confirm_connection'),
-        ),
-        content: Text(tr('nearby.security_body', args: [endpointName, token])),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(result: false),
-            child: Text(tr('nearby.reject')),
-          ),
-          FilledButton(
-            onPressed: () => Get.back(result: true),
-            child: Text(tr('nearby.accept')),
-          ),
-        ],
-      ),
-      barrierDismissible: false,
-    );
-    return result == true;
-  }
-
-  Future<void> _safeStopAdvertising() async {
-    try {
-      await _nearby.stopAdvertising();
-    } catch (_) {}
-  }
-
-  Future<void> _safeStopDiscovery() async {
-    try {
-      await _nearby.stopDiscovery();
-    } catch (_) {}
-  }
-
-  void _upsertDiscovered(NearbyTransferPeer peer) {
-    final idx = discoveredPeers.indexWhere(
-      (e) => e.endpointId == peer.endpointId,
-    );
-    if (idx < 0) {
-      discoveredPeers.add(peer);
-    } else {
-      discoveredPeers[idx] = peer;
-      discoveredPeers.refresh();
-    }
-  }
-
-  void _upsertConnected(NearbyTransferPeer peer) {
-    final idx = connectedPeers.indexWhere(
-      (e) => e.endpointId == peer.endpointId,
-    );
-    if (idx < 0) {
-      connectedPeers.add(peer);
-    } else {
-      connectedPeers[idx] = peer;
-      connectedPeers.refresh();
-    }
-  }
-
   MediaVariant? _pickShareVariant(MediaItem item) {
     final localVariants = item.variants.where((v) {
       final pth = v.localPath?.trim() ?? '';
@@ -1252,52 +989,6 @@ class NearbyTransferController extends GetxController {
     }
 
     return localVariants.first;
-  }
-
-  Future<bool> _ensureNearbyPermissions() async {
-    try {
-      final perms = <Permission>[
-        Permission.bluetoothConnect,
-        Permission.bluetoothScan,
-        Permission.bluetoothAdvertise,
-        Permission.location,
-      ];
-
-      // Android 13+ only; harmless en versiones previas.
-      try {
-        perms.add(Permission.nearbyWifiDevices);
-      } catch (_) {}
-
-      final statuses = await perms.request();
-      final allGranted = statuses.values.every(
-        (s) => s.isGranted || s.isLimited,
-      );
-      if (!allGranted) {
-        statusText.value = tr('nearby.permissions_incomplete');
-        Get.snackbar(
-          tr('nearby.permissions_title'),
-          tr('nearby.permissions_body'),
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        return false;
-      }
-
-      final locationEnabled = await Permission.location.serviceStatus.isEnabled;
-      if (!locationEnabled) {
-        statusText.value = tr('nearby.enable_location_status');
-        Get.snackbar(
-          tr('nearby.location_title'),
-          tr('nearby.location_body'),
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        return false;
-      }
-
-      return true;
-    } catch (e) {
-      statusText.value = tr('nearby.permissions_error', args: ['$e']);
-      return false;
-    }
   }
 }
 
@@ -1363,7 +1054,38 @@ class _OutgoingNearbyDescriptor {
         if (await coverFile.exists()) {
           final len = await coverFile.length();
           if (len > 0 && len <= (1024 * 1024 * 2)) {
-            coverBase64 = base64Encode(await coverFile.readAsBytes());
+            final bytes = await coverFile.readAsBytes();
+            if (bytes.length <= 128 * 1024) {
+              coverBase64 = base64Encode(bytes);
+            } else {
+              // A transfer thumbnail must fit the bounded metadata frame.
+              final codec = await ui.instantiateImageCodec(
+                bytes,
+                targetWidth: 192,
+                targetHeight: 192,
+                allowUpscaling: false,
+              );
+              try {
+                final frame = await codec.getNextFrame();
+                try {
+                  final data = await frame.image.toByteData(
+                    format: ui.ImageByteFormat.png,
+                  );
+                  if (data != null && data.lengthInBytes <= 128 * 1024) {
+                    coverBase64 = base64Encode(
+                      data.buffer.asUint8List(
+                        data.offsetInBytes,
+                        data.lengthInBytes,
+                      ),
+                    );
+                  }
+                } finally {
+                  frame.image.dispose();
+                }
+              } finally {
+                codec.dispose();
+              }
+            }
           }
         }
       } catch (_) {}

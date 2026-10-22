@@ -5,12 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/routes/app_routes.dart';
-import '../../../../app/utils/listenfy_deep_link.dart';
 import '../../../../app/data/repo/media_repository.dart';
 import '../../controller/downloads_controller.dart';
 import '../../../../app/ui/themes/app_spacing.dart';
 import '../../../../app/models/media_item.dart';
-import '../../../nearby_transfer/view/nearby_qr_scanner_page.dart';
 import '../views/imports_webview_page.dart';
 
 /// Widget tipo "pill" con opciones de descargas
@@ -284,32 +282,7 @@ class DownloadsPill extends GetView<DownloadsController> {
   }
 
   Future<void> _scanListenfyQr() async {
-    final raw = await Get.to<String>(() => const NearbyQrScannerPage());
-    if (raw == null || raw.trim().isEmpty) return;
-
-    final target = ListenfyDeepLink.parseRaw(raw);
-    switch (target) {
-      case ListenfyDeepLinkTarget.nearbyInvite:
-        Get.toNamed(AppRoutes.nearbyTransfer, arguments: {'inviteUri': raw});
-        return;
-      case ListenfyDeepLinkTarget.nearbyTransfer:
-        Get.toNamed(AppRoutes.nearbyTransfer);
-        return;
-      case ListenfyDeepLinkTarget.openLocalImport:
-        Get.snackbar(
-          tr('qr.listenfy_title'),
-          tr('qr.import_ready'),
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        return;
-      case ListenfyDeepLinkTarget.unknown:
-        Get.snackbar(
-          tr('qr.invalid_title'),
-          tr('qr.invalid_body'),
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        return;
-    }
+    await Get.toNamed<void>(AppRoutes.nearbyTransfer);
   }
 
   /// 📋 Dialog para importar archivos locales
