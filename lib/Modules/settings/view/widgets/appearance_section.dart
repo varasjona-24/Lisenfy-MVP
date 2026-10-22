@@ -202,6 +202,17 @@ class AppearanceSection extends GetView<SettingsController> {
                       const SizedBox(height: 12),
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          tr('settings.appearance.wallpaper_enabled'),
+                        ),
+                        subtitle: Text(
+                          tr('settings.appearance.wallpaper_enabled_hint'),
+                        ),
+                        value: controller.appBackgroundEnabled.value,
+                        onChanged: controller.setAppBackgroundEnabled,
+                      ),
+                      SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
                         title: Text(tr('settings.appearance.smart_carousel')),
                         subtitle: Text(
                           tr('settings.appearance.smart_carousel_subtitle'),

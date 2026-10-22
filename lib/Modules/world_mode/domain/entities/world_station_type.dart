@@ -1,6 +1,3 @@
-import 'package:easy_localization/easy_localization.dart'
-    hide StringTranslateExtension;
-
 enum WorldStationType { gateway, essentials, discovery, energy, chill }
 
 extension WorldStationTypeX on WorldStationType {
@@ -16,21 +13,6 @@ extension WorldStationTypeX on WorldStationType {
         return 'energy';
       case WorldStationType.chill:
         return 'chill';
-    }
-  }
-
-  String get title {
-    switch (this) {
-      case WorldStationType.gateway:
-        return tr('world_mode.station_types.gateway');
-      case WorldStationType.essentials:
-        return tr('world_mode.station_types.essentials');
-      case WorldStationType.discovery:
-        return tr('world_mode.station_types.discovery');
-      case WorldStationType.energy:
-        return tr('world_mode.station_types.energy');
-      case WorldStationType.chill:
-        return tr('world_mode.station_types.chill');
     }
   }
 

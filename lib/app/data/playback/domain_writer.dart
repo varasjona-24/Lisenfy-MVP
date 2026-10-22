@@ -1,6 +1,7 @@
 part of 'playback_repository.dart';
 
 const durableDomainKeys = {
+  'nearby_transfer_history_v1': 'list',
   'source_theme_pills': 'list',
   'source_theme_topics': 'list',
   'source_theme_topic_playlists': 'list',

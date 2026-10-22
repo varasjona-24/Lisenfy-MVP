@@ -308,9 +308,9 @@ class ListeningStats {
       (sum, item) => sum + item.playCount,
     );
 
-    final byPlays = listened.where((item) => listenScoreFor(item) > 0).toList()
+    final byPlays = listened.where((item) => countedPlaysFor(item) > 0).toList()
       ..sort((a, b) {
-        final plays = listenScoreFor(b).compareTo(listenScoreFor(a));
+        final plays = countedPlaysFor(b).compareTo(countedPlaysFor(a));
         if (plays != 0) return plays;
         return (b.lastPlayedAt ?? 0).compareTo(a.lastPlayedAt ?? 0);
       });
@@ -341,18 +341,18 @@ class ListeningStats {
             )
             .toList(growable: false);
     final videosByPlays =
-        watched.where((item) => listenScoreFor(item) > 0).toList()
+        watched.where((item) => countedPlaysFor(item) > 0).toList()
           ..sort((a, b) {
-            final plays = listenScoreFor(b).compareTo(listenScoreFor(a));
+            final plays = countedPlaysFor(b).compareTo(countedPlaysFor(a));
             if (plays != 0) return plays;
             return (b.lastPlayedAt ?? 0).compareTo(a.lastPlayedAt ?? 0);
           });
     final favoritesByPlays =
         listened
-            .where((item) => item.isFavorite && listenScoreFor(item) > 0)
+            .where((item) => item.isFavorite && countedPlaysFor(item) > 0)
             .toList()
           ..sort((a, b) {
-            final plays = listenScoreFor(b).compareTo(listenScoreFor(a));
+            final plays = countedPlaysFor(b).compareTo(countedPlaysFor(a));
             if (plays != 0) return plays;
             return (b.lastPlayedAt ?? 0).compareTo(a.lastPlayedAt ?? 0);
           });
@@ -706,7 +706,7 @@ class ListeningStats {
       final key = ArtistCreditParser.normalizeKey(name);
       if (key.isEmpty || key == 'unknown') continue;
       nameByKey[key] = name;
-      playsByArtist[key] = (playsByArtist[key] ?? 0) + listenScoreFor(item);
+      playsByArtist[key] = (playsByArtist[key] ?? 0) + countedPlaysFor(item);
       tracksByArtist.putIfAbsent(key, () => <String>{}).add(item.id);
     }
 
@@ -733,7 +733,7 @@ class ListeningStats {
     final tracksByRegion = <String, List<MediaItem>>{};
 
     for (final item in items) {
-      final score = listenScoreFor(item);
+      final score = countedPlaysFor(item);
       if (score <= 0) continue;
       final countryCode = affinity.resolveCountryCode(item);
       if (countryCode == null) continue;
@@ -751,7 +751,9 @@ class ListeningStats {
           final tracks =
               (tracksByRegion[entry.key] ?? const <MediaItem>[]).toList()
                 ..sort((a, b) {
-                  final plays = listenScoreFor(b).compareTo(listenScoreFor(a));
+                  final plays = countedPlaysFor(
+                    b,
+                  ).compareTo(countedPlaysFor(a));
                   if (plays != 0) return plays;
                   return (b.lastPlayedAt ?? 0).compareTo(a.lastPlayedAt ?? 0);
                 });
@@ -774,13 +776,9 @@ class ListeningStats {
     return max(item.fullListenCount, 0);
   }
 
-  static int listenScoreFor(MediaItem item) {
-    if (item.fullListenCount > 0) {
-      return item.fullListenCount;
-    }
-    if (item.playCount <= 0) return 0;
-    return max(item.playCount - item.skipCount, 0);
-  }
+  /// Ranked play counts use the same counter as total plays. Completion and
+  /// skip counters describe separate outcomes and never replace or reduce it.
+  static int countedPlaysFor(MediaItem item) => max(item.playCount, 0);
 
   static String _formatBytes(int bytes) {
     if (bytes <= 0) return '0 B';

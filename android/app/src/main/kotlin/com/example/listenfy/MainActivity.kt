@@ -48,6 +48,7 @@ import kotlin.math.pow
 import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : AudioServiceActivity() {
+    private var wifiDirectTransferBridge: WifiDirectTransferBridge? = null
     private val channel = "listenfy/bluetooth_audio"
     private val mediaMetadataChannel = "listenfy/media_metadata"
     private val androidAutoArtworkChannel = "listenfy/android_auto_artwork"
@@ -101,6 +102,8 @@ class MainActivity : AudioServiceActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        wifiDirectTransferBridge?.close()
+        wifiDirectTransferBridge = WifiDirectTransferBridge(this, flutterEngine)
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, androidAutoArtworkChannel)
             .setMethodCallHandler { call, result ->
@@ -116,6 +119,22 @@ class MainActivity : AudioServiceActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getCurrentIcon" -> result.success(getCurrentLauncherIcon())
+                    "getAppInfo" -> {
+                        try {
+                            @Suppress("DEPRECATION")
+                            val info = packageManager.getPackageInfo(packageName, 0)
+                            val build = if (android.os.Build.VERSION.SDK_INT >= 28) {
+                                info.longVersionCode.toString()
+                            } else {
+                                @Suppress("DEPRECATION")
+                                info.versionCode.toString()
+                            }
+                            result.success(mapOf("version" to info.versionName,
+                                "build" to build, "updatedAt" to info.lastUpdateTime))
+                        } catch (error: Exception) {
+                            result.error("app_info_failed", error.message, null)
+                        }
+                    }
                     "setIcon" -> {
                         val iconId = call.argument<String>("iconId")
                         if (iconId == null || !launcherAliases.containsKey(iconId)) {
@@ -715,6 +734,8 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun onDestroy() {
+        wifiDirectTransferBridge?.close()
+        wifiDirectTransferBridge = null
         releaseSpatial()
         super.onDestroy()
     }

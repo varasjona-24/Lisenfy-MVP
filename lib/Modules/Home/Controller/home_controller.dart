@@ -633,11 +633,57 @@ class HomeController extends GetxController {
     homeWidgetLayouts.value = <String, HomeCustomSectionLayout>{};
     homeWidgetSorts.clear();
     homeWidgetSortAscending.clear();
-    customHomeSections.clear();
+    customHomeSections.assignAll(
+      customHomeSections
+          .map((section) => section.copyWith(enabled: false))
+          .toList(),
+    );
     videoHomeWidgetOrder.assignAll(_defaultVideoHomeWidgets);
     enabledVideoHomeWidgets.assignAll(_defaultVideoHomeWidgets);
-    videoCustomHomeSections.clear();
+    videoCustomHomeSections.assignAll(
+      videoCustomHomeSections
+          .map((section) => section.copyWith(enabled: false))
+          .toList(),
+    );
     _persistHomeLayout();
+  }
+
+  /// Reset presentation only; retain the user's saved shortcut targets.
+  static Future<void> resetSavedHomeLayout({GetStorage? preferences}) async {
+    final storage = preferences ?? GetStorage();
+    for (final key in [
+      _homeWidgetOrderKey,
+      _homeWidgetEnabledKey,
+      _homeWidgetLayoutsKey,
+      _homeWidgetSortsKey,
+      _homeWidgetSortAscendingKey,
+      _videoHomeWidgetOrderKey,
+      _videoHomeWidgetEnabledKey,
+    ]) {
+      await storage.remove(key);
+    }
+    for (final key in [_homeCustomSectionsKey, _videoHomeCustomSectionsKey]) {
+      final sections = storage.read<List>(key);
+      if (sections != null) {
+        await storage.write(
+          key,
+          sections
+              .whereType<Map>()
+              .map(
+                (section) => {
+                  ...section,
+                  'enabled': false,
+                  'layout': HomeCustomSectionLayout.cards.key,
+                  'beforeWidget': null,
+                },
+              )
+              .toList(),
+        );
+      }
+    }
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().reloadLayoutFromStorage();
+    }
   }
 
   /// Vuelve a leer la configuraci\u00f3n de widgets desde GetStorage y la aplica

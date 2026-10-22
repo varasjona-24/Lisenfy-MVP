@@ -1,0 +1,62 @@
+# Transferencia Nearby → Wi-Fi Direct
+
+Estado: implementación integrada y validación automatizada; pendiente de prueba
+de extremo a extremo con dos teléfonos físicos compatibles. No se declara
+compatibilidad universal ni velocidad garantizada.
+
+## Flujo
+
+1. Imports abre el puente de conexión; nunca activa la cámara automáticamente.
+2. El anfitrión genera QR y código alfanumérico de 7 caracteres, válidos 5 minutos.
+3. El receptor descubre la invitación mediante Nearby. Ambos usuarios aceptan
+   la asociación y comparan el código de autenticación mostrado por Nearby.
+4. El canal cifrado de Nearby intercambia oferta, confirmación y orden de traspaso.
+   La oferta identifica la sesión completa e incluye credenciales temporales del
+   grupo Wi-Fi Direct y huella del certificado TLS. El código corto no autentica.
+5. Se detiene Nearby y se establece un grupo propio Wi-Fi Direct. La sesión solo
+   se habilita después de comprobar la huella TLS, el secreto y la identidad de
+   sesión. No existe envío de archivos por Nearby ni fallback Bluetooth.
+6. Ambos dispositivos pueden elegir archivos, confirmar la selección y enviar.
+   No se envía nada automáticamente al asociarse. El receptor verifica tamaño y
+   SHA-256, importa en la biblioteca y guarda el historial antes de confirmar.
+7. El emisor muestra éxito solo tras recibir esa confirmación. Las transferencias
+   en curso se marcan fallidas al cerrar o perder la conexión; no hay reanudación
+   automática de archivos parciales en esta primera implementación.
+
+## Persistencia y límites
+
+- SQLite: namespace `nearby_transfer_history_v1`, incluido en el backup completo.
+  Conserva dirección, sesión, archivo, tamaño, estado y referencia al item recibido.
+- Las credenciales y el certificado de sesión no se guardan en ese historial.
+- Archivos físicamente en disco; la biblioteca conserva sus referencias SQLite.
+- Límite: 1 GiB por selección y por archivo, metadatos acotados a 256 KiB.
+  Las portadas grandes se convierten en miniaturas para el envío sin modificar
+  el archivo de portada original. No se transfieren estadísticas de escucha.
+- La sesión permanece al navegar por la app. Cerrar conexión es explícito;
+  la pérdida de Wi-Fi Direct o del socket autenticado la cierra automáticamente.
+  La pérdida de Internet por sí sola no la cierra.
+
+## Plataforma y validación física obligatoria
+
+Android 10+ con soporte Wi-Fi Direct, permisos y radios disponibles. Android puede
+mostrar confirmaciones adicionales. Se rechazan grupos ya existentes para no
+desconectar conexiones ajenas. La asociación y el traspaso pueden variar entre
+fabricantes; no se ha validado todavía su funcionamiento real entre dos teléfonos.
+
+Probar QR y código, rechazo sin salir, aceptación en ambos lados, envío en ambas
+direcciones y simultáneo, 500 MiB, portadas, cancelación, desconexión, repetición
+de sesión, WiFi sin Internet, denegación de permisos y restauración del backup.
+Comprobar que no se borran archivos completos al cerrar, no se duplican éxitos ni
+se confunden eventos de una sesión anterior. Las versiones anteriores del flujo
+Nearby no son compatibles con este protocolo v2.
+
+## Verificación automatizada de esta entrega
+
+- 42 pruebas aprobadas: protocolo, controlador, selección visual, traducciones,
+  persistencia del historial y backup/restauración de dominios SQLite.
+- Análisis dirigido de Dart sin incidencias.
+- Kotlin ARM64 compilado con `./gradlew :app:compileDebugKotlin --offline
+  -Ptarget-platform=android-arm64 -x :app:compileFlutterBuildDebug --console=plain
+  --quiet` desde `android`. Esta comprobación no genera ni instala un APK completo.
+- Pendiente: radio, permisos, emparejamiento TLS y transferencia efectiva entre
+  dos teléfonos. Las pruebas con dobles de transporte no sustituyen esa validación.

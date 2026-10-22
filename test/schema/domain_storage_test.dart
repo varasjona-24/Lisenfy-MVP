@@ -88,6 +88,40 @@ void main() {
     await open();
   });
   test(
+    'transfer history survives reopen and complete database backup',
+    () async {
+      const key = 'nearby_transfer_history_v1';
+      final records = [
+        {
+          'id': 42,
+          'title': 'Song',
+          'bytes': 1024,
+          'direction': 'received',
+          'state': 'completed',
+          'sessionId': 'session',
+          'itemId': 'local-song',
+        },
+        {
+          'id': 43,
+          'title': 'Video',
+          'bytes': 2048,
+          'direction': 'sent',
+          'state': 'failed',
+          'sessionId': 'session',
+        },
+      ];
+      await repository.replaceDomain(key, records);
+      final bundle = await repository.exportCompleteDatabase();
+      await repository.replaceDomain(key, []);
+      await repository.restoreCompleteDatabase(bundle);
+      expect((await repository.readDomains())[key], records);
+      await repository.close();
+      await open();
+      expect((await repository.readDomains())[key], records);
+      expect(legacy.writes, isEmpty);
+    },
+  );
+  test(
     'repairs unmapped legacy profiles before rebuilding foreign keys',
     () async {
       await db.customStatement('INSERT INTO artist_record VALUES (?,?,?)', [

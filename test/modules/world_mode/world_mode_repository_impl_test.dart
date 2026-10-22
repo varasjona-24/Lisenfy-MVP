@@ -11,8 +11,6 @@ import 'package:listenfy/Modules/world_mode/data/repositories/world_mode_reposit
 import 'package:listenfy/Modules/world_mode/domain/entities/country_entity.dart';
 import 'package:listenfy/Modules/world_mode/domain/entities/world_region_catalog.dart';
 import 'package:listenfy/app/data/local/local_library_store.dart';
-import 'package:listenfy/app/data/network/dio_client.dart';
-import 'package:listenfy/app/data/repo/media_repository.dart';
 import 'package:listenfy/app/models/media_item.dart';
 
 void main() {
@@ -21,7 +19,6 @@ void main() {
     Get.testMode = true;
     Get.reset();
 
-    Get.put<DioClient>(DioClient(), permanent: true);
     Get.put<LocalLibraryStore>(_MemoryLocalLibraryStore(), permanent: true);
   });
 
@@ -30,6 +27,44 @@ void main() {
   });
 
   group('WorldModeRepositoryImpl (region flow)', () {
+    test(
+      'excludes tracks with no local audio from generated stations',
+      () async {
+        final local = _track(
+          id: 'local',
+          title: 'Local',
+          artist: 'Soda Stereo',
+        );
+        final remote =
+            _track(
+              id: 'remote',
+              title: 'Remote',
+              artist: 'Soda Stereo',
+            ).copyWith(
+              variants: [
+                MediaVariant(
+                  kind: MediaVariantKind.audio,
+                  format: 'mp3',
+                  fileName: 'https://example.invalid/audio.mp3',
+                  createdAt: 1,
+                ),
+              ],
+            );
+        final repository = _buildRepository(
+          library: [local, remote],
+          profiles: [_profile(name: 'Soda Stereo', countryCode: 'AR')],
+        );
+        final stations = await repository.exploreCountry(
+          country: _regionEntity('rio_plata'),
+          shuffleSeed: 1,
+        );
+        expect(stations, isNotEmpty);
+        expect(
+          stations.expand((station) => station.tracks).map((item) => item.id),
+          everyElement('local'),
+        );
+      },
+    );
     test(
       'filtra por región y permite colaboración en regiones del principal/feat',
       () async {
@@ -143,7 +178,7 @@ WorldModeRepositoryImpl _buildRepository({
   final artistStore = _StubArtistStore(profiles);
   final affinity = LocalAffinityEngine(artistStore: artistStore);
   return WorldModeRepositoryImpl(
-    mediaRepository: _StubMediaRepository(library),
+    libraryStore: _MemoryLocalLibraryStore().._items.addAll(library),
     localDatasource: WorldLocalDatasource.memory(),
     artistStore: artistStore,
     affinityEngine: affinity,
@@ -151,23 +186,8 @@ WorldModeRepositoryImpl _buildRepository({
   );
 }
 
-class _StubMediaRepository extends MediaRepository {
-  _StubMediaRepository(this._library);
-
-  final List<MediaItem> _library;
-
-  @override
-  Future<List<MediaItem>> getLibrary({
-    String? query,
-    String? order,
-    String? source,
-  }) async {
-    return _library;
-  }
-}
-
 class _StubArtistStore extends ArtistStore {
-  _StubArtistStore(this._profiles) : super(GetStorage('_stub_artist_store'));
+  _StubArtistStore(this._profiles) : super(_MemoryPreferences());
 
   final List<ArtistProfile> _profiles;
 
@@ -178,7 +198,7 @@ class _StubArtistStore extends ArtistStore {
 }
 
 class _MemoryLocalLibraryStore extends LocalLibraryStore {
-  _MemoryLocalLibraryStore() : super(GetStorage('_memory_library_store'));
+  _MemoryLocalLibraryStore() : super(_MemoryPreferences());
 
   final List<MediaItem> _items = <MediaItem>[];
 
@@ -197,6 +217,15 @@ class _MemoryLocalLibraryStore extends LocalLibraryStore {
     }
     _items[index] = item;
   }
+}
+
+class _MemoryPreferences implements GetStorage {
+  @override
+  T? read<T>(String key) => null;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('$invocation');
 }
 
 ArtistProfile _profile({required String name, required String countryCode}) {

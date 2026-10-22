@@ -18,7 +18,12 @@ class AppGradientBackground extends StatelessWidget {
 
     final settings = Get.find<SettingsController>();
     return Obx(
-      () => _buildBackground(context, settings.appBackgroundImagePath.value),
+      () => _buildBackground(
+        context,
+        settings.appBackgroundEnabled.value
+            ? settings.appBackgroundImagePath.value
+            : '',
+      ),
     );
   }
 

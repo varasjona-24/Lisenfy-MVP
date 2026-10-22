@@ -2,7 +2,6 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 import '../../../app/data/local/local_library_store.dart';
-import '../../../app/data/repo/media_repository.dart';
 import '../../artists/data/artist_store.dart';
 import '../agent/local_affinity_engine.dart';
 import '../agent/radio_station_planner.dart';
@@ -23,9 +22,6 @@ class WorldModeBinding extends Bindings {
     }
     if (!Get.isRegistered<ArtistStore>()) {
       Get.put(ArtistStore(Get.find<GetStorage>()), permanent: true);
-    }
-    if (!Get.isRegistered<MediaRepository>()) {
-      Get.put(MediaRepository(), permanent: true);
     }
 
     if (!Get.isRegistered<WorldLocalDatasource>()) {
@@ -49,7 +45,7 @@ class WorldModeBinding extends Bindings {
     if (!Get.isRegistered<WorldModeRepository>()) {
       Get.put<WorldModeRepository>(
         WorldModeRepositoryImpl(
-          mediaRepository: Get.find<MediaRepository>(),
+          libraryStore: Get.find<LocalLibraryStore>(),
           localDatasource: Get.find<WorldLocalDatasource>(),
           artistStore: Get.find<ArtistStore>(),
           affinityEngine: Get.find<LocalAffinityEngine>(),

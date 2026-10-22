@@ -96,7 +96,6 @@ void main() {
     title: 'Station',
     subtitle: '',
     tracks: library,
-    source: 'local',
     generatedAtMs: 0,
     ttlSec: 3600,
     seed: const StationSeedEntity(

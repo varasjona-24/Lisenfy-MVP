@@ -2,6 +2,25 @@ part of 'playback_repository.dart';
 
 /// Debug transfer/query APIs. Imports facts without manufacturing listen ranges.
 extension PlaybackDebugTransfer on PlaybackRepository {
+  /// Small dated ranges only; never infer weekly activity from legacy totals.
+  Future<List<(int, int)>> queryWeeklyActivityRanges() =>
+      _restorationTask(() async {
+        final rows = await _database.customSelect('''
+      SELECT MIN(start_ms) lo, MAX(end_ms) hi FROM (
+        SELECT started_at_utc_ms start_ms, started_at_utc_ms end_ms
+          FROM playback_session WHERE (valid_play=1 OR wall_ms>0 OR status='legacy')
+            AND mode IN ('audio','video')
+        UNION ALL
+        SELECT started_at_utc_ms, ended_at_utc_ms-1 FROM playback_interval
+          WHERE wall_ms>0 AND ended_at_utc_ms>started_at_utc_ms
+            AND mode IN ('audio','video')
+      ) GROUP BY date(start_ms/1000, 'unixepoch', 'localtime')
+    ''').get();
+        return rows
+            .map((row) => (row.read<int>('lo'), row.read<int>('hi')))
+            .toList();
+      });
+
   /// Effective intervals only: no reconstruction from legacy counters.
   Future<List<Map<String, dynamic>>> queryWeeklyIntervals(int start, int end) =>
       _restorationTask(() async {

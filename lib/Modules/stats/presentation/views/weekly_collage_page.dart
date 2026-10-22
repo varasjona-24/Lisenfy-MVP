@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 import '../../../../app/data/local/local_library_store.dart';
 import '../../../../app/data/playback/playback_repository.dart';
@@ -16,19 +17,33 @@ import '../../../recommendations/data/listening_event_store.dart';
 import '../../../artists/domain/artist_profile.dart';
 import '../../application/weekly_collage_summary.dart';
 import '../../application/weekly_collage_activity.dart';
+import '../../application/weekly_collage_weeks.dart';
 import '../widgets/weekly_activity_chart.dart';
 
 class WeeklyCollagePage extends StatefulWidget {
-  const WeeklyCollagePage({super.key, this.summaryLoader, this.activity});
+  const WeeklyCollagePage({
+    super.key,
+    this.summaryLoader,
+    this.activity,
+    this.weekLoader,
+    this.availableWeeksLoader,
+    this.now,
+  });
   final Future<WeeklyCollageSummary> Function()? summaryLoader;
   final WeeklyCollageActivity? activity;
+  final Future<WeeklyCollageSummary> Function(DateTime start)? weekLoader;
+  final Future<List<DateTime>> Function()? availableWeeksLoader;
+  final DateTime? now;
   @override
   State<WeeklyCollagePage> createState() => _WeeklyCollagePageState();
 }
 
 class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
   final _imageKeys = [GlobalKey(), GlobalKey()];
-  late final Future<WeeklyCollageSummary> _summary;
+  late Future<WeeklyCollageSummary> _summary;
+  late final Future<List<DateTime>> _weeks;
+  late DateTime _selectedWeek;
+  DateTime get _now => widget.now ?? DateTime.now();
   bool _exporting = false;
   WeeklyCollageActivity? _activity;
 
@@ -36,17 +51,47 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
   void initState() {
     super.initState();
     _activity = widget.activity;
-    _summary = widget.summaryLoader?.call() ?? _load();
+    _selectedWeek = WeeklyCollageSummary.previousWeek(_now).$1;
+    _weeks = _loadWeeks();
+    _summary = _load(_selectedWeek);
   }
 
-  Future<WeeklyCollageSummary> _load() async {
+  Future<List<DateTime>> _loadWeeks() async {
+    final injected = widget.availableWeeksLoader;
+    if (injected != null) {
+      final dates = await injected();
+      return weeklyCollageWeeks(
+        dates.map(
+          (date) => (date.millisecondsSinceEpoch, date.millisecondsSinceEpoch),
+        ),
+        _now,
+      );
+    }
+    if (widget.summaryLoader != null || widget.weekLoader != null) {
+      return [_selectedWeek];
+    }
+    if (Get.isRegistered<PlaybackRepository>()) {
+      return weeklyCollageWeeks(
+        await Get.find<PlaybackRepository>().queryWeeklyActivityRanges(),
+        _now,
+      );
+    }
+    final events = await Get.find<ListeningEventStore>().readAsync();
+    return weeklyCollageWeeks(
+      events.map((e) => (e.occurredAt, e.occurredAt)),
+      _now,
+    );
+  }
+
+  Future<WeeklyCollageSummary> _load(DateTime start) async {
+    if (widget.weekLoader != null) return widget.weekLoader!(start);
+    if (widget.summaryLoader != null) return widget.summaryLoader!();
     final library = await Get.find<LocalLibraryStore>().readAll();
-    final now = DateTime.now();
-    final (start, end) = WeeklyCollageSummary.previousWeek(now);
+    final end = DateTime(start.year, start.month, start.day + 7);
     if (Get.isRegistered<PlaybackRepository>()) {
       final repository = Get.find<PlaybackRepository>();
       final previous = DateTime(start.year, start.month, start.day - 7);
-      _activity = WeeklyCollageActivity.build(
+      final activity = WeeklyCollageActivity.build(
         await repository.queryWeeklyIntervals(
           previous.millisecondsSinceEpoch,
           end.millisecondsSinceEpoch,
@@ -55,6 +100,7 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
         end,
         coverageStart: await repository.weeklyComparisonCoverageStart(),
       );
+      if (_selectedWeek == start) _activity = activity;
     }
     return WeeklyCollageSummary.build(
       library,
@@ -62,14 +108,180 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
         startUtcMs: start.millisecondsSinceEpoch,
         endUtcMs: end.millisecondsSinceEpoch,
       ),
-      now,
+      _now,
+      weekStart: start,
     );
   }
+
+  void _selectWeek(DateTime? week) {
+    if (week == null || week == _selectedWeek || _exporting) return;
+    setState(() {
+      _selectedWeek = week;
+      _activity = widget.activity;
+      _summary = _load(week);
+    });
+  }
+
+  Future<void> _openCalendar(List<DateTime> weeks) async {
+    final ordered = [...weeks]..sort();
+    var focused = _selectedWeek;
+    DateTime weekOf(DateTime day) =>
+        DateTime(day.year, day.month, day.day - day.weekday + 1);
+    final available = weeks.map(weekOf).toSet();
+    final picked = await showModalBottomSheet<DateTime>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: StatefulBuilder(
+            builder: (context, setCalendarState) {
+              final theme = Theme.of(context);
+              final scheme = theme.colorScheme;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    tr('weekly_collage.calendar_title'),
+                    style: theme.textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    tr('weekly_collage.calendar_hint'),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  TableCalendar<void>(
+                    locale: Localizations.localeOf(context).toString(),
+                    firstDay: ordered.first,
+                    lastDay: DateTime(
+                      ordered.last.year,
+                      ordered.last.month,
+                      ordered.last.day + 6,
+                    ),
+                    focusedDay: focused,
+                    startingDayOfWeek: StartingDayOfWeek.monday,
+                    availableGestures: AvailableGestures.horizontalSwipe,
+                    enabledDayPredicate: (day) =>
+                        available.contains(weekOf(day)),
+                    selectedDayPredicate: (day) => weekOf(day) == _selectedWeek,
+                    onPageChanged: (day) =>
+                        setCalendarState(() => focused = day),
+                    onDaySelected: (day, _) =>
+                        Navigator.pop(context, weekOf(day)),
+                    headerStyle: HeaderStyle(
+                      formatButtonVisible: false,
+                      titleCentered: true,
+                      leftChevronIcon: Icon(
+                        Icons.chevron_left_rounded,
+                        color: scheme.primary,
+                      ),
+                      rightChevronIcon: Icon(
+                        Icons.chevron_right_rounded,
+                        color: scheme.primary,
+                      ),
+                    ),
+                    calendarStyle: CalendarStyle(
+                      outsideDaysVisible: false,
+                      selectedTextStyle: TextStyle(color: scheme.onPrimary),
+                      selectedDecoration: BoxDecoration(
+                        color: scheme.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      defaultDecoration: BoxDecoration(
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: .2),
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      weekendDecoration: BoxDecoration(
+                        border: Border.all(
+                          color: scheme.outlineVariant.withValues(alpha: .2),
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    if (mounted && picked != null) _selectWeek(picked);
+  }
+
+  Widget _weekSelector() => FutureBuilder<List<DateTime>>(
+    future: _weeks,
+    builder: (context, snapshot) {
+      final weeks = snapshot.data ?? [_selectedWeek];
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+        child: InputDecorator(
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
+            constraints: const BoxConstraints(minHeight: 48),
+            labelText: tr('weekly_collage.select_week'),
+            suffixIcon: IconButton(
+              key: const ValueKey('weekly-calendar-button'),
+              tooltip: tr('weekly_collage.calendar_title'),
+              icon: const Icon(Icons.calendar_month_rounded, size: 20),
+              onPressed: _exporting || !snapshot.hasData || weeks.isEmpty
+                  ? null
+                  : () => _openCalendar(weeks),
+            ),
+            prefixIcon: const Icon(Icons.date_range_rounded, size: 18),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 40,
+              minHeight: 40,
+            ),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surface,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            errorText: snapshot.hasError
+                ? tr('weekly_collage.weeks_error')
+                : null,
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<DateTime>(
+              key: const ValueKey('weekly-week-selector'),
+              value: _selectedWeek,
+              isDense: true,
+              iconSize: 20,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              isExpanded: true,
+              onChanged: _exporting || !snapshot.hasData ? null : _selectWeek,
+              items: [
+                for (final start in weeks)
+                  DropdownMenuItem(
+                    value: start,
+                    child: Text(
+                      '${DateFormat.yMMMd(Localizations.localeOf(context).toString()).format(start)} — ${DateFormat.yMMMd(Localizations.localeOf(context).toString()).format(DateTime(start.year, start.month, start.day + 6))}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
 
   Future<void> _export() async {
     if (_exporting) return;
     setState(() => _exporting = true);
     try {
+      final summary = await _summary;
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return;
       final files = <XFile>[];
@@ -84,7 +296,8 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
         try {
           final data = await image.toByteData(format: ui.ImageByteFormat.png);
           if (data == null) throw StateError('PNG encoding failed');
-          final name = 'listenfy-weekly-${index + 1}.png';
+          final name =
+              'listenfy-weekly-${DateFormat('yyyy-MM-dd').format(summary.start)}-${index + 1}.png';
           names.add(name);
           files.add(
             XFile.fromData(
@@ -119,52 +332,62 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(tr('weekly_collage.title'))),
     body: AppGradientBackground(
-      child: FutureBuilder<WeeklyCollageSummary>(
-        future: _summary,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text(tr('weekly_collage.load_error')));
-          }
-          final summary = snapshot.data;
-          if (summary == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (summary.entries.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Text(
-                  tr('weekly_collage.empty'),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                for (var part = 0; part < 2; part++) ...[
-                  if (part > 0) const SizedBox(height: 20),
-                  RepaintBoundary(
-                    key: _imageKeys[part],
-                    child: _collage(summary, part: part),
+      child: Column(
+        children: [
+          _weekSelector(),
+          Expanded(
+            child: FutureBuilder<WeeklyCollageSummary>(
+              future: _summary,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text(tr('weekly_collage.load_error')));
+                }
+                final summary = snapshot.data;
+                if (summary == null) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (summary.entries.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Text(
+                        tr('weekly_collage.empty'),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      for (var part = 0; part < 2; part++) ...[
+                        if (part > 0) const SizedBox(height: 20),
+                        RepaintBoundary(
+                          key: _imageKeys[part],
+                          child: _collage(summary, part: part),
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      FilledButton.icon(
+                        onPressed: _exporting ? null : _export,
+                        icon: const Icon(Icons.ios_share_rounded),
+                        label: Text(
+                          _exporting
+                              ? tr('weekly_collage.exporting')
+                              : tr('weekly_collage.export'),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-                const SizedBox(height: 20),
-                FilledButton.icon(
-                  onPressed: _exporting ? null : _export,
-                  icon: const Icon(Icons.ios_share_rounded),
-                  label: Text(
-                    _exporting
-                        ? tr('weekly_collage.exporting')
-                        : tr('weekly_collage.export'),
-                  ),
-                ),
-              ],
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
       ),
     ),
   );
@@ -174,7 +397,7 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
     final top = summary.entries.first;
     final audio = summary.entries
         .where((e) => !e.video && !identical(e, top))
-        .take(3)
+        .take(top.video ? 5 : 4)
         .toList();
     final videos = summary.entries
         .where((e) => e.video && !identical(e, top))

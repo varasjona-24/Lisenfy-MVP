@@ -37,11 +37,23 @@ class WeeklyCollageSummary {
   static WeeklyCollageSummary build(
     List<MediaItem> library,
     List<ListeningEvent> events,
-    DateTime now,
-  ) {
+    DateTime now, {
+    DateTime? weekStart,
+  }) {
     // Local calendar boundaries: the previous Monday through this Monday,
     // exclusive. Calendar arithmetic also handles daylight-saving changes.
-    final (start, end) = previousWeek(now);
+    final latest = previousWeek(now).$1;
+    final start = weekStart == null
+        ? latest
+        : DateTime(
+            weekStart.year,
+            weekStart.month,
+            weekStart.day - weekStart.weekday + 1,
+          );
+    if (start.isAfter(latest)) {
+      throw ArgumentError('Only complete weeks can be summarized');
+    }
+    final end = DateTime(start.year, start.month, start.day + 7);
     final items = <String, List<MediaItem>>{};
     for (final item in library) {
       final id = item.id.trim();

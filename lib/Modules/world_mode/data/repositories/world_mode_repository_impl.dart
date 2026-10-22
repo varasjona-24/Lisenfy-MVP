@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 
-import '../../../../app/data/repo/media_repository.dart';
+import '../../../../app/data/local/local_library_store.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../../app/utils/artist_credit_parser.dart';
 import '../../../../app/utils/country_catalog.dart';
@@ -22,18 +22,18 @@ import '../datasources/world_local_datasource.dart';
 
 class WorldModeRepositoryImpl implements WorldModeRepository {
   WorldModeRepositoryImpl({
-    required MediaRepository mediaRepository,
+    required LocalLibraryStore libraryStore,
     required WorldLocalDatasource localDatasource,
     required ArtistStore artistStore,
     required LocalAffinityEngine affinityEngine,
     required RadioStationPlanner radioPlanner,
-  }) : _mediaRepository = mediaRepository,
+  }) : _libraryStore = libraryStore,
        _localDatasource = localDatasource,
        _artistStore = artistStore,
        _affinityEngine = affinityEngine,
        _radioPlanner = radioPlanner;
 
-  final MediaRepository _mediaRepository;
+  final LocalLibraryStore _libraryStore;
   final WorldLocalDatasource _localDatasource;
   final ArtistStore _artistStore;
   final LocalAffinityEngine _affinityEngine;
@@ -41,7 +41,7 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
 
   @override
   Future<List<CountryEntity>> getCountries() async {
-    final library = await _mediaRepository.getLibrary();
+    final library = await _libraryStore.readAll();
     if (library.isEmpty) return const <CountryEntity>[];
 
     final artistRegionIndex = _buildArtistRegionIndex();
@@ -101,7 +101,7 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
     if (regionDef == null) return const <CountryStationEntity>[];
 
     await _localDatasource.incrementCountryDiscovery(regionCode);
-    final library = await _mediaRepository.getLibrary();
+    final library = await _libraryStore.readAll();
     final artistRegionIndex = _buildArtistRegionIndex();
     final regionTracks = _eligibleTracksForRegion(
       regionCode: regionCode,
@@ -158,7 +158,7 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
     int limit = 20,
   }) async {
     final safeLimit = limit.clamp(4, 80);
-    final library = await _mediaRepository.getLibrary();
+    final library = await _libraryStore.readAll();
     final stationPlayed = await _localDatasource.readPlayedTrackIds(
       station.stationId,
     );
@@ -293,12 +293,8 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
             stationIndex: out.length,
             totalStations: cached.length,
           ),
-          subtitle: _stationSubtitle(
-            trackCount: tracks.length,
-            type: station.type,
-          ),
+          subtitle: '',
           tracks: tracks,
-          source: 'local',
           generatedAtMs: station.generatedAtMs,
           ttlSec: station.ttlSec,
           seed: station.seed,
@@ -324,7 +320,6 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
             trackIds: entry.tracks
                 .map((item) => _stableTrackId(item))
                 .toList(growable: false),
-            source: entry.source,
             generatedAtMs: entry.generatedAtMs,
             ttlSec: entry.ttlSec,
             seed: entry.seed,
@@ -357,7 +352,8 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
       );
       if (regions.isEmpty) continue;
       addKey(profile.key, regions);
-      if (nameCounts[ArtistCreditParser.normalizeKey(profile.displayName)] == 1) {
+      if (nameCounts[ArtistCreditParser.normalizeKey(profile.displayName)] ==
+          1) {
         addKey(profile.displayName, regions);
       }
       for (final memberKey in profile.memberKeys) {
@@ -556,9 +552,8 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
             stationIndex: stationIndex,
             totalStations: (rankedTracks.length / chunkSize).ceil(),
           ),
-          subtitle: _stationSubtitle(trackCount: chunk.length, type: type),
+          subtitle: '',
           tracks: chunk,
-          source: 'local',
           generatedAtMs: nowMs,
           ttlSec: 21600,
           seed: StationSeedEntity(
@@ -598,16 +593,6 @@ class WorldModeRepositoryImpl implements WorldModeRepository {
     return tr(
       'world_mode.station_title_mix',
       args: [regionName, '${stationIndex + 1}'],
-    );
-  }
-
-  String _stationSubtitle({
-    required int trackCount,
-    required WorldStationType type,
-  }) {
-    return tr(
-      'world_mode.station_subtitle_tracks',
-      args: ['$trackCount', type.title],
     );
   }
 

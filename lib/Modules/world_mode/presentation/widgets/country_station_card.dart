@@ -51,33 +51,6 @@ class CountryStationCard extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        station.subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _ChipLabel(
-                            icon: Icons.queue_music_rounded,
-                            text: tr(
-                              'world_mode.tracks_count',
-                              args: ['${station.tracks.length}'],
-                            ),
-                          ),
-                          _ChipLabel(
-                            icon: Icons.memory_rounded,
-                            text: _sourceLabel(station.source),
-                          ),
-                        ],
-                      ),
                     ],
                   ),
                 ),
@@ -125,13 +98,6 @@ class CountryStationCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _sourceLabel(String source) {
-    final key = source.trim().toLowerCase();
-    if (key == 'local') return tr('world_mode.station_sources.local');
-    if (key == 'hybrid') return tr('world_mode.station_sources.hybrid');
-    return source;
   }
 }
 
@@ -226,37 +192,6 @@ class _PreviewTrackTile extends StatelessWidget {
             Icon(Icons.play_circle_outline_rounded, color: scheme.primary),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ChipLabel extends StatelessWidget {
-  const _ChipLabel({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.45),
-        ),
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: scheme.primary),
-          const SizedBox(width: 6),
-          Text(text, style: theme.textTheme.labelSmall),
-        ],
       ),
     );
   }

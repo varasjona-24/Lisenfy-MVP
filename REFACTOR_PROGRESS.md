@@ -1,5 +1,30 @@
 # Registro de refactor
 
+## 2026-10-19 — Selector de semanas completas del collage
+
+- El collage permite elegir semanas históricas con actividad fechada y mantiene por defecto la última semana completa, incluso si está vacía. No se ofrece la semana en curso ni se inventan semanas a partir de contadores acumulados.
+- Las opciones proceden de sesiones e intervalos SQLite, incluyendo intervalos que cruzan un lunes; el fallback legacy usa eventos fechados. Consultas de resumen, gráfica y comparación se acotan a la semana seleccionada y su anterior.
+- Exportación mantiene las dos imágenes y su resolución, con fecha de la semana en el nombre. Selector bloqueado durante exportación; al cambiar semana se oculta el resultado anterior durante la carga. Textos propios ES/EN y pruebas de calendario/selección.
+
+## 2026-10-19 — Rankings Wrapped por reproducciones contables
+
+- Canciones, artistas, regiones, favoritas y videos usan playCount no negativo tanto para ordenar como para mostrar cifras y barras. Retirado listenScoreFor, que sustituía reproducciones por completadas cuando había alguna, o restaba saltadas en el resto.
+- Completadas, saltadas, tasas y mood mantienen sus métricas independientes; no se alteran contadores en SQLite ni se fabrican reproducciones. La proyección audio/video del repositorio sigue siendo la fuente de los contadores.
+- Regresiones cubren 30 reproducciones frente a 17 completadas, selección del top cinco tras ordenar toda la biblioteca, totales por artista/región, favoritas/videos, counters incompletos y proyección por modo.
+
+## 2026-10-16 — Tarjetas de Atlas sin chips redundantes
+
+- Quitados los chips de biblioteca local y número de pistas, además del subtítulo con cantidad y categoría. Se conservan título, portada, reproducir/continuar y vista previa con sus acciones.
+- Auditoría: las estaciones regionales se obtienen del mismo ranking y se dividen en bloques; Esenciales/Descubrimiento/etc. se asignaban por posición, no por una selección regional diferenciada. Se retiran las etiquetas públicas y sus traducciones, sin alterar IDs, sesiones ni compatibilidad de tipos históricos internos.
+- Los cachés antiguos pueden contener el subtítulo anterior; la tarjeta no lo muestra y las estaciones regeneradas ya no lo producen. Pruebas de widget cubren ambas categorías y conservan todas las acciones.
+
+## 2026-10-16 — Atlas explícitamente local
+
+- Auditoría: generación, ranking y continuación de estaciones ya usan audios locales. No existe un datasource online de Atlas. La carga opcional de portadas remotas no es un catálogo ni una radio online y se conserva.
+- Retirados el discriminador source de estaciones/cache y la etiqueta híbrida ES/EN. Los cachés antiguos siguen leyéndose: se ignora el campo source obsoleto, sin borrar IDs, pistas ni sesiones.
+- Atlas lee LocalLibraryStore directamente, sin depender de MediaRepository ni registrar un cliente de red para generar estaciones. La ayuda aclara el alcance local y el acceso independiente por la barra inferior.
+- Pruebas de compatibilidad de caché, ausencia de dependencias de red y exclusión de pistas sin audio local; se conservan reanudación y backups SQLite.
+
 ## 2026-10-16 — Reanudación independiente por estación de Atlas
 
 - Sesiones identificadas por stationId en el dominio SQLite world_mode_station_sessions_v1; cola por referencias id/publicId, índice y posición. Sin escrituras nuevas en GetStorage ni duplicación del historial de escucha.

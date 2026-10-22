@@ -22,7 +22,8 @@ void main() {
     ).readAsStringSync();
     expect(pill, isNot(contains('_ImportUrlDialog')));
     expect(pill, contains('showLocalImportDialog'));
-    expect(pill, contains('ListenfyDeepLinkTarget.nearbyInvite'));
+    expect(pill, contains('AppRoutes.nearbyTransfer'));
+    expect(pill, isNot(contains('NearbyQrScannerPage')));
   });
 
   test('remote downloader settings and cookie administration are absent', () {
@@ -41,7 +42,7 @@ void main() {
   test(
     'both languages describe local imports and omit online import controls',
     () {
-      for (final locale in ['en', 'es']) {
+      for (final locale in ['en', 'es', 'pt']) {
         final data =
             jsonDecode(
                   File('assets/translations/$locale.json').readAsStringSync(),

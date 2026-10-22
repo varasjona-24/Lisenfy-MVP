@@ -10,6 +10,7 @@ import 'package:listenfy/Modules/stats/domain/entities/listening_stats_entities.
 import 'package:listenfy/Modules/stats/presentation/views/listening_stats_page.dart';
 import 'package:listenfy/Modules/stats/presentation/widgets/wrapped_artwork.dart';
 import 'package:listenfy/app/models/media_item.dart';
+import 'package:listenfy/Modules/world_mode/domain/entities/world_region_catalog.dart';
 
 MediaItem song(
   String id, {
@@ -35,6 +36,138 @@ MediaItem song(
 });
 
 void main() {
+  test(
+    'track ranking uses counted plays instead of completions or plays minus skips',
+    () {
+      final thirty = song(
+        'thirty',
+        plays: 30,
+      ).copyWith(fullListenCount: 12, skipCount: 15);
+      final seventeen = song(
+        'seventeen',
+        plays: 17,
+      ).copyWith(fullListenCount: 17);
+      final stats = ListeningStats.fromItems([seventeen, thirty]);
+      expect(stats.topTrack!.id, 'thirty');
+      expect(ListeningStats.countedPlaysFor(stats.topTrack!), 30);
+      expect(stats.totalPlays, 47);
+      expect(stats.totalCompleted, 29);
+      expect(stats.totalSkips, 15);
+    },
+  );
+
+  test('top five is selected after ranking the entire library', () {
+    final items = [
+      song('seventeen', plays: 17).copyWith(fullListenCount: 17),
+      for (var count = 30; count >= 24; count--)
+        song('song-$count', plays: count).copyWith(fullListenCount: 1),
+    ];
+    final stats = ListeningStats.fromItems(items);
+    expect(stats.topTracks.map((item) => item.playCount), [30, 29, 28, 27, 26]);
+  });
+
+  test(
+    'artist totals and region totals use the same counted plays as tracks',
+    () {
+      final items = [
+        song(
+          'a',
+          artist: 'Artist A',
+          plays: 30,
+        ).copyWith(country: 'JP', fullListenCount: 1, skipCount: 10),
+        song(
+          'b',
+          artist: 'Artist A',
+          plays: 25,
+        ).copyWith(country: 'JP', fullListenCount: 1, skipCount: 12),
+        song(
+          'c',
+          artist: 'Artist B',
+          plays: 17,
+        ).copyWith(country: 'AR', fullListenCount: 17),
+      ];
+      final stats = ListeningStats.fromItems(items);
+      expect(stats.topArtists.first.name, 'Artist A');
+      expect(stats.topArtists.first.plays, 55);
+      expect(stats.topArtists[1].plays, 17);
+      final japan = WorldRegionCatalog.regionCodesForCountry('JP');
+      expect(japan, isNotEmpty);
+      for (final code in japan) {
+        final region = stats.topRegions.singleWhere(
+          (entry) => entry.code == code,
+        );
+        expect(region.plays, 55);
+        expect(region.topTracks.map((item) => item.id), ['a', 'b']);
+      }
+      expect(stats.totalPlays, 72);
+    },
+  );
+
+  test('favorites and video rankings use counted plays as well', () {
+    MediaItem video(String id, int plays, int completed) =>
+        song(id, plays: plays).copyWith(
+          fullListenCount: completed,
+          variants: [
+            MediaVariant(
+              kind: MediaVariantKind.video,
+              format: 'mp4',
+              fileName: '$id.mp4',
+              localPath: '/$id.mp4',
+              createdAt: 1,
+            ),
+          ],
+        );
+    final stats = ListeningStats.fromItems([
+      song(
+        'favorite-30',
+        plays: 30,
+        favorite: true,
+      ).copyWith(fullListenCount: 2),
+      song(
+        'favorite-17',
+        plays: 17,
+        favorite: true,
+      ).copyWith(fullListenCount: 17),
+      video('video-30', 30, 2),
+      video('video-17', 17, 17),
+    ]);
+    expect(stats.topFavoriteTracks.first.id, 'favorite-30');
+    expect(stats.topVideos.first.id, 'video-30');
+    expect(ListeningStats.countedPlaysFor(stats.topVideos.first), 30);
+  });
+
+  test(
+    'completion-only or malformed counters do not fabricate ranked plays',
+    () {
+      final completedOnly = song(
+        'completed-only',
+        plays: 0,
+      ).copyWith(fullListenCount: 10);
+      final negative = song('negative', plays: -4).copyWith(fullListenCount: 8);
+      final skipped = song('skipped', plays: 30).copyWith(skipCount: 99);
+      expect(ListeningStats.countedPlaysFor(completedOnly), 0);
+      expect(ListeningStats.countedPlaysFor(negative), 0);
+      expect(ListeningStats.countedPlaysFor(skipped), 30);
+      final stats = ListeningStats.fromItems([completedOnly]);
+      expect(stats.topTracks, isEmpty);
+      expect(stats.totalCompleted, 10);
+    },
+  );
+
+  test(
+    'rankings use mode-projected counters rather than raw catalog counters',
+    () {
+      final catalog = song('a', plays: 100);
+      final projected = catalog.copyWith(playCount: 30, fullListenCount: 2);
+      final stats = ListeningStats.fromItems(
+        [catalog],
+        audioPlaybackItems: [projected],
+      );
+      expect(stats.topTrack!.playCount, 30);
+      expect(ListeningStats.countedPlaysFor(stats.topTrack!), stats.totalPlays);
+    },
+  );
+
   test(
     'listened rate mixes sources while the lower comparison stays observed',
     () {

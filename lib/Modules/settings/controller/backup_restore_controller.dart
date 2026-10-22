@@ -1477,6 +1477,7 @@ class BackupRestoreController extends GetxController {
         }
       }
       final appearancePayload = <String, dynamic>{
+        'appBackgroundEnabled': settingsController.appBackgroundEnabled.value,
         'appBackgroundImagePaths': backgroundImageRels,
         if (activeBackgroundImageRel != null)
           'appBackgroundImagePath': activeBackgroundImageRel,
@@ -1942,6 +1943,9 @@ class BackupRestoreController extends GetxController {
           activePath: restoredActivePath,
         );
         final settingsController = Get.find<SettingsController>();
+        await settingsController.setAppBackgroundEnabled(
+          appearancePayload['appBackgroundEnabled'] != false,
+        );
         await settingsController.setOrderedBackgroundCarouselEnabled(
           appearancePayload['orderedBackgroundCarouselEnabled'] == true,
         );

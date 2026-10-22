@@ -52,6 +52,7 @@ void main() {
     await dir.delete(recursive: true);
   });
   test('incremental aggregate matches repair rebuild exactly', () async {
+    expect(await repo.queryWeeklyActivityRanges(), isEmpty);
     expect(await repo.queryAverageAudioCoverage(), isNull);
     expect((await repo.queryAudioCompletionSummary())['samples'], 0);
     await repo.recordBoundary(
@@ -80,6 +81,8 @@ void main() {
     expect(intervals.single['wallMs'], 95000);
     expect(intervals.single['start'], 0);
     expect(intervals.single['end'], 95000);
+    final ranges = await repo.queryWeeklyActivityRanges();
+    expect(ranges, contains((0, 94999)));
     expect(await repo.queryAverageAudioCoverage(), closeTo(.95, .0001));
     final completion = await repo.queryAudioCompletionSummary();
     expect(completion['samples'], 1);
