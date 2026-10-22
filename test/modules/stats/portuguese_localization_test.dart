@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:listenfy/app/utils/app_locales.dart';
 import 'package:listenfy/Modules/settings/view/widgets/language_section.dart';
+import 'package:listenfy/app/ui/widgets/forms/app_option_selector.dart';
 
 Map<String, String> _flatten(
   Map<String, dynamic> map, [
@@ -104,7 +105,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byType(ChoiceChip), findsNothing);
-    await tester.tap(find.byType(DropdownButton<Locale>));
+    await tester.tap(find.byType(AppOptionSelector<Locale>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Portuguese').last);
     await tester.pumpAndSettle();

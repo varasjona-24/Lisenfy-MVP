@@ -111,6 +111,33 @@ void main() {
       await tester.pump();
       expect(tester.takeException(), isNull);
       expect(find.byType(vp.VideoPlayer), findsOneWidget);
+      final progress = find.byKey(const ValueKey('video-progress-slider'));
+      final progressRect = tester.getRect(progress);
+      // Touching the track must not jump or start scrubbing.
+      await tester.tapAt(
+        Offset(progressRect.right - 30, progressRect.center.dy),
+      );
+      await tester.pump();
+      expect(video.seeks, 0);
+      final thumb = Offset(progressRect.left + 24, progressRect.center.dy);
+      await tester.tapAt(thumb);
+      await tester.pump();
+      expect(video.seeks, 0);
+      final drag = await tester.startGesture(thumb);
+      await drag.moveBy(const Offset(60, 0));
+      await tester.pump();
+      expect(video.seeks, 0);
+      expect(tester.widget<Slider>(progress).value, greaterThan(0));
+      expect(tester.getRect(progress).center.dy, progressRect.center.dy);
+      await tester.pump(const Duration(seconds: 4));
+      expect(progress, findsOneWidget);
+      expect(video.seeks, 0);
+      await drag.up();
+      await tester.pump();
+      expect(video.seeks, 1);
+      expect(video.lastSeek, greaterThan(Duration.zero));
+      video.seeks = 0;
+      video.lastSeek = null;
       expect(find.text('Fill'), findsOneWidget);
       await tester.tap(find.text('Fill'));
       await tester.pump();

@@ -8,6 +8,7 @@ import 'package:get/get.dart' hide Translations;
 import 'package:get_storage/get_storage.dart';
 import 'package:listenfy/Modules/settings/controller/playback_settings_controller.dart';
 import 'package:listenfy/Modules/player/Video/view/video_controls_help_dialog.dart';
+import 'package:listenfy/app/ui/widgets/forms/app_option_selector.dart';
 
 class _Memory implements GetStorage {
   final values = <String, dynamic>{};
@@ -84,14 +85,14 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.byType(ChoiceChip), findsNothing);
-        final selector = find.byType(DropdownButton<int>);
+        final selector = find.byType(AppOptionSelector<int>);
         await tester.ensureVisible(selector);
         await tester.tap(selector);
         await tester.pumpAndSettle();
         await tester.tap(find.text('10 s').last);
         await tester.pumpAndSettle();
         expect(settings.videoSeekSeconds.value, 10);
-        expect(tester.widget<DropdownButton<int>>(selector).value, 10);
+        expect(tester.widget<AppOptionSelector<int>>(selector).value, 10);
         expect(
           memory.values[PlaybackSettingsController.videoSeekSecondsKey],
           10,

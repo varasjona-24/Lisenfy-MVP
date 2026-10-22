@@ -47,6 +47,7 @@ class VideoControlsHelpDialog extends StatelessWidget {
             const SizedBox(height: 10),
             Obx(
               () => AppOptionSelector<int>(
+                title: tr('player.video_seek_interval'),
                 value: settings.videoSeekSeconds.value,
                 icon: Icons.fast_forward_rounded,
                 options: {

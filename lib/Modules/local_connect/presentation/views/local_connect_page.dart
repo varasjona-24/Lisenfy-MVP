@@ -3,7 +3,6 @@ import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../controller/local_connect_controller.dart';
@@ -52,8 +51,6 @@ class LocalConnectPage extends GetView<LocalConnectController> {
                       Expanded(
                         flex: 4,
                         child: _SideColumn(
-                          running: running,
-                          url: url,
                           clients: clients,
                           onRevoke: controller.revokeSession,
                           onRevokeAll: controller.revokeAllSessions,
@@ -142,15 +139,11 @@ class _MainColumn extends StatelessWidget {
 
 class _SideColumn extends StatelessWidget {
   const _SideColumn({
-    required this.running,
-    required this.url,
     required this.clients,
     required this.onRevoke,
     required this.onRevokeAll,
   });
 
-  final bool running;
-  final String url;
   final List<LocalConnectClientSession> clients;
   final Future<void> Function(String clientId) onRevoke;
   final Future<void> Function() onRevokeAll;
@@ -160,8 +153,6 @@ class _SideColumn extends StatelessWidget {
     return ListView(
       padding: EdgeInsets.zero,
       children: [
-        _QrCard(running: running, url: url),
-        const SizedBox(height: 12),
         _ClientsCard(
           clients: clients,
           onRevoke: onRevoke,
@@ -343,67 +334,6 @@ class _ConnectCard extends StatelessWidget {
                 ),
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QrCard extends StatelessWidget {
-  const _QrCard({required this.running, required this.url});
-
-  final bool running;
-  final String url;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              tr('connect.qr_title'),
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 10),
-            if (!running || url.isEmpty)
-              _EmptyMessage(
-                text: tr('connect.no_active_url'),
-                icon: Icons.qr_code_2_rounded,
-              )
-            else
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: Colors.white,
-                    border: Border.all(color: scheme.outlineVariant),
-                  ),
-                  child: QrImageView(
-                    data: url,
-                    size: 210,
-                    backgroundColor: Colors.white,
-                    eyeStyle: const QrEyeStyle(
-                      eyeShape: QrEyeShape.square,
-                      color: Colors.black,
-                    ),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
       ),

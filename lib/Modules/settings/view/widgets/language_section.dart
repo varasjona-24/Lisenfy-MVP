@@ -53,6 +53,7 @@ class LanguageSection extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: AppOptionSelector<Locale>(
+                    title: tr('settings.language.title'),
                     value: AppLocales.forDevice(currentLocale),
                     icon: Icons.language_rounded,
                     options: {

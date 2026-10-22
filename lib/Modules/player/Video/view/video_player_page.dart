@@ -35,6 +35,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   Timer? _singleDoubleTapTimer;
   Timer? _twoFingerTapTimer;
   double? _dragValue;
+  double? _dragOriginValue;
   String? _toastMessage;
   Offset? _lastDoubleTapDownPosition;
   final Map<int, Offset> _pointerDownPositions = <int, Offset>{};
@@ -585,19 +586,22 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
         maxSeconds,
       );
 
-      return Column(
+      return Stack(
+        clipBehavior: Clip.none,
         children: [
-          if (_dragValue != null) _buildPreview(item, previewPos),
           Row(
             children: [
               Text(_fmt(previewPos), style: theme.textTheme.bodySmall),
               Expanded(
                 child: Slider(
+                  key: const ValueKey('video-progress-slider'),
+                  allowedInteraction: SliderInteraction.slideThumb,
                   value: posSeconds,
                   min: 0.0,
                   max: maxSeconds,
                   onChangeStart: (v) {
                     final next = v.clamp(0.0, maxSeconds);
+                    _dragOriginValue = next;
                     setState(() => _dragValue = next);
                     _requestPreview(item, Duration(seconds: next.toInt()));
                     _showControlsTemp();
@@ -609,15 +613,29 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                     _showControlsTemp();
                   },
                   onChangeEnd: (v) {
-                    controller.seek(Duration(seconds: v.toInt()));
+                    if (_dragOriginValue != null &&
+                        (v - _dragOriginValue!).abs() > 0.001) {
+                      controller.seek(
+                        Duration(milliseconds: (v * 1000).round()),
+                      );
+                    }
+                    _dragOriginValue = null;
                     _clearPreviewState();
                     setState(() => _dragValue = null);
+                    _scheduleHide();
                   },
                 ),
               ),
               Text(_fmt(dur), style: theme.textTheme.bodySmall),
             ],
           ),
+          if (_dragValue != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 48,
+              child: IgnorePointer(child: _buildPreview(item, previewPos)),
+            ),
         ],
       );
     });
@@ -718,6 +736,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
 
   void _scheduleHide() {
     _hideTimer?.cancel();
+    if (_dragValue != null) return;
     _hideTimer = Timer(const Duration(seconds: 3), () {
       if (mounted) setState(() => _showControls = false);
     });
@@ -1039,6 +1058,8 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   }
 
   void _requestPreview(dynamic item, Duration position) {
+    _previewTimer?.cancel();
+    _previewRequestId++;
     final source = _previewSourceFor(item);
     if (source == null || source.isEmpty) {
       _clearPreviewState(clearCache: false);
