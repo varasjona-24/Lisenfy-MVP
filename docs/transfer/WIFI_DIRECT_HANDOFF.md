@@ -52,6 +52,19 @@ Nearby no son compatibles con este protocolo v2.
 
 ## Verificación automatizada de esta entrega
 
+### Compatibilidad de la identidad TLS con Android Keystore
+
+En una prueba física el grupo Wi-Fi Direct se creó y el segundo teléfono se
+conectó, pero Conscrypt falló durante `startHandshake()` con `Incompatible digest`
+y `RSA/ECB/NoPadding`. La clave RSA efímera ahora autoriza `DIGEST_NONE` y
+`ENCRYPTION_PADDING_NONE`, necesarios cuando TLS prepara el hash y el padding
+antes de solicitar la operación RSA al Keystore. Se conservan las autorizaciones
+SHA-256/384/512, las firmas PKCS#1/PSS y la comprobación de la huella del certificado.
+Referencia: https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.Builder
+
+La corrección requiere volver a instalar el APK y repetir el emparejamiento entre
+dos teléfonos; compilar no demuestra que el handshake ni la transferencia pasen.
+
 - 42 pruebas aprobadas: protocolo, controlador, selección visual, traducciones,
   persistencia del historial y backup/restauración de dominios SQLite.
 - Análisis dirigido de Dart sin incidencias.
