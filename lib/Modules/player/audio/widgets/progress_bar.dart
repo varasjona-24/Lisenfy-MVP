@@ -22,7 +22,7 @@ class _ProgressBarState extends State<ProgressBar> {
     final isDark = theme.brightness == Brightness.dark;
 
     final active = scheme.primary;
-    final inactive = scheme.onSurface.withOpacity(isDark ? 0.22 : 0.16);
+    final inactive = scheme.onSurface.withValues(alpha: isDark ? 0.22 : 0.16);
 
     return Obx(() {
       final pos = controller.position.value;
@@ -59,7 +59,7 @@ class _ProgressBarState extends State<ProgressBar> {
 
                       // ✅ bolita visible y bonita
                       thumbColor: active,
-                      overlayColor: active.withOpacity(0.12),
+                      overlayColor: active.withValues(alpha: 0.12),
 
                       thumbShape: const RoundSliderThumbShape(
                         enabledThumbRadius: 7,

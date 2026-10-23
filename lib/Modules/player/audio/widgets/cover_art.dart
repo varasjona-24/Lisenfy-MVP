@@ -85,10 +85,10 @@ class _SquareCover extends StatelessWidget {
                     width: 260,
                     height: 260,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Icon(
+                    errorBuilder: (_, _, _) => Icon(
                       Icons.music_note_rounded,
                       size: 72,
-                      color: colors.onSurfaceVariant.withOpacity(0.7),
+                      color: colors.onSurfaceVariant.withValues(alpha: 0.7),
                     ),
                   )
                 : Image.network(
@@ -96,16 +96,16 @@ class _SquareCover extends StatelessWidget {
                     width: 260,
                     height: 260,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Icon(
+                    errorBuilder: (_, _, _) => Icon(
                       Icons.music_note_rounded,
                       size: 72,
-                      color: colors.onSurfaceVariant.withOpacity(0.7),
+                      color: colors.onSurfaceVariant.withValues(alpha: 0.7),
                     ),
                   ))
           : Icon(
               Icons.music_note_rounded,
               size: 72,
-              color: colors.onSurfaceVariant.withOpacity(0.7),
+              color: colors.onSurfaceVariant.withValues(alpha: 0.7),
             ),
     );
   }
@@ -208,24 +208,24 @@ class _VinylCoverState extends State<_VinylCover>
                             ? Image.file(
                                 File(thumb),
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Center(
+                                errorBuilder: (_, _, _) => Center(
                                   child: Icon(
                                     Icons.music_note_rounded,
                                     size: 52,
                                     color: theme.colorScheme.onSurface
-                                        .withOpacity(0.6),
+                                        .withValues(alpha: 0.6),
                                   ),
                                 ),
                               )
                             : Image.network(
                                 thumb,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Center(
+                                errorBuilder: (_, _, _) => Center(
                                   child: Icon(
                                     Icons.music_note_rounded,
                                     size: 52,
                                     color: theme.colorScheme.onSurface
-                                        .withOpacity(0.6),
+                                        .withValues(alpha: 0.6),
                                   ),
                                 ),
                               ))
@@ -233,7 +233,7 @@ class _VinylCoverState extends State<_VinylCover>
                           child: Icon(
                             Icons.music_note_rounded,
                             size: 52,
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                           ),
                         ),
                 ),

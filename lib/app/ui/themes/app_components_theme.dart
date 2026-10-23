@@ -21,12 +21,12 @@ class AppComponentsTheme {
   }
 
   static IconThemeData iconTheme(ColorScheme scheme) {
-    return IconThemeData(color: scheme.onSurface.withOpacity(0.90), size: 22);
+    return IconThemeData(color: scheme.onSurface.withValues(alpha: 0.90), size: 22);
   }
 
   static DividerThemeData dividerTheme(ColorScheme scheme) {
     return DividerThemeData(
-      color: scheme.outlineVariant.withOpacity(0.9),
+      color: scheme.outlineVariant.withValues(alpha: 0.9),
       thickness: 1,
       space: 1,
     );

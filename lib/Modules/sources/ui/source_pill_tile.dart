@@ -16,10 +16,10 @@ class SourcePillTile extends StatelessWidget {
     final textColor = data.forceDarkText ? Colors.black : Colors.white;
     final subColor = data.forceDarkText
         ? Colors.black87
-        : Colors.white.withOpacity(0.88);
+        : Colors.white.withValues(alpha: 0.88);
     final circleBg = data.forceDarkText
-        ? Colors.black.withOpacity(0.10)
-        : Colors.black.withOpacity(0.18);
+        ? Colors.black.withValues(alpha: 0.10)
+        : Colors.black.withValues(alpha: 0.18);
     final iconColor = data.forceDarkText ? Colors.black : Colors.white;
 
     return ClipRRect(
@@ -34,7 +34,7 @@ class SourcePillTile extends StatelessWidget {
               BoxShadow(
                 blurRadius: 18,
                 offset: const Offset(0, 10),
-                color: Colors.black.withOpacity(0.18),
+                color: Colors.black.withValues(alpha: 0.18),
               ),
             ],
           ),
@@ -51,7 +51,7 @@ class SourcePillTile extends StatelessWidget {
                       shape: BoxShape.circle,
                       color: circleBg,
                       border: Border.all(
-                        color: Colors.black.withOpacity(0.30),
+                        color: Colors.black.withValues(alpha: 0.30),
                         width: 2.0,
                       ),
                     ),
@@ -62,7 +62,7 @@ class SourcePillTile extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.18),
+                            color: Colors.white.withValues(alpha: 0.18),
                             width: 1.2,
                           ),
                         ),
@@ -101,7 +101,7 @@ class SourcePillTile extends StatelessWidget {
                   const SizedBox(width: 10),
                   Icon(
                     Icons.chevron_right_rounded,
-                    color: textColor.withOpacity(0.9),
+                    color: textColor.withValues(alpha: 0.9),
                     size: 30,
                   ),
                 ],

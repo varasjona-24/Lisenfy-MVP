@@ -1958,7 +1958,7 @@ class _CustomArtistCardsSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
             itemCount: preview.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) => _HomeArtistCard(
               artist: preview[index],
               onTap: () => onArtistTap(preview[index]),
@@ -2051,7 +2051,7 @@ class _CustomPlaylistCardsSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
             itemCount: preview.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) => _HomePlaylistCard(
               playlist: preview[index],
               onTap: () => onPlaylistTap(preview[index]),
@@ -2140,7 +2140,7 @@ class _CustomCollectionCardsSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
             itemCount: collections.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) => _HomeCollectionCard(
               collection: collections[index],
               onTap: () => onCollectionTap(collections[index]),
@@ -2638,7 +2638,7 @@ class _HomeArtistChoicesPageState extends State<_HomeArtistChoicesPage> {
                   AppSpacing.xl,
                 ),
                 itemCount: artists.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final artist = artists[index];
                   return _HomeArtistTile(
@@ -2794,7 +2794,7 @@ class _HomePlaylistChoicesPageState extends State<_HomePlaylistChoicesPage> {
                   AppSpacing.xl,
                 ),
                 itemCount: playlists.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final playlist = playlists[index];
                   return _HomePlaylistTile(
@@ -3077,7 +3077,7 @@ class _HomePillTabsState extends State<_HomePillTabs> {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         scrollDirection: Axis.horizontal,
         itemCount: labels.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (context, i) {
           final selected = _selected == i;
 
@@ -3176,7 +3176,7 @@ class _RecommendationCollectionsRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         scrollDirection: Axis.horizontal,
         itemCount: collections.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final collection = collections[index];
           return _RecommendationCollectionCard(
@@ -3236,7 +3236,7 @@ class _RecommendationCollectionCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.primary.withOpacity(0.9),
+                color: scheme.primary.withValues(alpha: 0.9),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -3286,7 +3286,7 @@ class _RecommendationCover extends StatelessWidget {
             width: double.infinity,
             height: 108,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _fallback(scheme),
+            errorBuilder: (_, _, _) => _fallback(scheme),
           ),
           Positioned.fill(
             child: DecoratedBox(
@@ -3294,7 +3294,7 @@ class _RecommendationCover extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.32)],
+                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.32)],
                 ),
               ),
             ),
@@ -3342,7 +3342,7 @@ class _MostPlayedRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         scrollDirection: Axis.horizontal,
         itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        separatorBuilder: (_, _) => const SizedBox(width: 14),
         itemBuilder: (context, i) {
           final item = items[i];
           final thumb = item.effectiveThumbnail;
@@ -3412,7 +3412,7 @@ class _CircleThumb extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.45),
+              color: Colors.black.withValues(alpha: 0.45),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.play_arrow, color: Colors.white, size: 16),

@@ -12,9 +12,9 @@ class ValuePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withOpacity(.6),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .6),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: theme.dividerColor.withOpacity(.15)),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: .15)),
       ),
       child: Text(
         text,

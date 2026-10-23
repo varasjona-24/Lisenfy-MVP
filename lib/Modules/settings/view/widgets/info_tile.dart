@@ -22,8 +22,8 @@ class InfoTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        color: theme.colorScheme.surfaceContainerHighest.withOpacity(.35),
-        border: Border.all(color: theme.dividerColor.withOpacity(.12)),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .35),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: .12)),
       ),
       child: Row(
         children: [

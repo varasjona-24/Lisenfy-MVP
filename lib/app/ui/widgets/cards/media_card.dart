@@ -62,7 +62,7 @@ class _MediaCardState extends State<MediaCard> {
     final colors = theme.colorScheme;
     final audioFormat = _audioFormat();
     final cardBg = colors.surfaceContainerHighest;
-    final cardStroke = colors.onSurface.withOpacity(0.08);
+    final cardStroke = colors.onSurface.withValues(alpha: 0.08);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -73,8 +73,8 @@ class _MediaCardState extends State<MediaCard> {
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: widget.onTap,
-        splashColor: colors.primary.withOpacity(0.12),
-        highlightColor: colors.primary.withOpacity(0.06),
+        splashColor: colors.primary.withValues(alpha: 0.12),
+        highlightColor: colors.primary.withValues(alpha: 0.06),
         child: SizedBox(
           width: widget.width,
           child: Column(
@@ -113,7 +113,7 @@ class _MediaCardState extends State<MediaCard> {
                                 end: Alignment.bottomCenter,
                                 colors: [
                                   Colors.transparent,
-                                  colors.shadow.withOpacity(0.55),
+                                  colors.shadow.withValues(alpha: 0.55),
                                 ],
                               ),
                             ),
@@ -125,11 +125,11 @@ class _MediaCardState extends State<MediaCard> {
                             bottom: 10,
                             child: Container(
                               decoration: BoxDecoration(
-                                color: colors.surface.withOpacity(0.9),
+                                color: colors.surface.withValues(alpha: 0.9),
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: colors.shadow.withOpacity(0.2),
+                                    color: colors.shadow.withValues(alpha: 0.2),
                                     blurRadius: 6,
                                     offset: const Offset(0, 2),
                                   ),
@@ -180,7 +180,7 @@ class _MediaCardState extends State<MediaCard> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: colors.primary.withOpacity(0.9),
+                    color: colors.primary.withValues(alpha: 0.9),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -194,7 +194,7 @@ class _MediaCardState extends State<MediaCard> {
                     vertical: 1,
                   ),
                   decoration: BoxDecoration(
-                    color: colors.primary.withOpacity(0.12),
+                    color: colors.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -237,7 +237,7 @@ class _MediaCardState extends State<MediaCard> {
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
-        errorBuilder: (_, __, ___) => _fallbackIcon(colors),
+        errorBuilder: (_, _, _) => _fallbackIcon(colors),
       );
     }
 
@@ -249,7 +249,7 @@ class _MediaCardState extends State<MediaCard> {
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
-        errorBuilder: (_, __, ___) => _fallbackIcon(colors),
+        errorBuilder: (_, _, _) => _fallbackIcon(colors),
       );
     }
 
@@ -267,7 +267,7 @@ class _MediaCardState extends State<MediaCard> {
       child: Icon(
         isVideo ? Icons.videocam_rounded : Icons.music_note_rounded,
         size: 42,
-        color: colors.onSurface.withOpacity(0.6),
+        color: colors.onSurface.withValues(alpha: 0.6),
       ),
     );
   }

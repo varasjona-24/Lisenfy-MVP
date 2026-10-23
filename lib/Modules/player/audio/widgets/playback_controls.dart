@@ -57,8 +57,8 @@ class PlaybackControls extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       shape: const CircleBorder(),
                       padding: EdgeInsets.zero,
-                      backgroundColor: theme.colorScheme.primary.withOpacity(
-                        0.25,
+                      backgroundColor: theme.colorScheme.primary.withValues(
+                        alpha: 0.25,
                       ),
                       elevation: 0,
                     ),
