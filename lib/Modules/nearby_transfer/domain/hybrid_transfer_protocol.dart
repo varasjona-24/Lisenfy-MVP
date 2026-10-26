@@ -3,7 +3,7 @@ import 'dart:math';
 
 /// Versioned control messages; short codes discover a session, not authenticate it.
 abstract final class HybridTransferProtocol {
-  static const schema = 'listenfy.wifi-direct.v1';
+  static const schema = 'listenfy.wifi-direct.v2';
   static final _random = Random.secure();
   static const _alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   static final _session = RegExp(r'^[A-Z0-9]{7}[A-Za-z0-9_-]{25,57}$');

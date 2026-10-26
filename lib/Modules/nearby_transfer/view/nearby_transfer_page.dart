@@ -136,8 +136,14 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
 
   Future<void> _send() async {
     await _run(() async {
-      final items = await Get.dialog<List<MediaItem>>(
-        _LibraryPicker(
+      final items = await showModalBottomSheet<List<MediaItem>>(
+        context: Get.context!,
+        isScrollControlled: true,
+        backgroundColor: Get.theme.colorScheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (_) => TransferLibraryPicker(
           items: controller.libraryItems(),
           preselected: controller.outgoingItems,
         ),
@@ -397,15 +403,19 @@ String _size(int bytes) {
       : _t('size_kb', [(bytes / 1024).toStringAsFixed(1)]);
 }
 
-class _LibraryPicker extends StatefulWidget {
-  const _LibraryPicker({required this.items, required this.preselected});
+class TransferLibraryPicker extends StatefulWidget {
+  const TransferLibraryPicker({
+    super.key,
+    required this.items,
+    required this.preselected,
+  });
   final List<MediaItem> items;
   final List<MediaItem> preselected;
   @override
-  State<_LibraryPicker> createState() => _LibraryPickerState();
+  State<TransferLibraryPicker> createState() => _LibraryPickerState();
 }
 
-class _LibraryPickerState extends State<_LibraryPicker> {
+class _LibraryPickerState extends State<TransferLibraryPicker> {
   final Map<String, MediaItem> _selected = {};
   String _query = '';
   @override
@@ -427,81 +437,186 @@ class _LibraryPickerState extends State<_LibraryPicker> {
         .where(
           (item) =>
               item.title.toLowerCase().contains(_query) ||
-              item.subtitle.toLowerCase().contains(_query),
+              item.displaySubtitle.toLowerCase().contains(_query),
         )
         .toList();
-    return AlertDialog(
-      title: Text(_t('library')),
-      content: SizedBox(
-        width: 480,
-        height: MediaQuery.sizeOf(context).height * .5,
-        child: Column(
-          children: [
-            TextField(
-              decoration: InputDecoration(
-                labelText: _t('search'),
-                prefixIcon: const Icon(Icons.search),
-              ),
-              onChanged: (value) =>
-                  setState(() => _query = value.trim().toLowerCase()),
-            ),
-            Expanded(
-              child: items.isEmpty
-                  ? Center(child: Text(_t('empty_library')))
-                  : ListView(
-                      children: [
-                        for (final item in items)
-                          for (final kind in MediaVariantKind.values)
-                            if (item.variants.any(
-                              (v) =>
-                                  v.kind == kind &&
-                                  (v.localPath ?? '').isNotEmpty,
-                            ))
-                              CheckboxListTile(
-                                title: Text(item.title),
-                                subtitle: Text(
-                                  _t(
-                                    kind == MediaVariantKind.audio
-                                        ? 'audio'
-                                        : 'video',
-                                  ),
-                                ),
-                                value:
-                                    _selected[item.id]?.variants.first.kind ==
-                                    kind,
-                                onChanged: (checked) => setState(() {
-                                  if (checked == true) {
-                                    final variant = item.variants.firstWhere(
-                                      (v) =>
-                                          v.kind == kind &&
-                                          (v.localPath ?? '').isNotEmpty,
-                                    );
-                                    _selected[item.id] = item.copyWith(
-                                      variants: [variant],
-                                    );
-                                  } else {
-                                    _selected.remove(item.id);
-                                  }
-                                }),
-                              ),
-                      ],
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * .82,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.send_rounded),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _t('library'),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
                     ),
-            ),
-          ],
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(_t('cancel')),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    labelText: _t('search'),
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (value) =>
+                      setState(() => _query = value.trim().toLowerCase()),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: items.isEmpty
+                    ? Center(child: Text(_t('empty_library')))
+                    : ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        children: [
+                          for (final item in items)
+                            for (final kind in MediaVariantKind.values)
+                              if (item.variants.any(
+                                (v) =>
+                                    v.kind == kind &&
+                                    (v.localPath ?? '').isNotEmpty,
+                              ))
+                                _mediaTile(context, item, kind),
+                        ],
+                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _selected.isEmpty
+                        ? null
+                        : () => Navigator.of(
+                            context,
+                          ).pop(_selected.values.toList()),
+                    icon: const Icon(Icons.send_rounded),
+                    label: Text(
+                      _t('review_selection', ['${_selected.length}']),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Get.back<List<MediaItem>>(),
-          child: Text(_t('cancel')),
+    );
+  }
+
+  Widget _mediaTile(
+    BuildContext context,
+    MediaItem item,
+    MediaVariantKind kind,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+    final video = kind == MediaVariantKind.video;
+    final checked = _selected[item.id]?.variants.first.kind == kind;
+    final thumb = item.effectiveThumbnail;
+    final icon = video ? Icons.videocam_rounded : Icons.music_note_rounded;
+    void toggle() => setState(() {
+      if (checked) {
+        _selected.remove(item.id);
+      } else {
+        final variant = item.variants.firstWhere(
+          (v) => v.kind == kind && (v.localPath ?? '').isNotEmpty,
+        );
+        _selected[item.id] = item.copyWith(variants: [variant]);
+      }
+    });
+    Widget fallback() => ColoredBox(
+      color: scheme.surfaceContainerHighest,
+      child: Center(child: Icon(icon)),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: checked
+            ? scheme.primaryContainer.withValues(alpha: .5)
+            : scheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: checked ? scheme.primary : scheme.outlineVariant,
+          ),
         ),
-        FilledButton(
-          onPressed: _selected.isEmpty
-              ? null
-              : () => Get.back(result: _selected.values.toList()),
-          child: Text(_t('review_selection', ['${_selected.length}'])),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: toggle,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    key: ValueKey('transfer-cover-${item.id}-${kind.name}'),
+                    width: video ? 48 * 16 / 9 : 48,
+                    height: 48,
+                    child: thumb == null || thumb.isEmpty
+                        ? fallback()
+                        : Image(
+                            image: thumb.startsWith('http')
+                                ? NetworkImage(thumb)
+                                : FileImage(File(thumb)) as ImageProvider,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => fallback(),
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      if (item.displaySubtitle.isNotEmpty)
+                        Text(
+                          item.displaySubtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      Text(
+                        _t(video ? 'video' : 'audio'),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelSmall?.copyWith(color: scheme.primary),
+                      ),
+                    ],
+                  ),
+                ),
+                Checkbox(value: checked, onChanged: (_) => toggle()),
+              ],
+            ),
+          ),
         ),
-      ],
+      ),
     );
   }
 }

@@ -30,8 +30,15 @@ compatibilidad universal ni velocidad garantizada.
 - Las credenciales y el certificado de sesión no se guardan en ese historial.
 - Archivos físicamente en disco; la biblioteca conserva sus referencias SQLite.
 - Límite: 1 GiB por selección y por archivo, metadatos acotados a 256 KiB.
-  Las portadas grandes se convierten en miniaturas para el envío sin modificar
-  el archivo de portada original. No se transfieren estadísticas de escucha.
+  Las portadas locales PNG/JPEG/GIF/WebP viajan como adjuntos binarios originales,
+  separados del JSON, con SHA-256 y límite de 64 MiB. No se redimensionan ni
+  recomprimen. Una portada ausente, ilegible o fuera de esos límites se omite,
+  sin impedir el envío del audio/video. El receptor verifica y copia el adjunto
+  a disco; SQLite conserva la ruta. No se transfieren estadísticas de escucha.
+  El frame de portada precede a su archivo multimedia y se confirma junto con
+  su importación, sin crear una canción o entrada de historial adicional.
+  Protocolo de asociación v3/control v2: actualizar ambos dispositivos; no es
+  compatible con receptores antiguos que solo admitían portadas Base64.
 - La sesión permanece al navegar por la app. Cerrar conexión es explícito;
   la pérdida de Wi-Fi Direct o del socket autenticado la cierra automáticamente.
   La pérdida de Internet por sí sola no la cierra.

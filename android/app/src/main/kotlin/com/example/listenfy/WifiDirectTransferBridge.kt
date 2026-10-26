@@ -100,6 +100,7 @@ class WifiDirectTransferBridge(private val activity: Activity, engine: FlutterEn
     private val pendingReceived = ConcurrentHashMap.newKeySet<Long>()
     private val incomingIds = ConcurrentHashMap.newKeySet<Long>()
     private val partials = ConcurrentHashMap.newKeySet<File>()
+    private val incomingCovers = ConcurrentHashMap<Long, Pair<File, String>>()
     private val pendingResults = ConcurrentHashMap.newKeySet<Reply>()
 
     private inner class Reply(private val result: MethodChannel.Result) {
@@ -221,11 +222,23 @@ class WifiDirectTransferBridge(private val activity: Activity, engine: FlutterEn
                 val descriptor = JSONObject(args["descriptor"] as? Map<*, *> ?: throw Failure("invalid_descriptor"))
                 val metadata = validateDescriptor(descriptor)
                 requireThat(file.isFile && file.length() == metadata.second, "invalid_file")
+                val coverMetadata = descriptor.optJSONObject("cover")
+                val cover = if (coverMetadata != null) File(text(args, "coverPath")) else null
+                if (coverMetadata != null) {
+                    val coverSize = validateCover(coverMetadata)
+                    requireThat(cover!!.isFile && cover.length() == coverSize, "invalid_cover")
+                }
                 requireThat(pendingSent.add(metadata.first), "duplicate_payload")
                 writer.execute {
                     try {
                         synchronized(writeLock) {
                             val output = output()
+                            if (cover != null && coverMetadata != null) {
+                                writeHeader(output, JSONObject().put("type", "cover").put("payloadId", metadata.first).put("cover", coverMetadata).put("sessionId", session))
+                                val coverDigest = MessageDigest.getInstance("SHA-256")
+                                FileInputStream(cover).use { transfer(it, output, cover.length(), metadata.first, "sent", coverDigest, false) }
+                                requireThat(hex(coverDigest.digest()) == coverMetadata.getString("sha256"), "source_cover_hash_mismatch")
+                            }
                             writeHeader(output, JSONObject().put("type", "file").put("descriptor", descriptor).put("sessionId", session))
                             val digest = MessageDigest.getInstance("SHA-256")
                             FileInputStream(file).use { input -> transfer(input, output, metadata.second, metadata.first, "sent", digest) }
@@ -401,6 +414,7 @@ class WifiDirectTransferBridge(private val activity: Activity, engine: FlutterEn
             val header = readHeader(input)
             requireThat(header.getString("sessionId") == session, "session_mismatch")
             when (header.getString("type")) {
+                "cover" -> receiveCover(input, header)
                 "file" -> receive(input, header.getJSONObject("descriptor"))
                 "ack" -> {
                     val id = integer(header.get("payloadId"))
@@ -432,8 +446,38 @@ class WifiDirectTransferBridge(private val activity: Activity, engine: FlutterEn
         requireThat(d.getString("fileName").length in 1..1024, "invalid_descriptor")
         return id to size
     }
+    private fun validateCover(d: JSONObject): Long {
+        val size = integer(d.get("sizeBytes"))
+        requireThat(size in 1..67108864L, "invalid_cover_size")
+        requireThat(d.getString("sha256").matches(Regex("[a-f0-9]{64}")), "invalid_cover_hash")
+        requireThat(d.getString("format") in setOf("jpg", "png", "gif", "webp"), "invalid_cover_format")
+        return size
+    }
+    private fun receiveCover(input: DataInputStream, header: JSONObject) {
+        val id = integer(header.get("payloadId"))
+        val metadata = header.getJSONObject("cover")
+        val size = validateCover(metadata)
+        requireThat(id >= 0 && incomingCovers.isEmpty() && !incomingIds.contains(id), "unexpected_cover")
+        val dir = File(activity.cacheDir, "wifi-direct-transfer")
+        requireThat((dir.isDirectory || dir.mkdirs()) && dir.canonicalFile.parentFile == activity.cacheDir.canonicalFile, "invalid_cache")
+        val file = File.createTempFile("cover-", ".part", dir)
+        partials.add(file)
+        try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            FileOutputStream(file).use { transfer(input, it, size, id, "received", digest, false) }
+            requireThat(hex(digest.digest()) == metadata.getString("sha256"), "cover_hash_mismatch")
+            incomingCovers[id] = file to metadata.getString("sha256")
+        } catch (e: Exception) { partials.remove(file); file.delete(); throw e }
+    }
     private fun receive(input: DataInputStream, descriptor: JSONObject) {
         val (id, size) = validateDescriptor(descriptor)
+        val coverMetadata = descriptor.optJSONObject("cover")
+        val cover = incomingCovers.remove(id)
+        requireThat(incomingCovers.isEmpty(), "unexpected_cover")
+        if (coverMetadata != null) {
+            val coverSize = validateCover(coverMetadata)
+            requireThat(cover != null && cover.first.length() == coverSize && cover.second == coverMetadata.getString("sha256"), "missing_cover")
+        } else requireThat(cover == null, "unexpected_cover")
         requireThat(incomingIds.add(id), "duplicate_payload")
         val dir = File(activity.cacheDir, "wifi-direct-transfer")
         requireThat((dir.isDirectory || dir.mkdirs()) && dir.canonicalFile.parentFile == activity.cacheDir.canonicalFile, "invalid_cache")
@@ -446,10 +490,11 @@ class WifiDirectTransferBridge(private val activity: Activity, engine: FlutterEn
             requireThat(!dead.get(), "closed")
             partials.remove(file)
             pendingReceived.add(id)
-            emit("received", "descriptor" to jsonMap(descriptor), "path" to file.absolutePath)
+            emit("received", "descriptor" to jsonMap(descriptor), "path" to file.absolutePath, "coverPath" to (cover?.first?.absolutePath ?: ""))
+            if (cover != null) partials.remove(cover.first)
         } finally { if (partials.remove(file)) file.delete() }
     }
-    private fun transfer(input: InputStream, output: OutputStream, total: Long, id: Long, direction: String, digest: MessageDigest) {
+    private fun transfer(input: InputStream, output: OutputStream, total: Long, id: Long, direction: String, digest: MessageDigest, reportProgress: Boolean = true) {
         val buffer = ByteArray(65536); var bytes = 0L; var reported = 0L
         while (bytes < total) {
             requireThat(!dead.get(), "closed")
@@ -459,7 +504,7 @@ class WifiDirectTransferBridge(private val activity: Activity, engine: FlutterEn
             output.write(buffer, 0, count)
             if (direction == "sent") lastWrite = System.nanoTime()
             digest.update(buffer, 0, count); bytes += count
-            if (bytes == total || bytes - reported >= 262144) {
+            if (reportProgress && (bytes == total || bytes - reported >= 262144)) {
                 emit("progress", "payloadId" to id, "direction" to direction, "bytes" to bytes, "total" to total); reported = bytes
             }
         }
@@ -564,6 +609,7 @@ class WifiDirectTransferBridge(private val activity: Activity, engine: FlutterEn
         try { server?.close() } catch (_: Exception) { }
         writer.shutdownNow(); workers.shutdownNow(); timer.shutdownNow()
         partials.forEach { it.delete() }; partials.clear()
+        incomingCovers.clear()
         pendingResults.toList().forEach { it.error("closed") }
         workersCleanupIdentity()
         main.post {
