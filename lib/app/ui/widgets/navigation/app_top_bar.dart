@@ -88,6 +88,70 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  /// Same callbacks as the mobile toolbar, presented inside the desktop rail.
+  Widget buildSidebarActions(BuildContext context, {bool compact = false}) {
+    Widget action(Widget icon, String label, VoidCallback? onTap) => Tooltip(
+      message: label,
+      child: compact
+          ? IconButton(icon: icon, onPressed: onTap)
+          : ListTile(
+              leading: SizedBox.square(dimension: 24, child: icon),
+              title: Text(label),
+              onTap: onTap,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (onSearch != null)
+          action(
+            const Icon(Icons.library_music_rounded),
+            tr(
+              mode == AppMediaMode.audio
+                  ? 'nav.audio_library'
+                  : 'nav.video_library',
+            ),
+            onSearch,
+          ),
+        if (onToggleMode != null)
+          action(
+            Icon(
+              mode == AppMediaMode.audio
+                  ? Icons.music_note_rounded
+                  : Icons.play_circle_rounded,
+            ),
+            tr(
+              mode == AppMediaMode.audio
+                  ? 'nav.switch_video'
+                  : 'nav.switch_audio',
+            ),
+            onToggleMode,
+          ),
+        for (final extra in extraActions)
+          if (extra is IconButton)
+            action(
+              extra.icon,
+              extra.tooltip ?? tr('nav.quick_access'),
+              extra.onPressed,
+            )
+          else
+            extra,
+        const SizedBox(height: 12),
+        _TopBarOverflowMenu(
+          showLocalConnectAction: showLocalConnectAction,
+          onLocalConnect: onLocalConnect,
+          showSettingsAction: showSettingsAction,
+          onSettings: onSettings,
+          asSidebar: true,
+          compact: compact,
+        ),
+      ],
+    );
+  }
 }
 
 enum _TopBarMenuAction { localConnect, settings }
@@ -116,12 +180,24 @@ class _TopBarOverflowMenu extends StatelessWidget {
     required this.onLocalConnect,
     required this.showSettingsAction,
     required this.onSettings,
+    this.asSidebar = false,
+    this.compact = false,
   });
 
   final bool showLocalConnectAction;
   final VoidCallback? onLocalConnect;
   final bool showSettingsAction;
   final VoidCallback? onSettings;
+  final bool asSidebar, compact;
+
+  void _select(_TopBarMenuAction value) {
+    switch (value) {
+      case _TopBarMenuAction.localConnect:
+        (onLocalConnect ?? () => Get.toNamed(AppRoutes.localConnect)).call();
+      case _TopBarMenuAction.settings:
+        (onSettings ?? () => Get.toNamed(AppRoutes.settings)).call();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -151,6 +227,56 @@ class _TopBarOverflowMenu extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    if (asSidebar) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final item in items)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Tooltip(
+                message: item.label,
+                child: compact
+                    ? IconButton(
+                        onPressed: () => _select(item.action),
+                        icon: item.svgAsset == null
+                            ? Icon(item.icon)
+                            : SizedBox.square(
+                                dimension: 24,
+                                child: SvgPicture.asset(
+                                  item.svgAsset!,
+                                  colorFilter: ColorFilter.mode(
+                                    scheme.onSurfaceVariant,
+                                    BlendMode.srcIn,
+                                  ),
+                                ),
+                              ),
+                      )
+                    : ListTile(
+                        onTap: () => _select(item.action),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        leading: SizedBox.square(
+                          dimension: 24,
+                          child: item.svgAsset == null
+                              ? Icon(item.icon)
+                              : SvgPicture.asset(
+                                  item.svgAsset!,
+                                  colorFilter: ColorFilter.mode(
+                                    scheme.onSurfaceVariant,
+                                    BlendMode.srcIn,
+                                  ),
+                                ),
+                        ),
+                        title: Text(item.label),
+                      ),
+              ),
+            ),
+        ],
+      );
+    }
+
     return PopupMenuButton<_TopBarMenuAction>(
       tooltip: tr('nav.more_options'),
       padding: const EdgeInsets.only(right: 6),
@@ -162,17 +288,7 @@ class _TopBarOverflowMenu extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       constraints: const BoxConstraints(minWidth: 260, maxWidth: 320),
       icon: Icon(Icons.more_horiz_rounded, color: scheme.onSurface),
-      onSelected: (value) {
-        switch (value) {
-          case _TopBarMenuAction.localConnect:
-            (onLocalConnect ?? () => Get.toNamed(AppRoutes.localConnect))
-                .call();
-            break;
-          case _TopBarMenuAction.settings:
-            (onSettings ?? () => Get.toNamed(AppRoutes.settings)).call();
-            break;
-        }
-      },
+      onSelected: _select,
       itemBuilder: (context) => [
         PopupMenuItem<_TopBarMenuAction>(
           enabled: false,

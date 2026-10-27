@@ -3,6 +3,7 @@ import 'dart:io';
 import 'app/utils/app_locales.dart';
 
 import 'package:flutter/material.dart';
+import 'app/ui/widgets/navigation/app_bottom_nav.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'app/data/local/catalog_storage.dart';
 import 'app/data/local/domain_storage.dart';
@@ -485,12 +486,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             children: [
               child,
               const DownloadProgressBanner(),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: bottomOffset,
-                child: const MiniPlayerBar(),
-              ),
+              Obx(() {
+                final route =
+                    Get.find<NavigationController>().currentRoute.value;
+                final sidebar =
+                    AppBottomNav.desktopSidebarEnabled &&
+                    route == AppRoutes.home;
+                return Positioned(
+                  left: sidebar
+                      ? AppBottomNav.sidebarWidth(
+                          MediaQuery.sizeOf(context).width,
+                        )
+                      : 0,
+                  right: 0,
+                  bottom: AppBottomNav.desktopSidebarEnabled
+                      ? safeBottom
+                      : bottomOffset,
+                  child: const MiniPlayerBar(),
+                );
+              }),
             ],
           );
         },

@@ -175,7 +175,11 @@
     "settings": "Settings",
     "settings_subtitle": "Preferences and tools",
     "audio_mode_tooltip": "Audio mode (tap for Video)",
-    "video_mode_tooltip": "Video mode (tap for Audio)"
+    "video_mode_tooltip": "Video mode (tap for Audio)",
+    "audio_library": "Audio library",
+    "video_library": "Video library",
+    "switch_video": "Switch to video",
+    "switch_audio": "Switch to audio"
   },
   "home": {
     "move": {
@@ -1444,6 +1448,38 @@
       "repeat": "Repeat",
       "repeat_one": "This one only",
       "repeat_once": "Once"
+    },
+    "desktop": {
+      "add_playlist": "Add to a playlist",
+      "playlist_added": "Song saved to the playlist.",
+      "favorite": "Favorite",
+      "more": "More options",
+      "previous": "Previous",
+      "next": "Next",
+      "volume": "Volume",
+      "view_lyrics": "View lyrics",
+      "save_failed": "Could not save the change. Try again."
+    },
+    "queue_desktop": {
+      "match_position": "{} of {} matches",
+      "previous_match": "Previous match",
+      "next_match": "Next match",
+      "drag_hint": "Drag to reorder",
+      "summary": "{} tracks · {}",
+      "hours_minutes": "{} h {} min",
+      "minutes": "{} min",
+      "search": "Search queue",
+      "search_hint": "Search by title or artist",
+      "filter": "Filter queue",
+      "all": "Entire queue",
+      "upcoming": "Up next",
+      "previous": "Previous tracks",
+      "filtered": "{} results",
+      "reorder_filtered": "Clear the filter to reorder.",
+      "no_results": "No matching tracks.",
+      "title": "Title",
+      "artist": "Artist",
+      "duration": "Duration"
     }
   },
   "tooltips": {

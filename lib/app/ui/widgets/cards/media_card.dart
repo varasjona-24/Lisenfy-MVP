@@ -66,6 +66,7 @@ class _MediaCardState extends State<MediaCard> {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onSecondaryTap: widget.onLongPress,
       onTapDown: (_) => _startHold(),
       onTapUp: (_) => _cancelHold(),
       onTapCancel: _cancelHold,

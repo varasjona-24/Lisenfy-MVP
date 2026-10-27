@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:listenfy/app/models/media_item.dart';
 import 'package:listenfy/app/ui/widgets/media/app_media_items_view.dart';
@@ -89,6 +90,11 @@ void main() {
     expect(tapped, 1);
     await tester.longPress(find.text('Track 0'));
     expect(held, 0);
+    tapped = null;
+    held = null;
+    await tester.tap(find.text('Track 1'), buttons: kSecondaryMouseButton);
+    expect(held, 1);
+    expect(tapped, isNull);
     expect(tester.takeException(), isNull);
   });
 }

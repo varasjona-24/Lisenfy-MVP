@@ -27,6 +27,7 @@ class MediaHorizontalList extends StatefulWidget {
   final double cardWidth;
   final double thumbnailAspectRatio;
   final double listHeight;
+  final double cardScale;
 
   const MediaHorizontalList({
     super.key,
@@ -42,6 +43,7 @@ class MediaHorizontalList extends StatefulWidget {
     this.cardWidth = 120,
     this.thumbnailAspectRatio = 1,
     this.listHeight = 200,
+    this.cardScale = 1,
   });
 
   @override
@@ -214,8 +216,8 @@ class _MediaHorizontalListState extends State<MediaHorizontalList> {
         const SizedBox(height: AppSpacing.sm),
         SizedBox(
           height: widget.itemHintBuilder == null
-              ? widget.listHeight
-              : widget.listHeight + 16,
+              ? widget.listHeight * widget.cardScale
+              : widget.listHeight * widget.cardScale + 16,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
@@ -228,7 +230,7 @@ class _MediaHorizontalListState extends State<MediaHorizontalList> {
 
               final card = MediaCard(
                 item: item,
-                width: widget.cardWidth,
+                width: widget.cardWidth * widget.cardScale,
                 thumbnailAspectRatio: widget.thumbnailAspectRatio,
                 showPlayBadge: !_selectionMode,
                 hintText: widget.itemHintBuilder?.call(item, index),

@@ -175,7 +175,11 @@
     "settings": "Configurações",
     "settings_subtitle": "Preferências e ferramentas",
     "audio_mode_tooltip": "Modo de áudio (toque para vídeo)",
-    "video_mode_tooltip": "Modo de vídeo (toque para áudio)"
+    "video_mode_tooltip": "Modo de vídeo (toque para áudio)",
+    "audio_library": "Biblioteca de áudios",
+    "video_library": "Biblioteca de vídeos",
+    "switch_video": "Mudar para vídeo",
+    "switch_audio": "Mudar para áudio"
   },
   "home": {
     "move": {
@@ -1444,6 +1448,38 @@
       "repeat": "Repetir",
       "repeat_one": "Somente esta",
       "repeat_once": "Uma vez"
+    },
+    "desktop": {
+      "add_playlist": "Adicionar a uma playlist",
+      "playlist_added": "Música salva na playlist.",
+      "favorite": "Favorito",
+      "more": "Mais opções",
+      "previous": "Anterior",
+      "next": "Próxima",
+      "volume": "Volume",
+      "view_lyrics": "Ver letras",
+      "save_failed": "Não foi possível salvar a alteração. Tente novamente."
+    },
+    "queue_desktop": {
+      "match_position": "{} de {} correspondências",
+      "previous_match": "Correspondência anterior",
+      "next_match": "Próxima correspondência",
+      "drag_hint": "Arraste para reordenar",
+      "summary": "{} faixas · {}",
+      "hours_minutes": "{} h {} min",
+      "minutes": "{} min",
+      "search": "Buscar na fila",
+      "search_hint": "Buscar por título ou artista",
+      "filter": "Filtrar fila",
+      "all": "Toda a fila",
+      "upcoming": "A seguir",
+      "previous": "Anteriores",
+      "filtered": "{} resultados",
+      "reorder_filtered": "Remova o filtro para reordenar.",
+      "no_results": "Nenhuma faixa encontrada.",
+      "title": "Título",
+      "artist": "Artista",
+      "duration": "Duração"
     }
   },
   "tooltips": {

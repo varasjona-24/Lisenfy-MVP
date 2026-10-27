@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart' hide RepeatMode;
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
 import '../controller/audio_player_controller.dart';
@@ -11,6 +12,7 @@ import '../../../../app/routes/app_routes.dart';
 import '../widgets/cover_art.dart';
 import '../widgets/playback_controls.dart';
 import '../widgets/progress_bar.dart';
+import 'desktop_audio_player_view.dart';
 import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../../app/ui/widgets/player/player_instrumental_sheet.dart';
 import '../../../../app/ui/widgets/player/player_lyrics_sheet.dart';
@@ -76,23 +78,30 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final desktop = usesDesktopAudioPlayer(defaultTargetPlatform);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: AppGradientBackground(
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
-          onVerticalDragStart: (_) => _verticalDragDistance = 0,
-          onVerticalDragUpdate: (details) {
-            _verticalDragDistance += details.primaryDelta ?? 0;
-          },
-          onVerticalDragEnd: (details) {
-            final velocity = details.primaryVelocity ?? 0;
-            if (_verticalDragDistance > 96 || velocity > 720) {
-              Get.back();
-            }
-            _verticalDragDistance = 0;
-          },
+          onVerticalDragStart: desktop
+              ? null
+              : (_) => _verticalDragDistance = 0,
+          onVerticalDragUpdate: desktop
+              ? null
+              : (details) {
+                  _verticalDragDistance += details.primaryDelta ?? 0;
+                },
+          onVerticalDragEnd: desktop
+              ? null
+              : (details) {
+                  final velocity = details.primaryVelocity ?? 0;
+                  if (_verticalDragDistance > 96 || velocity > 720) {
+                    Get.back();
+                  }
+                  _verticalDragDistance = 0;
+                },
           child: SafeArea(
             child: Obx(() {
               final queue = controller.queue;
@@ -119,6 +128,21 @@ class _AudioPlayerPageState extends State<AudioPlayerPage> {
 
               if (item == null) {
                 return Center(child: Text(tr('player.nothing_playing')));
+              }
+
+              if (desktop) {
+                return DesktopAudioPlayerView(
+                  controller: controller,
+                  item: item,
+                  style: coverStyle,
+                  instrumental: isInstrumentalMode,
+                  spatial8d: isSpatial8dMode,
+                  onVisual: () => openPlayerVisualStyleSheet(
+                    currentStyle: coverStyle,
+                    options: AudioPlayerController.availableCoverStyles,
+                    onSelected: controller.setCoverStyle,
+                  ),
+                );
               }
 
               if (coverStyle == CoverStyle.landscape) {

@@ -9,13 +9,41 @@ Future<void> _openHomeEditorSheet(
       ? Get.find<NavigationController>()
       : null;
   nav?.setOverlayOpen(true);
-  await showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    useSafeArea: true,
-    builder: (_) => _HomeWidgetEditor(controller: controller, mode: mode),
-  ).whenComplete(() => nav?.setOverlayOpen(false));
+  try {
+    if (AppBottomNav.desktopSidebarEnabled) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog(
+          alignment: Alignment.center,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 40,
+            vertical: 32,
+          ),
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 640,
+              maxHeight: MediaQuery.sizeOf(ctx).height - 64,
+            ),
+            child: _HomeWidgetEditor(controller: controller, mode: mode),
+          ),
+        ),
+      );
+    } else {
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (_) => _HomeWidgetEditor(controller: controller, mode: mode),
+      );
+    }
+  } finally {
+    nav?.setOverlayOpen(false);
+  }
 }
 
 class _HomeWidgetEditor extends StatefulWidget {
@@ -336,124 +364,143 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final items = _editorEntries;
+    final desktop = AppBottomNav.desktopSidebarEnabled;
 
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.82,
-      minChildSize: 0.45,
-      maxChildSize: 0.94,
-      builder: (context, scrollController) {
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      tr('home.editor.title'),
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+    Widget buildEntry(int index) {
+      final entry = items[index];
+      if (entry is HomeCustomSection) {
+        return _EditableHomeWidgetRow(
+          key: ValueKey('custom:${entry.id}'),
+          dragIndex: desktop ? index : null,
+          customSection: entry,
+          enabled: entry.enabled,
+          layout: entry.layout,
+          onToggle: () => _removeCustomSection(entry.id),
+          onLayoutToggle: mode == HomeMode.video
+              ? null
+              : () => _toggleCustomSectionLayout(entry.id),
+        );
+      }
+      final id = entry as HomeWidgetId;
+      final enabled = _enabled.contains(id);
+      return _EditableHomeWidgetRow(
+        key: ValueKey(id.key),
+        dragIndex: desktop ? index : null,
+        id: id,
+        enabled: enabled,
+        layout: _layoutForWidget(id),
+        onToggle: id.canDisable ? () => _toggleWidget(id) : null,
+        onLayoutToggle: mode == HomeMode.video || id.hasFixedLayout
+            ? null
+            : () => _toggleWidgetLayout(id),
+      );
+    }
+
+    Widget content(ScrollController? scrollController) {
+      return Column(
+        mainAxisSize: desktop ? MainAxisSize.min : MainAxisSize.max,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(20, desktop ? 20 : 6, 20, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    tr('home.editor.title'),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  TextButton(
-                    onPressed: _reset,
-                    child: Text(tr('common.reset')),
-                  ),
-                  const SizedBox(width: 4),
-                  FilledButton(
-                    onPressed: _save,
-                    child: Text(tr('common.save')),
-                  ),
-                ],
-              ),
+                ),
+                TextButton(onPressed: _reset, child: Text(tr('common.reset'))),
+                const SizedBox(width: 4),
+                FilledButton(onPressed: _save, child: Text(tr('common.save'))),
+              ],
             ),
-            Expanded(
-              child: ListView(
-                controller: scrollController,
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                children: [
-                  ...List<Widget>.generate(items.length, (index) {
-                    final entry = items[index];
-                    if (entry is HomeCustomSection) {
-                      return _EditableHomeWidgetRow(
-                        key: ValueKey('custom:${entry.id}'),
-                        customSection: entry,
-                        enabled: entry.enabled,
-                        layout: entry.layout,
-                        onToggle: () => _removeCustomSection(entry.id),
-                        onLayoutToggle: mode == HomeMode.video
-                            ? null
-                            : () => _toggleCustomSectionLayout(entry.id),
-                      );
-                    }
-                    final id = entry as HomeWidgetId;
-                    final enabled = _enabled.contains(id);
-                    return _EditableHomeWidgetRow(
-                      key: ValueKey(id.key),
-                      id: id,
-                      enabled: enabled,
-                      layout: _layoutForWidget(id),
-                      onToggle: id.canDisable ? () => _toggleWidget(id) : null,
-                      onLayoutToggle:
-                          mode == HomeMode.video || id.hasFixedLayout
-                          ? null
-                          : () => _toggleWidgetLayout(id),
-                    );
-                  }),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (mode == HomeMode.audio) ...[
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () => _showPlaylistPicker(context),
-                                icon: const Icon(
-                                  Icons.queue_music_rounded,
-                                  size: 18,
-                                ),
-                                label: Text(tr('home.editor.add_playlist')),
+          ),
+          Flexible(
+            fit: desktop ? FlexFit.loose : FlexFit.tight,
+            child: ListView(
+              shrinkWrap: desktop,
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              children: [
+                if (desktop)
+                  ReorderableListView(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    buildDefaultDragHandles: false,
+                    onReorderItem: (from, to) {
+                      setState(() {
+                        final entries = _editorEntries.toList();
+                        entries.insert(to, entries.removeAt(from));
+                        _order = entries.whereType<HomeWidgetId>().toList();
+                        _customSections = homeCustomSectionsInEditorOrder(
+                          entries,
+                        );
+                      });
+                    },
+                    children: List.generate(items.length, buildEntry),
+                  )
+                else
+                  ...List.generate(items.length, buildEntry),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (mode == HomeMode.audio) ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _showPlaylistPicker(context),
+                              icon: const Icon(
+                                Icons.queue_music_rounded,
+                                size: 18,
                               ),
+                              label: Text(tr('home.editor.add_playlist')),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () => _showArtistPicker(context),
-                                icon: const Icon(
-                                  Icons.person_rounded,
-                                  size: 18,
-                                ),
-                                label: Text(tr('home.editor.add_artist')),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ] else ...[
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () => _showCollectionPicker(context),
-                            icon: const Icon(
-                              Icons.video_library_rounded,
-                              size: 18,
-                            ),
-                            label: Text(tr('home.editor.add_collection')),
                           ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _showArtistPicker(context),
+                              icon: const Icon(Icons.person_rounded, size: 18),
+                              label: Text(tr('home.editor.add_artist')),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showCollectionPicker(context),
+                          icon: const Icon(
+                            Icons.video_library_rounded,
+                            size: 18,
+                          ),
+                          label: Text(tr('home.editor.add_collection')),
                         ),
-                      ],
+                      ),
                     ],
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
-          ],
-        );
-      },
+          ),
+        ],
+      );
+    }
+
+    if (AppBottomNav.desktopSidebarEnabled) return content(null);
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: .82,
+      minChildSize: .45,
+      maxChildSize: .94,
+      builder: (context, scrollController) => content(scrollController),
     );
   }
 
@@ -1245,8 +1292,10 @@ class _EditableHomeWidgetRow extends StatelessWidget {
     required this.layout,
     required this.onToggle,
     this.onLayoutToggle,
+    this.dragIndex,
   });
 
+  final int? dragIndex;
   final HomeWidgetId? id;
   final HomeCustomSection? customSection;
   final bool enabled;
@@ -1325,6 +1374,27 @@ class _EditableHomeWidgetRow extends StatelessWidget {
                 ],
               ),
             ),
+            if (dragIndex != null)
+              ReorderableDragStartListener(
+                index: dragIndex!,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.grab,
+                  child: Tooltip(
+                    message: tr(
+                      'home.move.drag',
+                      args: [
+                        id == null
+                            ? customSection!.title
+                            : _homeWidgetTitle(id!),
+                      ],
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Icon(Icons.drag_indicator_rounded, size: 20),
+                    ),
+                  ),
+                ),
+              ),
             if (onLayoutToggle != null)
               IconButton(
                 tooltip: tr('home.actions.change_view'),

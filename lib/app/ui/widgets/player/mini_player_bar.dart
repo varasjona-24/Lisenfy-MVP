@@ -9,6 +9,7 @@ import '../../../services/audio_service.dart';
 import '../../../controllers/navigation_controller.dart';
 import 'player_lyrics_sheet.dart';
 import '../motion/app_motion.dart';
+import '../navigation/app_bottom_nav.dart';
 import '../../../../Modules/player/audio/controller/audio_player_controller.dart';
 
 class MiniPlayerBar extends StatelessWidget {
@@ -115,58 +116,70 @@ class _MiniBar extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final thumb = item.effectiveThumbnail;
+    final desktop = AppBottomNav.desktopSidebarEnabled;
+    final wide = desktop && MediaQuery.sizeOf(context).width >= 920;
     Widget controlButton({
       required IconData icon,
       required VoidCallback? onPressed,
     }) {
       return SizedBox(
-        width: 34,
-        height: 34,
+        width: desktop ? 48 : 34,
+        height: desktop ? 48 : 34,
         child: IconButton(
           padding: EdgeInsets.zero,
           visualDensity: VisualDensity.compact,
           constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-          iconSize: 21,
+          iconSize: desktop ? 28 : 21,
           onPressed: onPressed,
           icon: Icon(icon),
         ),
       );
     }
 
-    final bg = Color.alphaBlend(
-      scheme.primary.withValues(alpha: 0.18),
-      scheme.surface,
-    );
+    final bg = desktop
+        ? scheme.surface
+        : Color.alphaBlend(
+            scheme.primary.withValues(alpha: 0.18),
+            scheme.surface,
+          );
 
     return Material(
       color: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: EdgeInsets.symmetric(horizontal: desktop ? 0 : 14),
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(desktop ? 0 : 18),
           onTap: onOpen,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: bg,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: scheme.primary.withValues(alpha: 0.18)),
-              boxShadow: [
-                BoxShadow(
-                  color: scheme.shadow.withValues(alpha: 0.12),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(desktop ? 0 : 18),
+              border: desktop
+                  ? null
+                  : Border.all(color: scheme.primary.withValues(alpha: 0.18)),
+              boxShadow: desktop
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: scheme.shadow.withValues(alpha: 0.12),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
             ),
             child: SizedBox(
-              height: 64,
+              height: desktop ? 112 : 64,
               child: Row(
                 children: [
-                  const SizedBox(width: 10),
+                  SizedBox(width: desktop ? 18 : 10),
                   AppMotionSwap(
                     child: KeyedSubtree(
                       key: ValueKey(thumb),
-                      child: _Thumb(thumb: thumb, isVideo: isVideo),
+                      child: _Thumb(
+                        thumb: thumb,
+                        isVideo: isVideo,
+                        size: desktop ? 80 : 46,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -182,9 +195,11 @@ class _MiniBar extends StatelessWidget {
                             key: ValueKey(item.title),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style:
+                                (desktop
+                                        ? theme.textTheme.titleMedium
+                                        : theme.textTheme.titleSmall)
+                                    ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -192,9 +207,11 @@ class _MiniBar extends StatelessWidget {
                           item.displaySubtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
+                          style:
+                              (desktop
+                                      ? theme.textTheme.bodyMedium
+                                      : theme.textTheme.bodySmall)
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -204,17 +221,27 @@ class _MiniBar extends StatelessWidget {
                     onPressed: canPrev ? onPrev : null,
                   ),
                   const SizedBox(width: 2),
-                  controlButton(
-                    icon: isPlaying
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded,
-                    onPressed: onToggle,
+                  Material(
+                    color: desktop ? scheme.primary : Colors.transparent,
+                    shape: const CircleBorder(),
+                    child: IconTheme(
+                      data: IconThemeData(
+                        color: desktop ? scheme.onPrimary : scheme.onSurface,
+                      ),
+                      child: controlButton(
+                        icon: isPlaying
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                        onPressed: onToggle,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 2),
                   controlButton(
                     icon: Icons.skip_next_rounded,
                     onPressed: canNext ? onNext : null,
                   ),
+                  if (wide) const Spacer(),
                   const SizedBox(width: 2),
                   controlButton(
                     icon: Icons.lyrics_rounded,
@@ -222,7 +249,7 @@ class _MiniBar extends StatelessWidget {
                   ),
                   const SizedBox(width: 2),
                   controlButton(icon: Icons.close_rounded, onPressed: onClose),
-                  const SizedBox(width: 4),
+                  SizedBox(width: desktop ? 18 : 4),
                 ],
               ),
             ),
@@ -234,10 +261,11 @@ class _MiniBar extends StatelessWidget {
 }
 
 class _Thumb extends StatelessWidget {
-  const _Thumb({required this.thumb, required this.isVideo});
+  const _Thumb({required this.thumb, required this.isVideo, this.size = 46});
 
   final String? thumb;
   final bool isVideo;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -250,13 +278,18 @@ class _Thumb extends StatelessWidget {
           : FileImage(File(thumb!)) as ImageProvider;
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image(image: provider, width: 46, height: 46, fit: BoxFit.cover),
+        child: Image(
+          image: provider,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+        ),
       );
     }
 
     return Container(
-      width: 46,
-      height: 46,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(12),

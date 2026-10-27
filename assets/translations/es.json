@@ -175,7 +175,11 @@
     "settings": "Ajustes",
     "settings_subtitle": "Preferencias y herramientas",
     "audio_mode_tooltip": "Modo Audio (tocar para Video)",
-    "video_mode_tooltip": "Modo Video (tocar para Audio)"
+    "video_mode_tooltip": "Modo Video (tocar para Audio)",
+    "audio_library": "Biblioteca de audios",
+    "video_library": "Biblioteca de videos",
+    "switch_video": "Cambiar a video",
+    "switch_audio": "Cambiar a audio"
   },
   "home": {
     "move": {
@@ -1444,6 +1448,38 @@
       "continue_body": "Este video quedó en {}. ¿Quieres retomarlo desde ahí o reproducirlo desde el principio?",
       "continue_btn": "Retomar {}",
       "start_btn": "Desde el principio"
+    },
+    "desktop": {
+      "add_playlist": "Añadir a una playlist",
+      "playlist_added": "Canción guardada en la playlist.",
+      "favorite": "Favorito",
+      "more": "Más opciones",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "volume": "Volumen",
+      "view_lyrics": "Ver letras",
+      "save_failed": "No se pudo guardar el cambio. Inténtalo de nuevo."
+    },
+    "queue_desktop": {
+      "match_position": "{} de {} coincidencias",
+      "previous_match": "Coincidencia anterior",
+      "next_match": "Siguiente coincidencia",
+      "drag_hint": "Arrastra para reordenar",
+      "summary": "{} pistas · {}",
+      "hours_minutes": "{} h {} min",
+      "minutes": "{} min",
+      "search": "Buscar en la cola",
+      "search_hint": "Buscar por título o artista",
+      "filter": "Filtrar la cola",
+      "all": "Toda la cola",
+      "upcoming": "A continuación",
+      "previous": "Anteriores",
+      "filtered": "{} resultados",
+      "reorder_filtered": "Quita el filtro para reordenar.",
+      "no_results": "No hay pistas que coincidan.",
+      "title": "Título",
+      "artist": "Artista",
+      "duration": "Duración"
     }
   },
   "tooltips": {

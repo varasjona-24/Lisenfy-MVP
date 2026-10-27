@@ -116,6 +116,21 @@ extension _HomeChoiceSortX on _HomeChoiceSort {
 class HomePage extends GetView<HomeController> {
   const HomePage({super.key});
 
+  void _onNavigate(int index) {
+    switch (index) {
+      case 1:
+        controller.goToPlaylists();
+      case 2:
+        controller.goToArtists();
+      case 3:
+        controller.goToAtlas();
+      case 4:
+        controller.goToDownloads();
+      case 5:
+        controller.goToSources();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Obx(() {
@@ -135,108 +150,189 @@ class HomePage extends GetView<HomeController> {
       // quede tapado por el nav + safe area inferior.
       final safeBottom = MediaQuery.of(context).padding.bottom;
 
+      final desktop = AppBottomNav.desktopSidebarEnabled;
+      final sidebarWidth = AppBottomNav.sidebarWidth(
+        MediaQuery.sizeOf(context).width,
+      );
+      final compactSidebar = sidebarWidth < 100;
+      final topBar = AppTopBar(
+        title: ListenfyLogo(size: 28, color: scheme.primary),
+        mode: mode == HomeMode.audio ? AppMediaMode.audio : AppMediaMode.video,
+        onSearch: controller.onSearch,
+        onToggleMode: controller.toggleMode,
+        extraActions: [
+          IconButton(
+            tooltip: tr('home.actions.edit_home'),
+            icon: const Icon(Icons.dashboard_customize_rounded),
+            onPressed: () => _openHomeEditorSheet(
+              context,
+              controller: controller,
+              mode: mode,
+            ),
+          ),
+        ],
+      );
+
       return Scaffold(
         backgroundColor: Colors.transparent,
         extendBody: true, // permite que el fondo pinte debajo del nav
         // ===========================================================
         // 3) AppBar superior (top bar)
         // ===========================================================
-        appBar: AppTopBar(
-          title: ListenfyLogo(size: 28, color: scheme.primary),
-          mode: mode == HomeMode.audio
-              ? AppMediaMode.audio
-              : AppMediaMode.video,
-          onSearch: controller.onSearch,
-          onToggleMode: controller.toggleMode,
-          extraActions: [
-            IconButton(
-              tooltip: tr('home.actions.edit_home'),
-              icon: const Icon(Icons.dashboard_customize_rounded),
-              onPressed: () => _openHomeEditorSheet(
-                context,
-                controller: controller,
-                mode: mode,
-              ),
-            ),
-          ],
-        ),
+        appBar: desktop ? null : topBar,
 
         // ===========================================================
         // 4) Body con Stack (contenido + bottom nav fijo)
         // ===========================================================
-        body: AppGradientBackground(
-          child: Stack(
-            children: [
-              // -------------------------------------------------------
-              // A) CONTENIDO (scroll)
-              // -------------------------------------------------------
-              Positioned.fill(
-                child: controller.isLoading.value
-                    ? const Center(child: CircularProgressIndicator())
-                    : RefreshIndicator(
-                        onRefresh: controller.loadHome,
-                        child: ScrollConfiguration(
-                          behavior: const _NoGlowScrollBehavior(),
-                          child: CustomScrollView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            slivers: [
-                              SliverPadding(
-                                padding: EdgeInsets.only(
-                                  top: AppSpacing.md,
+        body: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (desktop)
+              SizedBox(
+                width: sidebarWidth,
+                child: AppBottomNav(
+                  vertical: true,
+                  compact: compactSidebar,
+                  currentIndex: 0,
+                  onTap: _onNavigate,
+                  header: ListenfyLogo(
+                    size: 28,
+                    showText: !compactSidebar,
+                    color: scheme.primary,
+                  ),
+                  tools: topBar.buildSidebarActions(
+                    context,
+                    compact: compactSidebar,
+                  ),
+                ),
+              ),
+            Expanded(
+              child: AppGradientBackground(
+                child: Stack(
+                  children: [
+                    // -------------------------------------------------------
+                    // A) CONTENIDO (scroll)
+                    // -------------------------------------------------------
+                    Positioned.fill(
+                      child: controller.isLoading.value
+                          ? const Center(child: CircularProgressIndicator())
+                          : RefreshIndicator(
+                              onRefresh: controller.loadHome,
+                              child: ScrollConfiguration(
+                                behavior: const _NoGlowScrollBehavior(),
+                                child: CustomScrollView(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  slivers: [
+                                    SliverPadding(
+                                      padding: EdgeInsets.only(
+                                        top: AppSpacing.md,
 
-                                  // ✅ espacio real para que nada quede debajo del nav
-                                  // - BottomNavigationBarHeight: altura base
-                                  // - safeBottom: notch iOS
-                                  // - 18: aire extra visual
-                                  bottom:
-                                      kBottomNavigationBarHeight +
-                                      safeBottom +
-                                      18,
-                                ),
-                                sliver: !controller.usesDefaultHomeWidgetOrder
-                                    ? _HomeOrderedSections(
-                                        controller: controller,
-                                        actions: actions,
-                                        mode: mode,
-                                      )
-                                    : SliverList.list(
-                                        children: [
-                                          // ---- Favoritos ----
-                                          if (controller
-                                                  .usesDefaultHomeWidgetOrder &&
-                                              controller.enabledHomeWidgets
-                                                  .contains(
-                                                    HomeWidgetId.favorites,
-                                                  ) &&
-                                              controller
-                                                  .favorites
-                                                  .isNotEmpty) ...[
-                                            MediaHorizontalList(
-                                              title: _homeWidgetTitle(
-                                                HomeWidgetId.favorites,
-                                              ),
-                                              items: controller.favorites,
-                                              onHeaderTap: () => Get.toNamed(
-                                                AppRoutes.homeSectionList,
-                                                arguments: {
-                                                  'title': _homeWidgetTitle(
-                                                    HomeWidgetId.favorites,
-                                                  ),
-                                                  'items':
-                                                      controller.fullFavorites,
-                                                  'onItemTap': (item, index) =>
-                                                      controller.openHomeMedia(
-                                                        item,
-                                                        index,
-                                                        controller
+                                        // ✅ espacio real para que nada quede debajo del nav
+                                        // - BottomNavigationBarHeight: altura base
+                                        // - safeBottom: notch iOS
+                                        // - 18: aire extra visual
+                                        bottom: desktop
+                                            ? safeBottom + 152
+                                            : kBottomNavigationBarHeight +
+                                                  safeBottom +
+                                                  18,
+                                      ),
+                                      sliver:
+                                          !controller.usesDefaultHomeWidgetOrder
+                                          ? _HomeOrderedSections(
+                                              controller: controller,
+                                              actions: actions,
+                                              mode: mode,
+                                            )
+                                          : SliverList.list(
+                                              children: [
+                                                // ---- Favoritos ----
+                                                if (controller
+                                                        .usesDefaultHomeWidgetOrder &&
+                                                    controller
+                                                        .enabledHomeWidgets
+                                                        .contains(
+                                                          HomeWidgetId
+                                                              .favorites,
+                                                        ) &&
+                                                    controller
+                                                        .favorites
+                                                        .isNotEmpty) ...[
+                                                  MediaHorizontalList(
+                                                    cardScale:
+                                                        AppBottomNav
+                                                            .desktopSidebarEnabled
+                                                        ? 1.3
+                                                        : 1,
+                                                    title: _homeWidgetTitle(
+                                                      HomeWidgetId.favorites,
+                                                    ),
+                                                    items: controller.favorites,
+                                                    onHeaderTap: () => Get.toNamed(
+                                                      AppRoutes.homeSectionList,
+                                                      arguments: {
+                                                        'title':
+                                                            _homeWidgetTitle(
+                                                              HomeWidgetId
+                                                                  .favorites,
+                                                            ),
+                                                        'items': controller
                                                             .fullFavorites,
-                                                      ),
-                                                  'onItemLongPress':
-                                                      (
-                                                        item,
-                                                        _, {
-                                                        onStartMultiSelect,
-                                                      }) => actions.showItemActions(
+                                                        'onItemTap':
+                                                            (
+                                                              item,
+                                                              index,
+                                                            ) => controller
+                                                                .openHomeMedia(
+                                                                  item,
+                                                                  index,
+                                                                  controller
+                                                                      .fullFavorites,
+                                                                ),
+                                                        'onItemLongPress':
+                                                            (
+                                                              item,
+                                                              _, {
+                                                              onStartMultiSelect,
+                                                            }) => actions.showItemActions(
+                                                              context,
+                                                              item,
+                                                              onChanged:
+                                                                  controller
+                                                                      .loadHome,
+                                                              queueContext:
+                                                                  controller
+                                                                      .fullFavorites,
+                                                              queueContextIndex: controller
+                                                                  .fullFavorites
+                                                                  .indexWhere(
+                                                                    (entry) =>
+                                                                        entry
+                                                                            .id ==
+                                                                        item.id,
+                                                                  ),
+                                                              onStartMultiSelect:
+                                                                  onStartMultiSelect,
+                                                            ),
+                                                        'onShuffle': (queue) =>
+                                                            controller
+                                                                .openHomeMedia(
+                                                                  queue.first,
+                                                                  0,
+                                                                  queue,
+                                                                ),
+                                                      },
+                                                    ),
+                                                    onItemTap: (item, index) =>
+                                                        controller.openHomeMedia(
+                                                          item,
+                                                          index,
+                                                          controller
+                                                              .fullFavorites,
+                                                        ),
+                                                    onItemLongPress: (item, _, {onStartMultiSelect}) {
+                                                      actions.showItemActions(
                                                         context,
                                                         item,
                                                         onChanged:
@@ -252,691 +348,674 @@ class HomePage extends GetView<HomeController> {
                                                                           .id ==
                                                                       item.id,
                                                                 ),
-                                                        onStartMultiSelect:
-                                                            onStartMultiSelect,
-                                                      ),
-                                                  'onShuffle': (queue) =>
-                                                      controller.openHomeMedia(
-                                                        queue.first,
-                                                        0,
-                                                        queue,
-                                                      ),
-                                                },
-                                              ),
-                                              onItemTap: (item, index) =>
-                                                  controller.openHomeMedia(
-                                                    item,
-                                                    index,
-                                                    controller.fullFavorites,
-                                                  ),
-                                              onItemLongPress: (item, _, {onStartMultiSelect}) {
-                                                actions.showItemActions(
-                                                  context,
-                                                  item,
-                                                  onChanged:
-                                                      controller.loadHome,
-                                                  queueContext:
-                                                      controller.fullFavorites,
-                                                  queueContextIndex: controller
-                                                      .fullFavorites
-                                                      .indexWhere(
-                                                        (entry) =>
-                                                            entry.id == item.id,
-                                                      ),
-                                                  onStartMultiSelect: () => Get.toNamed(
-                                                    AppRoutes.homeSectionList,
-                                                    arguments: {
-                                                      'title': _homeWidgetTitle(
-                                                        HomeWidgetId.favorites,
-                                                      ),
-                                                      'items': controller
-                                                          .fullFavorites,
-                                                      'onItemTap':
-                                                          (
-                                                            item,
-                                                            index,
-                                                          ) => controller
-                                                              .openHomeMedia(
-                                                                item,
-                                                                index,
-                                                                controller
-                                                                    .fullFavorites,
-                                                              ),
-                                                      'onItemLongPress':
-                                                          (
-                                                            item,
-                                                            _, {
-                                                            onStartMultiSelect,
-                                                          }) => actions.showItemActions(
-                                                            context,
-                                                            item,
-                                                            onChanged:
-                                                                controller
-                                                                    .loadHome,
-                                                            queueContext:
-                                                                controller
-                                                                    .fullFavorites,
-                                                            queueContextIndex:
-                                                                controller
-                                                                    .fullFavorites
-                                                                    .indexWhere(
-                                                                      (entry) =>
-                                                                          entry
-                                                                              .id ==
-                                                                          item.id,
-                                                                    ),
-                                                            onStartMultiSelect:
-                                                                onStartMultiSelect,
-                                                          ),
-                                                      'onShuffle': (queue) =>
-                                                          controller
-                                                              .openHomeMedia(
-                                                                queue.first,
-                                                                0,
-                                                                queue,
-                                                              ),
-                                                      'startInSelectionMode':
-                                                          true,
-                                                      'initialSelectionItemId':
-                                                          item.id,
-                                                    },
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            const SizedBox(height: 18),
-                                          ],
-
-                                          // ---- Para ti hoy ----
-                                          if (controller
-                                                  .usesDefaultHomeWidgetOrder &&
-                                              controller.enabledHomeWidgets
-                                                  .contains(
-                                                    HomeWidgetId
-                                                        .recommendations,
-                                                  ) &&
-                                              mode == HomeMode.audio &&
-                                              (controller
-                                                      .recommendationCollections
-                                                      .isNotEmpty ||
-                                                  controller
-                                                      .isRecommendationsLoading
-                                                      .value)) ...[
-                                            _SectionHeader(
-                                              title: _homeWidgetTitle(
-                                                HomeWidgetId.recommendations,
-                                              ),
-                                              onTap: () => Get.toNamed(
-                                                AppRoutes.homeSectionList,
-                                                arguments: {
-                                                  'title': _homeWidgetTitle(
-                                                    HomeWidgetId
-                                                        .recommendations,
-                                                  ),
-                                                  'items': controller
-                                                      .fullRecommended,
-                                                  'itemHintBuilder': controller
-                                                      .recommendationHintFor,
-                                                  'onItemTap': (item, index) =>
-                                                      controller.openHomeMedia(
-                                                        item,
-                                                        index,
-                                                        controller
-                                                            .fullRecommended,
-                                                      ),
-                                                  'onItemLongPress':
-                                                      (
-                                                        item,
-                                                        _, {
-                                                        onStartMultiSelect,
-                                                      }) => actions.showItemActions(
-                                                        context,
-                                                        item,
-                                                        onChanged:
-                                                            controller.loadHome,
-                                                        queueContext: controller
-                                                            .fullRecommended,
-                                                        queueContextIndex:
-                                                            controller
-                                                                .fullRecommended
-                                                                .indexWhere(
-                                                                  (entry) =>
-                                                                      entry
-                                                                          .id ==
-                                                                      item.id,
+                                                        onStartMultiSelect: () => Get.toNamed(
+                                                          AppRoutes
+                                                              .homeSectionList,
+                                                          arguments: {
+                                                            'title':
+                                                                _homeWidgetTitle(
+                                                                  HomeWidgetId
+                                                                      .favorites,
                                                                 ),
-                                                        onStartMultiSelect:
-                                                            onStartMultiSelect,
-                                                      ),
-                                                  'onShuffle': (queue) =>
-                                                      controller.openHomeMedia(
-                                                        queue.first,
-                                                        0,
-                                                        queue,
-                                                      ),
-                                                },
-                                              ),
-                                              trailing: Text(
-                                                controller
-                                                    .recommendationCycleHint,
-                                                style: theme
-                                                    .textTheme
-                                                    .labelSmall
-                                                    ?.copyWith(
-                                                      color: scheme
-                                                          .onSurfaceVariant,
-                                                    ),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 10),
-                                            if (controller
-                                                .isRecommendationsLoading
-                                                .value)
-                                              const Padding(
-                                                padding: EdgeInsets.symmetric(
-                                                  vertical: 18,
-                                                ),
-                                                child: Center(
-                                                  child:
-                                                      CircularProgressIndicator(),
-                                                ),
-                                              )
-                                            else
-                                              _RecommendationCollectionsRow(
-                                                collections: controller
-                                                    .recommendationCollections,
-                                                onTap: (collection, _) {
-                                                  controller
-                                                      .markRecommendationMixOpened(
-                                                        collection,
+                                                            'items': controller
+                                                                .fullFavorites,
+                                                            'onItemTap':
+                                                                (
+                                                                  item,
+                                                                  index,
+                                                                ) => controller
+                                                                    .openHomeMedia(
+                                                                      item,
+                                                                      index,
+                                                                      controller
+                                                                          .fullFavorites,
+                                                                    ),
+                                                            'onItemLongPress':
+                                                                (
+                                                                  item,
+                                                                  _, {
+                                                                  onStartMultiSelect,
+                                                                }) => actions.showItemActions(
+                                                                  context,
+                                                                  item,
+                                                                  onChanged:
+                                                                      controller
+                                                                          .loadHome,
+                                                                  queueContext:
+                                                                      controller
+                                                                          .fullFavorites,
+                                                                  queueContextIndex: controller
+                                                                      .fullFavorites
+                                                                      .indexWhere(
+                                                                        (
+                                                                          entry,
+                                                                        ) =>
+                                                                            entry.id ==
+                                                                            item.id,
+                                                                      ),
+                                                                  onStartMultiSelect:
+                                                                      onStartMultiSelect,
+                                                                ),
+                                                            'onShuffle':
+                                                                (
+                                                                  queue,
+                                                                ) => controller
+                                                                    .openHomeMedia(
+                                                                      queue
+                                                                          .first,
+                                                                      0,
+                                                                      queue,
+                                                                    ),
+                                                            'startInSelectionMode':
+                                                                true,
+                                                            'initialSelectionItemId':
+                                                                item.id,
+                                                          },
+                                                        ),
                                                       );
-                                                  Get.toNamed(
-                                                    AppRoutes.homeSectionList,
-                                                    arguments: {
-                                                      'title': collection.title,
-                                                      'items': collection.items,
-                                                      'itemHintBuilder': controller
-                                                          .recommendationHintFor,
-                                                      'onItemTap':
-                                                          (
-                                                            item,
-                                                            index,
-                                                          ) => controller
-                                                              .openHomeMedia(
-                                                                item,
-                                                                index,
-                                                                collection
-                                                                    .items,
-                                                              ),
-                                                      'onItemLongPress':
-                                                          (
-                                                            item,
-                                                            _, {
-                                                            onStartMultiSelect,
-                                                          }) => actions.showItemActions(
-                                                            context,
-                                                            item,
-                                                            onChanged:
-                                                                controller
-                                                                    .loadHome,
-                                                            queueContext:
-                                                                collection
-                                                                    .items,
-                                                            queueContextIndex:
-                                                                collection.items
-                                                                    .indexWhere(
-                                                                      (entry) =>
-                                                                          entry
-                                                                              .id ==
-                                                                          item.id,
-                                                                    ),
-                                                            onStartMultiSelect:
-                                                                onStartMultiSelect,
-                                                          ),
-                                                      'onShuffle': (queue) =>
-                                                          controller
-                                                              .openHomeMedia(
-                                                                queue.first,
-                                                                0,
-                                                                queue,
-                                                              ),
-                                                    },
-                                                  );
-                                                },
-                                              ),
-                                            const SizedBox(height: 18),
-                                          ],
-
-                                          // ---- Más reproducido ----
-                                          if (controller
-                                                  .usesDefaultHomeWidgetOrder &&
-                                              controller.enabledHomeWidgets
-                                                  .contains(
-                                                    HomeWidgetId.mostPlayed,
-                                                  ) &&
-                                              controller
-                                                  .mostPlayed
-                                                  .isNotEmpty) ...[
-                                            _SectionHeader(
-                                              title: _homeWidgetTitle(
-                                                HomeWidgetId.mostPlayed,
-                                              ),
-                                              onTap: () => Get.toNamed(
-                                                AppRoutes.homeSectionList,
-                                                arguments: {
-                                                  'title': _homeWidgetTitle(
-                                                    HomeWidgetId.mostPlayed,
-                                                  ),
-                                                  'items':
-                                                      controller.fullMostPlayed,
-                                                  'itemTrailingBuilder':
-                                                      (MediaItem item, int _) =>
-                                                          _PlayCountPill(
-                                                            item: item,
-                                                          ),
-                                                  'onItemTap': (item, index) =>
-                                                      controller.openHomeMedia(
-                                                        item,
-                                                        index,
-                                                        controller
-                                                            .fullMostPlayed,
-                                                      ),
-                                                  'onItemLongPress':
-                                                      (
-                                                        item,
-                                                        _, {
-                                                        onStartMultiSelect,
-                                                      }) => actions.showItemActions(
-                                                        context,
-                                                        item,
-                                                        onChanged:
-                                                            controller.loadHome,
-                                                        queueContext: controller
-                                                            .fullMostPlayed,
-                                                        queueContextIndex:
-                                                            controller
-                                                                .fullMostPlayed
-                                                                .indexWhere(
-                                                                  (entry) =>
-                                                                      entry
-                                                                          .id ==
-                                                                      item.id,
-                                                                ),
-                                                        onStartMultiSelect:
-                                                            onStartMultiSelect,
-                                                      ),
-                                                  'onShuffle': (queue) =>
-                                                      controller.openHomeMedia(
-                                                        queue.first,
-                                                        0,
-                                                        queue,
-                                                      ),
-                                                },
-                                              ),
-                                            ),
-                                            const SizedBox(height: 10),
-                                            _MostPlayedRow(
-                                              items: controller.mostPlayed,
-                                              onTap: (item, index) =>
-                                                  controller.openHomeMedia(
-                                                    item,
-                                                    index,
-                                                    controller.fullMostPlayed,
-                                                  ),
-                                              onLongPress: (item, _) {
-                                                actions.showItemActions(
-                                                  context,
-                                                  item,
-                                                  onChanged:
-                                                      controller.loadHome,
-                                                  queueContext:
-                                                      controller.fullMostPlayed,
-                                                  queueContextIndex: controller
-                                                      .fullMostPlayed
-                                                      .indexWhere(
-                                                        (entry) =>
-                                                            entry.id == item.id,
-                                                      ),
-                                                  onStartMultiSelect: () => Get.toNamed(
-                                                    AppRoutes.homeSectionList,
-                                                    arguments: {
-                                                      'title': _homeWidgetTitle(
-                                                        HomeWidgetId.mostPlayed,
-                                                      ),
-                                                      'items': controller
-                                                          .fullMostPlayed,
-                                                      'itemTrailingBuilder':
-                                                          (
-                                                            MediaItem item,
-                                                            int _,
-                                                          ) => _PlayCountPill(
-                                                            item: item,
-                                                          ),
-                                                      'onItemTap':
-                                                          (
-                                                            item,
-                                                            index,
-                                                          ) => controller
-                                                              .openHomeMedia(
-                                                                item,
-                                                                index,
-                                                                controller
-                                                                    .fullMostPlayed,
-                                                              ),
-                                                      'onItemLongPress':
-                                                          (
-                                                            item,
-                                                            _, {
-                                                            onStartMultiSelect,
-                                                          }) => actions.showItemActions(
-                                                            context,
-                                                            item,
-                                                            onChanged:
-                                                                controller
-                                                                    .loadHome,
-                                                            queueContext: controller
-                                                                .fullMostPlayed,
-                                                            queueContextIndex: controller
-                                                                .fullMostPlayed
-                                                                .indexWhere(
-                                                                  (entry) =>
-                                                                      entry
-                                                                          .id ==
-                                                                      item.id,
-                                                                ),
-                                                            onStartMultiSelect:
-                                                                onStartMultiSelect,
-                                                          ),
-                                                      'onShuffle': (queue) =>
-                                                          controller
-                                                              .openHomeMedia(
-                                                                queue.first,
-                                                                0,
-                                                                queue,
-                                                              ),
-                                                      'startInSelectionMode':
-                                                          true,
-                                                      'initialSelectionItemId':
-                                                          item.id,
                                                     },
                                                   ),
-                                                );
-                                              },
-                                            ),
-                                            const SizedBox(height: 18),
-                                          ],
+                                                  const SizedBox(height: 18),
+                                                ],
 
-                                          // ---- Reproducciones recientes ----
-                                          if (controller
-                                                  .usesDefaultHomeWidgetOrder &&
-                                              controller.enabledHomeWidgets
-                                                  .contains(
-                                                    HomeWidgetId.recentlyPlayed,
-                                                  ) &&
-                                              controller
-                                                  .recentlyPlayed
-                                                  .isNotEmpty)
-                                            MediaHorizontalList(
-                                              title: _homeWidgetTitle(
-                                                HomeWidgetId.recentlyPlayed,
-                                              ),
-                                              items: controller.recentlyPlayed,
-                                              onHeaderTap: () => Get.toNamed(
-                                                AppRoutes.homeSectionList,
-                                                arguments: {
-                                                  'title': _homeWidgetTitle(
-                                                    HomeWidgetId.recentlyPlayed,
-                                                  ),
-                                                  'items': controller
-                                                      .fullRecentlyPlayed,
-                                                  'onItemTap': (item, index) =>
-                                                      controller.openHomeMedia(
-                                                        item,
-                                                        index,
-                                                        controller
-                                                            .fullRecentlyPlayed,
-                                                      ),
-                                                  'onItemLongPress':
-                                                      (
-                                                        item,
-                                                        _, {
-                                                        onStartMultiSelect,
-                                                      }) => actions.showItemActions(
-                                                        context,
-                                                        item,
-                                                        onChanged:
-                                                            controller.loadHome,
-                                                        queueContext: controller
-                                                            .fullRecentlyPlayed,
-                                                        queueContextIndex:
-                                                            controller
-                                                                .fullRecentlyPlayed
-                                                                .indexWhere(
-                                                                  (entry) =>
-                                                                      entry
-                                                                          .id ==
-                                                                      item.id,
-                                                                ),
-                                                        onStartMultiSelect:
-                                                            onStartMultiSelect,
-                                                      ),
-                                                  'onShuffle': (queue) =>
-                                                      controller.openHomeMedia(
-                                                        queue.first,
-                                                        0,
-                                                        queue,
-                                                      ),
-                                                },
-                                              ),
-                                              onItemTap: (item, index) =>
-                                                  controller.openHomeMedia(
-                                                    item,
-                                                    index,
+                                                // ---- Para ti hoy ----
+                                                if (controller
+                                                        .usesDefaultHomeWidgetOrder &&
                                                     controller
-                                                        .fullRecentlyPlayed,
-                                                  ),
-                                              onItemLongPress: (item, _, {onStartMultiSelect}) {
-                                                actions.showItemActions(
-                                                  context,
-                                                  item,
-                                                  onChanged:
-                                                      controller.loadHome,
-                                                  queueContext: controller
-                                                      .fullRecentlyPlayed,
-                                                  queueContextIndex: controller
-                                                      .fullRecentlyPlayed
-                                                      .indexWhere(
-                                                        (entry) =>
-                                                            entry.id == item.id,
-                                                      ),
-                                                  onStartMultiSelect: () => Get.toNamed(
-                                                    AppRoutes.homeSectionList,
-                                                    arguments: {
-                                                      'title': _homeWidgetTitle(
-                                                        HomeWidgetId
-                                                            .recentlyPlayed,
-                                                      ),
-                                                      'items': controller
-                                                          .fullRecentlyPlayed,
-                                                      'onItemTap':
-                                                          (
-                                                            item,
-                                                            index,
-                                                          ) => controller
-                                                              .openHomeMedia(
-                                                                item,
-                                                                index,
-                                                                controller
-                                                                    .fullRecentlyPlayed,
-                                                              ),
-                                                      'onItemLongPress':
-                                                          (
-                                                            item,
-                                                            _, {
-                                                            onStartMultiSelect,
-                                                          }) => actions.showItemActions(
-                                                            context,
-                                                            item,
-                                                            onChanged:
-                                                                controller
-                                                                    .loadHome,
-                                                            queueContext: controller
-                                                                .fullRecentlyPlayed,
-                                                            queueContextIndex: controller
-                                                                .fullRecentlyPlayed
-                                                                .indexWhere(
-                                                                  (entry) =>
-                                                                      entry
-                                                                          .id ==
-                                                                      item.id,
-                                                                ),
-                                                            onStartMultiSelect:
-                                                                onStartMultiSelect,
-                                                          ),
-                                                      'onShuffle': (queue) =>
-                                                          controller
-                                                              .openHomeMedia(
-                                                                queue.first,
-                                                                0,
-                                                                queue,
-                                                              ),
-                                                      'startInSelectionMode':
-                                                          true,
-                                                      'initialSelectionItemId':
-                                                          item.id,
-                                                    },
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          if (controller
-                                                  .usesDefaultHomeWidgetOrder &&
-                                              controller.enabledHomeWidgets
-                                                  .contains(
-                                                    HomeWidgetId.recentlyPlayed,
-                                                  ) &&
-                                              controller
-                                                  .recentlyPlayed
-                                                  .isNotEmpty)
-                                            const SizedBox(height: 18),
-
-                                          // ---- Destacado ----
-                                          if (controller
-                                                  .usesDefaultHomeWidgetOrder &&
-                                              controller.enabledHomeWidgets
-                                                  .contains(
-                                                    HomeWidgetId.featured,
-                                                  ) &&
-                                              controller
-                                                  .featured
-                                                  .isNotEmpty) ...[
-                                            _SectionHeader(
-                                              title: _homeWidgetTitle(
-                                                HomeWidgetId.featured,
-                                              ),
-                                              onTap: () => Get.toNamed(
-                                                AppRoutes.homeSectionList,
-                                                arguments: {
-                                                  'title': _homeWidgetTitle(
-                                                    HomeWidgetId.featured,
-                                                  ),
-                                                  'items':
-                                                      controller.fullFeatured,
-                                                  'onItemTap': (item, index) =>
-                                                      controller.openHomeMedia(
-                                                        item,
-                                                        index,
-                                                        controller.fullFeatured,
-                                                      ),
-                                                  'onItemLongPress':
-                                                      (
-                                                        item,
-                                                        _, {
-                                                        onStartMultiSelect,
-                                                      }) => actions.showItemActions(
-                                                        context,
-                                                        item,
-                                                        onChanged:
-                                                            controller.loadHome,
-                                                        queueContext: controller
-                                                            .fullFeatured,
-                                                        queueContextIndex:
+                                                        .enabledHomeWidgets
+                                                        .contains(
+                                                          HomeWidgetId
+                                                              .recommendations,
+                                                        ) &&
+                                                    mode == HomeMode.audio &&
+                                                    (controller
+                                                            .recommendationCollections
+                                                            .isNotEmpty ||
+                                                        controller
+                                                            .isRecommendationsLoading
+                                                            .value)) ...[
+                                                  _SectionHeader(
+                                                    title: _homeWidgetTitle(
+                                                      HomeWidgetId
+                                                          .recommendations,
+                                                    ),
+                                                    onTap: () => Get.toNamed(
+                                                      AppRoutes.homeSectionList,
+                                                      arguments: {
+                                                        'title': _homeWidgetTitle(
+                                                          HomeWidgetId
+                                                              .recommendations,
+                                                        ),
+                                                        'items': controller
+                                                            .fullRecommended,
+                                                        'itemHintBuilder':
                                                             controller
-                                                                .fullFeatured
-                                                                .indexWhere(
-                                                                  (entry) =>
-                                                                      entry
-                                                                          .id ==
-                                                                      item.id,
-                                                                ),
-                                                        onStartMultiSelect:
-                                                            onStartMultiSelect,
-                                                      ),
-                                                  'onShuffle': (queue) =>
-                                                      controller.openHomeMedia(
-                                                        queue.first,
-                                                        0,
-                                                        queue,
-                                                      ),
-                                                },
-                                              ),
-                                              trailing: null,
-                                            ),
-                                            const SizedBox(height: 10),
-                                            _FeaturedList(
-                                              items: controller.featured,
-                                              onTap: (item, index) =>
-                                                  controller.openHomeMedia(
-                                                    item,
-                                                    index,
-                                                    controller.fullFeatured,
-                                                  ),
-                                              onLongPress: (item, _) => actions.showItemActions(
-                                                context,
-                                                item,
-                                                onChanged: controller.loadHome,
-                                                queueContext:
-                                                    controller.fullFeatured,
-                                                queueContextIndex: controller
-                                                    .fullFeatured
-                                                    .indexWhere(
-                                                      (entry) =>
-                                                          entry.id == item.id,
-                                                    ),
-                                                onStartMultiSelect: () => Get.toNamed(
-                                                  AppRoutes.homeSectionList,
-                                                  arguments: {
-                                                    'title': _homeWidgetTitle(
-                                                      HomeWidgetId.featured,
-                                                    ),
-                                                    'items':
-                                                        controller.fullFeatured,
-                                                    'onItemTap':
-                                                        (
-                                                          item,
-                                                          index,
-                                                        ) => controller
-                                                            .openHomeMedia(
+                                                                .recommendationHintFor,
+                                                        'onItemTap':
+                                                            (
                                                               item,
                                                               index,
-                                                              controller
-                                                                  .fullFeatured,
+                                                            ) => controller
+                                                                .openHomeMedia(
+                                                                  item,
+                                                                  index,
+                                                                  controller
+                                                                      .fullRecommended,
+                                                                ),
+                                                        'onItemLongPress':
+                                                            (
+                                                              item,
+                                                              _, {
+                                                              onStartMultiSelect,
+                                                            }) => actions.showItemActions(
+                                                              context,
+                                                              item,
+                                                              onChanged:
+                                                                  controller
+                                                                      .loadHome,
+                                                              queueContext:
+                                                                  controller
+                                                                      .fullRecommended,
+                                                              queueContextIndex: controller
+                                                                  .fullRecommended
+                                                                  .indexWhere(
+                                                                    (entry) =>
+                                                                        entry
+                                                                            .id ==
+                                                                        item.id,
+                                                                  ),
+                                                              onStartMultiSelect:
+                                                                  onStartMultiSelect,
                                                             ),
-                                                    'onItemLongPress':
-                                                        (
+                                                        'onShuffle': (queue) =>
+                                                            controller
+                                                                .openHomeMedia(
+                                                                  queue.first,
+                                                                  0,
+                                                                  queue,
+                                                                ),
+                                                      },
+                                                    ),
+                                                    trailing: Text(
+                                                      controller
+                                                          .recommendationCycleHint,
+                                                      style: theme
+                                                          .textTheme
+                                                          .labelSmall
+                                                          ?.copyWith(
+                                                            color: scheme
+                                                                .onSurfaceVariant,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 10),
+                                                  if (controller
+                                                      .isRecommendationsLoading
+                                                      .value)
+                                                    const Padding(
+                                                      padding:
+                                                          EdgeInsets.symmetric(
+                                                            vertical: 18,
+                                                          ),
+                                                      child: Center(
+                                                        child:
+                                                            CircularProgressIndicator(),
+                                                      ),
+                                                    )
+                                                  else
+                                                    _RecommendationCollectionsRow(
+                                                      collections: controller
+                                                          .recommendationCollections,
+                                                      onTap: (collection, _) {
+                                                        controller
+                                                            .markRecommendationMixOpened(
+                                                              collection,
+                                                            );
+                                                        Get.toNamed(
+                                                          AppRoutes
+                                                              .homeSectionList,
+                                                          arguments: {
+                                                            'title': collection
+                                                                .title,
+                                                            'items': collection
+                                                                .items,
+                                                            'itemHintBuilder':
+                                                                controller
+                                                                    .recommendationHintFor,
+                                                            'onItemTap':
+                                                                (
+                                                                  item,
+                                                                  index,
+                                                                ) => controller
+                                                                    .openHomeMedia(
+                                                                      item,
+                                                                      index,
+                                                                      collection
+                                                                          .items,
+                                                                    ),
+                                                            'onItemLongPress':
+                                                                (
+                                                                  item,
+                                                                  _, {
+                                                                  onStartMultiSelect,
+                                                                }) => actions.showItemActions(
+                                                                  context,
+                                                                  item,
+                                                                  onChanged:
+                                                                      controller
+                                                                          .loadHome,
+                                                                  queueContext:
+                                                                      collection
+                                                                          .items,
+                                                                  queueContextIndex: collection
+                                                                      .items
+                                                                      .indexWhere(
+                                                                        (
+                                                                          entry,
+                                                                        ) =>
+                                                                            entry.id ==
+                                                                            item.id,
+                                                                      ),
+                                                                  onStartMultiSelect:
+                                                                      onStartMultiSelect,
+                                                                ),
+                                                            'onShuffle':
+                                                                (
+                                                                  queue,
+                                                                ) => controller
+                                                                    .openHomeMedia(
+                                                                      queue
+                                                                          .first,
+                                                                      0,
+                                                                      queue,
+                                                                    ),
+                                                          },
+                                                        );
+                                                      },
+                                                    ),
+                                                  const SizedBox(height: 18),
+                                                ],
+
+                                                // ---- Más reproducido ----
+                                                if (controller
+                                                        .usesDefaultHomeWidgetOrder &&
+                                                    controller
+                                                        .enabledHomeWidgets
+                                                        .contains(
+                                                          HomeWidgetId
+                                                              .mostPlayed,
+                                                        ) &&
+                                                    controller
+                                                        .mostPlayed
+                                                        .isNotEmpty) ...[
+                                                  _SectionHeader(
+                                                    title: _homeWidgetTitle(
+                                                      HomeWidgetId.mostPlayed,
+                                                    ),
+                                                    onTap: () => Get.toNamed(
+                                                      AppRoutes.homeSectionList,
+                                                      arguments: {
+                                                        'title':
+                                                            _homeWidgetTitle(
+                                                              HomeWidgetId
+                                                                  .mostPlayed,
+                                                            ),
+                                                        'items': controller
+                                                            .fullMostPlayed,
+                                                        'itemTrailingBuilder':
+                                                            (
+                                                              MediaItem item,
+                                                              int _,
+                                                            ) => _PlayCountPill(
+                                                              item: item,
+                                                            ),
+                                                        'onItemTap':
+                                                            (
+                                                              item,
+                                                              index,
+                                                            ) => controller
+                                                                .openHomeMedia(
+                                                                  item,
+                                                                  index,
+                                                                  controller
+                                                                      .fullMostPlayed,
+                                                                ),
+                                                        'onItemLongPress':
+                                                            (
+                                                              item,
+                                                              _, {
+                                                              onStartMultiSelect,
+                                                            }) => actions.showItemActions(
+                                                              context,
+                                                              item,
+                                                              onChanged:
+                                                                  controller
+                                                                      .loadHome,
+                                                              queueContext:
+                                                                  controller
+                                                                      .fullMostPlayed,
+                                                              queueContextIndex: controller
+                                                                  .fullMostPlayed
+                                                                  .indexWhere(
+                                                                    (entry) =>
+                                                                        entry
+                                                                            .id ==
+                                                                        item.id,
+                                                                  ),
+                                                              onStartMultiSelect:
+                                                                  onStartMultiSelect,
+                                                            ),
+                                                        'onShuffle': (queue) =>
+                                                            controller
+                                                                .openHomeMedia(
+                                                                  queue.first,
+                                                                  0,
+                                                                  queue,
+                                                                ),
+                                                      },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 10),
+                                                  _MostPlayedRow(
+                                                    items:
+                                                        controller.mostPlayed,
+                                                    onTap: (item, index) =>
+                                                        controller.openHomeMedia(
                                                           item,
-                                                          _, {
-                                                          onStartMultiSelect,
-                                                        }) => actions.showItemActions(
-                                                          context,
+                                                          index,
+                                                          controller
+                                                              .fullMostPlayed,
+                                                        ),
+                                                    onLongPress: (item, _) {
+                                                      actions.showItemActions(
+                                                        context,
+                                                        item,
+                                                        onChanged:
+                                                            controller.loadHome,
+                                                        queueContext: controller
+                                                            .fullMostPlayed,
+                                                        queueContextIndex:
+                                                            controller
+                                                                .fullMostPlayed
+                                                                .indexWhere(
+                                                                  (entry) =>
+                                                                      entry
+                                                                          .id ==
+                                                                      item.id,
+                                                                ),
+                                                        onStartMultiSelect: () => Get.toNamed(
+                                                          AppRoutes
+                                                              .homeSectionList,
+                                                          arguments: {
+                                                            'title':
+                                                                _homeWidgetTitle(
+                                                                  HomeWidgetId
+                                                                      .mostPlayed,
+                                                                ),
+                                                            'items': controller
+                                                                .fullMostPlayed,
+                                                            'itemTrailingBuilder':
+                                                                (
+                                                                  MediaItem
+                                                                  item,
+                                                                  int _,
+                                                                ) =>
+                                                                    _PlayCountPill(
+                                                                      item:
+                                                                          item,
+                                                                    ),
+                                                            'onItemTap':
+                                                                (
+                                                                  item,
+                                                                  index,
+                                                                ) => controller
+                                                                    .openHomeMedia(
+                                                                      item,
+                                                                      index,
+                                                                      controller
+                                                                          .fullMostPlayed,
+                                                                    ),
+                                                            'onItemLongPress':
+                                                                (
+                                                                  item,
+                                                                  _, {
+                                                                  onStartMultiSelect,
+                                                                }) => actions.showItemActions(
+                                                                  context,
+                                                                  item,
+                                                                  onChanged:
+                                                                      controller
+                                                                          .loadHome,
+                                                                  queueContext:
+                                                                      controller
+                                                                          .fullMostPlayed,
+                                                                  queueContextIndex: controller
+                                                                      .fullMostPlayed
+                                                                      .indexWhere(
+                                                                        (
+                                                                          entry,
+                                                                        ) =>
+                                                                            entry.id ==
+                                                                            item.id,
+                                                                      ),
+                                                                  onStartMultiSelect:
+                                                                      onStartMultiSelect,
+                                                                ),
+                                                            'onShuffle':
+                                                                (
+                                                                  queue,
+                                                                ) => controller
+                                                                    .openHomeMedia(
+                                                                      queue
+                                                                          .first,
+                                                                      0,
+                                                                      queue,
+                                                                    ),
+                                                            'startInSelectionMode':
+                                                                true,
+                                                            'initialSelectionItemId':
+                                                                item.id,
+                                                          },
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 18),
+                                                ],
+
+                                                // ---- Reproducciones recientes ----
+                                                if (controller
+                                                        .usesDefaultHomeWidgetOrder &&
+                                                    controller
+                                                        .enabledHomeWidgets
+                                                        .contains(
+                                                          HomeWidgetId
+                                                              .recentlyPlayed,
+                                                        ) &&
+                                                    controller
+                                                        .recentlyPlayed
+                                                        .isNotEmpty)
+                                                  MediaHorizontalList(
+                                                    cardScale:
+                                                        AppBottomNav
+                                                            .desktopSidebarEnabled
+                                                        ? 1.3
+                                                        : 1,
+                                                    title: _homeWidgetTitle(
+                                                      HomeWidgetId
+                                                          .recentlyPlayed,
+                                                    ),
+                                                    items: controller
+                                                        .recentlyPlayed,
+                                                    onHeaderTap: () => Get.toNamed(
+                                                      AppRoutes.homeSectionList,
+                                                      arguments: {
+                                                        'title': _homeWidgetTitle(
+                                                          HomeWidgetId
+                                                              .recentlyPlayed,
+                                                        ),
+                                                        'items': controller
+                                                            .fullRecentlyPlayed,
+                                                        'onItemTap':
+                                                            (
+                                                              item,
+                                                              index,
+                                                            ) => controller
+                                                                .openHomeMedia(
+                                                                  item,
+                                                                  index,
+                                                                  controller
+                                                                      .fullRecentlyPlayed,
+                                                                ),
+                                                        'onItemLongPress':
+                                                            (
+                                                              item,
+                                                              _, {
+                                                              onStartMultiSelect,
+                                                            }) => actions.showItemActions(
+                                                              context,
+                                                              item,
+                                                              onChanged:
+                                                                  controller
+                                                                      .loadHome,
+                                                              queueContext:
+                                                                  controller
+                                                                      .fullRecentlyPlayed,
+                                                              queueContextIndex: controller
+                                                                  .fullRecentlyPlayed
+                                                                  .indexWhere(
+                                                                    (entry) =>
+                                                                        entry
+                                                                            .id ==
+                                                                        item.id,
+                                                                  ),
+                                                              onStartMultiSelect:
+                                                                  onStartMultiSelect,
+                                                            ),
+                                                        'onShuffle': (queue) =>
+                                                            controller
+                                                                .openHomeMedia(
+                                                                  queue.first,
+                                                                  0,
+                                                                  queue,
+                                                                ),
+                                                      },
+                                                    ),
+                                                    onItemTap: (item, index) =>
+                                                        controller.openHomeMedia(
                                                           item,
-                                                          onChanged: controller
-                                                              .loadHome,
-                                                          queueContext:
-                                                              controller
-                                                                  .fullFeatured,
-                                                          queueContextIndex:
-                                                              controller
+                                                          index,
+                                                          controller
+                                                              .fullRecentlyPlayed,
+                                                        ),
+                                                    onItemLongPress: (item, _, {onStartMultiSelect}) {
+                                                      actions.showItemActions(
+                                                        context,
+                                                        item,
+                                                        onChanged:
+                                                            controller.loadHome,
+                                                        queueContext: controller
+                                                            .fullRecentlyPlayed,
+                                                        queueContextIndex:
+                                                            controller
+                                                                .fullRecentlyPlayed
+                                                                .indexWhere(
+                                                                  (entry) =>
+                                                                      entry
+                                                                          .id ==
+                                                                      item.id,
+                                                                ),
+                                                        onStartMultiSelect: () => Get.toNamed(
+                                                          AppRoutes
+                                                              .homeSectionList,
+                                                          arguments: {
+                                                            'title':
+                                                                _homeWidgetTitle(
+                                                                  HomeWidgetId
+                                                                      .recentlyPlayed,
+                                                                ),
+                                                            'items': controller
+                                                                .fullRecentlyPlayed,
+                                                            'onItemTap':
+                                                                (
+                                                                  item,
+                                                                  index,
+                                                                ) => controller
+                                                                    .openHomeMedia(
+                                                                      item,
+                                                                      index,
+                                                                      controller
+                                                                          .fullRecentlyPlayed,
+                                                                    ),
+                                                            'onItemLongPress':
+                                                                (
+                                                                  item,
+                                                                  _, {
+                                                                  onStartMultiSelect,
+                                                                }) => actions.showItemActions(
+                                                                  context,
+                                                                  item,
+                                                                  onChanged:
+                                                                      controller
+                                                                          .loadHome,
+                                                                  queueContext:
+                                                                      controller
+                                                                          .fullRecentlyPlayed,
+                                                                  queueContextIndex: controller
+                                                                      .fullRecentlyPlayed
+                                                                      .indexWhere(
+                                                                        (
+                                                                          entry,
+                                                                        ) =>
+                                                                            entry.id ==
+                                                                            item.id,
+                                                                      ),
+                                                                  onStartMultiSelect:
+                                                                      onStartMultiSelect,
+                                                                ),
+                                                            'onShuffle':
+                                                                (
+                                                                  queue,
+                                                                ) => controller
+                                                                    .openHomeMedia(
+                                                                      queue
+                                                                          .first,
+                                                                      0,
+                                                                      queue,
+                                                                    ),
+                                                            'startInSelectionMode':
+                                                                true,
+                                                            'initialSelectionItemId':
+                                                                item.id,
+                                                          },
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                if (controller
+                                                        .usesDefaultHomeWidgetOrder &&
+                                                    controller
+                                                        .enabledHomeWidgets
+                                                        .contains(
+                                                          HomeWidgetId
+                                                              .recentlyPlayed,
+                                                        ) &&
+                                                    controller
+                                                        .recentlyPlayed
+                                                        .isNotEmpty)
+                                                  const SizedBox(height: 18),
+
+                                                // ---- Destacado ----
+                                                if (controller
+                                                        .usesDefaultHomeWidgetOrder &&
+                                                    controller
+                                                        .enabledHomeWidgets
+                                                        .contains(
+                                                          HomeWidgetId.featured,
+                                                        ) &&
+                                                    controller
+                                                        .featured
+                                                        .isNotEmpty) ...[
+                                                  _SectionHeader(
+                                                    title: _homeWidgetTitle(
+                                                      HomeWidgetId.featured,
+                                                    ),
+                                                    onTap: () => Get.toNamed(
+                                                      AppRoutes.homeSectionList,
+                                                      arguments: {
+                                                        'title':
+                                                            _homeWidgetTitle(
+                                                              HomeWidgetId
+                                                                  .featured,
+                                                            ),
+                                                        'items': controller
+                                                            .fullFeatured,
+                                                        'onItemTap':
+                                                            (
+                                                              item,
+                                                              index,
+                                                            ) => controller
+                                                                .openHomeMedia(
+                                                                  item,
+                                                                  index,
+                                                                  controller
+                                                                      .fullFeatured,
+                                                                ),
+                                                        'onItemLongPress':
+                                                            (
+                                                              item,
+                                                              _, {
+                                                              onStartMultiSelect,
+                                                            }) => actions.showItemActions(
+                                                              context,
+                                                              item,
+                                                              onChanged:
+                                                                  controller
+                                                                      .loadHome,
+                                                              queueContext:
+                                                                  controller
+                                                                      .fullFeatured,
+                                                              queueContextIndex: controller
                                                                   .fullFeatured
                                                                   .indexWhere(
                                                                     (entry) =>
@@ -944,65 +1023,200 @@ class HomePage extends GetView<HomeController> {
                                                                             .id ==
                                                                         item.id,
                                                                   ),
-                                                          onStartMultiSelect:
-                                                              onStartMultiSelect,
-                                                        ),
-                                                    'onShuffle': (queue) =>
+                                                              onStartMultiSelect:
+                                                                  onStartMultiSelect,
+                                                            ),
+                                                        'onShuffle': (queue) =>
+                                                            controller
+                                                                .openHomeMedia(
+                                                                  queue.first,
+                                                                  0,
+                                                                  queue,
+                                                                ),
+                                                      },
+                                                    ),
+                                                    trailing: null,
+                                                  ),
+                                                  const SizedBox(height: 10),
+                                                  _FeaturedList(
+                                                    items: controller.featured,
+                                                    onTap: (item, index) =>
                                                         controller
                                                             .openHomeMedia(
-                                                              queue.first,
-                                                              0,
-                                                              queue,
+                                                              item,
+                                                              index,
+                                                              controller
+                                                                  .fullFeatured,
                                                             ),
-                                                    'startInSelectionMode':
-                                                        true,
-                                                    'initialSelectionItemId':
-                                                        item.id,
-                                                  },
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 18),
-                                          ],
-
-                                          // ---- Últimos imports ----
-                                          if (controller
-                                                  .usesDefaultHomeWidgetOrder &&
-                                              controller.enabledHomeWidgets
-                                                  .contains(
-                                                    HomeWidgetId
-                                                        .latestDownloads,
-                                                  ) &&
-                                              controller
-                                                  .latestDownloads
-                                                  .isNotEmpty) ...[
-                                            MediaHorizontalList(
-                                              title: _homeWidgetTitle(
-                                                HomeWidgetId.latestDownloads,
-                                              ),
-                                              items: controller.latestDownloads,
-                                              onHeaderTap: () => Get.toNamed(
-                                                AppRoutes.homeSectionList,
-                                                arguments: {
-                                                  'title': _homeWidgetTitle(
-                                                    HomeWidgetId
-                                                        .latestDownloads,
-                                                  ),
-                                                  'items': controller
-                                                      .fullLatestDownloads,
-                                                  'onItemTap': (item, index) =>
-                                                      controller.openHomeMedia(
-                                                        item,
-                                                        index,
-                                                        controller
-                                                            .fullLatestDownloads,
+                                                    onLongPress: (item, _) => actions.showItemActions(
+                                                      context,
+                                                      item,
+                                                      onChanged:
+                                                          controller.loadHome,
+                                                      queueContext: controller
+                                                          .fullFeatured,
+                                                      queueContextIndex:
+                                                          controller
+                                                              .fullFeatured
+                                                              .indexWhere(
+                                                                (entry) =>
+                                                                    entry.id ==
+                                                                    item.id,
+                                                              ),
+                                                      onStartMultiSelect: () => Get.toNamed(
+                                                        AppRoutes
+                                                            .homeSectionList,
+                                                        arguments: {
+                                                          'title':
+                                                              _homeWidgetTitle(
+                                                                HomeWidgetId
+                                                                    .featured,
+                                                              ),
+                                                          'items': controller
+                                                              .fullFeatured,
+                                                          'onItemTap':
+                                                              (
+                                                                item,
+                                                                index,
+                                                              ) => controller
+                                                                  .openHomeMedia(
+                                                                    item,
+                                                                    index,
+                                                                    controller
+                                                                        .fullFeatured,
+                                                                  ),
+                                                          'onItemLongPress':
+                                                              (
+                                                                item,
+                                                                _, {
+                                                                onStartMultiSelect,
+                                                              }) => actions.showItemActions(
+                                                                context,
+                                                                item,
+                                                                onChanged:
+                                                                    controller
+                                                                        .loadHome,
+                                                                queueContext:
+                                                                    controller
+                                                                        .fullFeatured,
+                                                                queueContextIndex: controller
+                                                                    .fullFeatured
+                                                                    .indexWhere(
+                                                                      (entry) =>
+                                                                          entry
+                                                                              .id ==
+                                                                          item.id,
+                                                                    ),
+                                                                onStartMultiSelect:
+                                                                    onStartMultiSelect,
+                                                              ),
+                                                          'onShuffle':
+                                                              (
+                                                                queue,
+                                                              ) => controller
+                                                                  .openHomeMedia(
+                                                                    queue.first,
+                                                                    0,
+                                                                    queue,
+                                                                  ),
+                                                          'startInSelectionMode':
+                                                              true,
+                                                          'initialSelectionItemId':
+                                                              item.id,
+                                                        },
                                                       ),
-                                                  'onItemLongPress':
-                                                      (
-                                                        item,
-                                                        _, {
-                                                        onStartMultiSelect,
-                                                      }) => actions.showItemActions(
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 18),
+                                                ],
+
+                                                // ---- Últimos imports ----
+                                                if (controller
+                                                        .usesDefaultHomeWidgetOrder &&
+                                                    controller
+                                                        .enabledHomeWidgets
+                                                        .contains(
+                                                          HomeWidgetId
+                                                              .latestDownloads,
+                                                        ) &&
+                                                    controller
+                                                        .latestDownloads
+                                                        .isNotEmpty) ...[
+                                                  MediaHorizontalList(
+                                                    cardScale:
+                                                        AppBottomNav
+                                                            .desktopSidebarEnabled
+                                                        ? 1.3
+                                                        : 1,
+                                                    title: _homeWidgetTitle(
+                                                      HomeWidgetId
+                                                          .latestDownloads,
+                                                    ),
+                                                    items: controller
+                                                        .latestDownloads,
+                                                    onHeaderTap: () => Get.toNamed(
+                                                      AppRoutes.homeSectionList,
+                                                      arguments: {
+                                                        'title': _homeWidgetTitle(
+                                                          HomeWidgetId
+                                                              .latestDownloads,
+                                                        ),
+                                                        'items': controller
+                                                            .fullLatestDownloads,
+                                                        'onItemTap':
+                                                            (
+                                                              item,
+                                                              index,
+                                                            ) => controller
+                                                                .openHomeMedia(
+                                                                  item,
+                                                                  index,
+                                                                  controller
+                                                                      .fullLatestDownloads,
+                                                                ),
+                                                        'onItemLongPress':
+                                                            (
+                                                              item,
+                                                              _, {
+                                                              onStartMultiSelect,
+                                                            }) => actions.showItemActions(
+                                                              context,
+                                                              item,
+                                                              onChanged:
+                                                                  controller
+                                                                      .loadHome,
+                                                              queueContext:
+                                                                  controller
+                                                                      .fullLatestDownloads,
+                                                              queueContextIndex: controller
+                                                                  .fullLatestDownloads
+                                                                  .indexWhere(
+                                                                    (entry) =>
+                                                                        entry
+                                                                            .id ==
+                                                                        item.id,
+                                                                  ),
+                                                              onStartMultiSelect:
+                                                                  onStartMultiSelect,
+                                                            ),
+                                                        'onShuffle': (queue) =>
+                                                            controller
+                                                                .openHomeMedia(
+                                                                  queue.first,
+                                                                  0,
+                                                                  queue,
+                                                                ),
+                                                      },
+                                                    ),
+                                                    onItemTap: (item, index) =>
+                                                        controller.openHomeMedia(
+                                                          item,
+                                                          index,
+                                                          controller
+                                                              .fullLatestDownloads,
+                                                        ),
+                                                    onItemLongPress: (item, _, {onStartMultiSelect}) {
+                                                      actions.showItemActions(
                                                         context,
                                                         item,
                                                         onChanged:
@@ -1018,149 +1232,110 @@ class HomePage extends GetView<HomeController> {
                                                                           .id ==
                                                                       item.id,
                                                                 ),
-                                                        onStartMultiSelect:
-                                                            onStartMultiSelect,
-                                                      ),
-                                                  'onShuffle': (queue) =>
-                                                      controller.openHomeMedia(
-                                                        queue.first,
-                                                        0,
-                                                        queue,
-                                                      ),
-                                                },
-                                              ),
-                                              onItemTap: (item, index) =>
-                                                  controller.openHomeMedia(
-                                                    item,
-                                                    index,
-                                                    controller
-                                                        .fullLatestDownloads,
-                                                  ),
-                                              onItemLongPress: (item, _, {onStartMultiSelect}) {
-                                                actions.showItemActions(
-                                                  context,
-                                                  item,
-                                                  onChanged:
-                                                      controller.loadHome,
-                                                  queueContext: controller
-                                                      .fullLatestDownloads,
-                                                  queueContextIndex: controller
-                                                      .fullLatestDownloads
-                                                      .indexWhere(
-                                                        (entry) =>
-                                                            entry.id == item.id,
-                                                      ),
-                                                  onStartMultiSelect: () => Get.toNamed(
-                                                    AppRoutes.homeSectionList,
-                                                    arguments: {
-                                                      'title': _homeWidgetTitle(
-                                                        HomeWidgetId
-                                                            .latestDownloads,
-                                                      ),
-                                                      'items': controller
-                                                          .fullLatestDownloads,
-                                                      'onItemTap':
-                                                          (
-                                                            item,
-                                                            index,
-                                                          ) => controller
-                                                              .openHomeMedia(
-                                                                item,
-                                                                index,
-                                                                controller
-                                                                    .fullLatestDownloads,
-                                                              ),
-                                                      'onItemLongPress':
-                                                          (
-                                                            item,
-                                                            _, {
-                                                            onStartMultiSelect,
-                                                          }) => actions.showItemActions(
-                                                            context,
-                                                            item,
-                                                            onChanged:
-                                                                controller
-                                                                    .loadHome,
-                                                            queueContext: controller
-                                                                .fullLatestDownloads,
-                                                            queueContextIndex: controller
-                                                                .fullLatestDownloads
-                                                                .indexWhere(
-                                                                  (entry) =>
-                                                                      entry
-                                                                          .id ==
-                                                                      item.id,
+                                                        onStartMultiSelect: () => Get.toNamed(
+                                                          AppRoutes
+                                                              .homeSectionList,
+                                                          arguments: {
+                                                            'title':
+                                                                _homeWidgetTitle(
+                                                                  HomeWidgetId
+                                                                      .latestDownloads,
                                                                 ),
-                                                            onStartMultiSelect:
-                                                                onStartMultiSelect,
-                                                          ),
-                                                      'onShuffle': (queue) =>
-                                                          controller
-                                                              .openHomeMedia(
-                                                                queue.first,
-                                                                0,
-                                                                queue,
-                                                              ),
-                                                      'startInSelectionMode':
-                                                          true,
-                                                      'initialSelectionItemId':
-                                                          item.id,
+                                                            'items': controller
+                                                                .fullLatestDownloads,
+                                                            'onItemTap':
+                                                                (
+                                                                  item,
+                                                                  index,
+                                                                ) => controller
+                                                                    .openHomeMedia(
+                                                                      item,
+                                                                      index,
+                                                                      controller
+                                                                          .fullLatestDownloads,
+                                                                    ),
+                                                            'onItemLongPress':
+                                                                (
+                                                                  item,
+                                                                  _, {
+                                                                  onStartMultiSelect,
+                                                                }) => actions.showItemActions(
+                                                                  context,
+                                                                  item,
+                                                                  onChanged:
+                                                                      controller
+                                                                          .loadHome,
+                                                                  queueContext:
+                                                                      controller
+                                                                          .fullLatestDownloads,
+                                                                  queueContextIndex: controller
+                                                                      .fullLatestDownloads
+                                                                      .indexWhere(
+                                                                        (
+                                                                          entry,
+                                                                        ) =>
+                                                                            entry.id ==
+                                                                            item.id,
+                                                                      ),
+                                                                  onStartMultiSelect:
+                                                                      onStartMultiSelect,
+                                                                ),
+                                                            'onShuffle':
+                                                                (
+                                                                  queue,
+                                                                ) => controller
+                                                                    .openHomeMedia(
+                                                                      queue
+                                                                          .first,
+                                                                      0,
+                                                                      queue,
+                                                                    ),
+                                                            'startInSelectionMode':
+                                                                true,
+                                                            'initialSelectionItemId':
+                                                                item.id,
+                                                          },
+                                                        ),
+                                                      );
                                                     },
                                                   ),
-                                                );
-                                              },
+                                                ],
+
+                                                _CustomHomeSections(
+                                                  controller: controller,
+                                                  actions: actions,
+                                                  mode: mode,
+                                                ),
+
+                                                const SizedBox(height: 24),
+                                              ],
                                             ),
-                                          ],
-
-                                          _CustomHomeSections(
-                                            controller: controller,
-                                            actions: actions,
-                                            mode: mode,
-                                          ),
-
-                                          const SizedBox(height: 24),
-                                        ],
-                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
-                          ),
+                            ),
+                    ),
+
+                    // -------------------------------------------------------
+                    // B) BOTTOM NAV (fijo)
+                    // - ya pinta su fondo/divider/safeArea internamente
+                    // -------------------------------------------------------
+                    if (!desktop)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: AppBottomNav(
+                          currentIndex: 0,
+                          onTap: _onNavigate,
                         ),
                       ),
-              ),
-
-              // -------------------------------------------------------
-              // B) BOTTOM NAV (fijo)
-              // - ya pinta su fondo/divider/safeArea internamente
-              // -------------------------------------------------------
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: AppBottomNav(
-                  currentIndex: 0,
-                  onTap: (index) {
-                    switch (index) {
-                      case 1:
-                        controller.goToPlaylists();
-                        break;
-                      case 2:
-                        controller.goToArtists();
-                        break;
-                      case 3:
-                        controller.goToAtlas();
-                        break;
-                      case 4:
-                        controller.goToDownloads();
-                        break;
-                      case 5:
-                        controller.goToSources();
-                        break;
-                    }
-                  },
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     });
@@ -1376,6 +1551,7 @@ class _HomeOrderedSections extends StatelessWidget {
       );
     }
     return MediaHorizontalList(
+      cardScale: AppBottomNav.desktopSidebarEnabled ? 1.3 : 1,
       title: title,
       items: preview,
       cardWidth: isVideoMode ? 178 : 120,
@@ -1615,6 +1791,7 @@ class _CustomHomeSections extends StatelessWidget {
     }
 
     return MediaHorizontalList(
+      cardScale: AppBottomNav.desktopSidebarEnabled ? 1.3 : 1,
       title: section.title,
       headerTrailing: _ModulePill(section: section),
       items: items.take(12).toList(growable: false),
@@ -1913,6 +2090,7 @@ class _CustomHomeListSection extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           child: AppMediaItemsList(
             items: preview,
+            listScale: AppBottomNav.desktopSidebarEnabled ? 1.3 : 1,
             gridView: false,
             compactListCard: true,
             videoStyle: section.kind == HomeCustomSectionKind.collection,
@@ -2175,6 +2353,7 @@ class _HomeArtistCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       onLongPress: onLongPress,
+      onSecondaryTap: onLongPress,
       child: SizedBox(
         width: 120,
         child: Column(
@@ -2247,6 +2426,7 @@ class _HomePlaylistCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       onLongPress: onLongPress,
+      onSecondaryTap: onLongPress,
       child: SizedBox(
         width: 120,
         child: Column(
@@ -2314,6 +2494,7 @@ class _HomeCollectionCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       onLongPress: onLongPress,
+      onSecondaryTap: onLongPress,
       child: SizedBox(
         width: 172,
         child: Column(
@@ -2383,6 +2564,7 @@ class _HomeArtistTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       onLongPress: onLongPress,
+      onSecondaryTap: onLongPress,
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -2461,6 +2643,7 @@ class _HomePlaylistTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       onLongPress: onLongPress,
+      onSecondaryTap: onLongPress,
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -3004,6 +3187,7 @@ class _MediaListSection extends StatelessWidget {
             items: preview,
             gridView: false,
             compactListCard: true,
+            listScale: AppBottomNav.desktopSidebarEnabled ? 1.3 : 1,
             onTap: onTap,
             onLongPress: onLongPress,
           ),
@@ -3294,7 +3478,10 @@ class _RecommendationCover extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.32)],
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.32),
+                  ],
                 ),
               ),
             ),
@@ -3336,8 +3523,9 @@ class _MostPlayedRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scale = AppBottomNav.desktopSidebarEnabled ? 1.3 : 1.0;
     return SizedBox(
-      height: 190,
+      height: 190 * scale,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         scrollDirection: Axis.horizontal,
@@ -3350,8 +3538,9 @@ class _MostPlayedRow extends StatelessWidget {
           return GestureDetector(
             onTap: () => onTap(item, i),
             onLongPress: () => onLongPress(item, i),
+            onSecondaryTap: () => onLongPress(item, i),
             child: Container(
-              width: 140,
+              width: 140 * scale,
               padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainerHigh,
@@ -3360,7 +3549,7 @@ class _MostPlayedRow extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _CircleThumb(thumb: thumb),
+                  _CircleThumb(thumb: thumb, radius: 44 * scale),
                   const SizedBox(height: 10),
                   Text(
                     item.title,
@@ -3391,9 +3580,10 @@ class _MostPlayedRow extends StatelessWidget {
 /// THUMB CIRCULAR (con play overlay)
 /// ===============================================================
 class _CircleThumb extends StatelessWidget {
-  const _CircleThumb({required this.thumb});
+  const _CircleThumb({required this.thumb, this.radius = 44});
 
   final String? thumb;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
@@ -3407,7 +3597,7 @@ class _CircleThumb extends StatelessWidget {
       return Stack(
         alignment: Alignment.center,
         children: [
-          CircleAvatar(radius: 44, backgroundImage: provider),
+          CircleAvatar(radius: radius, backgroundImage: provider),
           Container(
             width: 28,
             height: 28,
@@ -3422,7 +3612,7 @@ class _CircleThumb extends StatelessWidget {
     }
 
     return CircleAvatar(
-      radius: 44,
+      radius: radius,
       backgroundColor: scheme.surfaceContainerHighest,
       child: Icon(Icons.music_note, color: scheme.onSurfaceVariant),
     );
@@ -3462,6 +3652,7 @@ class _FeaturedList extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
             onTap: () => onTap(item, i),
             onLongPress: () => onLongPress(item, i),
+            onSecondaryTap: () => onLongPress(item, i),
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(

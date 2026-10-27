@@ -1,15 +1,90 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../audio/controller/audio_player_controller.dart';
 import '../../../../app/models/media_item.dart';
+import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
+import '../../../../app/ui/widgets/dialogs/sort_options_sheet.dart';
+import 'desktop_audio_player_view.dart';
 
-class QueuePage extends GetView<AudioPlayerController> {
+class QueuePage extends StatefulWidget {
   const QueuePage({super.key});
+  @override
+  State<QueuePage> createState() => _QueuePageState();
+}
+
+enum _QueueFilter { all, upcoming, previous }
+
+class _QueueMatchIntent extends Intent {
+  const _QueueMatchIntent(this.direction);
+  final int direction;
+}
+
+class _QueuePageState extends State<QueuePage> {
+  AudioPlayerController get controller => Get.find<AudioPlayerController>();
+  final _search = TextEditingController();
+  final _queueScroll = ScrollController();
+  int _matchCursor = 0;
+  double _rowExtent = 92;
+  bool _searchOpen = false;
+  _QueueFilter _filter = _QueueFilter.all;
+  @override
+  void dispose() {
+    _search.dispose();
+    _queueScroll.dispose();
+    super.dispose();
+  }
+
+  List<int> _matches() {
+    final query = _search.text.trim().toLowerCase();
+    if (query.isEmpty) return [];
+    return [
+      for (var i = 0; i < controller.queue.length; i++)
+        if (controller.queue[i].title.toLowerCase().contains(query) ||
+            controller.queue[i].displaySubtitle.toLowerCase().contains(query))
+          i,
+    ];
+  }
+
+  void _changeSearch() {
+    setState(() {
+      _matchCursor = 0;
+      if (_search.text.trim().isNotEmpty) _filter = _QueueFilter.all;
+    });
+    _scrollToMatch();
+  }
+
+  void _moveMatch(int direction) {
+    final matches = _matches();
+    if (matches.isEmpty) return;
+    setState(() => _matchCursor = (_matchCursor + direction) % matches.length);
+    _scrollToMatch();
+  }
+
+  void _scrollToMatch() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_queueScroll.hasClients) return;
+      final matches = _matches();
+      if (matches.isEmpty) return;
+      final index = matches[_matchCursor % matches.length];
+      final position = _queueScroll.position;
+      final offset = (index * _rowExtent - position.viewportDimension * .35)
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      _queueScroll.animateTo(
+        offset,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
 
   static const List<String> _temporaryQueueCoverAssets = <String>[
     'assets/ui/ListasTemp/WhatsApp Image 2026-08-11 at 11.47.46 AM (1).jpeg',
@@ -26,105 +101,650 @@ class QueuePage extends GetView<AudioPlayerController> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final desktop = usesDesktopAudioPlayer(defaultTargetPlatform);
 
     return Scaffold(
+      backgroundColor: desktop ? Colors.transparent : null,
       appBar: AppBar(
-        title: Text(tr('player.queue_title')),
-        centerTitle: true,
-        actions: [
-          Obx(
-            () => IconButton(
-              tooltip: tr('player.queue_save_tooltip'),
-              icon: const Icon(Icons.save_alt_rounded),
-              onPressed: controller.queue.isEmpty
-                  ? null
-                  : () => _showSaveQueueOptions(context),
-            ),
-          ),
-        ],
-      ),
-      body: Obx(() {
-        final queue = controller.queue; // RxList
-        final idx = controller.currentIndex.value;
-
-        if (queue.isEmpty) {
-          return Center(child: Text(tr('player.queue_empty')));
-        }
-
-        final totalSeconds = queue.fold<int>(
-          0,
-          (s, it) => s + (it.effectiveDurationSeconds ?? 0),
-        );
-
-        return Column(
-          children: [
-            _header(
-              theme: theme,
-              count: queue.length,
-              totalSeconds: totalSeconds,
-            ),
-            Expanded(
-              child: ReorderableListView.builder(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                itemCount: queue.length,
-                onReorderItem: (oldIndex, newIndex) async {
-                  await controller.reorderQueueItem(oldIndex, newIndex);
-                },
-                buildDefaultDragHandles: false,
-                itemBuilder: (context, i) {
-                  final it = queue[i];
-                  final selected = i == idx;
-
-                  final durText = _fmtDurationShort(
-                    it.effectiveDurationSeconds,
-                  );
-
-                  return ListTile(
-                    key: ValueKey(it.id),
-                    selected: selected,
-                    contentPadding: const EdgeInsets.only(left: 8, right: 4),
-                    leading: _thumb(theme: theme, item: it, selected: selected),
-                    title: Text(
-                      it.title,
+        toolbarHeight: desktop ? 96 : null,
+        backgroundColor: desktop
+            ? theme.colorScheme.surface.withValues(alpha: .96)
+            : null,
+        title: desktop
+            ? Obx(
+                () => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tr('player.queue_title'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                    subtitle: it.subtitle.isNotEmpty ? Text(it.subtitle) : null,
-                    onTap: () async {
-                      await controller.playAt(i);
-                      Get.back();
-                    },
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            if (durText.isNotEmpty)
-                              Text(durText, style: theme.textTheme.bodySmall),
-                            if (selected) Text(tr('player.now_playing')),
-                          ],
-                        ),
-                        const SizedBox(width: 4),
-                        ReorderableDragStartListener(
-                          index: i,
-                          child: Icon(
-                            Icons.drag_handle,
-                            color: theme.colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 6),
+                    Text(
+                      tr(
+                        'player.queue_desktop.summary',
+                        args: [
+                          '${controller.queue.length}',
+                          _desktopDuration(
+                            controller.queue.fold<int>(
+                              0,
+                              (sum, item) =>
+                                  sum + (item.effectiveDurationSeconds ?? 0),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  );
-                },
+                  ],
+                ),
+              )
+            : Text(tr('player.queue_title')),
+        centerTitle: !desktop,
+        actions: [
+          if (desktop) ...[
+            IconButton(
+              tooltip: tr('player.queue_desktop.search'),
+              icon: Icon(
+                _searchOpen ? Icons.search_off_rounded : Icons.search_rounded,
               ),
+              onPressed: () => setState(() {
+                _searchOpen = !_searchOpen;
+                if (!_searchOpen) _search.clear();
+              }),
+            ),
+            IconButton(
+              tooltip: tr('player.queue_desktop.filter'),
+              icon: Icon(
+                Icons.filter_alt_outlined,
+                color: _filter == _QueueFilter.all
+                    ? null
+                    : theme.colorScheme.primary,
+              ),
+              onPressed: _search.text.trim().isEmpty ? _chooseFilter : null,
+            ),
+            Obx(
+              () => PopupMenuButton<_QueueSaveAction>(
+                tooltip: tr('player.desktop.more'),
+                enabled: controller.queue.isNotEmpty,
+                icon: const Icon(Icons.more_horiz_rounded),
+                onSelected: (action) {
+                  if (action == _QueueSaveAction.temporary) {
+                    _saveTemporaryQueue(context);
+                  } else {
+                    _savePermanentQueue(context);
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: _QueueSaveAction.permanent,
+                    child: Text(tr('player.queue_save_permanent')),
+                  ),
+                  PopupMenuItem(
+                    value: _QueueSaveAction.temporary,
+                    child: Text(tr('player.queue_save_temporary')),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+          ] else
+            Obx(
+              () => IconButton(
+                tooltip: tr('player.queue_save_tooltip'),
+                icon: const Icon(Icons.save_alt_rounded),
+                onPressed: controller.queue.isEmpty
+                    ? null
+                    : () => _showSaveQueueOptions(context),
+              ),
+            ),
+        ],
+      ),
+      body: desktop
+          ? AppGradientBackground(
+              child: Material(
+                color: theme.colorScheme.surface.withValues(alpha: .96),
+                child: Obx(() => _desktopQueue(theme)),
+              ),
+            )
+          : Obx(() {
+              final queue = controller.queue; // RxList
+              final idx = controller.currentIndex.value;
+
+              if (queue.isEmpty) {
+                return Center(child: Text(tr('player.queue_empty')));
+              }
+
+              final totalSeconds = queue.fold<int>(
+                0,
+                (s, it) => s + (it.effectiveDurationSeconds ?? 0),
+              );
+
+              return Column(
+                children: [
+                  _header(
+                    theme: theme,
+                    count: queue.length,
+                    totalSeconds: totalSeconds,
+                  ),
+                  Expanded(
+                    child: ReorderableListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      itemCount: queue.length,
+                      onReorderItem: (oldIndex, newIndex) async {
+                        await controller.reorderQueueItem(oldIndex, newIndex);
+                      },
+                      buildDefaultDragHandles: false,
+                      itemBuilder: (context, i) {
+                        final it = queue[i];
+                        final selected = i == idx;
+
+                        final durText = _fmtDurationShort(
+                          it.effectiveDurationSeconds,
+                        );
+
+                        return ListTile(
+                          key: ValueKey(it.id),
+                          selected: selected,
+                          contentPadding: const EdgeInsets.only(
+                            left: 8,
+                            right: 4,
+                          ),
+                          leading: _thumb(
+                            theme: theme,
+                            item: it,
+                            selected: selected,
+                          ),
+                          title: Text(
+                            it.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: it.subtitle.isNotEmpty
+                              ? Text(it.subtitle)
+                              : null,
+                          onTap: () async {
+                            await controller.playAt(i);
+                            Get.back();
+                          },
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  if (durText.isNotEmpty)
+                                    Text(
+                                      durText,
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                  if (selected) Text(tr('player.now_playing')),
+                                ],
+                              ),
+                              const SizedBox(width: 4),
+                              ReorderableDragStartListener(
+                                index: i,
+                                child: Icon(
+                                  Icons.drag_handle,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            }),
+    );
+  }
+
+  String _desktopDuration(int seconds) {
+    if (seconds <= 0) return '—';
+    final hours = seconds ~/ 3600, minutes = (seconds % 3600) ~/ 60;
+    return hours > 0
+        ? tr('player.queue_desktop.hours_minutes', args: ['$hours', '$minutes'])
+        : tr(
+            'player.queue_desktop.minutes',
+            args: ['${(seconds / 60).ceil()}'],
+          );
+  }
+
+  Future<void> _chooseFilter() async {
+    final selected = await showModalBottomSheet<_QueueFilter>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                tr('player.queue_desktop.filter'),
+                style: Theme.of(ctx).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              for (final filter in _QueueFilter.values)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SortOptionTile(
+                    label: tr('player.queue_desktop.${filter.name}'),
+                    selected: _filter == filter,
+                    icon: Icons.queue_music_rounded,
+                    onTap: () => Navigator.of(ctx).pop(filter),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (mounted && selected != null) setState(() => _filter = selected);
+  }
+
+  Widget _desktopQueue(ThemeData theme) {
+    final queue = controller.queue;
+    final current = controller.currentIndex.value;
+    final playing = controller.audioService.isPlaying.value;
+    final query = _search.text.trim().toLowerCase();
+    final matches = _matches();
+    final matchSet = matches.toSet();
+    final activeMatch = matches.isEmpty
+        ? -1
+        : matches[_matchCursor % matches.length];
+    final visible = <int>[
+      for (var i = 0; i < queue.length; i++)
+        if (_filter == _QueueFilter.all ||
+            (_filter == _QueueFilter.upcoming ? i > current : i < current))
+          i,
+    ];
+    final canReorder = _filter == _QueueFilter.all;
+    final occurrences = <String, int>{};
+    final keys = [
+      for (final item in queue)
+        ValueKey(
+          'queue-${item.id}-${occurrences.update(item.id, (n) => n + 1, ifAbsent: () => 0)}',
+        ),
+    ];
+    return LayoutBuilder(
+      builder: (context, box) {
+        final wide = box.maxWidth >= 780;
+        final scaler = MediaQuery.textScalerOf(context);
+        final titleHeight =
+            scaler.scale(theme.textTheme.bodyLarge?.fontSize ?? 16) * 1.5;
+        final subtitleHeight =
+            scaler.scale(theme.textTheme.bodySmall?.fontSize ?? 12) * 1.5;
+        _rowExtent = math.max(
+          wide ? 92.0 : 84.0,
+          (wide ? titleHeight : titleHeight + subtitleHeight) + 36,
+        );
+        return Column(
+          children: [
+            if (_searchOpen)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: Shortcuts(
+                  shortcuts: const {
+                    SingleActivator(LogicalKeyboardKey.arrowDown):
+                        _QueueMatchIntent(1),
+                    SingleActivator(LogicalKeyboardKey.arrowUp):
+                        _QueueMatchIntent(-1),
+                    SingleActivator(LogicalKeyboardKey.enter, shift: true):
+                        _QueueMatchIntent(-1),
+                  },
+                  child: Actions(
+                    actions: {
+                      _QueueMatchIntent: CallbackAction<_QueueMatchIntent>(
+                        onInvoke: (intent) {
+                          _moveMatch(intent.direction);
+                          return null;
+                        },
+                      ),
+                    },
+                    child: TextField(
+                      key: const ValueKey('desktop-queue-search'),
+                      controller: _search,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: tr('player.queue_desktop.search_hint'),
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: query.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: tr('common.clear'),
+                                icon: const Icon(Icons.close_rounded),
+                                onPressed: () {
+                                  _search.clear();
+                                  _changeSearch();
+                                },
+                              ),
+                      ),
+                      onChanged: (_) => _changeSearch(),
+                      onSubmitted: (_) => _moveMatch(1),
+                    ),
+                  ),
+                ),
+              ),
+            if (_searchOpen && query.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          matches.isEmpty
+                              ? tr('player.queue_desktop.no_results')
+                              : tr(
+                                  'player.queue_desktop.match_position',
+                                  args: [
+                                    '${_matchCursor % matches.length + 1}',
+                                    '${matches.length}',
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      key: const ValueKey('queue-match-previous'),
+                      tooltip: tr('player.queue_desktop.previous_match'),
+                      icon: const Icon(Icons.keyboard_arrow_up_rounded),
+                      onPressed: matches.isEmpty ? null : () => _moveMatch(-1),
+                    ),
+                    IconButton(
+                      key: const ValueKey('queue-match-next'),
+                      tooltip: tr('player.queue_desktop.next_match'),
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                      onPressed: matches.isEmpty ? null : () => _moveMatch(1),
+                    ),
+                  ],
+                ),
+              ),
+            if (!canReorder)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        tr(
+                          'player.queue_desktop.filtered',
+                          args: ['${visible.length}'],
+                        ),
+                        style: theme.textTheme.labelLarge,
+                      ),
+                    ),
+                    Flexible(
+                      child: Text(
+                        tr('player.queue_desktop.reorder_filtered'),
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(28, 16, 28, 12),
+              child: _desktopColumns(
+                wide: wide,
+                number: Text('#', style: theme.textTheme.labelLarge),
+                title: Text(
+                  tr('player.queue_desktop.title'),
+                  style: theme.textTheme.labelLarge,
+                ),
+                artist: Text(
+                  tr('player.queue_desktop.artist'),
+                  style: theme.textTheme.labelLarge,
+                ),
+                duration: Tooltip(
+                  message: tr('player.queue_desktop.duration'),
+                  child: wide
+                      ? Text(
+                          tr('player.queue_desktop.duration'),
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.labelLarge,
+                        )
+                      : const Icon(Icons.schedule_rounded, size: 18),
+                ),
+                handle: const SizedBox.shrink(),
+              ),
+            ),
+            Expanded(
+              child: visible.isEmpty
+                  ? Center(
+                      child: Text(
+                        tr(
+                          queue.isEmpty
+                              ? 'player.queue_empty'
+                              : 'player.queue_desktop.no_results',
+                        ),
+                      ),
+                    )
+                  : ReorderableListView.builder(
+                      key: const ValueKey('desktop-queue-list'),
+                      scrollController: _queueScroll,
+                      itemExtent: _rowExtent,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                      buildDefaultDragHandles: false,
+                      itemCount: visible.length,
+                      onReorderItem: (from, to) async {
+                        if (canReorder) {
+                          await controller.reorderQueueItem(from, to);
+                        }
+                      },
+                      itemBuilder: (context, index) {
+                        final sourceIndex = visible[index],
+                            item = queue[sourceIndex];
+                        final selected = sourceIndex == current;
+                        final duration = _fmtDurationShort(
+                          item.effectiveDurationSeconds,
+                        );
+                        return Padding(
+                          key: keys[sourceIndex],
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Material(
+                            key: sourceIndex == activeMatch
+                                ? const ValueKey('queue-active-match')
+                                : ValueKey('queue-row-$sourceIndex'),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              side: BorderSide(
+                                width: sourceIndex == activeMatch ? 2 : 1,
+                                color: sourceIndex == activeMatch
+                                    ? theme.colorScheme.primary
+                                    : matchSet.contains(sourceIndex)
+                                    ? theme.colorScheme.primary.withValues(
+                                        alpha: .4,
+                                      )
+                                    : Colors.transparent,
+                              ),
+                            ),
+                            color: selected
+                                ? theme.colorScheme.primaryContainer.withValues(
+                                    alpha: .65,
+                                  )
+                                : sourceIndex == activeMatch
+                                ? theme.colorScheme.secondaryContainer
+                                      .withValues(alpha: .45)
+                                : index.isOdd
+                                ? theme.colorScheme.surfaceContainerHighest
+                                      .withValues(alpha: .3)
+                                : Colors.transparent,
+                            clipBehavior: Clip.antiAlias,
+                            child: Semantics(
+                              selected: selected,
+                              child: InkWell(
+                                onTap: () => controller.playAt(sourceIndex),
+                                hoverColor: theme.colorScheme.primary
+                                    .withValues(alpha: .07),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 14,
+                                  ),
+                                  child: _desktopColumns(
+                                    wide: wide,
+                                    number: selected
+                                        ? Tooltip(
+                                            message: tr('player.now_playing'),
+                                            child: Icon(
+                                              playing
+                                                  ? Icons.graphic_eq_rounded
+                                                  : Icons
+                                                        .pause_circle_outline_rounded,
+                                              color: theme.colorScheme.primary,
+                                              size: 21,
+                                            ),
+                                          )
+                                        : Text(
+                                            '${sourceIndex + 1}'.padLeft(
+                                              2,
+                                              '0',
+                                            ),
+                                            style: theme.textTheme.bodySmall,
+                                          ),
+                                    title: Row(
+                                      children: [
+                                        SizedBox.square(
+                                          dimension: wide ? 56 : 40,
+                                          child: FittedBox(
+                                            child: _thumb(
+                                              theme: theme,
+                                              item: item,
+                                              selected: false,
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(width: wide ? 16 : 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                item.title,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: theme.textTheme.bodyLarge
+                                                    ?.copyWith(
+                                                      fontWeight: selected
+                                                          ? FontWeight.w700
+                                                          : FontWeight.w500,
+                                                      color: selected
+                                                          ? theme
+                                                                .colorScheme
+                                                                .primary
+                                                          : null,
+                                                    ),
+                                              ),
+                                              if (!wide &&
+                                                  item
+                                                      .displaySubtitle
+                                                      .isNotEmpty)
+                                                Text(
+                                                  item.displaySubtitle,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style:
+                                                      theme.textTheme.bodySmall,
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    artist: Text(
+                                      item.displaySubtitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                    duration: Text(
+                                      duration.isEmpty ? '—' : duration,
+                                      textAlign: TextAlign.center,
+                                      style: theme.textTheme.bodyMedium,
+                                    ),
+                                    handle: canReorder
+                                        ? Tooltip(
+                                            message: tr(
+                                              'player.queue_desktop.drag_hint',
+                                            ),
+                                            child: MouseRegion(
+                                              cursor: SystemMouseCursors.grab,
+                                              child: ReorderableDragStartListener(
+                                                index: index,
+                                                child: const SizedBox(
+                                                  width: 40,
+                                                  height: 48,
+                                                  child: Icon(
+                                                    Icons
+                                                        .drag_indicator_rounded,
+                                                    size: 22,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         );
-      }),
+      },
     );
   }
+
+  Widget _desktopColumns({
+    required bool wide,
+    required Widget number,
+    required Widget title,
+    required Widget artist,
+    required Widget duration,
+    required Widget handle,
+  }) => Row(
+    children: [
+      SizedBox(width: wide ? 48 : 32, child: number),
+      SizedBox(width: wide ? 16 : 8),
+      Expanded(flex: 6, child: title),
+      if (wide) ...[
+        const SizedBox(width: 24),
+        Expanded(flex: 3, child: artist),
+      ],
+      SizedBox(width: wide ? 20 : 8),
+      SizedBox(width: wide ? 88 : 52, child: duration),
+      SizedBox(width: wide ? 48 : 32, child: handle),
+    ],
+  );
 
   // ===========================================================================
   // UI
@@ -565,7 +1185,7 @@ class _TemporaryQueueSetupDialogState
     _nameController = TextEditingController(
       text: tr('player.temporary_queue_name'),
     );
-    _selectedCover = QueuePage._temporaryQueueCoverAssets.first;
+    _selectedCover = _QueuePageState._temporaryQueueCoverAssets.first;
   }
 
   @override
@@ -614,10 +1234,11 @@ class _TemporaryQueueSetupDialogState
               height: 124,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: QueuePage._temporaryQueueCoverAssets.length,
+                itemCount: _QueuePageState._temporaryQueueCoverAssets.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 10),
                 itemBuilder: (context, index) {
-                  final asset = QueuePage._temporaryQueueCoverAssets[index];
+                  final asset =
+                      _QueuePageState._temporaryQueueCoverAssets[index];
                   final selected = asset == _selectedCover;
                   return InkWell(
                     borderRadius: BorderRadius.circular(18),

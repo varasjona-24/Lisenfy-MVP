@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
+import '../ui/widgets/navigation/app_bottom_nav.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
@@ -470,197 +471,226 @@ class MediaActionsController extends GetxController {
 
     nav?.setOverlayOpen(true);
     try {
-      await showModalBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        backgroundColor: theme.colorScheme.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        builder: (ctx) {
-          final scheme = theme.colorScheme;
-          final thumb = selected.effectiveThumbnail ?? '';
-          final hasThumb = thumb.isNotEmpty;
-          final isLocal = hasThumb && thumb.startsWith('/');
+      final desktop = AppBottomNav.desktopSidebarEnabled;
+      Widget buildActions(BuildContext ctx) {
+        final scheme = theme.colorScheme;
+        final thumb = selected.effectiveThumbnail ?? '';
+        final hasThumb = thumb.isNotEmpty;
+        final isLocal = hasThumb && thumb.startsWith('/');
 
-          return SafeArea(
-            child: SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: MediaQuery.of(ctx).size.height * 0.5,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header section
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                      child: Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              width: 64,
-                              height: 64,
-                              color: scheme.surfaceContainerHigh,
-                              child: hasThumb
-                                  ? (isLocal
-                                        ? Image.file(
-                                            File(thumb),
-                                            fit: BoxFit.cover,
-                                          )
-                                        : Image.network(
-                                            thumb,
-                                            fit: BoxFit.cover,
-                                          ))
-                                  : Icon(
-                                      selected.localVideoVariant != null
-                                          ? Icons.videocam_rounded
-                                          : Icons.music_note_rounded,
-                                      color: scheme.onSurfaceVariant,
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  selected.title,
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 18,
-                                    letterSpacing: -0.5,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  selected.displaySubtitle,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: desktop ? 0 : MediaQuery.of(ctx).size.height * 0.5,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header section
+                  Padding(
+                    padding: desktop
+                        ? const EdgeInsets.all(24)
+                        : const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            width: desktop ? 88 : 64,
+                            height: desktop ? 88 : 64,
+                            color: scheme.surfaceContainerHigh,
+                            child: hasThumb
+                                ? (isLocal
+                                      ? Image.file(
+                                          File(thumb),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Image.network(thumb, fit: BoxFit.cover))
+                                : Icon(
+                                    selected.localVideoVariant != null
+                                        ? Icons.videocam_rounded
+                                        : Icons.music_note_rounded,
                                     color: scheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w500,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
                           ),
-                        ],
-                      ),
+                        ),
+                        SizedBox(width: desktop ? 20 : 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                selected.title,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: desktop
+                                      ? FontWeight.w700
+                                      : FontWeight.w900,
+                                  fontSize: desktop ? 22 : 18,
+                                  letterSpacing: desktop ? 0 : -0.5,
+                                ),
+                                maxLines: desktop ? 3 : 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              SizedBox(height: desktop ? 8 : 4),
+                              Text(
+                                selected.displaySubtitle,
+                                style:
+                                    (desktop
+                                            ? theme.textTheme.bodyLarge
+                                            : theme.textTheme.bodyMedium)
+                                        ?.copyWith(
+                                          color: scheme.onSurfaceVariant,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                maxLines: desktop ? 2 : 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const Divider(height: 1),
-                    const SizedBox(height: 12),
-                    // Actions section
+                  ),
+                  const Divider(height: 1),
+                  const SizedBox(height: 12),
+                  // Actions section
+                  _ActionItem(
+                    icon: Icons.edit_rounded,
+                    label: tr('common.edit'),
+                    onTap: () {
+                      pendingAction = () async {
+                        final latest = await _resolveLatest(selected);
+                        final changed = await openEditPage(latest);
+                        if (changed == true && onChanged != null) {
+                          await onChanged();
+                        }
+                      };
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                  if (onStartMultiSelect != null)
                     _ActionItem(
-                      icon: Icons.edit_rounded,
-                      label: tr('common.edit'),
+                      icon: Icons.checklist_rtl_rounded,
+                      label: tr('media_actions.multi_select'),
                       onTap: () {
                         pendingAction = () async {
-                          final latest = await _resolveLatest(selected);
-                          final changed = await openEditPage(latest);
-                          if (changed == true && onChanged != null) {
-                            await onChanged();
-                          }
+                          onStartMultiSelect();
                         };
                         Navigator.of(ctx).pop();
                       },
                     ),
-                    if (onStartMultiSelect != null)
-                      _ActionItem(
-                        icon: Icons.checklist_rtl_rounded,
-                        label: tr('media_actions.multi_select'),
-                        onTap: () {
-                          pendingAction = () async {
-                            onStartMultiSelect();
-                          };
-                          Navigator.of(ctx).pop();
-                        },
-                      ),
-                    if (_canAddToActiveAudioQueue(selected))
-                      _ActionItem(
-                        icon: Icons.queue_music_rounded,
-                        label: tr('media_actions.add_to_queue'),
-                        onTap: () {
-                          pendingAction = () => _addToAudioQueue(
-                            selected,
-                            onChanged: onChanged,
-                            queueContext: queueContext,
-                            queueContextIndex: queueContextIndex,
-                          );
-                          Navigator.of(ctx).pop();
-                        },
-                      ),
+                  if (_canAddToActiveAudioQueue(selected))
                     _ActionItem(
-                      icon: selected.isFavorite
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      label: selected.isFavorite
-                          ? tr('media_actions.remove_favorite')
-                          : tr('media_actions.add_favorite'),
-                      color: selected.isFavorite ? scheme.primary : null,
+                      icon: Icons.queue_music_rounded,
+                      label: tr('media_actions.add_to_queue'),
                       onTap: () {
-                        pendingAction = () async {
-                          final latest = await _resolveLatest(selected);
-                          await toggleFavorite(latest, onChanged: onChanged);
-                        };
+                        pendingAction = () => _addToAudioQueue(
+                          selected,
+                          onChanged: onChanged,
+                          queueContext: queueContext,
+                          queueContextIndex: queueContextIndex,
+                        );
                         Navigator.of(ctx).pop();
                       },
                     ),
-                    _ActionItem(
-                      icon: Icons.delete_outline_rounded,
-                      label: tr('media_actions.delete_device'),
-                      color: Colors.redAccent,
-                      onTap: () {
-                        pendingAction = () async {
-                          final latest = await _resolveLatest(selected);
-                          if (!context.mounted) return;
-                          await confirmDelete(
-                            context,
-                            latest,
-                            onChanged: onChanged,
-                          );
-                        };
-                        Navigator.of(ctx).pop();
-                      },
-                    ),
-                    _ActionItem(
-                      icon: Icons.bluetooth_searching_rounded,
-                      label: tr('media_actions.transfer_offline'),
-                      onTap: () {
-                        pendingAction = () async {
-                          final latest = await _resolveLatest(selected);
-                          await Get.toNamed(
-                            AppRoutes.nearbyTransfer,
-                            arguments: {'item': latest},
-                          );
-                        };
-                        Navigator.of(ctx).pop();
-                      },
-                    ),
-                    _ActionItem(
-                      icon: Icons.ios_share_rounded,
-                      label: tr('media_actions.share_external'),
-                      onTap: () {
-                        pendingAction = () async {
-                          final latest = await _resolveLatest(selected);
-                          await shareMediaExternally(latest);
-                        };
-                        Navigator.of(ctx).pop();
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                ),
+                  _ActionItem(
+                    icon: selected.isFavorite
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    label: selected.isFavorite
+                        ? tr('media_actions.remove_favorite')
+                        : tr('media_actions.add_favorite'),
+                    color: selected.isFavorite ? scheme.primary : null,
+                    onTap: () {
+                      pendingAction = () async {
+                        final latest = await _resolveLatest(selected);
+                        await toggleFavorite(latest, onChanged: onChanged);
+                      };
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                  _ActionItem(
+                    icon: Icons.delete_outline_rounded,
+                    label: tr('media_actions.delete_device'),
+                    color: Colors.redAccent,
+                    onTap: () {
+                      pendingAction = () async {
+                        final latest = await _resolveLatest(selected);
+                        if (!context.mounted) return;
+                        await confirmDelete(
+                          context,
+                          latest,
+                          onChanged: onChanged,
+                        );
+                      };
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                  _ActionItem(
+                    icon: Icons.bluetooth_searching_rounded,
+                    label: tr('media_actions.transfer_offline'),
+                    onTap: () {
+                      pendingAction = () async {
+                        final latest = await _resolveLatest(selected);
+                        await Get.toNamed(
+                          AppRoutes.nearbyTransfer,
+                          arguments: {'item': latest},
+                        );
+                      };
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                  _ActionItem(
+                    icon: Icons.ios_share_rounded,
+                    label: tr('media_actions.share_external'),
+                    onTap: () {
+                      pendingAction = () async {
+                        final latest = await _resolveLatest(selected);
+                        await shareMediaExternally(latest);
+                      };
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
-          );
-        },
-      );
+          ),
+        );
+      }
+
+      if (desktop) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => Dialog(
+            backgroundColor: theme.colorScheme.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 440,
+                maxHeight: MediaQuery.sizeOf(ctx).height * .85,
+              ),
+              child: Builder(builder: buildActions),
+            ),
+          ),
+        );
+      } else {
+        await showModalBottomSheet<void>(
+          context: context,
+          showDragHandle: true,
+          backgroundColor: theme.colorScheme.surface,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
+          builder: buildActions,
+        );
+      }
       final action = pendingAction;
+
       if (action != null) {
         await action();
       }
@@ -1114,6 +1144,23 @@ class MediaActionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+
+    if (AppBottomNav.desktopSidebarEnabled) {
+      return ListTile(
+        dense: true,
+        minTileHeight: 50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        leading: Icon(icon, size: 20, color: color ?? scheme.onSurfaceVariant),
+        title: Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: color ?? scheme.onSurface,
+          ),
+        ),
+        hoverColor: scheme.primary.withValues(alpha: .08),
+        onTap: onTap,
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),

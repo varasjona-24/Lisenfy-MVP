@@ -100,7 +100,7 @@ class _HomeSectionMoveSurfaceState extends State<HomeSectionMoveSurface>
   }
 
   void _move(int from, int to) {
-    final items = _ordered;
+    final items = _ordered.toList();
     if (from < 0 ||
         to < 0 ||
         from >= items.length ||
@@ -225,7 +225,9 @@ class _HomeSectionMoveSurfaceState extends State<HomeSectionMoveSurface>
             itemCount: ordered.length,
             itemBuilder: (_, index) => _section(ordered[index], index),
             onReorderItem: _move,
-            onReorderStart: (index) => setState(() => _dragging = index),
+            onReorderStart: (index) {
+              setState(() => _dragging = index);
+            },
             onReorderEnd: (_) {
               if (mounted) setState(() => _dragging = null);
             },

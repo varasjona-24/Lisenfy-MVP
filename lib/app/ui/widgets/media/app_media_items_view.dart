@@ -111,6 +111,7 @@ class AppMediaItemsList extends StatelessWidget {
     this.videoStyle = false,
     this.fallbackIcon,
     this.compactListCard = false,
+    this.listScale = 1,
     this.gridPadding = EdgeInsets.zero,
     this.shrinkWrap = true,
     this.physics = const NeverScrollableScrollPhysics(),
@@ -126,6 +127,7 @@ class AppMediaItemsList extends StatelessWidget {
   final bool videoStyle;
   final IconData? fallbackIcon;
   final bool compactListCard;
+  final double listScale;
   final EdgeInsetsGeometry gridPadding;
   final bool shrinkWrap;
   final ScrollPhysics? physics;
@@ -163,6 +165,7 @@ class AppMediaItemsList extends StatelessWidget {
             padding: EdgeInsets.only(bottom: videoStyle ? 18 : 8),
             child: AppMediaListTile(
               item: items[index],
+              scale: listScale,
               videoStyle: videoStyle,
               carded: compactListCard || videoStyle,
               onTap: () => onTap(items[index], index),
@@ -185,6 +188,7 @@ class AppMediaListTile extends StatelessWidget {
     required this.item,
     this.videoStyle = false,
     this.carded = false,
+    this.scale = 1,
     this.onTap,
     this.onLongPress,
     this.onMore,
@@ -193,13 +197,17 @@ class AppMediaListTile extends StatelessWidget {
   final MediaItem item;
   final bool videoStyle;
   final bool carded;
+  final double scale;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {
-    return videoStyle ? _VideoListTile(this) : _AudioListTile(this);
+    return GestureDetector(
+      onSecondaryTap: onLongPress ?? onMore,
+      child: videoStyle ? _VideoListTile(this) : _AudioListTile(this),
+    );
   }
 }
 
@@ -256,6 +264,7 @@ class AppMediaActionListTile extends StatelessWidget {
       ),
       onTap: onTap,
       onLongPress: onLongPress,
+      onSecondaryTap: onLongPress,
       child: Container(
         padding: carded
             ? const EdgeInsets.symmetric(horizontal: 12, vertical: 10)
@@ -588,47 +597,117 @@ class _AudioListTile extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(config.carded ? 18 : 12),
       ),
-      child: ListTile(
-        onTap: config.onTap,
-        onLongPress: config.onLongPress ?? config.onMore,
-        contentPadding: config.carded
-            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 4)
-            : EdgeInsets.zero,
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            width: 44,
-            height: 44,
-            color: scheme.surfaceContainerHighest,
-            child: imageProvider != null
-                ? Image(image: imageProvider, fit: BoxFit.cover)
-                : Icon(
-                    Icons.music_note_rounded,
-                    color: scheme.onSurfaceVariant,
-                  ),
-          ),
-        ),
-        title: Text(
-          item.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: scheme.onSurface,
-          ),
-        ),
-        subtitle: item.displaySubtitle.trim().isEmpty
-            ? null
-            : Text(
-                item.displaySubtitle,
+      child: config.scale > 1
+          ? InkWell(
+              onTap: config.onTap,
+              onLongPress: config.onLongPress ?? config.onMore,
+              borderRadius: BorderRadius.circular(config.carded ? 18 : 12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: SizedBox.square(
+                        dimension: 44 * config.scale,
+                        child: imageProvider != null
+                            ? Image(image: imageProvider, fit: BoxFit.cover)
+                            : ColoredBox(
+                                color: scheme.surfaceContainerHighest,
+                                child: Icon(
+                                  Icons.music_note_rounded,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: scheme.onSurface,
+                            ),
+                          ),
+                          if (item.displaySubtitle.trim().isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              item.displaySubtitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(
+                        Icons.play_arrow_rounded,
+                        color: scheme.primary,
+                      ),
+                      onPressed: config.onTap,
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : ListTile(
+              onTap: config.onTap,
+              onLongPress: config.onLongPress ?? config.onMore,
+              minTileHeight: config.scale > 1 ? 72 * config.scale : null,
+              minLeadingWidth: 44 * config.scale,
+              contentPadding: config.carded
+                  ? const EdgeInsets.symmetric(horizontal: 12, vertical: 4)
+                  : EdgeInsets.zero,
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: 44 * config.scale,
+                  height: 44 * config.scale,
+                  color: scheme.surfaceContainerHighest,
+                  child: imageProvider != null
+                      ? Image(image: imageProvider, fit: BoxFit.cover)
+                      : Icon(
+                          Icons.music_note_rounded,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                ),
+              ),
+              title: Text(
+                item.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: scheme.onSurface,
+                ),
               ),
-        trailing: IconButton(
-          icon: Icon(Icons.play_arrow_rounded, color: scheme.primary),
-          onPressed: config.onTap,
-        ),
-      ),
+              subtitle: item.displaySubtitle.trim().isEmpty
+                  ? null
+                  : Text(
+                      item.displaySubtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+              trailing: IconButton(
+                icon: Icon(Icons.play_arrow_rounded, color: scheme.primary),
+                onPressed: config.onTap,
+              ),
+            ),
     );
   }
 }
