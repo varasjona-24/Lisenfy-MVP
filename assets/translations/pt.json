@@ -72,7 +72,14 @@
     "wifi_timeout": "A conexão Wi‑Fi Direct demorou demais. Você pode tentar novamente.",
     "wifi_unavailable": "Não foi possível estabelecer ou manter o Wi‑Fi Direct. Os arquivos não serão enviados por Bluetooth.",
     "pairing_lost": "Conexão perdida durante o pareamento.",
-    "connection_lost": "O Wi‑Fi Direct foi desconectado. A sessão terminou; os arquivos concluídos foram mantidos."
+    "connection_lost": "O Wi‑Fi Direct foi desconectado. A sessão terminou; os arquivos concluídos foram mantidos.",
+    "lan_title": "Rede local · Android e Mac",
+    "transport_title": "Tipo de conexão",
+    "lan_host_hint": "Conecte o Mac e o telefone ao mesmo Wi-Fi ou hotspot. Mostre o QR aqui e leia no Android, ou insira o código lá. Ambos podem enviar arquivos.",
+    "lan_client_hint": "No Mac abra Transferir arquivos e mostre o QR e o código. Conecte ambos à mesma rede Wi-Fi ou hotspot. Se o código não encontrar o Mac, leia o QR.",
+    "lan_pairing": "Aguardando confirmação nos dois dispositivos…",
+    "lan_verify": "Solicitação de {}. Confira se esta verificação é exatamente igual nas duas telas:\n\n{}\n\nAceite apenas se corresponder e reconhecer o outro dispositivo.",
+    "lan_failed": "Não foi possível conectar pela rede local. Verifique o Wi-Fi, a permissão de rede local e o firewall do Mac. Tente ler o QR."
   },
   "video_progress": {
     "collection_complete": "Concluído",

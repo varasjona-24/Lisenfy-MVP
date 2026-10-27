@@ -8,6 +8,7 @@ import '../../Modules/nearby_transfer/controller/nearby_transfer_controller.dart
 import '../../Modules/downloads/controller/downloads_controller.dart';
 import '../routes/app_routes.dart';
 import '../utils/listenfy_deep_link.dart';
+import '../../Modules/nearby_transfer/data/lan_transfer_transport.dart';
 
 class DeepLinkService extends GetxService {
   final AppLinks _appLinks = AppLinks();
@@ -40,6 +41,26 @@ class DeepLinkService extends GetxService {
         return;
       case ListenfyDeepLinkTarget.nearbyInvite:
         _openNearbyInviteFlow(uri);
+        return;
+      case ListenfyDeepLinkTarget.lanInvite:
+        try {
+          LanTransferTransport.validateInvite(uri);
+        } catch (_) {
+          return;
+        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (Get.currentRoute == AppRoutes.nearbyTransfer &&
+              Get.isRegistered<NearbyTransferController>()) {
+            unawaited(
+              Get.find<NearbyTransferController>().receiveLanInvite(uri),
+            );
+          } else {
+            Get.toNamed(
+              AppRoutes.nearbyTransfer,
+              arguments: {'inviteUri': uri.toString()},
+            );
+          }
+        });
         return;
       case ListenfyDeepLinkTarget.nearbyTransfer:
         _openNearbyTransferFlow();

@@ -11,6 +11,8 @@ import '../../../app/models/media_item.dart';
 import '../../../app/utils/listenfy_deep_link.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../controller/nearby_transfer_controller.dart';
+import '../data/lan_transfer_transport.dart';
+import '../../../app/ui/widgets/forms/app_option_selector.dart';
 import 'nearby_qr_scanner_page.dart';
 
 String _t(String key, [List<String> args = const []]) =>
@@ -39,6 +41,17 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
   Future<void> _scan() async {
     final raw = await Get.to<String>(() => const NearbyQrScannerPage());
     if (raw == null || _locked || controller.isConnected) return;
+    final uri = Uri.tryParse(raw);
+    if (uri?.path == '/lan') {
+      try {
+        LanTransferTransport.validateInvite(uri!);
+      } catch (_) {
+        Get.snackbar(_t('title'), _t('invalid_invite'));
+        return;
+      }
+      await _run(() => controller.receiveLanInvite(uri));
+      return;
+    }
     final invite = ListenfyDeepLink.parseNearbyInviteRaw(raw);
     if (invite == null || invite.isExpired) {
       Get.snackbar(_t('title'), _t('invalid_invite'));
@@ -249,7 +262,36 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                       ),
                       const SizedBox(height: 8),
                       Text(_t('identity', [controller.nickName])),
-                      Text(_t('wifi_direct')),
+                      Text(
+                        _t(
+                          controller.lanMode.value
+                              ? 'lan_title'
+                              : 'wifi_direct',
+                        ),
+                      ),
+                      if (!connected && !_locked && Platform.isAndroid)
+                        AppOptionSelector<bool>(
+                          value: controller.lanMode.value,
+                          options: {
+                            false: _t('wifi_direct'),
+                            true: _t('lan_title'),
+                          },
+                          onChanged: (value) =>
+                              _run(() => controller.setLanMode(value)),
+                          icon: Icons.wifi_rounded,
+                          title: _t('transport_title'),
+                        ),
+                      if (controller.lanMode.value)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            _t(
+                              Platform.isMacOS
+                                  ? 'lan_host_hint'
+                                  : 'lan_client_hint',
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: 8),
                       Semantics(
                         liveRegion: true,
@@ -288,18 +330,20 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                       ] else ...[
                         Text(_t('bridge_hint')),
                         const SizedBox(height: 12),
-                        FilledButton.icon(
-                          key: const Key('transfer-scan-qr'),
-                          onPressed: locked ? null : _scan,
-                          icon: const Icon(Icons.qr_code_scanner),
-                          label: Text(_t('scan_qr')),
-                        ),
-                        OutlinedButton.icon(
-                          key: const Key('transfer-show-qr'),
-                          onPressed: locked ? null : _showQr,
-                          icon: const Icon(Icons.qr_code),
-                          label: Text(_t('show_qr')),
-                        ),
+                        if (!controller.lanMode.value || !Platform.isMacOS)
+                          FilledButton.icon(
+                            key: const Key('transfer-scan-qr'),
+                            onPressed: locked ? null : _scan,
+                            icon: const Icon(Icons.qr_code_scanner),
+                            label: Text(_t('scan_qr')),
+                          ),
+                        if (controller.canCreateInvitation)
+                          OutlinedButton.icon(
+                            key: const Key('transfer-show-qr'),
+                            onPressed: locked ? null : _showQr,
+                            icon: const Icon(Icons.qr_code),
+                            label: Text(_t('show_qr')),
+                          ),
                         OutlinedButton.icon(
                           key: const Key('transfer-enter-code'),
                           onPressed: locked ? null : _enterCode,
