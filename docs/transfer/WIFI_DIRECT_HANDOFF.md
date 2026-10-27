@@ -30,8 +30,15 @@ compatibilidad universal ni velocidad garantizada.
 - Las credenciales y el certificado de sesión no se guardan en ese historial.
 - Archivos físicamente en disco; la biblioteca conserva sus referencias SQLite.
 - Límite: 1 GiB por selección y por archivo, metadatos acotados a 256 KiB.
-  Las portadas grandes se convierten en miniaturas para el envío sin modificar
-  el archivo de portada original. No se transfieren estadísticas de escucha.
+  Las portadas locales PNG/JPEG/GIF/WebP viajan como adjuntos binarios originales,
+  separados del JSON, con SHA-256 y límite de 64 MiB. No se redimensionan ni
+  recomprimen. Una portada ausente, ilegible o fuera de esos límites se omite,
+  sin impedir el envío del audio/video. El receptor verifica y copia el adjunto
+  a disco; SQLite conserva la ruta. No se transfieren estadísticas de escucha.
+  El frame de portada precede a su archivo multimedia y se confirma junto con
+  su importación, sin crear una canción o entrada de historial adicional.
+  Protocolo de asociación v3/control v2: actualizar ambos dispositivos; no es
+  compatible con receptores antiguos que solo admitían portadas Base64.
 - La sesión permanece al navegar por la app. Cerrar conexión es explícito;
   la pérdida de Wi-Fi Direct o del socket autenticado la cierra automáticamente.
   La pérdida de Internet por sí sola no la cierra.
@@ -51,6 +58,19 @@ se confunden eventos de una sesión anterior. Las versiones anteriores del flujo
 Nearby no son compatibles con este protocolo v2.
 
 ## Verificación automatizada de esta entrega
+
+### Compatibilidad de la identidad TLS con Android Keystore
+
+En una prueba física el grupo Wi-Fi Direct se creó y el segundo teléfono se
+conectó, pero Conscrypt falló durante `startHandshake()` con `Incompatible digest`
+y `RSA/ECB/NoPadding`. La clave RSA efímera ahora autoriza `DIGEST_NONE` y
+`ENCRYPTION_PADDING_NONE`, necesarios cuando TLS prepara el hash y el padding
+antes de solicitar la operación RSA al Keystore. Se conservan las autorizaciones
+SHA-256/384/512, las firmas PKCS#1/PSS y la comprobación de la huella del certificado.
+Referencia: https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.Builder
+
+La corrección requiere volver a instalar el APK y repetir el emparejamiento entre
+dos teléfonos; compilar no demuestra que el handshake ni la transferencia pasen.
 
 - 42 pruebas aprobadas: protocolo, controlador, selección visual, traducciones,
   persistencia del historial y backup/restauración de dominios SQLite.

@@ -6,7 +6,11 @@ abstract interface class WifiDirectTransport {
   Future<String> prepare(Map<String, dynamic> credentials);
   Future<void> startHost();
   Future<void> join(Map<String, dynamic> credentials);
-  Future<void> send(String path, Map<String, dynamic> descriptor);
+  Future<void> send(
+    String path,
+    Map<String, dynamic> descriptor, {
+    String? coverPath,
+  });
   Future<void> confirm(int payloadId);
   Future<void> close();
 }
@@ -38,8 +42,15 @@ class MethodChannelWifiDirectTransport implements WifiDirectTransport {
   Future<void> join(Map<String, dynamic> credentials) =>
       _methods.invokeMethod<void>('join', credentials);
   @override
-  Future<void> send(String path, Map<String, dynamic> descriptor) => _methods
-      .invokeMethod<void>('send', {'path': path, 'descriptor': descriptor});
+  Future<void> send(
+    String path,
+    Map<String, dynamic> descriptor, {
+    String? coverPath,
+  }) => _methods.invokeMethod<void>('send', {
+    'path': path,
+    'descriptor': descriptor,
+    'coverPath': coverPath,
+  });
   @override
   Future<void> confirm(int payloadId) =>
       _methods.invokeMethod<void>('confirm', {'payloadId': payloadId});

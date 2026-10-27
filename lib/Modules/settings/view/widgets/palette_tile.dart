@@ -28,12 +28,12 @@ class PaletteTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            color: theme.colorScheme.surfaceContainerHighest.withOpacity(.28),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .28),
             border: Border.all(
               width: selected ? 1.6 : 1,
               color: selected
-                  ? theme.colorScheme.primary.withOpacity(.75)
-                  : theme.dividerColor.withOpacity(.16),
+                  ? theme.colorScheme.primary.withValues(alpha: .75)
+                  : theme.dividerColor.withValues(alpha: .16),
             ),
           ),
           child: Row(
@@ -46,7 +46,7 @@ class PaletteTile extends StatelessWidget {
                   color: color,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: theme.dividerColor.withOpacity(.22),
+                    color: theme.dividerColor.withValues(alpha: .22),
                   ),
                 ),
               ),

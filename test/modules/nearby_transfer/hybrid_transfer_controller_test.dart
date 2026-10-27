@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:easy_localization/src/localization.dart';
 import 'package:easy_localization/src/translations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart' hide Translations;
 import 'package:nearby_connections/nearby_connections.dart';
@@ -138,6 +139,91 @@ void main() {
       });
     },
   );
+
+  testWidgets(
+    'original 3 MiB cover is separate and imported without resizing',
+    (tester) async {
+      await _withController(tester, (fixture) async {
+        final bytes = Uint8List(3 * 1024 * 1024);
+        bytes.setAll(0, [137, 80, 78, 71, 13, 10, 26, 10]);
+        final cover = File('${fixture.directory.path}/large.png')
+          ..writeAsBytesSync(bytes);
+        final original = fixture.audioItem().copyWith(
+          thumbnailLocalPath: cover.path,
+        );
+        final session = await fixture.connectHost(tester);
+        await tester.runAsync(() => fixture.controller.sendItems([original]));
+        final descriptor = fixture.transport.sends.single.$2;
+        expect(fixture.transport.covers.single, cover.path);
+        expect(descriptor, isNot(contains('coverBase64')));
+        expect((descriptor['cover'] as Map)['sizeBytes'], bytes.length);
+        expect(
+          (descriptor['cover'] as Map)['sha256'],
+          sha256.convert(bytes).toString(),
+        );
+        expect(utf8.encode(jsonEncode(descriptor)).length, lessThan(4096));
+        final incoming = File('${fixture.directory.path}/incoming.mp3');
+        final incomingCover = File(
+          '${fixture.directory.path}/incoming-cover.part',
+        );
+        await tester.runAsync(() async {
+          await File(original.variants.single.localPath!).copy(incoming.path);
+          await cover.copy(incomingCover.path);
+        });
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              const MethodChannel('plugins.flutter.io/path_provider'),
+              (_) async => fixture.directory.path,
+            );
+        try {
+          fixture.transport.emit({
+            'type': 'received',
+            'sessionId': session,
+            'descriptor': descriptor,
+            'path': incoming.path,
+            'coverPath': incomingCover.path,
+          });
+          await tester.runAsync(() async {
+            for (
+              var i = 0;
+              i < 200 && fixture.transport.confirmed.isEmpty;
+              i++
+            ) {
+              await Future<void>.delayed(const Duration(milliseconds: 10));
+            }
+          });
+          expect(fixture.library.imported, hasLength(1));
+          final imported = fixture.library.imported.single;
+          expect(File(imported.thumbnailLocalPath!).readAsBytesSync(), bytes);
+          expect(fixture.transport.confirmed, [descriptor['payloadId']]);
+          expect(fixture.controller.received, hasLength(1));
+          expect(cover.readAsBytesSync(), bytes);
+          expect(incomingCover.existsSync(), isFalse);
+        } finally {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(
+                const MethodChannel('plugins.flutter.io/path_provider'),
+                null,
+              );
+        }
+      });
+    },
+  );
+
+  testWidgets('missing or unsupported cover never blocks media send', (
+    tester,
+  ) async {
+    await _withController(tester, (fixture) async {
+      await fixture.connectHost(tester);
+      final item = fixture.audioItem().copyWith(
+        thumbnailLocalPath: '${fixture.directory.path}/absent.png',
+      );
+      await tester.runAsync(() => fixture.controller.sendItems([item]));
+      expect(fixture.transport.sends, hasLength(1));
+      expect(fixture.transport.sends.single.$2, isNot(contains('cover')));
+      expect(fixture.transport.covers.single, isNull);
+    });
+  });
 
   testWidgets(
     'previous-session native events are ignored; explicit close fails in-flight work durably',
@@ -455,6 +541,7 @@ class _Transport implements WifiDirectTransport {
   final stream = StreamController<Map<String, dynamic>>.broadcast(sync: true);
   final prepared = <Map<String, dynamic>>[];
   final sends = <(String, Map<String, dynamic>)>[];
+  final covers = <String?>[];
   final confirmed = <int>[];
   int hostStarts = 0, closes = 0;
   void emit(Map<String, dynamic> event) => stream.add(event);
@@ -477,8 +564,13 @@ class _Transport implements WifiDirectTransport {
   }
 
   @override
-  Future<void> send(String path, Map<String, dynamic> descriptor) async {
+  Future<void> send(
+    String path,
+    Map<String, dynamic> descriptor, {
+    String? coverPath,
+  }) async {
     sends.add((path, Map.of(descriptor)));
+    covers.add(coverPath);
   }
 
   @override

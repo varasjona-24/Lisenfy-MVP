@@ -46,7 +46,7 @@ ThemeData buildTheme({
   final surfaceHighest = mix(base, Colors.white, isDark ? 0.12 : 0.10);
 
   final onSurface = isDark
-      ? Colors.white.withOpacity(0.92)
+      ? Colors.white.withValues(alpha: 0.92)
       : const Color(0xFF111111);
 
   final primaryContainer = isDark
@@ -62,12 +62,12 @@ ThemeData buildTheme({
       : mix(tertiary, Colors.white, 0.60);
 
   final outline = isDark
-      ? Colors.white.withOpacity(0.22)
-      : Colors.black.withOpacity(0.18);
+      ? Colors.white.withValues(alpha: 0.22)
+      : Colors.black.withValues(alpha: 0.18);
 
   final outlineVariant = isDark
-      ? Colors.white.withOpacity(0.14)
-      : Colors.black.withOpacity(0.10);
+      ? Colors.white.withValues(alpha: 0.14)
+      : Colors.black.withValues(alpha: 0.10);
 
   final scheme = ColorScheme(
     brightness: brightness,
@@ -84,9 +84,6 @@ ThemeData buildTheme({
     surface: surface,
     onSurface: onSurface,
 
-    background: base,
-    onBackground: onSurface,
-
     primaryContainer: primaryContainer,
     onPrimaryContainer: onColorFor(primaryContainer),
 
@@ -102,8 +99,8 @@ ThemeData buildTheme({
     error: isDark ? const Color(0xFFF2B8B5) : const Color(0xFFB3261E),
     onError: isDark ? Colors.black : Colors.white,
 
-    shadow: Colors.black.withOpacity(isDark ? 0.45 : 0.25),
-    scrim: Colors.black.withOpacity(isDark ? 0.55 : 0.40),
+    shadow: Colors.black.withValues(alpha: isDark ? 0.45 : 0.25),
+    scrim: Colors.black.withValues(alpha: isDark ? 0.55 : 0.40),
     surfaceTint: primary,
   );
 
@@ -118,10 +115,10 @@ ThemeData buildTheme({
       titleMedium: AppTextStyles.sectionTitle.copyWith(color: onSurface),
       bodyLarge: AppTextStyles.body.copyWith(color: onSurface),
       bodyMedium: AppTextStyles.body.copyWith(
-        color: onSurface.withOpacity(isDark ? 0.86 : 0.78),
+        color: onSurface.withValues(alpha: isDark ? 0.86 : 0.78),
       ),
       bodySmall: AppTextStyles.caption.copyWith(
-        color: onSurface.withOpacity(isDark ? 0.62 : 0.55),
+        color: onSurface.withValues(alpha: isDark ? 0.62 : 0.55),
       ),
     ),
 
@@ -137,7 +134,7 @@ ThemeData buildTheme({
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: BorderSide(
-          color: outlineVariant.withOpacity(isDark ? 0.25 : 0.55),
+          color: outlineVariant.withValues(alpha: isDark ? 0.25 : 0.55),
           width: 1,
         ),
       ),
@@ -159,7 +156,7 @@ ThemeData buildTheme({
       ),
       shape: StadiumBorder(
         side: BorderSide(
-          color: scheme.outline.withOpacity(isDark ? 0.35 : 0.55),
+          color: scheme.outline.withValues(alpha: isDark ? 0.35 : 0.55),
           width: 1,
         ),
       ),

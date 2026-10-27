@@ -27,7 +27,7 @@ class HomeEntryPage extends GetView<HomeController> {
       // ✅ Logo un pelín más "suave" en light para no chocar con el fondo
       final logoColor = isDark
           ? scheme.primary
-          : scheme.primary.withOpacity(0.9);
+          : scheme.primary.withValues(alpha: 0.9);
 
       return Scaffold(
         body: Stack(
@@ -39,7 +39,7 @@ class HomeEntryPage extends GetView<HomeController> {
                   color: isDark
                       ? scheme.surface
                       : Color.alphaBlend(
-                          Colors.white.withOpacity(0.65),
+                          Colors.white.withValues(alpha: 0.65),
                           scheme.surface,
                         ),
                 ),
@@ -55,9 +55,9 @@ class HomeEntryPage extends GetView<HomeController> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withOpacity(0.45),
-                        Colors.black.withOpacity(0.10),
-                        Colors.black.withOpacity(0.35),
+                        Colors.black.withValues(alpha: 0.45),
+                        Colors.black.withValues(alpha: 0.10),
+                        Colors.black.withValues(alpha: 0.35),
                       ],
                     ),
                   ),
@@ -73,7 +73,7 @@ class HomeEntryPage extends GetView<HomeController> {
                       center: const Alignment(0.0, -0.25),
                       radius: 0.9,
                       colors: [
-                        scheme.primary.withOpacity(isDark ? 0.20 : 0.10),
+                        scheme.primary.withValues(alpha: isDark ? 0.20 : 0.10),
                         Colors.transparent,
                       ],
                     ),
@@ -115,8 +115,8 @@ class HomeEntryPage extends GetView<HomeController> {
                             tr('home.entry.tagline'),
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: scheme.onSurface.withOpacity(
-                                isDark ? 0.72 : 0.60, // ✅ más fino en light
+                              color: scheme.onSurface.withValues(
+                                alpha: isDark ? 0.72 : 0.60, // ✅ más fino en light
                               ),
                               height: 1.25,
                             ),
@@ -139,7 +139,7 @@ class HomeEntryPage extends GetView<HomeController> {
                                   BoxShadow(
                                     blurRadius: 18,
                                     offset: const Offset(0, 10),
-                                    color: Colors.black.withOpacity(0.12),
+                                    color: Colors.black.withValues(alpha: 0.12),
                                   ),
                                 ],
                         ),
@@ -171,8 +171,8 @@ class HomeEntryPage extends GetView<HomeController> {
                     Text(
                       tr('home.entry.footer'),
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurface.withOpacity(
-                          isDark ? 0.55 : 0.55,
+                        color: scheme.onSurface.withValues(
+                          alpha: isDark ? 0.55 : 0.55,
                         ),
                       ),
                     ),

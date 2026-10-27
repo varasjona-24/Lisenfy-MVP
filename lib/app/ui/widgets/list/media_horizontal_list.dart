@@ -197,8 +197,8 @@ class _MediaHorizontalListState extends State<MediaHorizontalList> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               itemCount: 6,
-              separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
-              itemBuilder: (_, __) => const MediaCardSkeleton(),
+              separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
+              itemBuilder: (_, _) => const MediaCardSkeleton(),
             ),
           ),
         ],
@@ -220,7 +220,7 @@ class _MediaHorizontalListState extends State<MediaHorizontalList> {
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
             itemCount: widget.items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+            separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
             itemBuilder: (context, index) {
               final item = widget.items[index];
               final selected = _selectedIds.contains(item.id);

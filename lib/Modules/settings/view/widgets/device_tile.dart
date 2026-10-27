@@ -42,7 +42,7 @@ class DeviceTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.dividerColor.withOpacity(.12)),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: .12)),
       ),
       child: ListTile(
         dense: true,

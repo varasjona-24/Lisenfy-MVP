@@ -44,8 +44,8 @@ class ChoiceChipRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
             side: BorderSide(
               color: selected
-                  ? theme.colorScheme.primary.withOpacity(.55)
-                  : theme.dividerColor.withOpacity(.18),
+                  ? theme.colorScheme.primary.withValues(alpha: .55)
+                  : theme.dividerColor.withValues(alpha: .18),
             ),
           ),
           showCheckmark: false,

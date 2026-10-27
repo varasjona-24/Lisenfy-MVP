@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:crypto/crypto.dart';
 import 'package:easy_localization/easy_localization.dart'
@@ -21,6 +20,7 @@ import '../../../app/utils/listenfy_deep_link.dart';
 import '../../downloads/controller/downloads_controller.dart';
 import '../../sources/domain/source_origin.dart';
 import '../data/wifi_direct_transport.dart';
+import '../data/transfer_cover_attachment.dart';
 import '../domain/hybrid_transfer_protocol.dart';
 
 enum TransferPhase {
@@ -114,9 +114,10 @@ class NearbyTransferController extends GetxController {
   final WifiDirectTransport _direct;
   final Future<bool> Function()? _permissionCheck;
   static const _schema = 'listenfy.nearby.transfer.v2';
-  static const _serviceId = 'com.listenfy.transfer.pairing.v2';
+  static const _serviceId = 'com.listenfy.transfer.pairing.v3';
   static const _historyKey = 'nearby_transfer_history_v1';
   static const _maxTransferBytes = 1024 * 1024 * 1024;
+  // Legacy inline-cover reader only; binary attachments use their own 64 MiB cap.
   static const _maxCoverBytes = 2 * 1024 * 1024;
   static const _allowedFormats = {
     'mp3',
@@ -645,7 +646,16 @@ class NearbyTransferController extends GetxController {
           item: item,
           variant: variant,
         );
-        if (utf8.encode(jsonEncode(descriptor.toJson())).length > 256 * 1024) {
+        if (utf8
+                .encode(
+                  jsonEncode({
+                    'type': 'file',
+                    'sessionId': session,
+                    'descriptor': descriptor.toJson(),
+                  }),
+                )
+                .length >
+            256 * 1024) {
           throw const FormatException('metadata');
         }
         if (!isConnected ||
@@ -668,7 +678,11 @@ class NearbyTransferController extends GetxController {
             _sessionId != session) {
           break;
         }
-        await _direct.send(file.path, descriptor.toJson());
+        await _direct.send(
+          file.path,
+          descriptor.toJson(),
+          coverPath: descriptor.cover?.path,
+        );
       }
     } catch (_) {
       statusKey.value = 'nearby_session.send_failed';
@@ -710,6 +724,7 @@ class NearbyTransferController extends GetxController {
     final item = await _buildImportedItemFromDescriptor(
       descriptor: descriptor,
       destinationPath: destination,
+      attachmentPath: event['coverPath'] as String?,
     );
     if (item == null) {
       await File(destination).delete();
@@ -737,6 +752,14 @@ class NearbyTransferController extends GetxController {
     await _persistHistory();
     _receiveIds.add(key);
     await source.delete();
+    final attachment = event['coverPath'];
+    if (attachment is String && attachment.isNotEmpty) {
+      try {
+        await File(attachment).delete();
+      } on FileSystemException {
+        /* already cleaned */
+      }
+    }
     if (Get.isRegistered<DownloadsController>()) {
       unawaited(Get.find<DownloadsController>().load());
     }
@@ -815,6 +838,7 @@ class NearbyTransferController extends GetxController {
   Future<MediaItem?> _buildImportedItemFromDescriptor({
     required _IncomingNearbyDescriptor descriptor,
     required String destinationPath,
+    String? attachmentPath,
   }) async {
     try {
       final file = File(destinationPath);
@@ -831,10 +855,12 @@ class NearbyTransferController extends GetxController {
           )
           .toString();
 
-      final coverPath = await _saveIncomingCover(
-        itemId: id,
-        base64Cover: descriptor.coverBase64,
-      );
+      final coverPath =
+          await _saveCoverAttachment(id, attachmentPath, descriptor.cover) ??
+          await _saveIncomingCover(
+            itemId: id,
+            base64Cover: descriptor.coverBase64,
+          );
 
       final kind = descriptor.kind == 'video'
           ? MediaVariantKind.video
@@ -900,6 +926,31 @@ class NearbyTransferController extends GetxController {
       final fileName = ext.isEmpty ? hash : '$hash.$ext';
       return p.join(mediaDir.path, fileName);
     } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _saveCoverAttachment(
+    String itemId,
+    String? path,
+    Map<String, dynamic>? metadata,
+  ) async {
+    if (path == null || path.isEmpty || metadata == null) return null;
+    try {
+      final cover = await TransferCoverAttachment.read(path);
+      if (cover == null ||
+          cover.size != metadata['sizeBytes'] ||
+          cover.hash != metadata['sha256'] ||
+          cover.format != metadata['format']) {
+        return null;
+      }
+      final appDir = await getApplicationDocumentsDirectory();
+      final dir = Directory(p.join(appDir.path, 'media', 'covers'));
+      await dir.create(recursive: true);
+      final destination = p.join(dir.path, '${itemId}_cover.${cover.format}');
+      await File(path).copy(destination);
+      return destination;
+    } on FileSystemException {
       return null;
     }
   }
@@ -1009,7 +1060,7 @@ class _OutgoingNearbyDescriptor {
   final String? lyrics;
   final String? lyricsLanguage;
   final Map<String, String>? translations;
-  final String? coverBase64;
+  final TransferCoverAttachment? cover;
 
   _OutgoingNearbyDescriptor({
     required this.schema,
@@ -1028,7 +1079,7 @@ class _OutgoingNearbyDescriptor {
     required this.lyrics,
     required this.lyricsLanguage,
     required this.translations,
-    required this.coverBase64,
+    required this.cover,
   });
 
   static Future<_OutgoingNearbyDescriptor> fromItem({
@@ -1046,50 +1097,7 @@ class _OutgoingNearbyDescriptor {
         .replaceFirst('.', '')
         .toLowerCase()
         .trim();
-    String? coverBase64;
-    final coverPath = (item.thumbnailLocalPath ?? '').trim();
-    if (coverPath.isNotEmpty) {
-      try {
-        final coverFile = File(coverPath);
-        if (await coverFile.exists()) {
-          final len = await coverFile.length();
-          if (len > 0 && len <= (1024 * 1024 * 2)) {
-            final bytes = await coverFile.readAsBytes();
-            if (bytes.length <= 128 * 1024) {
-              coverBase64 = base64Encode(bytes);
-            } else {
-              // A transfer thumbnail must fit the bounded metadata frame.
-              final codec = await ui.instantiateImageCodec(
-                bytes,
-                targetWidth: 192,
-                targetHeight: 192,
-                allowUpscaling: false,
-              );
-              try {
-                final frame = await codec.getNextFrame();
-                try {
-                  final data = await frame.image.toByteData(
-                    format: ui.ImageByteFormat.png,
-                  );
-                  if (data != null && data.lengthInBytes <= 128 * 1024) {
-                    coverBase64 = base64Encode(
-                      data.buffer.asUint8List(
-                        data.offsetInBytes,
-                        data.lengthInBytes,
-                      ),
-                    );
-                  }
-                } finally {
-                  frame.image.dispose();
-                }
-              } finally {
-                codec.dispose();
-              }
-            }
-          }
-        }
-      } catch (_) {}
-    }
+    final cover = await TransferCoverAttachment.read(item.thumbnailLocalPath);
 
     return _OutgoingNearbyDescriptor(
       schema: schema,
@@ -1108,7 +1116,7 @@ class _OutgoingNearbyDescriptor {
       lyrics: item.lyrics,
       lyricsLanguage: item.lyricsLanguage,
       translations: item.translations,
-      coverBase64: coverBase64,
+      cover: cover,
     );
   }
 
@@ -1129,7 +1137,7 @@ class _OutgoingNearbyDescriptor {
     'lyrics': lyrics,
     'lyricsLanguage': lyricsLanguage,
     'translations': translations,
-    'coverBase64': coverBase64,
+    if (cover != null) 'cover': cover!.toJson(),
   };
 }
 
@@ -1150,6 +1158,7 @@ class _IncomingNearbyDescriptor {
   final String? lyricsLanguage;
   final Map<String, String>? translations;
   final String? coverBase64;
+  final Map<String, dynamic>? cover;
 
   _IncomingNearbyDescriptor({
     required this.payloadId,
@@ -1168,6 +1177,7 @@ class _IncomingNearbyDescriptor {
     required this.lyricsLanguage,
     required this.translations,
     required this.coverBase64,
+    required this.cover,
   });
 
   static _IncomingNearbyDescriptor? fromJson(Map<String, dynamic> json) {
@@ -1218,6 +1228,9 @@ class _IncomingNearbyDescriptor {
     }
 
     return _IncomingNearbyDescriptor(
+      cover: json['cover'] is Map
+          ? Map<String, dynamic>.from(json['cover'] as Map)
+          : null,
       payloadId: payloadId,
       sessionId: sessionId,
       sizeBytes: sizeBytes,

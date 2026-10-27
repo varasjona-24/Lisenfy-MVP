@@ -19,7 +19,7 @@ class MediaCardSkeleton extends StatelessWidget {
             aspectRatio: 1,
             child: Container(
               decoration: BoxDecoration(
-                color: colors.surface.withOpacity(0.3),
+                color: colors.surface.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
@@ -29,7 +29,7 @@ class MediaCardSkeleton extends StatelessWidget {
             height: 14,
             width: width * 0.8,
             decoration: BoxDecoration(
-              color: colors.surface.withOpacity(0.3),
+              color: colors.surface.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(4),
             ),
           ),
@@ -38,7 +38,7 @@ class MediaCardSkeleton extends StatelessWidget {
             height: 12,
             width: width * 0.5,
             decoration: BoxDecoration(
-              color: colors.surface.withOpacity(0.2),
+              color: colors.surface.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
             ),
           ),
