@@ -1666,13 +1666,6 @@ class _EditEntityPageState extends State<EditEntityPage> {
         (item.variants.isNotEmpty ? item.variants.first : null);
   }
 
-  String _kindLabel(MediaVariant? variant) {
-    if (variant == null) return tr('edit.unknown');
-    return variant.kind == MediaVariantKind.video
-        ? tr('downloads.media_videos')
-        : tr('downloads.media_music');
-  }
-
   String _formatLabel(MediaVariant? variant) {
     final fmt = variant?.format.trim() ?? '';
     return fmt.isEmpty ? 'N/A' : fmt.toUpperCase();
@@ -1698,52 +1691,6 @@ class _EditEntityPageState extends State<EditEntityPage> {
     final size = _sizeMbLabel(variant);
     final fmt = _formatLabel(variant);
     return '$size - $fmt';
-  }
-
-  Widget _artistSongsSection(ThemeData theme) {
-    final songs = _artist?.items ?? const <MediaItem>[];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          tr('edit.artist_songs_title'),
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Card(
-          elevation: 0,
-          color: theme.colorScheme.surfaceContainer,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: songs.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    tr('edit.artist_songs_empty'),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                )
-              : Column(
-                  children: [
-                    for (int i = 0; i < songs.length; i++) ...[
-                      _artistSongTile(theme, songs[i]),
-                      if (i != songs.length - 1)
-                        Divider(
-                          height: 1,
-                          color: theme.colorScheme.outlineVariant,
-                        ),
-                    ],
-                  ],
-                ),
-        ),
-      ],
-    );
   }
 
   List<ArtistGroup> _artistMemberCandidates() {
@@ -2067,31 +2014,6 @@ class _EditEntityPageState extends State<EditEntityPage> {
           : FileImage(File(remote)) as ImageProvider;
     }
     return null;
-  }
-
-  Widget _artistSongTile(ThemeData theme, MediaItem item) {
-    final variant = _preferredVariant(item);
-    final kind = _kindLabel(variant);
-    final fmt = _formatLabel(variant);
-    final size = _sizeMbLabel(variant);
-
-    return ListTile(
-      dense: true,
-      leading: Icon(
-        variant?.kind == MediaVariantKind.video
-            ? Icons.videocam_rounded
-            : Icons.music_note_rounded,
-      ),
-      title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        '$kind · $fmt · $size',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
   }
 
   Widget _captureTagThumbnailPicker(ThemeData theme) {
@@ -2936,10 +2858,6 @@ class _EditEntityPageState extends State<EditEntityPage> {
         else
           extraControls,
       ],
-      if (_isArtist) ...[
-        const SizedBox(height: 12),
-        _artistSongsSection(theme),
-      ],
     ];
     Widget desktopCover() => Card(
       margin: EdgeInsets.zero,
@@ -3024,6 +2942,68 @@ class _EditEntityPageState extends State<EditEntityPage> {
         child: desktop
             ? LayoutBuilder(
                 builder: (context, constraints) {
+                  if (_args.type == EditEntityType.playlist) {
+                    final details = Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ...formSections,
+                        const SizedBox(height: 20),
+                        coverControls,
+                      ],
+                    );
+                    final artwork = SizedBox(
+                      key: const ValueKey('playlist-editor-cover'),
+                      width: 260,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: _buildThumbnail(context),
+                        ),
+                      ),
+                    );
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 24,
+                      ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 900),
+                          child: Card(
+                            key: const ValueKey('playlist-editor-panel'),
+                            margin: EdgeInsets.zero,
+                            color: theme.colorScheme.surfaceContainer,
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: LayoutBuilder(
+                                builder: (context, panel) =>
+                                    panel.maxWidth >= 700
+                                    ? Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          artwork,
+                                          const SizedBox(width: 24),
+                                          Expanded(child: details),
+                                        ],
+                                      )
+                                    : Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Center(child: artwork),
+                                          const SizedBox(height: 20),
+                                          details,
+                                        ],
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
                   final wide = constraints.maxWidth >= 960;
                   final cover = Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
@@ -495,22 +494,6 @@ class _SectionListPageState extends State<SectionListPage> {
             fontWeight: FontWeight.w800,
           ),
         ),
-        if (widget.onShuffle != null) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () {
-                final queue = List<MediaItem>.from(_items);
-                queue.shuffle(Random());
-                if (queue.isEmpty) return;
-                widget.onShuffle?.call(queue);
-              },
-              icon: const Icon(Icons.shuffle_rounded),
-              label: Text(tr('home.section.shuffle')),
-            ),
-          ),
-        ],
         if (_selectionMode) ...[
           const SizedBox(height: 12),
           Wrap(
@@ -549,7 +532,7 @@ class _SectionListPageState extends State<SectionListPage> {
         ? Get.find<NavigationController>()
         : null;
     nav?.setOverlayOpen(true);
-    await showModalBottomSheet<void>(
+    await showAdaptiveSortMenu<void>(
       context: context,
       showDragHandle: true,
       backgroundColor: scheme.surface,
@@ -683,6 +666,7 @@ class _SectionListPageState extends State<SectionListPage> {
             widget.itemHintBuilder == null &&
             widget.itemTrailingBuilder == null) {
           return AppMediaListTile(
+            expandedDesktopRow: true,
             item: item,
             videoStyle: widget.rectangularGrid,
             carded: true,
@@ -701,6 +685,7 @@ class _SectionListPageState extends State<SectionListPage> {
           );
         }
         return AppMediaActionListTile(
+          expandedDesktopRow: true,
           item: item,
           carded: true,
           videoStyle: widget.rectangularGrid,
@@ -763,6 +748,7 @@ class _SectionListPageState extends State<SectionListPage> {
         AppMediaItemsSliver(
           items: _items,
           gridView: true,
+          expandedDesktopRows: true,
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.md,
             0,
@@ -806,6 +792,7 @@ class _SectionListPageState extends State<SectionListPage> {
         AppMediaItemsSliver(
           items: _items,
           gridView: true,
+          expandedDesktopRows: true,
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.md,
             0,

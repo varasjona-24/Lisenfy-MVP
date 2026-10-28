@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
+import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import '../../../app/controllers/navigation_controller.dart';
 import '../../sources/ui/source_color_picker_field.dart';
 import '../controller/edit_entity_controller.dart';
@@ -219,9 +220,143 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
     );
   }
 
+  Widget _desktopPlaylistPage(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final artwork = SizedBox(
+      key: const ValueKey('playlist-create-cover'),
+      width: 260,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: AspectRatio(
+          aspectRatio: 1,
+          child: ColoredBox(
+            color: scheme.surfaceContainerHigh,
+            child: _buildThumbnail(context),
+          ),
+        ),
+      ),
+    );
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          tr('edit.basic_info'),
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _nameCtrl,
+          decoration: InputDecoration(
+            labelText: tr('edit.name'),
+            prefixIcon: const Icon(Icons.queue_music_rounded),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          tr('edit.cover'),
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.tonalIcon(
+                onPressed: _pickLocalThumbnail,
+                icon: const Icon(Icons.photo_library_rounded),
+                label: Text(tr('edit.choose_image')),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton.tonalIcon(
+                onPressed: _searchWebThumbnail,
+                icon: const Icon(Icons.public_rounded),
+                label: Text(tr('edit.search_web')),
+              ),
+            ),
+          ],
+        ),
+        if ((_localThumbPath ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _clearThumbnail,
+            icon: const Icon(Icons.hide_image_rounded),
+            label: Text(tr('edit.remove_cover')),
+          ),
+        ],
+      ],
+    );
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: Text(_title()),
+        backgroundColor: scheme.surface,
+        surfaceTintColor: scheme.surface,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: FilledButton.icon(
+              onPressed: _save,
+              icon: const Icon(Icons.check_rounded),
+              label: Text(tr('common.create')),
+            ),
+          ),
+        ],
+      ),
+      body: AppGradientBackground(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Card(
+                key: const ValueKey('playlist-create-panel'),
+                margin: EdgeInsets.zero,
+                color: scheme.surfaceContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) =>
+                        constraints.maxWidth >= 700
+                        ? Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              artwork,
+                              const SizedBox(width: 24),
+                              Expanded(child: details),
+                            ],
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Center(child: artwork),
+                              const SizedBox(height: 20),
+                              details,
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    if (AppBottomNav.desktopSidebarEnabled &&
+        _args.type == CreateEntityType.playlist) {
+      return _desktopPlaylistPage(context);
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,

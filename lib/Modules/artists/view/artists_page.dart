@@ -266,17 +266,29 @@ class ArtistsPage extends GetView<ArtistsController> {
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 162,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: list.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 12),
-              itemBuilder: (context, i) {
-                final artist = list[i];
-                return _ArtistCoverCard(artist: artist);
-              },
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final desktop = AppBottomNav.desktopSidebarEnabled;
+              final slots = (constraints.maxWidth / 200).floor().clamp(
+                1,
+                list.length,
+              );
+              final width = desktop
+                  ? (constraints.maxWidth - (slots - 1) * 16) / slots
+                  : 96.0;
+              final scale = MediaQuery.textScalerOf(context).scale(1);
+              return SizedBox(
+                height: desktop ? width + 84 * scale : 162,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: list.length,
+                  separatorBuilder: (context, index) =>
+                      SizedBox(width: desktop ? 16 : 12),
+                  itemBuilder: (context, i) =>
+                      _ArtistCoverCard(artist: list[i], width: width),
+                ),
+              );
+            },
           ),
         ],
       );
@@ -354,6 +366,37 @@ class ArtistsPage extends GetView<ArtistsController> {
   }
 
   Widget _artistListSliver(List<ArtistGroup> artists) {
+    if (AppBottomNav.desktopSidebarEnabled) {
+      return SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        sliver: SliverLayoutBuilder(
+          builder: (context, constraints) => SliverGrid.builder(
+            itemCount: artists.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: (constraints.crossAxisExtent / 280).floor().clamp(
+                1,
+                4,
+              ),
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              mainAxisExtent: 132 * MediaQuery.textScalerOf(context).scale(1),
+            ),
+            itemBuilder: (context, index) {
+              final artist = artists[index];
+              return _ArtistCard(
+                artist: artist,
+                onOpen: () =>
+                    Get.toNamed(AppRoutes.artistDetail, arguments: artist.key),
+                onEdit: () => Get.toNamed(
+                  AppRoutes.editEntity,
+                  arguments: EditEntityArgs.artist(artist),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       sliver: SliverList.builder(
@@ -384,7 +427,7 @@ class ArtistsPage extends GetView<ArtistsController> {
         ? Get.find<NavigationController>()
         : null;
     nav?.setOverlayOpen(true);
-    await showModalBottomSheet<void>(
+    await showAdaptiveSortMenu<void>(
       context: context,
       showDragHandle: true,
       backgroundColor: scheme.surface,
@@ -780,6 +823,64 @@ class _ArtistCard extends StatelessWidget {
         ? '$typeLabel - ${flag.isEmpty ? country : '$flag $country'}'
         : typeLabel;
 
+    if (AppBottomNav.desktopSidebarEnabled) {
+      return Material(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onOpen,
+          onSecondaryTap: onEdit,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                ArtistAvatar(thumb: thumb, radius: 37),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        artist.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        typeCountryLine,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        tr(
+                          artist.count == 1
+                              ? 'common.songs.one'
+                              : 'common.songs.other',
+                          args: ['${artist.count}'],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Card(
       elevation: 0,
       color: scheme.surfaceContainer.withValues(alpha: 0.78),
@@ -813,9 +914,10 @@ class _ArtistCard extends StatelessWidget {
 }
 
 class _ArtistCoverCard extends StatelessWidget {
-  const _ArtistCoverCard({required this.artist});
+  const _ArtistCoverCard({required this.artist, this.width = 96});
 
   final ArtistGroup artist;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -838,14 +940,20 @@ class _ArtistCoverCard extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () => Get.toNamed(AppRoutes.artistDetail, arguments: artist.key),
+      onSecondaryTap: AppBottomNav.desktopSidebarEnabled
+          ? () => Get.toNamed(
+              AppRoutes.editEntity,
+              arguments: EditEntityArgs.artist(artist),
+            )
+          : null,
       child: SizedBox(
-        width: 96,
+        width: width,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 96,
-              height: 96,
+              width: width,
+              height: width,
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(16),

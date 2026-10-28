@@ -106,6 +106,9 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
                   )
                 else
                   AppMediaItemsSliver(
+                    expandedDesktopRows: true,
+                    desktopGridHorizontalInset: 12,
+                    desktopListHorizontalInset: 12,
                     items: items,
                     gridView: controller.detailGridView.value,
                     padding: const EdgeInsets.fromLTRB(
@@ -229,14 +232,6 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
             onPressed: items.isEmpty ? null : () => _play(items, 0),
           ),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _PlaylistCommandButton(
-            icon: Icons.shuffle_rounded,
-            label: tr('player.shuffle'),
-            onPressed: items.isEmpty ? null : () => _playShuffled(items),
-          ),
-        ),
       ],
     );
   }
@@ -279,7 +274,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
         ? Get.find<NavigationController>()
         : null;
     nav?.setOverlayOpen(true);
-    await showModalBottomSheet<void>(
+    await showAdaptiveSortMenu<void>(
       context: context,
       showDragHandle: true,
       backgroundColor: scheme.surface,
@@ -564,12 +559,6 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
       AppRoutes.audioPlayer,
       arguments: {'queue': queue, 'index': index},
     );
-  }
-
-  void _playShuffled(List<MediaItem> items) {
-    if (items.isEmpty) return;
-    final shuffled = List<MediaItem>.from(items)..shuffle();
-    _play(shuffled, 0);
   }
 
   ImageProvider? _resolveCover(Playlist? playlist, List<MediaItem> items) {

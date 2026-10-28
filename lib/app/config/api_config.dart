@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class ApiConfig {
@@ -18,15 +17,8 @@ class ApiConfig {
       return 'http://localhost:$_port';
     }
 
-    if (kDebugMode) {
-      if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-        return 'http://localhost:$_port';
-      }
-
-      return _prodBase;
-    }
-
-    // Producción
+    // Native debug builds use the same backend as release builds.
+    // Local development remains opt-in through API_BASE_URL.
     return _prodBase;
   }
 }

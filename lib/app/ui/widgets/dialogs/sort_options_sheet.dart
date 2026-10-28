@@ -1,6 +1,45 @@
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
+import '../navigation/app_bottom_nav.dart';
+
+/// Keeps sorting controls centered on desktop and in a sheet on mobile.
+Future<T?> showAdaptiveSortMenu<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool showDragHandle = true,
+  Color? backgroundColor,
+  ShapeBorder? shape,
+}) {
+  if (!AppBottomNav.desktopSidebarEnabled) {
+    return showModalBottomSheet<T>(
+      context: context,
+      builder: builder,
+      showDragHandle: showDragHandle,
+      backgroundColor: backgroundColor,
+      shape: shape,
+    );
+  }
+  return showDialog<T>(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: backgroundColor ?? Theme.of(context).colorScheme.surface,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 560,
+          maxHeight: MediaQuery.sizeOf(context).height - 64,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: builder(context),
+        ),
+      ),
+    ),
+  );
+}
 
 class SortSheetOption {
   const SortSheetOption({
@@ -30,7 +69,7 @@ Future<void> showSortOptionsSheet({
   final theme = Theme.of(context);
   final scheme = theme.colorScheme;
   onOpened?.call();
-  await showModalBottomSheet<void>(
+  await showAdaptiveSortMenu<void>(
     context: context,
     showDragHandle: true,
     backgroundColor: scheme.surface,

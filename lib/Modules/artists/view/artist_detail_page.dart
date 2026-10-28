@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:io';
 
@@ -819,13 +820,31 @@ class _SongSectionState extends State<_SongSection> {
           ),
         ),
         const SizedBox(height: 8),
-        AppMediaItemsList(
-          items: items,
-          gridView: _gridMode,
-          onTap: (item, index) => widget.onPlay(item),
-          onLongPress: (item, index) => widget.onMore(item),
-          compactListCard: true,
-        ),
+        if (AppBottomNav.desktopSidebarEnabled)
+          CustomScrollView(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            slivers: [
+              AppMediaItemsSliver(
+                items: items,
+                gridView: _gridMode,
+                expandedDesktopRows: true,
+                desktopGridHorizontalInset: 12,
+                desktopListHorizontalInset: 12,
+                onTap: (item, index) => widget.onPlay(item),
+                onLongPress: (item, index) => widget.onMore(item),
+                compactListCard: true,
+              ),
+            ],
+          )
+        else
+          AppMediaItemsList(
+            items: items,
+            gridView: _gridMode,
+            onTap: (item, index) => widget.onPlay(item),
+            onLongPress: (item, index) => widget.onMore(item),
+            compactListCard: true,
+          ),
       ],
     );
   }
@@ -837,7 +856,7 @@ class _SongSectionState extends State<_SongSection> {
         ? Get.find<NavigationController>()
         : null;
     nav?.setOverlayOpen(true);
-    await showModalBottomSheet<void>(
+    await showAdaptiveSortMenu<void>(
       context: context,
       showDragHandle: true,
       backgroundColor: scheme.surface,

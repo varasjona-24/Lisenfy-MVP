@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
@@ -412,6 +413,9 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
   }
 
   Widget _buildListResults(ThemeData theme, List<MediaItem> list) {
+    if (!_isVideoMode && AppBottomNav.desktopSidebarEnabled) {
+      return _buildDesktopAudioResults(list, gridView: false);
+    }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
@@ -440,6 +444,9 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
     ColorScheme scheme,
     List<MediaItem> list,
   ) {
+    if (!_isVideoMode && AppBottomNav.desktopSidebarEnabled) {
+      return _buildDesktopAudioResults(list, gridView: true);
+    }
     return AppMediaItemsList(
       items: list,
       gridView: true,
@@ -452,6 +459,24 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
       videoStyle: _isVideoMode,
       onTap: (item, index) => _openSearchMedia(item, index, list),
       onLongPress: (item, index) => _openItemActions(context, item, list),
+    );
+  }
+
+  Widget _buildDesktopAudioResults(
+    List<MediaItem> list, {
+    required bool gridView,
+  }) {
+    return CustomScrollView(
+      slivers: [
+        AppMediaItemsSliver(
+          items: list,
+          gridView: gridView,
+          expandedDesktopRows: true,
+          compactListCard: true,
+          onTap: (item, index) => _openSearchMedia(item, index, list),
+          onLongPress: (item, index) => _openItemActions(context, item, list),
+        ),
+      ],
     );
   }
 

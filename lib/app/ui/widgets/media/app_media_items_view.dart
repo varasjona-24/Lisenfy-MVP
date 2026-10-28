@@ -9,6 +9,7 @@ import '../../../utils/media_item_status_helper.dart';
 import '../../themes/app_grid_theme.dart';
 import '../../themes/app_spacing.dart';
 import 'media_item_grid.dart';
+import '../navigation/app_bottom_nav.dart';
 
 class AppMediaItemsSliver extends StatelessWidget {
   const AppMediaItemsSliver({
@@ -27,6 +28,9 @@ class AppMediaItemsSliver extends StatelessWidget {
     this.videoStyle = false,
     this.fallbackIcon,
     this.compactListCard = false,
+    this.expandedDesktopRows = false,
+    this.desktopGridHorizontalInset = 80,
+    this.desktopListHorizontalInset = 80,
     this.padding = const EdgeInsets.symmetric(horizontal: AppSpacing.md),
   });
 
@@ -44,12 +48,20 @@ class AppMediaItemsSliver extends StatelessWidget {
   final bool videoStyle;
   final IconData? fallbackIcon;
   final bool compactListCard;
+  final bool expandedDesktopRows;
+  final double desktopGridHorizontalInset;
+  final double desktopListHorizontalInset;
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     if (gridView) {
       return MediaItemSliverGrid(
+        desktopGridHorizontalInset: desktopGridHorizontalInset,
+        desktopSongGrid:
+            expandedDesktopRows &&
+            !videoStyle &&
+            AppBottomNav.desktopSidebarEnabled,
         items: items,
         padding: padding.add(const EdgeInsets.only(bottom: AppSpacing.lg)),
         childAspectRatio: videoStyle
@@ -81,6 +93,8 @@ class AppMediaItemsSliver extends StatelessWidget {
             padding: EdgeInsets.only(bottom: videoStyle ? 18 : 8),
             child: AppMediaListTile(
               item: item,
+              expandedDesktopRow: expandedDesktopRows,
+              desktopHorizontalInset: desktopListHorizontalInset,
               videoStyle: videoStyle,
               carded: compactListCard || videoStyle,
               onTap: () => onTap(item, index),
@@ -189,6 +203,8 @@ class AppMediaListTile extends StatelessWidget {
     this.videoStyle = false,
     this.carded = false,
     this.scale = 1,
+    this.expandedDesktopRow = false,
+    this.desktopHorizontalInset = 80,
     this.onTap,
     this.onLongPress,
     this.onMore,
@@ -198,12 +214,24 @@ class AppMediaListTile extends StatelessWidget {
   final bool videoStyle;
   final bool carded;
   final double scale;
+  final bool expandedDesktopRow;
+  final double desktopHorizontalInset;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {
+    if (expandedDesktopRow &&
+        !videoStyle &&
+        AppBottomNav.desktopSidebarEnabled) {
+      return _DesktopSongRow(
+        horizontalInset: desktopHorizontalInset,
+        item: item,
+        onTap: onTap,
+        onMenu: onLongPress ?? onMore,
+      );
+    }
     return GestureDetector(
       onSecondaryTap: onLongPress ?? onMore,
       child: videoStyle ? _VideoListTile(this) : _AudioListTile(this),
@@ -230,9 +258,11 @@ class AppMediaActionListTile extends StatelessWidget {
     this.onHideTrack,
     this.onHideArtist,
     this.onSelectMultiple,
+    this.expandedDesktopRow = false,
   });
 
   final MediaItem item;
+  final bool expandedDesktopRow;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final bool videoStyle;
@@ -253,6 +283,37 @@ class AppMediaActionListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+
+    if (expandedDesktopRow &&
+        !videoStyle &&
+        AppBottomNav.desktopSidebarEnabled) {
+      return _DesktopSongRow(
+        item: item,
+        onTap: onTap,
+        onMenu: onLongPress,
+        hint: hintText,
+        selected: selected,
+        showPlay: !selectionMode,
+        extra: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (selectionMode)
+              Checkbox(
+                value: selected,
+                onChanged: selectable ? (_) => onToggleSelection?.call() : null,
+              )
+            else if (showFeedbackActions)
+              _FeedbackMenu(
+                onInterested: onInterested,
+                onHideTrack: onHideTrack,
+                onHideArtist: onHideArtist,
+                onSelectMultiple: onSelectMultiple,
+              ),
+            if (trailing != null) trailing!,
+          ],
+        ),
+      );
+    }
 
     return InkWell(
       borderRadius: BorderRadius.circular(
@@ -576,6 +637,198 @@ class _FeedbackItem extends StatelessWidget {
 }
 
 enum _FeedbackAction { selectMultiple, interested, hideTrack, hideArtist }
+
+/// Desktop rows opt in only from complete song lists, not Home previews.
+class _DesktopSongRow extends StatefulWidget {
+  const _DesktopSongRow({
+    required this.item,
+    this.onTap,
+    this.onMenu,
+    this.hint,
+    this.extra,
+    this.selected = false,
+    this.showPlay = true,
+    this.horizontalInset = 80,
+  });
+  final MediaItem item;
+  final VoidCallback? onTap, onMenu;
+  final String? hint;
+  final Widget? extra;
+  final bool selected, showPlay;
+  final double horizontalInset;
+  @override
+  State<_DesktopSongRow> createState() => _DesktopSongRowState();
+}
+
+class _DesktopSongRowState extends State<_DesktopSongRow> {
+  bool hovered = false;
+  bool focused = false;
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final item = widget.item;
+    final provider = _imageProvider(item.effectiveThumbnail);
+    return Focus(
+      canRequestFocus: false,
+      onFocusChange: (value) => setState(() => focused = value),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: widget.horizontalInset,
+          vertical: 3,
+        ),
+        child: Material(
+          color: widget.selected
+              ? scheme.primaryContainer
+              : scheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: widget.onTap,
+            onLongPress: widget.onMenu,
+            onSecondaryTap: widget.onMenu,
+            onHover: (value) => setState(() => hovered = value),
+            hoverColor: scheme.primary.withValues(alpha: .07),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide = constraints.maxWidth >= 720;
+                  final compact = constraints.maxWidth < 340;
+                  final duration = Text(
+                    _formatDuration(item.effectiveDurationSeconds) ?? '—',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  );
+                  final play = Visibility(
+                    visible: hovered || focused,
+                    maintainState: true,
+                    maintainAnimation: true,
+                    maintainSize: true,
+                    child: IconButton(
+                      tooltip: tr('player.play'),
+                      onPressed: widget.onTap,
+                      icon: Icon(
+                        Icons.play_arrow_rounded,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  );
+
+                  final artist = Text(
+                    item.displaySubtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  );
+                  final details = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (!wide && item.displaySubtitle.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        artist,
+                      ],
+                      if (compact) ...[const SizedBox(height: 4), duration],
+                      if (compact && widget.extra != null) ...[
+                        const SizedBox(height: 6),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: widget.extra!,
+                        ),
+                      ],
+                      if (widget.hint?.trim().isNotEmpty ?? false) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.hint!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                  return Row(
+                    children: [
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox.square(
+                              dimension: 62,
+                              child: provider == null
+                                  ? ColoredBox(
+                                      color: scheme.surfaceContainerHighest,
+                                      child: Icon(
+                                        Icons.music_note_rounded,
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                    )
+                                  : Image(
+                                      image: provider,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => ColoredBox(
+                                        color: scheme.surfaceContainerHighest,
+                                        child: Icon(
+                                          Icons.music_note_rounded,
+                                          color: scheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          if (compact && widget.showPlay)
+                            Positioned.fill(child: Center(child: play)),
+                        ],
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(flex: 5, child: details),
+                      if (wide) ...[
+                        const SizedBox(width: 24),
+                        Expanded(flex: 3, child: artist),
+                      ],
+                      if (!compact) ...[const SizedBox(width: 16), duration],
+                      if (!compact && widget.extra != null) ...[
+                        const SizedBox(width: 16),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth * .3,
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: widget.extra!,
+                          ),
+                        ),
+                      ],
+                      if (widget.showPlay && !compact) ...[
+                        const SizedBox(width: 8),
+                        play,
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _AudioListTile extends StatelessWidget {
   const _AudioListTile(this.config);

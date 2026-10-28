@@ -115,6 +115,8 @@ class MediaItemSliverGrid extends StatelessWidget {
     super.key,
     required this.items,
     required this.onTap,
+    this.desktopSongGrid = false,
+    this.desktopGridHorizontalInset = 80,
     this.onLongPress,
     this.onMore,
     this.hintBuilder,
@@ -134,6 +136,8 @@ class MediaItemSliverGrid extends StatelessWidget {
   });
 
   final List<MediaItem> items;
+  final bool desktopSongGrid;
+  final double desktopGridHorizontalInset;
   final MediaGridItemCallback onTap;
   final MediaGridItemCallback? onLongPress;
   final MediaGridItemCallback? onMore;
@@ -156,6 +160,32 @@ class MediaItemSliverGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return SliverLayoutBuilder(
       builder: (context, constraints) {
+        if (desktopSongGrid) {
+          final insets = padding
+              .resolve(Directionality.of(context))
+              .add(
+                EdgeInsets.symmetric(horizontal: desktopGridHorizontalInset),
+              );
+          final available = (constraints.crossAxisExtent - insets.horizontal)
+              .clamp(1.0, double.infinity);
+          final columns = ((available + 16) / 280).floor().clamp(1, 4);
+          final scale = MediaQuery.textScalerOf(context).scale(1);
+          return SliverPadding(
+            padding: insets,
+            sliver: SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                mainAxisExtent: 120 * scale,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildTile(index),
+                childCount: items.length,
+              ),
+            ),
+          );
+        }
         final resolvedCrossAxisCount =
             crossAxisCount ??
             (coverAspectRatio > 1.2
@@ -187,6 +217,7 @@ class MediaItemSliverGrid extends StatelessWidget {
     final item = items[index];
     return MediaGridTile(
       item: item,
+      desktopSongTile: desktopSongGrid,
       coverAspectRatio: coverAspectRatio,
       hintText: hintBuilder?.call(item, index),
       footerText: footerBuilder?.call(item, index),
@@ -211,6 +242,7 @@ class MediaGridTile extends StatelessWidget {
     super.key,
     required this.item,
     required this.onTap,
+    this.desktopSongTile = false,
     this.onLongPress,
     this.onMore,
     this.hintText,
@@ -224,6 +256,7 @@ class MediaGridTile extends StatelessWidget {
   });
 
   final MediaItem item;
+  final bool desktopSongTile;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onMore;
@@ -238,6 +271,7 @@ class MediaGridTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (desktopSongTile) return _DesktopSongGridTile(config: this);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final hint = hintText?.trim() ?? '';
@@ -368,11 +402,7 @@ class MediaGridTile extends StatelessWidget {
             ),
           ),
         ),
-        Positioned(
-          top: 6,
-          left: 6,
-          child: VideoBadgesOverlay(item: item),
-        ),
+        Positioned(top: 6, left: 6, child: VideoBadgesOverlay(item: item)),
         if (!selectionMode && coverOverlay != null)
           Positioned(right: 6, bottom: 6, child: coverOverlay!),
         if (selectionMode)
@@ -397,5 +427,116 @@ class MediaGridTile extends StatelessWidget {
 
   Widget _fallbackCover(ColorScheme scheme) {
     return Icon(fallbackIcon, color: scheme.onSurfaceVariant);
+  }
+}
+
+class _DesktopSongGridTile extends StatefulWidget {
+  const _DesktopSongGridTile({required this.config});
+  final MediaGridTile config;
+  @override
+  State<_DesktopSongGridTile> createState() => _DesktopSongGridTileState();
+}
+
+class _DesktopSongGridTileState extends State<_DesktopSongGridTile> {
+  bool hovered = false, focused = false;
+  @override
+  Widget build(BuildContext context) {
+    final config = widget.config;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final extra = (config.hintText?.trim().isNotEmpty ?? false)
+        ? config.hintText!
+        : config.footerText?.trim() ?? '';
+    return Focus(
+      canRequestFocus: false,
+      onFocusChange: (value) => setState(() => focused = value),
+      child: Material(
+        color: config.selected
+            ? scheme.primaryContainer
+            : scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: config.onTap,
+          onLongPress: config.onLongPress ?? config.onMore,
+          onSecondaryTap: config.onLongPress ?? config.onMore,
+          onHover: (value) => setState(() => hovered = value),
+          hoverColor: scheme.primary.withValues(alpha: .07),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final coverSize = constraints.maxWidth < 220 ? 56.0 : 74.0;
+                return Row(
+                  children: [
+                    SizedBox.square(
+                      dimension: coverSize,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          config._cover(context),
+                          if (!config.selectionMode)
+                            Positioned(
+                              left: 2,
+                              bottom: 2,
+                              child: Visibility(
+                                visible: hovered || focused,
+                                maintainState: true,
+                                maintainAnimation: true,
+                                maintainSize: true,
+                                child: IconButton.filled(
+                                  onPressed: config.onTap,
+                                  icon: const Icon(Icons.play_arrow_rounded),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            config.item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            config.item.displaySubtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          if (extra.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              extra,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

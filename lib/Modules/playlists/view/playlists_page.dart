@@ -78,7 +78,8 @@ class PlaylistsPage extends GetView<PlaylistsController> {
                                       totalSongs: totalSongs,
                                       onAdd: () => _createPlaylist(context),
                                     ),
-                                    if (featured != null) ...[
+                                    if (!AppBottomNav.desktopSidebarEnabled &&
+                                        featured != null) ...[
                                       const SizedBox(height: AppSpacing.md),
                                       _FeaturedPlaylistCard(
                                         playlist: featured,
@@ -157,11 +158,14 @@ class PlaylistsPage extends GetView<PlaylistsController> {
   }
 
   int _totalSongs(List<Playlist> playlists) {
-    var total = 0;
+    final songs = <String>{};
     for (final playlist in playlists) {
-      total += controller.resolvePlaylistItems(playlist).length;
+      for (final item in controller.resolvePlaylistItems(playlist)) {
+        final publicId = item.publicId.trim();
+        songs.add(publicId.isNotEmpty ? 'p:$publicId' : 'i:${item.id.trim()}');
+      }
     }
-    return total;
+    return songs.length;
   }
 
   Playlist? _featuredPlaylist(List<Playlist> playlists) {
@@ -185,6 +189,53 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     required VoidCallback onAdd,
   }) {
     final scheme = theme.colorScheme;
+
+    if (AppBottomNav.desktopSidebarEnabled) {
+      final title = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            tr('playlists.title'),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$total ${tr('playlists.metric_lists')} · $totalSongs ${tr('playlists.metric_songs')}',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+      final create = FilledButton.icon(
+        onPressed: onAdd,
+        icon: const Icon(Icons.add_rounded),
+        label: Text(tr('playlists.new')),
+      );
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) => constraints.maxWidth >= 640
+              ? Row(
+                  children: [
+                    Expanded(child: title),
+                    const SizedBox(width: 24),
+                    create,
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [title, const SizedBox(height: 16), create],
+                ),
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -260,6 +311,33 @@ class PlaylistsPage extends GetView<PlaylistsController> {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       sliver: SliverLayoutBuilder(
         builder: (context, constraints) {
+          if (AppBottomNav.desktopSidebarEnabled) {
+            return SliverGrid.builder(
+              itemCount: list.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: (constraints.crossAxisExtent / 280)
+                    .floor()
+                    .clamp(1, 4),
+                mainAxisExtent:
+                    120 *
+                    MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.4),
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+              ),
+              itemBuilder: (context, index) {
+                final playlist = list[index];
+                return _PlaylistTile(
+                  playlist: playlist,
+                  resolveItems: controller.resolvePlaylistItems,
+                  onOpen: () => Get.toNamed(
+                    AppRoutes.playlistDetail,
+                    arguments: {'playlistId': playlist.id, 'isSmart': false},
+                  ),
+                  onMenu: () => _openPlaylistActions(context, playlist),
+                );
+              },
+            );
+          }
           final isWide = constraints.crossAxisExtent >= 720;
           if (!isWide) {
             return SliverGrid.builder(
@@ -324,67 +402,88 @@ class PlaylistsPage extends GetView<PlaylistsController> {
   ) async {
     final items = controller.resolvePlaylistItems(playlist);
 
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.play_arrow_rounded),
-                title: Text(tr('playlists.play')),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _playPlaylist(items);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.skip_next_rounded),
-                title: Text(tr('playlists.play_next')),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _playNext(items);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.queue_music_rounded),
-                title: Text(tr('playlists.add_queue')),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _addToQueue(items);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.edit_rounded),
-                title: Text(tr('common.edit')),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  Get.toNamed(
-                    AppRoutes.editEntity,
-                    arguments: EditEntityArgs.playlist(playlist),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.delete_outline_rounded),
-                title: Text(tr('playlists.delete_playlist')),
-                textColor: Theme.of(ctx).colorScheme.error,
-                iconColor: Theme.of(ctx).colorScheme.error,
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _confirmDelete(context, playlist);
-                },
-              ),
-            ],
+    Widget buildActions(BuildContext ctx) {
+      return SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.play_arrow_rounded),
+              title: Text(tr('playlists.play')),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _playPlaylist(items);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.skip_next_rounded),
+              title: Text(tr('playlists.play_next')),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _playNext(items);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.queue_music_rounded),
+              title: Text(tr('playlists.add_queue')),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _addToQueue(items);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_rounded),
+              title: Text(tr('common.edit')),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                Get.toNamed(
+                  AppRoutes.editEntity,
+                  arguments: EditEntityArgs.playlist(playlist),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded),
+              title: Text(tr('playlists.delete_playlist')),
+              textColor: Theme.of(ctx).colorScheme.error,
+              iconColor: Theme.of(ctx).colorScheme.error,
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _confirmDelete(context, playlist);
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (AppBottomNav.desktopSidebarEnabled) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-        );
-      },
-    );
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 440,
+              maxHeight: MediaQuery.sizeOf(ctx).height * .85,
+            ),
+            child: SingleChildScrollView(child: Builder(builder: buildActions)),
+          ),
+        ),
+      );
+    } else {
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: buildActions,
+      );
+    }
   }
 
   void _playPlaylist(List<MediaItem> items) {
@@ -723,6 +822,7 @@ class _PlaylistTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final desktop = AppBottomNav.desktopSidebarEnabled;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
@@ -741,19 +841,24 @@ class _PlaylistTile extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onOpen,
+            onSecondaryTap: onMenu,
             borderRadius: BorderRadius.circular(18),
             child: Ink(
               padding: EdgeInsets.all(compact ? 8 : 10),
               decoration: BoxDecoration(
-                color: scheme.surfaceContainer.withValues(alpha: 0.76),
+                color: desktop
+                    ? scheme.surfaceContainerHigh
+                    : scheme.surfaceContainer.withValues(alpha: 0.76),
                 borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 18,
-                    offset: const Offset(0, 9),
-                  ),
-                ],
+                boxShadow: desktop
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 18,
+                          offset: const Offset(0, 9),
+                        ),
+                      ],
               ),
               child: compact
                   ? Column(
@@ -777,7 +882,7 @@ class _PlaylistTile extends StatelessWidget {
                                 children: [
                                   Text(
                                     playlist.name,
-                                    maxLines: 1,
+                                    maxLines: desktop ? 2 : 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: theme.textTheme.titleSmall?.copyWith(
                                       fontWeight: FontWeight.w800,
@@ -787,7 +892,7 @@ class _PlaylistTile extends StatelessWidget {
                                   const SizedBox(height: 3),
                                   Text(
                                     songCount,
-                                    maxLines: 1,
+                                    maxLines: desktop ? 2 : 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: theme.textTheme.labelSmall?.copyWith(
                                       color: scheme.onSurfaceVariant,
@@ -797,17 +902,18 @@ class _PlaylistTile extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: IconButton(
-                                padding: EdgeInsets.zero,
-                                iconSize: 20,
-                                icon: const Icon(Icons.more_vert_rounded),
-                                tooltip: tr('playlists.options'),
-                                onPressed: onMenu,
+                            if (!desktop)
+                              SizedBox(
+                                width: 32,
+                                height: 32,
+                                child: IconButton(
+                                  padding: EdgeInsets.zero,
+                                  iconSize: 20,
+                                  icon: const Icon(Icons.more_vert_rounded),
+                                  tooltip: tr('playlists.options'),
+                                  onPressed: onMenu,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       ],
@@ -823,7 +929,7 @@ class _PlaylistTile extends StatelessWidget {
                             children: [
                               Text(
                                 playlist.name,
-                                maxLines: 1,
+                                maxLines: desktop ? 2 : 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w800,
@@ -841,11 +947,12 @@ class _PlaylistTile extends StatelessWidget {
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.more_vert_rounded),
-                          tooltip: tr('playlists.options'),
-                          onPressed: onMenu,
-                        ),
+                        if (!desktop)
+                          IconButton(
+                            icon: const Icon(Icons.more_vert_rounded),
+                            tooltip: tr('playlists.options'),
+                            onPressed: onMenu,
+                          ),
                       ],
                     ),
             ),
@@ -877,6 +984,87 @@ class _FeaturedPlaylistCard extends StatelessWidget {
     final scheme = theme.colorScheme;
     final items = resolveItems(playlist);
     final covers = _playlistCovers(playlist, items, limit: 4);
+
+    if (AppBottomNav.desktopSidebarEnabled) {
+      final details = Row(
+        children: [
+          _PlaylistCoverMosaic(covers: covers, size: 80),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  tr('playlists.featured'),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: scheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  playlist.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  tr(
+                    items.length == 1
+                        ? 'common.songs.one'
+                        : 'common.songs.other',
+                    args: ['${items.length}'],
+                  ),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final actions = Wrap(
+        spacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          FilledButton.icon(
+            onPressed: items.isEmpty ? null : onPlay,
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: Text(tr('playlists.play')),
+          ),
+        ],
+      );
+      return Material(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onOpen,
+          onSecondaryTap: onMenu,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: LayoutBuilder(
+              builder: (context, constraints) => constraints.maxWidth >= 700
+                  ? Row(
+                      children: [
+                        Expanded(child: details),
+                        const SizedBox(width: 24),
+                        actions,
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [details, const SizedBox(height: 12), actions],
+                    ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Material(
       color: Colors.transparent,
