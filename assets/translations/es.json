@@ -1321,6 +1321,14 @@
     }
   },
   "player": {
+    "queue_controls": {
+      "search": "Buscar en la cola",
+      "filter": "Filtrar la cola",
+      "all": "Toda la cola",
+      "upcoming": "A continuación",
+      "previous": "Anteriores",
+      "no_results": "No hay pistas que coincidan."
+    },
     "video_jump_back": "Retroceder el intervalo elegido",
     "video_jump_forward": "Avanzar el intervalo elegido",
     "video_controls": "Controles y gestos",

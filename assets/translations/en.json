@@ -1321,6 +1321,14 @@
     }
   },
   "player": {
+    "queue_controls": {
+      "search": "Search queue",
+      "filter": "Filter queue",
+      "all": "Entire queue",
+      "upcoming": "Up next",
+      "previous": "Previous tracks",
+      "no_results": "No matching tracks."
+    },
     "video_jump_back": "Rewind by the selected interval",
     "video_jump_forward": "Advance by the selected interval",
     "video_controls": "Controls and gestures",

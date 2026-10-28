@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:easy_localization/easy_localization.dart'
@@ -19,6 +18,7 @@ import '../../application/weekly_collage_summary.dart';
 import '../../application/weekly_collage_activity.dart';
 import '../../application/weekly_collage_weeks.dart';
 import '../widgets/weekly_activity_chart.dart';
+import '../widgets/wrapped_artwork.dart';
 
 class WeeklyCollagePage extends StatefulWidget {
   const WeeklyCollagePage({
@@ -784,35 +784,17 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
   );
 
   Widget _cover(WeeklyCollageEntry entry, {bool protagonist = false}) {
-    final item = entry.item;
     final overlay =
         protagonist &&
         !entry.video &&
         MediaQuery.textScalerOf(context).scale(1) <= 1.3;
-    final local = item.thumbnailLocalPath;
-    final remote = item.thumbnail;
-    final fallback = ColoredBox(
-      color: Theme.of(context).colorScheme.secondaryContainer,
-      child: Center(
-        child: Icon(
-          entry.video ? Icons.movie_rounded : Icons.music_note_rounded,
-          size: 48,
-        ),
+    final Widget image = LayoutBuilder(
+      builder: (context, constraints) => WrappedArtwork(
+        item: entry.artworkItem,
+        size: constraints.maxWidth,
+        aspectRatio: entry.video ? 16 / 9 : 1,
       ),
     );
-    final Widget image = local != null && File(local).existsSync()
-        ? Image.file(
-            File(local),
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => fallback,
-          )
-        : remote != null && remote.isNotEmpty
-        ? Image.network(
-            remote,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => fallback,
-          )
-        : fallback;
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(

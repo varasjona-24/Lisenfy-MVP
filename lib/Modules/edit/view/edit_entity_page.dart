@@ -1657,13 +1657,6 @@ class _EditEntityPageState extends State<EditEntityPage> {
         (item.variants.isNotEmpty ? item.variants.first : null);
   }
 
-  String _kindLabel(MediaVariant? variant) {
-    if (variant == null) return tr('edit.unknown');
-    return variant.kind == MediaVariantKind.video
-        ? tr('downloads.media_videos')
-        : tr('downloads.media_music');
-  }
-
   String _formatLabel(MediaVariant? variant) {
     final fmt = variant?.format.trim() ?? '';
     return fmt.isEmpty ? 'N/A' : fmt.toUpperCase();
@@ -1689,52 +1682,6 @@ class _EditEntityPageState extends State<EditEntityPage> {
     final size = _sizeMbLabel(variant);
     final fmt = _formatLabel(variant);
     return '$size - $fmt';
-  }
-
-  Widget _artistSongsSection(ThemeData theme) {
-    final songs = _artist?.items ?? const <MediaItem>[];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          tr('edit.artist_songs_title'),
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Card(
-          elevation: 0,
-          color: theme.colorScheme.surfaceContainer,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: songs.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    tr('edit.artist_songs_empty'),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                )
-              : Column(
-                  children: [
-                    for (int i = 0; i < songs.length; i++) ...[
-                      _artistSongTile(theme, songs[i]),
-                      if (i != songs.length - 1)
-                        Divider(
-                          height: 1,
-                          color: theme.colorScheme.outlineVariant,
-                        ),
-                    ],
-                  ],
-                ),
-        ),
-      ],
-    );
   }
 
   List<ArtistGroup> _artistMemberCandidates() {
@@ -2058,31 +2005,6 @@ class _EditEntityPageState extends State<EditEntityPage> {
           : FileImage(File(remote)) as ImageProvider;
     }
     return null;
-  }
-
-  Widget _artistSongTile(ThemeData theme, MediaItem item) {
-    final variant = _preferredVariant(item);
-    final kind = _kindLabel(variant);
-    final fmt = _formatLabel(variant);
-    final size = _sizeMbLabel(variant);
-
-    return ListTile(
-      dense: true,
-      leading: Icon(
-        variant?.kind == MediaVariantKind.video
-            ? Icons.videocam_rounded
-            : Icons.music_note_rounded,
-      ),
-      title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        '$kind · $fmt · $size',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
   }
 
   Widget _captureTagThumbnailPicker(ThemeData theme) {
@@ -2874,10 +2796,6 @@ class _EditEntityPageState extends State<EditEntityPage> {
                   ),
                 ),
               ),
-            ],
-            if (_isArtist) ...[
-              const SizedBox(height: 12),
-              _artistSongsSection(theme),
             ],
           ],
         ),

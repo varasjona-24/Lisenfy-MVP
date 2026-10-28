@@ -800,10 +800,7 @@ class _ArtistCard extends StatelessWidget {
             ),
           ],
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.edit_rounded),
-          onPressed: onEdit,
-        ),
+        onLongPress: onEdit,
         onTap: onOpen,
       ),
     );
@@ -836,6 +833,10 @@ class _ArtistCoverCard extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () => Get.toNamed(AppRoutes.artistDetail, arguments: artist.key),
+      onLongPress: () => Get.toNamed(
+        AppRoutes.editEntity,
+        arguments: EditEntityArgs.artist(artist),
+      ),
       child: SizedBox(
         width: 96,
         child: Column(

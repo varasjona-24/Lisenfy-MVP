@@ -1321,6 +1321,14 @@
     }
   },
   "player": {
+    "queue_controls": {
+      "search": "Buscar na fila",
+      "filter": "Filtrar fila",
+      "all": "Toda a fila",
+      "upcoming": "A seguir",
+      "previous": "Anteriores",
+      "no_results": "Nenhuma faixa encontrada."
+    },
     "video_jump_back": "Retroceder pelo intervalo selecionado",
     "video_jump_forward": "Avançar pelo intervalo selecionado",
     "video_controls": "Controles e gestos",
