@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -45,7 +46,8 @@ class PlaylistsPage extends GetView<PlaylistsController> {
       final totalSongs = _totalSongs(list);
       final featured = _featuredPlaylist(list);
 
-      return Scaffold(
+      return AppNavigationScaffold(
+        navigationIndex: 1,
         extendBody: true,
         appBar: AppTopBar(title: ListenfyLogo(size: 28, color: scheme.primary)),
         body: AppGradientBackground(

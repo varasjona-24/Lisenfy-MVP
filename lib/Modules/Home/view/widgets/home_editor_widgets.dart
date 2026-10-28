@@ -1,5 +1,38 @@
 part of '../home_page.dart';
 
+Future<T?> _showHomeWidgetPicker<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+}) {
+  if (AppBottomNav.desktopSidebarEnabled) {
+    return showDialog<T>(
+      context: context,
+      builder: (ctx) => Dialog(
+        alignment: Alignment.center,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+        clipBehavior: Clip.antiAlias,
+        backgroundColor: Theme.of(ctx).colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: SizedBox(
+          width: 640,
+          height: MediaQuery.sizeOf(ctx).height * .82,
+          child: Builder(builder: builder),
+        ),
+      ),
+    );
+  }
+  return showModalBottomSheet<T>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: builder,
+  );
+}
+
 Future<void> _openHomeEditorSheet(
   BuildContext context, {
   required HomeController controller,
@@ -509,14 +542,8 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
     final existing = _selectedPlaylistIds();
     final playlists = controller.playlistChoices().toList(growable: false);
     if (!context.mounted) return;
-    final selected = await showModalBottomSheet<List<String>>(
+    final selected = await _showHomeWidgetPicker<List<String>>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (context) {
         return _HomePickerModeHost(
           onChanged: (value) => removing = value,
@@ -546,14 +573,8 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
     final allArtists = controller.artistChoices();
     final artists = allArtists.toList(growable: false);
 
-    final selected = await showModalBottomSheet<List<String>>(
+    final selected = await _showHomeWidgetPicker<List<String>>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (context) {
         return _HomePickerModeHost(
           onChanged: (value) => removing = value,
@@ -583,14 +604,8 @@ class _HomeWidgetEditorState extends State<_HomeWidgetEditor> {
     final allCollections = controller.collectionChoices();
     final collections = allCollections.toList(growable: false);
 
-    final selected = await showModalBottomSheet<List<String>>(
+    final selected = await _showHomeWidgetPicker<List<String>>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (context) {
         return _HomePickerModeHost(
           onChanged: (value) => removing = value,

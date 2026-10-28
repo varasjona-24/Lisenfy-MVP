@@ -13,6 +13,7 @@ import '../../../app/services/musicbrainz_metadata_service.dart';
 import '../../../app/utils/artist_credit_parser.dart';
 import '../../../app/utils/country_catalog.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
+import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import '../../../app/controllers/navigation_controller.dart';
 import '../../player/Video/view/lyrics_entry_page.dart';
 import '../../artists/controller/artists_controller.dart';
@@ -197,6 +198,14 @@ class _EditEntityPageState extends State<EditEntityPage> {
     _captureTagsCtrl = TextEditingController(
       text: _capture?.tags.join(', ') ?? '',
     );
+    if (AppBottomNav.desktopSidebarEnabled) {
+      _titleCtrl.addListener(_refreshDesktopPreview);
+      _subtitleCtrl.addListener(_refreshDesktopPreview);
+    }
+  }
+
+  void _refreshDesktopPreview() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -454,7 +463,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
   Future<void> _pickArtistCountry() async {
     if (!_isArtist) return;
 
-    final selected = await showModalBottomSheet<CountryOption>(
+    final selected = await _showEditorSheet<CountryOption>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -524,7 +533,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
     final selected = List<bool>.filled(segments.length, true);
 
-    return showModalBottomSheet<List<AudioSilenceSegment>>(
+    return _showEditorSheet<List<AudioSilenceSegment>>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -1200,7 +1209,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
   Future<MusicBrainzRecordingSuggestion?> _showMusicBrainzSuggestionsSheet(
     List<MusicBrainzRecordingSuggestion> suggestions,
   ) {
-    return showModalBottomSheet<MusicBrainzRecordingSuggestion>(
+    return _showEditorSheet<MusicBrainzRecordingSuggestion>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -1338,7 +1347,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
   }
 
   Future<MediaItem?> _showTransferTargetSheet(List<MediaItem> candidates) {
-    return showModalBottomSheet<MediaItem>(
+    return _showEditorSheet<MediaItem>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -1354,7 +1363,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
     List<MediaItem> candidates,
     MediaVariantKind sourceKind,
   ) async {
-    return (await showModalBottomSheet<List<MediaItem>>(
+    return (await _showEditorSheet<List<MediaItem>>(
           context: context,
           isScrollControlled: true,
           showDragHandle: true,
@@ -2278,7 +2287,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
   Future<void> _showCaptureTagSearch() async {
     final selected = _captureSelectedTags();
-    final picked = await showModalBottomSheet<List<String>>(
+    final picked = await _showEditorSheet<List<String>>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -2302,9 +2311,687 @@ class _EditEntityPageState extends State<EditEntityPage> {
     );
   }
 
+  Future<T?> _showEditorSheet<T>({
+    required BuildContext context,
+    required WidgetBuilder builder,
+    bool isScrollControlled = false,
+    bool useSafeArea = false,
+    bool? showDragHandle,
+    Color? backgroundColor,
+    ShapeBorder? shape,
+  }) {
+    if (AppBottomNav.desktopSidebarEnabled) {
+      return showDialog<T>(
+        context: context,
+        builder: (ctx) => Dialog(
+          clipBehavior: Clip.antiAlias,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 40,
+            vertical: 32,
+          ),
+          backgroundColor: Theme.of(ctx).colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: SizedBox(
+            width: 760,
+            height: MediaQuery.sizeOf(ctx).height * .82,
+            child: Builder(builder: builder),
+          ),
+        ),
+      );
+    }
+    return showModalBottomSheet<T>(
+      context: context,
+      builder: builder,
+      isScrollControlled: isScrollControlled,
+      useSafeArea: useSafeArea,
+      showDragHandle: showDragHandle,
+      backgroundColor: backgroundColor,
+      shape: shape,
+    );
+  }
+
   Widget _buildPage(BuildContext context) {
     final theme = Theme.of(context);
-
+    final desktop = AppBottomNav.desktopSidebarEnabled;
+    final saveButton = EditSaveButton(
+      busy: _saving,
+      label: tr('common.save_changes'),
+      busyLabel: tr('edit.saving_changes'),
+      onPressed: _audioCleanupBusy || _metadataSuggestionBusy ? null : _save,
+    );
+    final summary = Card(
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: _usesWideCover ? 126 : 88,
+                height: _usesWideCover ? 71 : 88,
+                child: _buildThumbnail(context),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _titleCtrl.text.isEmpty
+                        ? (_args.type == EditEntityType.playlist
+                              ? tr('edit.untitled')
+                              : tr('edit.unnamed'))
+                        : _titleCtrl.text,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (_isMedia) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      _subtitleCtrl.text.isEmpty
+                          ? _media!.displaySubtitle
+                          : _subtitleCtrl.text,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _mediaDetailsLine1(_media!),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _originLabel(_media!),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (_isCapture) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      _formatCaptureBytes(_capture!.size),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _capture!.sourceTitle?.isNotEmpty == true
+                          ? tr(
+                              'edit.source_value',
+                              args: [_capture!.sourceTitle!],
+                            )
+                          : tr('edit.source_not_registered'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (_isCaptureTag) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      tr(
+                        'edit.captures_count',
+                        args: ['${_captureTag!.count}'],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      tr('edit.capture_tag_kind'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (_isArtist && _countryCtrl.text.trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      tr('edit.country_value', args: [_countryLabelWithFlag()]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (_isArtist &&
+                      _artistMainRegion != ArtistMainRegion.none) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      tr(
+                        'edit.region_value',
+                        args: [_artistMainRegion.simpleLabel],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    final coverControls = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          (_isTopic || _isTopicPlaylist)
+              ? tr('edit.cover_color')
+              : tr('edit.cover'),
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          elevation: 0,
+          color: theme.colorScheme.surfaceContainer,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: _pickLocalThumbnail,
+                        icon: const Icon(Icons.photo_library_rounded),
+                        label: Text(tr('edit.choose_image')),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: _searchWebThumbnail,
+                        icon: const Icon(Icons.public_rounded),
+                        label: Text(tr('edit.search_web')),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _thumbCtrl,
+                        readOnly: true,
+                        onTap: _searchWebThumbnail,
+                        decoration: InputDecoration(
+                          labelText: tr('edit.selected_web_image'),
+                          prefixIcon: const Icon(Icons.image_rounded),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: _clearThumbnail,
+                      child: Text(tr('sources.clear')),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _deleteCurrentThumbnail,
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    label: Text(tr('edit.clear_cover')),
+                  ),
+                ),
+                if (_isTopic || _isTopicPlaylist) ...[
+                  const SizedBox(height: 12),
+                  SourceColorPickerField(
+                    color: _colorValue != null
+                        ? Color(_colorValue!)
+                        : theme.colorScheme.primary,
+                    onChanged: (c) => setState(() {
+                      _colorValue = c.toARGB32();
+                    }),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+    final extraActions = <Widget>[
+      if (_isAudioMedia) ...[
+        _ExtraActionCard(
+          icon: Icons.travel_explore_rounded,
+          title: tr('edit.metadata_suggestions_title'),
+          subtitle: tr('edit.metadata_suggestions_subtitle'),
+          busy: _metadataSuggestionBusy,
+          busyLabel: tr('edit.metadata_suggestions_searching'),
+          actionLabel: tr('edit.metadata_suggestions_action'),
+          onPressed: _runMusicBrainzSuggestionFlow,
+        ),
+        _ExtraActionCard(
+          icon: Icons.auto_fix_high_rounded,
+          title: tr('edit.clean_sound_title'),
+          subtitle: tr('edit.clean_sound_subtitle'),
+          busy: _audioCleanupBusy,
+          busyLabel: tr('edit.processing'),
+          actionLabel: tr('edit.analyze_silences'),
+          onPressed: _runAudioCleanupFlow,
+        ),
+      ],
+      _ExtraActionCard(
+        icon: Icons.compare_arrows_rounded,
+        title: tr('edit.data_transfer_title'),
+        subtitle: tr('edit.data_transfer_subtitle'),
+        busy: _dataTransferBusy,
+        busyLabel: tr('edit.transferring'),
+        actionLabel: tr('edit.transfer_to_song'),
+        onPressed: _runDataTransferFlow,
+      ),
+      if (_isAudioMedia || _isVideoMedia) ...[
+        _ExtraActionCard(
+          icon: Icons.copy_all_rounded,
+          title: tr('edit.apply_cover_title'),
+          subtitle: tr(
+            _isVideoMedia
+                ? 'edit.apply_cover_video_subtitle'
+                : 'edit.apply_cover_audio_subtitle',
+          ),
+          busy: _coverTransferBusy,
+          busyLabel: tr('edit.applying_cover'),
+          actionLabel: tr('edit.apply_cover_action'),
+          onPressed: _runCoverTransferFlow,
+        ),
+        _ExtraActionCard(
+          icon: Icons.add_photo_alternate_outlined,
+          title: tr('edit.save_cover_gallery_title'),
+          subtitle: tr('edit.save_cover_gallery_subtitle'),
+          busy: _coverGallerySaving,
+          busyLabel: tr('edit.saving_cover_gallery'),
+          actionLabel: tr('edit.save_cover_gallery_action'),
+          onPressed: _saveCoverToGallery,
+        ),
+      ],
+    ];
+    final extraControls = Card(
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (desktop)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.timer_rounded),
+                title: Text(tr('edit.detected_duration_seconds')),
+                subtitle: Text(_durationCtrl.text),
+              )
+            else
+              TextField(
+                controller: _durationCtrl,
+                readOnly: true,
+                enableInteractiveSelection: false,
+                decoration: InputDecoration(
+                  labelText: tr('edit.detected_duration_seconds'),
+                  prefixIcon: const Icon(Icons.timer_rounded),
+                ),
+              ),
+            const SizedBox(height: 12),
+            if (desktop)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final columns = constraints.maxWidth >= 580 ? 2 : 1;
+                  final width =
+                      (constraints.maxWidth - (columns - 1) * 16) / columns;
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: [
+                      for (var index = 0; index < extraActions.length; index++)
+                        SizedBox(
+                          key: ValueKey('desktop-extra-$index'),
+                          width: width,
+                          child: extraActions[index],
+                        ),
+                    ],
+                  );
+                },
+              )
+            else
+              for (var index = 0; index < extraActions.length; index++) ...[
+                if (index > 0) ...[
+                  const SizedBox(height: 14),
+                  Divider(color: theme.colorScheme.outlineVariant),
+                  const SizedBox(height: 12),
+                ],
+                extraActions[index],
+              ],
+            if (_isAudioMedia) ...[
+              const SizedBox(height: 14),
+              Divider(color: theme.colorScheme.outlineVariant),
+              const SizedBox(height: 10),
+              FilledButton.tonalIcon(
+                onPressed: _openLyricsEditor,
+                icon: const Icon(Icons.lyrics_rounded),
+                label: Text(tr('edit.edit_lyrics')),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _lyricsSummaryLabel(),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+    final formSections = <Widget>[
+      if (!desktop) summary,
+      const SizedBox(height: 16),
+      Text(
+        tr('edit.basic_info'),
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Card(
+        elevation: 0,
+        color: theme.colorScheme.surfaceContainer,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              TextField(
+                controller: _titleCtrl,
+                decoration: InputDecoration(
+                  labelText: _args.type == EditEntityType.media
+                      ? tr('common.title')
+                      : tr('sources.name'),
+                  prefixIcon: Icon(
+                    _args.type == EditEntityType.media
+                        ? Icons.music_note_rounded
+                        : (_args.type == EditEntityType.capture
+                              ? Icons.image_rounded
+                              : _args.type == EditEntityType.captureTag
+                              ? Icons.folder_special_rounded
+                              : (_args.type == EditEntityType.artist
+                                    ? Icons.person_rounded
+                                    : Icons.folder_rounded)),
+                  ),
+                ),
+              ),
+              if (_isMedia) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _subtitleCtrl,
+                  decoration: InputDecoration(
+                    labelText: tr('edit.entity_type.artist'),
+                    prefixIcon: const Icon(Icons.person_rounded),
+                  ),
+                ),
+              ],
+              if (_isArtist) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  key: ValueKey(_artistMainRegion.key),
+                  initialValue: _artistRegionLabel(),
+                  readOnly: true,
+                  enabled: false,
+                  decoration: InputDecoration(
+                    labelText: tr('edit.main_region'),
+                    prefixIcon: const Icon(Icons.language_rounded),
+                    suffixIcon: const Icon(Icons.lock_rounded),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _countryCtrl,
+                  readOnly: true,
+                  onTap: _pickArtistCountry,
+                  decoration: InputDecoration(
+                    labelText: tr('edit.country_optional'),
+                    prefixIcon: const Icon(Icons.public_rounded),
+                    hintText: tr('edit.select_country'),
+                    suffixIcon: IconButton(
+                      tooltip: _countryCtrl.text.trim().isNotEmpty
+                          ? tr('edit.clear_country')
+                          : tr('edit.select_country'),
+                      onPressed: _countryCtrl.text.trim().isNotEmpty
+                          ? _clearArtistCountry
+                          : _pickArtistCountry,
+                      icon: Icon(
+                        _countryCtrl.text.trim().isNotEmpty
+                            ? Icons.close_rounded
+                            : Icons.arrow_drop_down_rounded,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              if (_isCapture) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  initialValue: _formatCaptureBytes(_capture!.size),
+                  readOnly: true,
+                  enabled: false,
+                  decoration: InputDecoration(
+                    labelText: tr('edit.weight'),
+                    prefixIcon: const Icon(Icons.storage_rounded),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  initialValue: _formatCaptureDate(_capture!.modifiedAt),
+                  readOnly: true,
+                  enabled: false,
+                  decoration: InputDecoration(
+                    labelText: tr('edit.capture_date'),
+                    prefixIcon: const Icon(Icons.calendar_month_rounded),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  initialValue: _capture!.sourceTitle?.isNotEmpty == true
+                      ? _capture!.sourceTitle!
+                      : tr('edit.source_not_registered'),
+                  readOnly: true,
+                  enabled: false,
+                  decoration: InputDecoration(
+                    labelText: tr('edit.source'),
+                    prefixIcon: const Icon(Icons.movie_filter_rounded),
+                  ),
+                ),
+              ],
+              if (_isCaptureTag) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  initialValue: tr(
+                    'edit.captures_count',
+                    args: ['${_captureTag!.count}'],
+                  ),
+                  readOnly: true,
+                  enabled: false,
+                  decoration: InputDecoration(
+                    labelText: tr('edit.content'),
+                    prefixIcon: const Icon(Icons.photo_library_rounded),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      if (_isCapture) ...[
+        const SizedBox(height: 12),
+        _captureTagsSection(theme),
+      ],
+      if (!_isCapture && !_isCaptureTag) ...[
+        _artistClassificationSection(theme),
+        const SizedBox(height: 12),
+        if (!desktop) coverControls,
+      ],
+      if (_isCaptureTag) ...[
+        const SizedBox(height: 12),
+        Text(
+          tr('edit.cover_color'),
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          elevation: 0,
+          color: theme.colorScheme.surfaceContainer,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SourceColorPickerField(
+                  color: _colorValue != null
+                      ? Color(_colorValue!)
+                      : theme.colorScheme.primary,
+                  onChanged: (c) => setState(() {
+                    _colorValue = c.toARGB32();
+                  }),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  tr('edit.thumbnail'),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _captureTagThumbnailPicker(theme),
+              ],
+            ),
+          ),
+        ),
+      ],
+      if (_isMedia) ...[
+        const SizedBox(height: 12),
+        if (!desktop) ...[
+          Text(
+            tr('edit.extras'),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (desktop)
+          Card(
+            child: ExpansionTile(
+              title: Text(tr('edit.extras')),
+              children: [extraControls],
+            ),
+          )
+        else
+          extraControls,
+      ],
+      if (_isArtist) ...[
+        const SizedBox(height: 12),
+        _artistSongsSection(theme),
+      ],
+    ];
+    Widget desktopCover() => Card(
+      margin: EdgeInsets.zero,
+      color: theme.colorScheme.surfaceContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: AspectRatio(
+                aspectRatio: _usesWideCover ? 16 / 9 : 1,
+                child: _buildThumbnail(context),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _titleCtrl.text.isEmpty ? tr('edit.unnamed') : _titleCtrl.text,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (_isMedia) ...[
+              const SizedBox(height: 8),
+              Text(
+                _subtitleCtrl.text.isEmpty
+                    ? _media!.displaySubtitle
+                    : _subtitleCtrl.text,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _mediaDetailsLine1(_media!),
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _originLabel(_media!),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -2313,574 +3000,93 @@ class _EditEntityPageState extends State<EditEntityPage> {
         surfaceTintColor: theme.colorScheme.surface,
         foregroundColor: theme.colorScheme.onSurface,
         elevation: 0,
+        actions: desktop
+            ? [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
+                  child: saveButton,
+                ),
+              ]
+            : null,
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: EditSaveButton(
-            busy: _saving,
-            label: tr('common.save_changes'),
-            busyLabel: tr('edit.saving_changes'),
-            onPressed: _audioCleanupBusy || _metadataSuggestionBusy
-                ? null
-                : _save,
-          ),
-        ),
-      ),
+      bottomNavigationBar: desktop
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: saveButton,
+              ),
+            ),
       body: AppGradientBackground(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Card(
-              elevation: 0,
-              color: theme.colorScheme.surfaceContainer,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
+        child: desktop
+            ? LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide = constraints.maxWidth >= 960;
+                  final cover = Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      desktopCover(),
+                      const SizedBox(height: 20),
+                      if (!_isCapture && !_isCaptureTag) coverControls,
+                    ],
+                  );
+                  final form = Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: formSections,
+                  );
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 24,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1280),
+                        child: wide
+                            ? Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 380,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 60),
+                                      child: cover,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 24),
+                                  Expanded(child: form),
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Center(
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 440,
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(top: 60),
+                                        child: cover,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  form,
+                                ],
+                              ),
+                      ),
+                    ),
+                  );
+                },
+              )
+            : ListView(
                 padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: SizedBox(
-                        width: _usesWideCover ? 126 : 88,
-                        height: _usesWideCover ? 71 : 88,
-                        child: _buildThumbnail(context),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _titleCtrl.text.isEmpty
-                                ? (_args.type == EditEntityType.playlist
-                                      ? tr('edit.untitled')
-                                      : tr('edit.unnamed'))
-                                : _titleCtrl.text,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (_isMedia) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              _subtitleCtrl.text.isEmpty
-                                  ? _media!.displaySubtitle
-                                  : _subtitleCtrl.text,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _mediaDetailsLine1(_media!),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _originLabel(_media!),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                          if (_isCapture) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              _formatCaptureBytes(_capture!.size),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _capture!.sourceTitle?.isNotEmpty == true
-                                  ? tr(
-                                      'edit.source_value',
-                                      args: [_capture!.sourceTitle!],
-                                    )
-                                  : tr('edit.source_not_registered'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                          if (_isCaptureTag) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              tr(
-                                'edit.captures_count',
-                                args: ['${_captureTag!.count}'],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              tr('edit.capture_tag_kind'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                          if (_isArtist &&
-                              _countryCtrl.text.trim().isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              tr(
-                                'edit.country_value',
-                                args: [_countryLabelWithFlag()],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                          if (_isArtist &&
-                              _artistMainRegion != ArtistMainRegion.none) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              tr(
-                                'edit.region_value',
-                                args: [_artistMainRegion.simpleLabel],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                children: formSections,
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              tr('edit.basic_info'),
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Card(
-              elevation: 0,
-              color: theme.colorScheme.surfaceContainer,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: _titleCtrl,
-                      decoration: InputDecoration(
-                        labelText: _args.type == EditEntityType.media
-                            ? tr('common.title')
-                            : tr('sources.name'),
-                        prefixIcon: Icon(
-                          _args.type == EditEntityType.media
-                              ? Icons.music_note_rounded
-                              : (_args.type == EditEntityType.capture
-                                    ? Icons.image_rounded
-                                    : _args.type == EditEntityType.captureTag
-                                    ? Icons.folder_special_rounded
-                                    : (_args.type == EditEntityType.artist
-                                          ? Icons.person_rounded
-                                          : Icons.folder_rounded)),
-                        ),
-                      ),
-                    ),
-                    if (_isMedia) ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _subtitleCtrl,
-                        decoration: InputDecoration(
-                          labelText: tr('edit.entity_type.artist'),
-                          prefixIcon: const Icon(Icons.person_rounded),
-                        ),
-                      ),
-                    ],
-                    if (_isArtist) ...[
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        key: ValueKey(_artistMainRegion.key),
-                        initialValue: _artistRegionLabel(),
-                        readOnly: true,
-                        enabled: false,
-                        decoration: InputDecoration(
-                          labelText: tr('edit.main_region'),
-                          prefixIcon: const Icon(Icons.language_rounded),
-                          suffixIcon: const Icon(Icons.lock_rounded),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _countryCtrl,
-                        readOnly: true,
-                        onTap: _pickArtistCountry,
-                        decoration: InputDecoration(
-                          labelText: tr('edit.country_optional'),
-                          prefixIcon: const Icon(Icons.public_rounded),
-                          hintText: tr('edit.select_country'),
-                          suffixIcon: IconButton(
-                            tooltip: _countryCtrl.text.trim().isNotEmpty
-                                ? tr('edit.clear_country')
-                                : tr('edit.select_country'),
-                            onPressed: _countryCtrl.text.trim().isNotEmpty
-                                ? _clearArtistCountry
-                                : _pickArtistCountry,
-                            icon: Icon(
-                              _countryCtrl.text.trim().isNotEmpty
-                                  ? Icons.close_rounded
-                                  : Icons.arrow_drop_down_rounded,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                    if (_isCapture) ...[
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        initialValue: _formatCaptureBytes(_capture!.size),
-                        readOnly: true,
-                        enabled: false,
-                        decoration: InputDecoration(
-                          labelText: tr('edit.weight'),
-                          prefixIcon: const Icon(Icons.storage_rounded),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        initialValue: _formatCaptureDate(_capture!.modifiedAt),
-                        readOnly: true,
-                        enabled: false,
-                        decoration: InputDecoration(
-                          labelText: tr('edit.capture_date'),
-                          prefixIcon: const Icon(Icons.calendar_month_rounded),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        initialValue: _capture!.sourceTitle?.isNotEmpty == true
-                            ? _capture!.sourceTitle!
-                            : tr('edit.source_not_registered'),
-                        readOnly: true,
-                        enabled: false,
-                        decoration: InputDecoration(
-                          labelText: tr('edit.source'),
-                          prefixIcon: const Icon(Icons.movie_filter_rounded),
-                        ),
-                      ),
-                    ],
-                    if (_isCaptureTag) ...[
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        initialValue: tr(
-                          'edit.captures_count',
-                          args: ['${_captureTag!.count}'],
-                        ),
-                        readOnly: true,
-                        enabled: false,
-                        decoration: InputDecoration(
-                          labelText: tr('edit.content'),
-                          prefixIcon: const Icon(Icons.photo_library_rounded),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            if (_isCapture) ...[
-              const SizedBox(height: 12),
-              _captureTagsSection(theme),
-            ],
-            if (!_isCapture && !_isCaptureTag) ...[
-              _artistClassificationSection(theme),
-              const SizedBox(height: 12),
-              Text(
-                (_isTopic || _isTopicPlaylist)
-                    ? tr('edit.cover_color')
-                    : tr('edit.cover'),
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Card(
-                elevation: 0,
-                color: theme.colorScheme.surfaceContainer,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: FilledButton.tonalIcon(
-                              onPressed: _pickLocalThumbnail,
-                              icon: const Icon(Icons.photo_library_rounded),
-                              label: Text(tr('edit.choose_image')),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: FilledButton.tonalIcon(
-                              onPressed: _searchWebThumbnail,
-                              icon: const Icon(Icons.public_rounded),
-                              label: Text(tr('edit.search_web')),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _thumbCtrl,
-                              readOnly: true,
-                              onTap: _searchWebThumbnail,
-                              decoration: InputDecoration(
-                                labelText: tr('edit.selected_web_image'),
-                                prefixIcon: const Icon(Icons.image_rounded),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          OutlinedButton(
-                            onPressed: _clearThumbnail,
-                            child: Text(tr('sources.clear')),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _deleteCurrentThumbnail,
-                          icon: const Icon(Icons.delete_outline_rounded),
-                          label: Text(tr('edit.clear_cover')),
-                        ),
-                      ),
-                      if (_isTopic || _isTopicPlaylist) ...[
-                        const SizedBox(height: 12),
-                        SourceColorPickerField(
-                          color: _colorValue != null
-                              ? Color(_colorValue!)
-                              : theme.colorScheme.primary,
-                          onChanged: (c) => setState(() {
-                            _colorValue = c.toARGB32();
-                          }),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
-            if (_isCaptureTag) ...[
-              const SizedBox(height: 12),
-              Text(
-                tr('edit.cover_color'),
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Card(
-                elevation: 0,
-                color: theme.colorScheme.surfaceContainer,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SourceColorPickerField(
-                        color: _colorValue != null
-                            ? Color(_colorValue!)
-                            : theme.colorScheme.primary,
-                        onChanged: (c) => setState(() {
-                          _colorValue = c.toARGB32();
-                        }),
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        tr('edit.thumbnail'),
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _captureTagThumbnailPicker(theme),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-            if (_isMedia) ...[
-              const SizedBox(height: 12),
-              Text(
-                tr('edit.extras'),
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Card(
-                elevation: 0,
-                color: theme.colorScheme.surfaceContainer,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: _durationCtrl,
-                        readOnly: true,
-                        enableInteractiveSelection: false,
-                        decoration: InputDecoration(
-                          labelText: tr('edit.detected_duration_seconds'),
-                          prefixIcon: const Icon(Icons.timer_rounded),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (_isAudioMedia) ...[
-                        _ExtraActionCard(
-                          icon: Icons.travel_explore_rounded,
-                          title: tr('edit.metadata_suggestions_title'),
-                          subtitle: tr('edit.metadata_suggestions_subtitle'),
-                          busy: _metadataSuggestionBusy,
-                          busyLabel: tr('edit.metadata_suggestions_searching'),
-                          actionLabel: tr('edit.metadata_suggestions_action'),
-                          onPressed: _runMusicBrainzSuggestionFlow,
-                        ),
-                        const SizedBox(height: 14),
-                        Divider(color: theme.colorScheme.outlineVariant),
-                        const SizedBox(height: 12),
-                        _ExtraActionCard(
-                          icon: Icons.auto_fix_high_rounded,
-                          title: tr('edit.clean_sound_title'),
-                          subtitle: tr('edit.clean_sound_subtitle'),
-                          busy: _audioCleanupBusy,
-                          busyLabel: tr('edit.processing'),
-                          actionLabel: tr('edit.analyze_silences'),
-                          onPressed: _runAudioCleanupFlow,
-                        ),
-                        const SizedBox(height: 14),
-                        Divider(color: theme.colorScheme.outlineVariant),
-                        const SizedBox(height: 10),
-                      ],
-                      _ExtraActionCard(
-                        icon: Icons.compare_arrows_rounded,
-                        title: tr('edit.data_transfer_title'),
-                        subtitle: tr('edit.data_transfer_subtitle'),
-                        busy: _dataTransferBusy,
-                        busyLabel: tr('edit.transferring'),
-                        actionLabel: tr('edit.transfer_to_song'),
-                        onPressed: _runDataTransferFlow,
-                      ),
-                      if (_isAudioMedia || _isVideoMedia) ...[
-                        const SizedBox(height: 14),
-                        Divider(color: theme.colorScheme.outlineVariant),
-                        const SizedBox(height: 10),
-                        _ExtraActionCard(
-                          icon: Icons.copy_all_rounded,
-                          title: tr('edit.apply_cover_title'),
-                          subtitle: tr(
-                            _isVideoMedia
-                                ? 'edit.apply_cover_video_subtitle'
-                                : 'edit.apply_cover_audio_subtitle',
-                          ),
-                          busy: _coverTransferBusy,
-                          busyLabel: tr('edit.applying_cover'),
-                          actionLabel: tr('edit.apply_cover_action'),
-                          onPressed: _runCoverTransferFlow,
-                        ),
-                        const SizedBox(height: 14),
-                        Divider(color: theme.colorScheme.outlineVariant),
-                        const SizedBox(height: 10),
-                        _ExtraActionCard(
-                          icon: Icons.add_photo_alternate_outlined,
-                          title: tr('edit.save_cover_gallery_title'),
-                          subtitle: tr('edit.save_cover_gallery_subtitle'),
-                          busy: _coverGallerySaving,
-                          busyLabel: tr('edit.saving_cover_gallery'),
-                          actionLabel: tr('edit.save_cover_gallery_action'),
-                          onPressed: _saveCoverToGallery,
-                        ),
-                      ],
-                      if (_isAudioMedia) ...[
-                        const SizedBox(height: 14),
-                        Divider(color: theme.colorScheme.outlineVariant),
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.tonalIcon(
-                            onPressed: _openLyricsEditor,
-                            icon: const Icon(Icons.lyrics_rounded),
-                            label: Text(tr('edit.edit_lyrics')),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            _lyricsSummaryLabel(),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
-            if (_isArtist) ...[
-              const SizedBox(height: 12),
-              _artistSongsSection(theme),
-            ],
-          ],
-        ),
       ),
     );
   }

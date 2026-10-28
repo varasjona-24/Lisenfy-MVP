@@ -1,3 +1,4 @@
+import '../../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
@@ -24,7 +25,8 @@ class HistoryPage extends GetView<HistoryController> {
     final actions = Get.find<MediaActionsController>();
     final home = Get.find<HomeController>();
 
-    return Scaffold(
+    return AppNavigationScaffold(
+      navigationIndex: 0,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text(tr('history.title')),

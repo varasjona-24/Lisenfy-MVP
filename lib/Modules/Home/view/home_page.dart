@@ -2131,12 +2131,14 @@ class _CustomArtistCardsSection extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 186,
+          height: AppBottomNav.desktopSidebarEnabled ? 186 * 1.3 : 186,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
             itemCount: preview.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => SizedBox(
+              width: AppBottomNav.desktopSidebarEnabled ? AppSpacing.md : 12,
+            ),
             itemBuilder: (context, index) => _HomeArtistCard(
               artist: preview[index],
               onTap: () => onArtistTap(preview[index]),
@@ -2186,7 +2188,12 @@ class _CustomArtistListSection extends StatelessWidget {
                   onTap: () => onArtistTap(preview[i]),
                   onLongPress: () => onArtistLongPress(preview[i]),
                 ),
-                if (i != preview.length - 1) const SizedBox(height: 8),
+                if (i != preview.length - 1)
+                  SizedBox(
+                    height: AppBottomNav.desktopSidebarEnabled
+                        ? AppSpacing.md
+                        : 8,
+                  ),
               ],
             ],
           ),
@@ -2224,12 +2231,14 @@ class _CustomPlaylistCardsSection extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 166,
+          height: AppBottomNav.desktopSidebarEnabled ? 166 * 1.3 : 166,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             scrollDirection: Axis.horizontal,
             itemCount: preview.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => SizedBox(
+              width: AppBottomNav.desktopSidebarEnabled ? AppSpacing.md : 12,
+            ),
             itemBuilder: (context, index) => _HomePlaylistCard(
               playlist: preview[index],
               onTap: () => onPlaylistTap(preview[index]),
@@ -2279,7 +2288,12 @@ class _CustomPlaylistListSection extends StatelessWidget {
                   onTap: () => onPlaylistTap(preview[i]),
                   onLongPress: () => onPlaylistLongPress(preview[i]),
                 ),
-                if (i != preview.length - 1) const SizedBox(height: 8),
+                if (i != preview.length - 1)
+                  SizedBox(
+                    height: AppBottomNav.desktopSidebarEnabled
+                        ? AppSpacing.md
+                        : 8,
+                  ),
               ],
             ],
           ),
@@ -2344,6 +2358,8 @@ class _HomeArtistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final desktop = AppBottomNav.desktopSidebarEnabled;
+    final scale = desktop ? 1.3 : 1.0;
     final theme = Theme.of(context);
     final scheme = Theme.of(context).colorScheme;
     final provider = _artistImageProvider(artist.thumbnail);
@@ -2355,13 +2371,13 @@ class _HomeArtistCard extends StatelessWidget {
       onLongPress: onLongPress,
       onSecondaryTap: onLongPress,
       child: SizedBox(
-        width: 120,
+        width: 120 * scale,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 120,
-              height: 120,
+              width: 120 * scale,
+              height: 120 * scale,
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(16),
@@ -2378,9 +2394,11 @@ class _HomeArtistCard extends StatelessWidget {
               artist.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style:
+                  (desktop
+                          ? theme.textTheme.bodyLarge
+                          : theme.textTheme.bodyMedium)
+                      ?.copyWith(fontWeight: FontWeight.w700),
             ),
             Text(
               compactMeta,
@@ -2418,6 +2436,8 @@ class _HomePlaylistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final desktop = AppBottomNav.desktopSidebarEnabled;
+    final scale = desktop ? 1.3 : 1.0;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final provider = _homeImageProvider(playlist.cover);
@@ -2428,13 +2448,13 @@ class _HomePlaylistCard extends StatelessWidget {
       onLongPress: onLongPress,
       onSecondaryTap: onLongPress,
       child: SizedBox(
-        width: 120,
+        width: 120 * scale,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 120,
-              height: 120,
+              width: 120 * scale,
+              height: 120 * scale,
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(16),
@@ -2454,9 +2474,11 @@ class _HomePlaylistCard extends StatelessWidget {
               playlist.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style:
+                  (desktop
+                          ? theme.textTheme.bodyLarge
+                          : theme.textTheme.bodyMedium)
+                      ?.copyWith(fontWeight: FontWeight.w700),
             ),
             Text(
               _songsCountLabel(playlist.count),
@@ -2555,6 +2577,8 @@ class _HomeArtistTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final desktop = AppBottomNav.desktopSidebarEnabled;
+    final scale = desktop ? 1.3 : 1.0;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final provider = _artistImageProvider(artist.thumbnail);
@@ -2566,7 +2590,7 @@ class _HomeArtistTile extends StatelessWidget {
       onLongPress: onLongPress,
       onSecondaryTap: onLongPress,
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: EdgeInsets.all(desktop ? 14 : 10),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(16),
@@ -2574,7 +2598,7 @@ class _HomeArtistTile extends StatelessWidget {
         child: Row(
           children: [
             CircleAvatar(
-              radius: 24,
+              radius: 24 * scale,
               backgroundColor: scheme.primaryContainer,
               backgroundImage: provider,
               child: provider == null
@@ -2590,9 +2614,11 @@ class _HomeArtistTile extends StatelessWidget {
                     artist.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style:
+                        (desktop
+                                ? theme.textTheme.bodyLarge
+                                : theme.textTheme.bodyMedium)
+                            ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -2635,6 +2661,8 @@ class _HomePlaylistTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final desktop = AppBottomNav.desktopSidebarEnabled;
+    final scale = desktop ? 1.3 : 1.0;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final provider = _homeImageProvider(playlist.cover);
@@ -2645,7 +2673,7 @@ class _HomePlaylistTile extends StatelessWidget {
       onLongPress: onLongPress,
       onSecondaryTap: onLongPress,
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: EdgeInsets.all(desktop ? 14 : 10),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(16),
@@ -2653,8 +2681,8 @@ class _HomePlaylistTile extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 48 * scale,
+              height: 48 * scale,
               decoration: BoxDecoration(
                 color: scheme.primaryContainer,
                 borderRadius: BorderRadius.circular(12),
@@ -2678,9 +2706,11 @@ class _HomePlaylistTile extends StatelessWidget {
                     playlist.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style:
+                        (desktop
+                                ? theme.textTheme.bodyLarge
+                                : theme.textTheme.bodyMedium)
+                            ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -3354,21 +3384,37 @@ class _RecommendationCollectionsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 226,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        scrollDirection: Axis.horizontal,
-        itemCount: collections.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final collection = collections[index];
-          return _RecommendationCollectionCard(
-            collection: collection,
-            onTap: () => onTap(collection, index),
-          );
-        },
-      ),
+    final desktop = AppBottomNav.desktopSidebarEnabled;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final count = collections.length.clamp(1, 3);
+        final gap = desktop ? AppSpacing.lg : 12.0;
+        final width = desktop
+            ? ((constraints.maxWidth - 32 - (count - 1) * gap) / count).clamp(
+                360.0,
+                640.0,
+              )
+            : 232.0;
+        return SizedBox(
+          height: desktop
+              ? 220 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.5)
+              : 226,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            scrollDirection: Axis.horizontal,
+            itemCount: collections.length,
+            separatorBuilder: (_, _) => SizedBox(width: gap),
+            itemBuilder: (context, index) {
+              final collection = collections[index];
+              return _RecommendationCollectionCard(
+                width: width,
+                collection: collection,
+                onTap: () => onTap(collection, index),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -3377,16 +3423,92 @@ class _RecommendationCollectionCard extends StatelessWidget {
   const _RecommendationCollectionCard({
     required this.collection,
     required this.onTap,
+    this.width = 232,
   });
 
   final RecommendationCollection collection;
   final VoidCallback onTap;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final preview = collection.items.take(2).map((e) => e.title).join(' • ');
+
+    if (AppBottomNav.desktopSidebarEnabled) {
+      return Material(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: width,
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox.square(
+                      dimension: width < 440 ? 104 : 152,
+                      child: _RecommendationCover(
+                        item: collection.items.first,
+                        height: width < 440 ? 104 : 152,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          collection.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          collection.subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          preview,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _songsCountLabel(collection.items.length),
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return InkWell(
       borderRadius: BorderRadius.circular(18),
@@ -3451,9 +3573,10 @@ class _RecommendationCollectionCard extends StatelessWidget {
 }
 
 class _RecommendationCover extends StatelessWidget {
-  const _RecommendationCover({required this.item});
+  const _RecommendationCover({required this.item, this.height = 108});
 
   final MediaItem item;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -3468,7 +3591,7 @@ class _RecommendationCover extends StatelessWidget {
           Image(
             image: provider,
             width: double.infinity,
-            height: 108,
+            height: height,
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => _fallback(scheme),
           ),
@@ -3495,7 +3618,7 @@ class _RecommendationCover extends StatelessWidget {
   Widget _fallback(ColorScheme scheme) {
     return Container(
       width: double.infinity,
-      height: 108,
+      height: height,
       color: scheme.surfaceContainerHighest,
       alignment: Alignment.center,
       child: Icon(

@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
+import '../../../../app/ui/widgets/navigation/app_bottom_nav.dart';
+import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
 import 'package:get/get.dart';
 import 'package:listenfy/app/ui/widgets/dialogs/lyrics_search_dialog.dart';
 
@@ -955,6 +957,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     required ValueChanged<String?> onChanged,
   }) {
     return DropdownButtonFormField<String>(
+      isExpanded: true,
       key: ValueKey('lang-$value'),
       initialValue: value,
       items: _languageItems(),
@@ -968,12 +971,16 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
     required IconData icon,
     required String title,
     String? subtitle,
+    bool compact = false,
     required Widget child,
   }) {
+    final desktop = AppBottomNav.desktopSidebarEnabled;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(desktop && !compact ? 20 : 14),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        color: desktop
+            ? theme.colorScheme.surfaceContainer
+            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
@@ -1011,6 +1018,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
   }
 
   Widget _buildKaraokeSyncCard(ThemeData theme) {
+    final desktop = AppBottomNav.desktopSidebarEnabled;
     final lines = _primaryLyricsLines();
     final cues = _currentLangTimedCues();
     final canSync = _audioService != null;
@@ -1025,6 +1033,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
 
     return _buildSectionPanel(
       theme: theme,
+      compact: desktop,
       icon: Icons.mic_rounded,
       title: tr('lyrics.karaoke_sync'),
       subtitle: canSync
@@ -1035,7 +1044,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(desktop ? 8 : 12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surface.withValues(alpha: 0.58),
               borderRadius: BorderRadius.circular(14),
@@ -1077,7 +1086,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: desktop ? 6 : 10),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(999),
                   child: LinearProgressIndicator(
@@ -1087,7 +1096,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
                   ),
                 ),
                 if (nextLine != null) ...[
-                  const SizedBox(height: 10),
+                  SizedBox(height: desktop ? 6 : 10),
                   Text(
                     tr('lyrics.next_line'),
                     style: theme.textTheme.labelSmall?.copyWith(
@@ -1108,7 +1117,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: desktop ? 8 : 12),
           Row(
             children: [
               Expanded(
@@ -1160,7 +1169,7 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
             ],
           ),
           if (cues.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: desktop ? 6 : 10),
             ...cues
                 .take(10)
                 .map(
@@ -1191,221 +1200,300 @@ class _LyricsEntryPageState extends State<LyricsEntryPage> {
   Widget build(BuildContext context) {
     _ensureLanguageStateSanity();
     final theme = Theme.of(context);
+    final desktop = AppBottomNav.desktopSidebarEnabled;
     final primaryLines = _primaryLyricsLines();
-
-    return Scaffold(
-      appBar: AppBar(title: Text(tr('lyrics.editor_title')), centerTitle: true),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          children: [
-            _buildSectionPanel(
-              theme: theme,
-              icon: Icons.music_note_rounded,
-              title: tr('lyrics.song_data'),
-              subtitle: tr('lyrics.song_data_subtitle'),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: _titleController,
-                    decoration: InputDecoration(labelText: tr('common.title')),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _artistController,
-                    decoration: InputDecoration(
-                      labelText: tr('edit.entity_type.artist'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.tonalIcon(
-                          onPressed: _loading ? null : _searchLrclibLyrics,
-                          icon: const Icon(Icons.lyrics_rounded),
-                          label: Text(tr('lyrics.search_lrclib')),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton.filledTonal(
-                        tooltip: tr('lyrics.search_web'),
-                        onPressed: _loading ? null : _searchLyrics,
-                        icon: const Icon(Icons.public_rounded),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+    final saveButton = FilledButton.icon(
+      onPressed: _save,
+      icon: const Icon(Icons.save_rounded),
+      label: Text(tr('common.save_changes')),
+    );
+    final songPanel = _buildSectionPanel(
+      theme: theme,
+      icon: Icons.music_note_rounded,
+      title: tr('lyrics.song_data'),
+      subtitle: tr('lyrics.song_data_subtitle'),
+      child: Column(
+        children: [
+          TextField(
+            controller: _titleController,
+            decoration: InputDecoration(labelText: tr('common.title')),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _artistController,
+            decoration: InputDecoration(
+              labelText: tr('edit.entity_type.artist'),
             ),
-            const SizedBox(height: 12),
-            _buildSectionPanel(
-              theme: theme,
-              icon: Icons.article_outlined,
-              title: tr('lyrics.main_lyrics'),
-              subtitle: tr(
-                'lyrics.main_lines_detected',
-                args: ['${primaryLines.length}'],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: _loading ? null : _searchLrclibLyrics,
+                  icon: const Icon(Icons.lyrics_rounded),
+                  label: Text(tr('lyrics.search_lrclib')),
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tr('lyrics.language'),
-                    style: theme.textTheme.labelLarge,
-                  ),
-                  const SizedBox(height: 6),
-                  _languageDropdown(
-                    value: _lyricsLang,
-                    onChanged: (val) {
-                      if (val == null) return;
-                      setState(() {
-                        _lyricsLang = val;
-                        if (_targetLang == _lyricsLang) {
-                          _targetLang = _lyricsLang == 'es' ? 'en' : 'es';
-                        }
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _lyricsController,
-                    minLines: 8,
-                    maxLines: 14,
-                    decoration: InputDecoration(
-                      labelText: tr('lyrics.main_lyrics'),
-                      alignLabelWithHint: true,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                ],
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                tooltip: tr('lyrics.search_web'),
+                onPressed: _loading ? null : _searchLyrics,
+                icon: const Icon(Icons.public_rounded),
               ),
-            ),
-            const SizedBox(height: 12),
-            _buildKaraokeSyncCard(theme),
-            const SizedBox(height: 12),
-            _buildSectionPanel(
-              theme: theme,
-              icon: Icons.translate_rounded,
-              title: tr('lyrics.translations'),
-              subtitle: tr('lyrics.translations_subtitle'),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _languageDropdown(
-                          value: _targetLang,
-                          onChanged: (val) {
-                            if (val == null) return;
-                            setState(() {
-                              _targetLang = val;
-                              _activePreviewKey = val;
-                              _translationPreviewController.text =
-                                  _translations[_activePreviewKey] ?? '';
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: _loading ? null : _translateLyrics,
-                        child: Text(tr('lyrics.translate')),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _translationPreviewController,
-                    maxLines: 5,
-                    minLines: 3,
-                    decoration: InputDecoration(
-                      labelText: tr('lyrics.translation_preview'),
-                      border: const OutlineInputBorder(),
-                    ),
-                    onChanged: (val) {
-                      final text = val.trim();
-                      final key = _activePreviewKey.trim().toLowerCase();
-                      if (key.isEmpty) return;
-                      if (text.isEmpty) {
-                        _translations.remove(key);
-                      } else {
-                        _translations[key] = text;
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  if (_translations.isEmpty)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        tr('player.lyrics.no_translations'),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  if (_translations.isNotEmpty)
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _translations.entries
-                          .map(
-                            (entry) => InputChip(
-                              label: Text(_translationLabel(entry.key)),
-                              selected: entry.key == _activePreviewKey,
-                              onPressed: () {
-                                setState(() {
-                                  final key = entry.key.trim().toLowerCase();
-                                  _activePreviewKey = key;
-                                  if (_languageCodes.contains(key)) {
-                                    _targetLang = key;
-                                  }
-                                  _translationPreviewController.text =
-                                      entry.value;
-                                });
-                              },
-                              onDeleted: () => _removeTranslation(entry.key),
-                            ),
-                          )
-                          .toList(growable: false),
-                    ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _applyPreviewAsPrimaryLyrics,
-                      icon: const Icon(Icons.swap_horiz_rounded),
-                      label: Text(tr('lyrics.use_translation_as_primary')),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_loading) ...[
-              const LinearProgressIndicator(),
-              const SizedBox(height: 10),
             ],
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _save,
-                icon: const Icon(Icons.save_rounded),
-                label: Text(tr('common.save_changes')),
+          ),
+        ],
+      ),
+    );
+    final lyricsPanel = _buildSectionPanel(
+      theme: theme,
+      icon: Icons.article_outlined,
+      title: tr('lyrics.main_lyrics'),
+      subtitle: tr(
+        'lyrics.main_lines_detected',
+        args: ['${primaryLines.length}'],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(tr('lyrics.language'), style: theme.textTheme.labelLarge),
+          const SizedBox(height: 6),
+          _languageDropdown(
+            value: _lyricsLang,
+            onChanged: (val) {
+              if (val == null) return;
+              setState(() {
+                _lyricsLang = val;
+                if (_targetLang == _lyricsLang) {
+                  _targetLang = _lyricsLang == 'es' ? 'en' : 'es';
+                }
+              });
+            },
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _lyricsController,
+            minLines: 8,
+            maxLines: desktop ? 16 : 14,
+            decoration: InputDecoration(
+              labelText: tr('lyrics.main_lyrics'),
+              alignLabelWithHint: true,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+    );
+    final translationPanel = _buildSectionPanel(
+      theme: theme,
+      icon: Icons.translate_rounded,
+      title: tr('lyrics.translations'),
+      subtitle: tr('lyrics.translations_subtitle'),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _languageDropdown(
+                  value: _targetLang,
+                  onChanged: (val) {
+                    if (val == null) return;
+                    setState(() {
+                      _targetLang = val;
+                      _activePreviewKey = val;
+                      _translationPreviewController.text =
+                          _translations[_activePreviewKey] ?? '';
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _loading ? null : _translateLyrics,
+                child: Text(tr('lyrics.translate')),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _translationPreviewController,
+            maxLines: desktop ? 20 : 5,
+            minLines: desktop ? 12 : 3,
+            decoration: InputDecoration(
+              labelText: tr('lyrics.translation_preview'),
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (val) {
+              final text = val.trim();
+              final key = _activePreviewKey.trim().toLowerCase();
+              if (key.isEmpty) return;
+              if (text.isEmpty) {
+                _translations.remove(key);
+              } else {
+                _translations[key] = text;
+              }
+            },
+          ),
+          const SizedBox(height: 10),
+          if (_translations.isEmpty)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                tr('player.lyrics.no_translations'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
-          ],
-        ),
+          if (_translations.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _translations.entries
+                  .map(
+                    (entry) => InputChip(
+                      label: Text(_translationLabel(entry.key)),
+                      selected: entry.key == _activePreviewKey,
+                      onPressed: () {
+                        setState(() {
+                          final key = entry.key.trim().toLowerCase();
+                          _activePreviewKey = key;
+                          if (_languageCodes.contains(key)) {
+                            _targetLang = key;
+                          }
+                          _translationPreviewController.text = entry.value;
+                        });
+                      },
+                      onDeleted: () => _removeTranslation(entry.key),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _applyPreviewAsPrimaryLyrics,
+              icon: const Icon(Icons.swap_horiz_rounded),
+              label: Text(tr('lyrics.use_translation_as_primary')),
+            ),
+          ),
+        ],
       ),
+    );
+    return Scaffold(
+      backgroundColor: desktop ? Colors.transparent : null,
+      appBar: AppBar(
+        title: Text(tr('lyrics.editor_title')),
+        centerTitle: !desktop,
+        actions: desktop
+            ? [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
+                  child: saveButton,
+                ),
+              ]
+            : null,
+        bottom: desktop && _loading
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(3),
+                child: LinearProgressIndicator(minHeight: 3),
+              )
+            : null,
+      ),
+      body: desktop
+          ? AppGradientBackground(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide = constraints.maxWidth >= 1080;
+                  final tools = Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      songPanel,
+                      const SizedBox(height: 20),
+                      translationPanel,
+                    ],
+                  );
+                  final editor = Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      lyricsPanel,
+                      const SizedBox(height: 20),
+                      _buildKaraokeSyncCard(theme),
+                    ],
+                  );
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 24,
+                    ),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1280),
+                        child: wide
+                            ? Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(width: 380, child: tools),
+                                  const SizedBox(width: 24),
+                                  Expanded(child: editor),
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  songPanel,
+                                  const SizedBox(height: 20),
+                                  lyricsPanel,
+                                  const SizedBox(height: 20),
+                                  translationPanel,
+                                  const SizedBox(height: 20),
+                                  _buildKaraokeSyncCard(theme),
+                                ],
+                              ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            )
+          : SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                children: [
+                  songPanel,
+                  const SizedBox(height: 12),
+                  lyricsPanel,
+                  const SizedBox(height: 12),
+                  _buildKaraokeSyncCard(theme),
+                  const SizedBox(height: 12),
+                  translationPanel,
+                ],
+              ),
+            ),
+      bottomNavigationBar: desktop
+          ? null
+          : SafeArea(
+              minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_loading) ...[
+                    const LinearProgressIndicator(),
+                    const SizedBox(height: 10),
+                  ],
+                  SizedBox(width: double.infinity, child: saveButton),
+                ],
+              ),
+            ),
     );
   }
 }

@@ -29,6 +29,7 @@ class AppBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (desktopSidebarEnabled && !vertical) return const SizedBox.shrink();
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
@@ -109,7 +110,12 @@ class AppBottomNav extends StatelessWidget {
                       if (header != null)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 24),
-                          child: Center(child: header),
+                          child: Center(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: header,
+                            ),
+                          ),
                         ),
                       for (var index = 0; index < items.length; index++)
                         Padding(

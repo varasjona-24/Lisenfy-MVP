@@ -1,3 +1,4 @@
+import 'app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:async';
 import 'dart:io';
 import 'app/utils/app_locales.dart';
@@ -491,7 +492,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                     Get.find<NavigationController>().currentRoute.value;
                 final sidebar =
                     AppBottomNav.desktopSidebarEnabled &&
-                    route == AppRoutes.home;
+                    AppNavigationScaffold.hasSidebar(route);
                 return Positioned(
                   left: sidebar
                       ? AppBottomNav.sidebarWidth(

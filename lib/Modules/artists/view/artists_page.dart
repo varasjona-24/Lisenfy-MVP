@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart'
@@ -40,7 +41,8 @@ class ArtistsPage extends GetView<ArtistsController> {
     final home = Get.find<HomeController>();
 
     return Obx(() {
-      return Scaffold(
+      return AppNavigationScaffold(
+        navigationIndex: 2,
         backgroundColor: Colors.transparent,
         extendBody: true,
         appBar: AppTopBar(title: ListenfyLogo(size: 28, color: scheme.primary)),

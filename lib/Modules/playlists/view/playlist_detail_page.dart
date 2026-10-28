@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart'
@@ -53,7 +54,8 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
       final cover = _resolveCover(playlist, items);
       final totalBytes = _totalBytes(items);
 
-      return Scaffold(
+      return AppNavigationScaffold(
+        navigationIndex: 1,
         backgroundColor: Colors.transparent,
         appBar: AppTopBar(
           title: ListenfyLogo(size: 28, color: theme.colorScheme.primary),

@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart'
@@ -109,7 +110,8 @@ class ArtistDetailPage extends GetView<ArtistsController> {
       }
 
       if (artist == null) {
-        return Scaffold(
+        return AppNavigationScaffold(
+          navigationIndex: 2,
           appBar: AppBar(
             title: Text(tr('edit.entity_type.artist')),
             backgroundColor: theme.colorScheme.surface,
@@ -195,7 +197,8 @@ class ArtistDetailPage extends GetView<ArtistsController> {
           ? '$typeLabel - ${countryFlag.isEmpty ? country : '$countryFlag $country'}'
           : typeLabel;
 
-      return Scaffold(
+      return AppNavigationScaffold(
+        navigationIndex: 2,
         backgroundColor: Colors.transparent,
         appBar: AppBar(
           title: ListenfyLogo(size: 28, color: theme.colorScheme.primary),

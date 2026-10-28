@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
@@ -156,7 +157,8 @@ class _SourceLibraryPageState extends State<SourceLibraryPage> {
                       ? HomeMode.video
                       : homeMode));
 
-      return Scaffold(
+      return AppNavigationScaffold(
+        navigationIndex: 5,
         backgroundColor: Colors.transparent,
         extendBody: true,
         appBar: AppTopBar(

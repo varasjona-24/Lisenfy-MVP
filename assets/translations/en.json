@@ -2232,6 +2232,10 @@
     }
   },
   "weekly_collage": {
+    "save_image": "Save image…",
+    "share_image": "Share…",
+    "image_saved": "Image saved.",
+    "save_error": "Could not save the image. Please try again.",
     "other_audio": "Other songs that shaped your week",
     "video_highlights": "Your week in video",
     "watched_time": "of active viewing",

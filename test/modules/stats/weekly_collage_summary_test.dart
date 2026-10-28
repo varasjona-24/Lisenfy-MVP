@@ -6,6 +6,49 @@ import 'package:listenfy/app/models/media_item.dart';
 
 void main() {
   test(
+    'current library artwork replaces stale snapshot paths without rewriting history',
+    () {
+      final snapshot = MediaItem.fromJson({
+        'id': 'old-id',
+        'publicId': 'same-song',
+        'title': 'Historical title',
+        'thumbnailLocalPath': '/android/old-cover.jpg',
+        'variants': [
+          {'kind': 'audio', 'durationSeconds': 180},
+        ],
+      });
+      final current = snapshot.copyWith(
+        id: 'new-local-id',
+        title: 'Updated title',
+        thumbnailLocalPath: '/mac/current-cover.jpg',
+      );
+      final event = ListeningEvent.fromJson({
+        'trackKey': 'i:old-id',
+        'mode': 'audio',
+        'occurredAt': DateTime(2026, 10, 6).millisecondsSinceEpoch,
+        'progress': 1,
+        'mediaSnapshot': snapshot.toJson(),
+      });
+      final summary = WeeklyCollageSummary.build(
+        [current],
+        [event],
+        DateTime(2026, 10, 14),
+      );
+      final entry = summary.entries.single;
+      expect(entry.item.title, 'Historical title');
+      expect(entry.artworkItem.thumbnailLocalPath, '/mac/current-cover.jpg');
+      expect(entry.plays, 1);
+      final removed = WeeklyCollageSummary.build([], [
+        event,
+      ], DateTime(2026, 10, 14)).entries.single;
+      expect(
+        removed.artworkItem.thumbnailLocalPath,
+        snapshot.thumbnailLocalPath,
+      );
+      expect(removed.plays, entry.plays);
+    },
+  );
+  test(
     'separa audio y video del mismo item y excluye otras semanas y eventos futuros',
     () {
       final now = DateTime(2026, 10, 7, 12);

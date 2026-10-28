@@ -3,8 +3,10 @@ import '../../recommendations/data/listening_event_store.dart';
 import '../../recommendations/domain/recommendation_models.dart';
 
 class WeeklyCollageEntry {
-  WeeklyCollageEntry(this.item, this.video);
+  WeeklyCollageEntry(this.item, this.video, {MediaItem? artworkItem})
+    : artworkItem = artworkItem ?? item;
   final MediaItem item;
+  final MediaItem artworkItem;
   final bool video;
   int plays = 0;
   int seconds = 0;
@@ -72,7 +74,13 @@ class WeeklyCollageSummary {
           event.occurredAt >= end.millisecondsSinceEpoch) {
         continue;
       }
-      final candidates = items[event.trackKey.trim()];
+      final snapshot = event.mediaSnapshot;
+      final candidates =
+          items[event.trackKey.trim()] ??
+          (snapshot == null || snapshot.publicId.trim().isEmpty
+              ? null
+              : items['p:${snapshot.publicId.trim()}']) ??
+          (snapshot == null ? null : items['i:${snapshot.id.trim()}']);
       if ((candidates == null || candidates.isEmpty) &&
           event.mediaSnapshot == null) {
         continue;
@@ -94,6 +102,12 @@ class WeeklyCollageSummary {
           event.mode == RecommendationMode.video ||
           (event.mode == null && hasVideo);
       final kind = video ? MediaVariantKind.video : MediaVariantKind.audio;
+      final currentItem = candidates == null || candidates.isEmpty
+          ? null
+          : candidates.firstWhere(
+              (candidate) => candidate.variants.any((v) => v.kind == kind),
+              orElse: () => candidates.first,
+            );
       final item =
           event.mediaSnapshot ??
           candidates!.firstWhere(
@@ -106,7 +120,7 @@ class WeeklyCollageSummary {
           : 'i:${item.id.trim()}';
       final entry = ranked.putIfAbsent(
         '$canonicalKey:$video',
-        () => WeeklyCollageEntry(item, video),
+        () => WeeklyCollageEntry(item, video, artworkItem: currentItem),
       );
       if (event.countsAsPlay) entry.plays++;
       final durations = item.variants.where(

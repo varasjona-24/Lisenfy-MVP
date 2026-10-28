@@ -1,10 +1,13 @@
-import 'dart:io';
+import '../../../../app/ui/widgets/navigation/app_bottom_nav.dart';
+import '../widgets/wrapped_artwork.dart';
+import '../../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:ui' as ui;
 
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -40,6 +43,7 @@ class WeeklyCollagePage extends StatefulWidget {
 
 class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
   final _imageKeys = [GlobalKey(), GlobalKey()];
+  final _desktopImageKey = GlobalKey();
   late Future<WeeklyCollageSummary> _summary;
   late final Future<List<DateTime>> _weeks;
   late DateTime _selectedWeek;
@@ -277,7 +281,7 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
     },
   );
 
-  Future<void> _export() async {
+  Future<void> _export({bool saveToFile = false}) async {
     if (_exporting) return;
     setState(() => _exporting = true);
     try {
@@ -286,9 +290,12 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
       if (!mounted) return;
       final files = <XFile>[];
       final names = <String>[];
-      for (var index = 0; index < _imageKeys.length; index++) {
+      final imageKeys = AppBottomNav.desktopSidebarEnabled
+          ? [_desktopImageKey]
+          : _imageKeys;
+      for (var index = 0; index < imageKeys.length; index++) {
         final boundary =
-            _imageKeys[index].currentContext!.findRenderObject()!
+            imageKeys[index].currentContext!.findRenderObject()!
                 as RenderRepaintBoundary;
         final image = await boundary.toImage(
           pixelRatio: 2160 / boundary.size.width,
@@ -311,6 +318,21 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
         }
       }
       if (!mounted) return;
+      if (saveToFile) {
+        final savedPath = await FilePicker.platform.saveFile(
+          dialogTitle: tr('weekly_collage.save_image'),
+          fileName: names.single,
+          type: FileType.custom,
+          allowedExtensions: const ['png'],
+          bytes: await files.single.readAsBytes(),
+        );
+        if (savedPath != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(tr('weekly_collage.image_saved'))),
+          );
+        }
+        return;
+      }
       final box = context.findRenderObject()! as RenderBox;
       await Share.shareXFiles(
         files,
@@ -320,7 +342,15 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(tr('weekly_collage.export_error'))),
+          SnackBar(
+            content: Text(
+              tr(
+                saveToFile
+                    ? 'weekly_collage.save_error'
+                    : 'weekly_collage.export_error',
+              ),
+            ),
+          ),
         );
       }
     } finally {
@@ -329,7 +359,8 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => AppNavigationScaffold(
+    navigationIndex: 4,
     appBar: AppBar(title: Text(tr('weekly_collage.title'))),
     body: AppGradientBackground(
       child: Column(
@@ -364,23 +395,60 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      for (var part = 0; part < 2; part++) ...[
-                        if (part > 0) const SizedBox(height: 20),
-                        RepaintBoundary(
-                          key: _imageKeys[part],
-                          child: _collage(summary, part: part),
-                        ),
-                      ],
+                      if (AppBottomNav.desktopSidebarEnabled)
+                        ConstrainedBox(
+                          key: const ValueKey('weekly-desktop-recap'),
+                          constraints: const BoxConstraints(maxWidth: 1240),
+                          child: RepaintBoundary(
+                            key: _desktopImageKey,
+                            child: _collage(summary, part: -1, unified: true),
+                          ),
+                        )
+                      else
+                        for (var part = 0; part < 2; part++) ...[
+                          if (part > 0) const SizedBox(height: 20),
+                          RepaintBoundary(
+                            key: _imageKeys[part],
+                            child: _collage(summary, part: part),
+                          ),
+                        ],
                       const SizedBox(height: 20),
-                      FilledButton.icon(
-                        onPressed: _exporting ? null : _export,
-                        icon: const Icon(Icons.ios_share_rounded),
-                        label: Text(
-                          _exporting
-                              ? tr('weekly_collage.exporting')
-                              : tr('weekly_collage.export'),
+                      if (AppBottomNav.desktopSidebarEnabled)
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: _exporting
+                                  ? null
+                                  : () => _export(saveToFile: true),
+                              icon: const Icon(Icons.save_alt_rounded),
+                              label: Text(
+                                tr(
+                                  _exporting
+                                      ? 'weekly_collage.exporting'
+                                      : 'weekly_collage.save_image',
+                                ),
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _exporting ? null : _export,
+                              icon: const Icon(Icons.ios_share_rounded),
+                              label: Text(tr('weekly_collage.share_image')),
+                            ),
+                          ],
+                        )
+                      else
+                        FilledButton.icon(
+                          onPressed: _exporting ? null : _export,
+                          icon: const Icon(Icons.ios_share_rounded),
+                          label: Text(
+                            _exporting
+                                ? tr('weekly_collage.exporting')
+                                : tr('weekly_collage.export'),
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 );
@@ -392,7 +460,13 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
     ),
   );
 
-  Widget _collage(WeeklyCollageSummary summary, {required int part}) {
+  Widget _collage(
+    WeeklyCollageSummary summary, {
+    required int part,
+    bool unified = false,
+    bool showHeader = true,
+    bool framed = true,
+  }) {
     final scheme = Theme.of(context).colorScheme;
     final top = summary.entries.first;
     final audio = summary.entries
@@ -405,50 +479,80 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
         .toList();
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: scheme.outlineVariant),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.alphaBlend(
-              scheme.primary.withValues(alpha: .12),
-              scheme.surface,
+      padding: framed ? const EdgeInsets.all(22) : EdgeInsets.zero,
+      decoration: !framed
+          ? null
+          : BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: scheme.outlineVariant),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.alphaBlend(
+                    scheme.primary.withValues(alpha: .12),
+                    scheme.surface,
+                  ),
+                  scheme.surface,
+                  Color.alphaBlend(
+                    scheme.secondary.withValues(alpha: .09),
+                    scheme.surface,
+                  ),
+                ],
+              ),
             ),
-            scheme.surface,
-            Color.alphaBlend(
-              scheme.secondary.withValues(alpha: .09),
-              scheme.surface,
-            ),
-          ],
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: ListenfyLogo(size: 36, color: scheme.primary),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            tr('weekly_collage.headline'),
-            style: TextStyle(
-              fontSize: 32,
-              height: 1.05,
-              fontWeight: FontWeight.w900,
-              color: scheme.onSurface,
+          if (showHeader) ...[
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: ListenfyLogo(size: 36, color: scheme.primary),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${DateFormat.MMMMd(Localizations.localeOf(context).toString()).format(summary.start)} — ${DateFormat.MMMMd(Localizations.localeOf(context).toString()).format(DateTime(summary.end.year, summary.end.month, summary.end.day - 1))}',
-            style: TextStyle(color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 22),
+            const SizedBox(height: 12),
+            Text(
+              tr('weekly_collage.headline'),
+              style: TextStyle(
+                fontSize: 32,
+                height: 1.05,
+                fontWeight: FontWeight.w900,
+                color: scheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${DateFormat.MMMMd(Localizations.localeOf(context).toString()).format(summary.start)} — ${DateFormat.MMMMd(Localizations.localeOf(context).toString()).format(DateTime(summary.end.year, summary.end.month, summary.end.day - 1))}',
+              style: TextStyle(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 22),
+          ],
+          if (unified)
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final twoColumns = constraints.maxWidth >= 950;
+                final width = twoColumns
+                    ? (constraints.maxWidth - 24) / 2
+                    : constraints.maxWidth;
+                return Wrap(
+                  spacing: 24,
+                  runSpacing: 24,
+                  children: [
+                    for (var section = 0; section < 2; section++)
+                      SizedBox(
+                        key: ValueKey('weekly-desktop-panel-$section'),
+                        width: width,
+                        child: _collage(
+                          summary,
+                          part: section,
+                          showHeader: false,
+                          framed: false,
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
           if (part == 0) ...[
             _cover(top, protagonist: true),
             if (audio.isNotEmpty) ...[
@@ -784,35 +888,53 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
   );
 
   Widget _cover(WeeklyCollageEntry entry, {bool protagonist = false}) {
-    final item = entry.item;
     final overlay =
         protagonist &&
         !entry.video &&
         MediaQuery.textScalerOf(context).scale(1) <= 1.3;
-    final local = item.thumbnailLocalPath;
-    final remote = item.thumbnail;
-    final fallback = ColoredBox(
-      color: Theme.of(context).colorScheme.secondaryContainer,
-      child: Center(
-        child: Icon(
-          entry.video ? Icons.movie_rounded : Icons.music_note_rounded,
-          size: 48,
-        ),
+    final Widget image = LayoutBuilder(
+      builder: (context, constraints) => WrappedArtwork(
+        item: entry.artworkItem,
+        size: constraints.maxWidth,
+        aspectRatio: entry.video ? 16 / 9 : 1,
       ),
     );
-    final Widget image = local != null && File(local).existsSync()
-        ? Image.file(
-            File(local),
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => fallback,
-          )
-        : remote != null && remote.isNotEmpty
-        ? Image.network(
-            remote,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => fallback,
-          )
-        : fallback;
+    if (AppBottomNav.desktopSidebarEnabled) {
+      final scheme = Theme.of(context).colorScheme;
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: scheme.outlineVariant),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (protagonist) ...[
+              Text(
+                tr('weekly_collage.protagonist'),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(color: scheme.primary),
+              ),
+              const SizedBox(height: 12),
+            ],
+            Row(
+              children: [
+                WrappedArtwork(
+                  item: entry.artworkItem,
+                  size: protagonist ? 144 : 72,
+                  aspectRatio: entry.video ? 16 / 9 : 1,
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: _coverText(entry, protagonist)),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(

@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart'
@@ -103,13 +104,15 @@ class _SourceThemeTopicPageState extends State<SourceThemeTopicPage> {
     return Obx(() {
       final topic = _topic;
       if (topic == null) {
-        return Scaffold(
+        return AppNavigationScaffold(
+          navigationIndex: 5,
           body: Center(child: Text(tr('sources.collection_not_found'))),
         );
       }
       final lists = _sources.playlistsForTopic(topic.id);
 
-      return Scaffold(
+      return AppNavigationScaffold(
+        navigationIndex: 5,
         backgroundColor: Colors.transparent,
         appBar: AppTopBar(
           leading: IconButton(

@@ -1,3 +1,4 @@
+import '../../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:ui';
 
 import 'package:easy_localization/easy_localization.dart'
@@ -108,7 +109,8 @@ class _ImmersiveAtlasViewState extends State<_ImmersiveAtlasView> {
   @override
   Widget build(BuildContext context) {
     final ctrl = widget.ctrl;
-    return Scaffold(
+    return AppNavigationScaffold(
+      navigationIndex: 3,
       backgroundColor: Colors.transparent,
       appBar: AppTopBar(
         title: ListenfyLogo(

@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 import 'package:easy_localization/src/localization.dart';
 import 'package:easy_localization/src/translations.dart';
 import 'package:flutter/material.dart';
@@ -10,8 +12,170 @@ import 'package:listenfy/Modules/stats/application/weekly_collage_summary.dart';
 import 'package:listenfy/Modules/stats/application/weekly_collage_activity.dart';
 import 'package:listenfy/Modules/stats/presentation/views/weekly_collage_page.dart';
 import 'package:listenfy/app/models/media_item.dart';
+import 'package:listenfy/Modules/stats/presentation/widgets/wrapped_artwork.dart';
+
+class _SaveImagePicker extends FilePicker {
+  _SaveImagePicker(this.result);
+  final String? result;
+  final called = Completer<void>();
+  Uint8List? capturedBytes;
+  String? suggestedName;
+  @override
+  Future<String?> saveFile({
+    String? dialogTitle,
+    String? fileName,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Uint8List? bytes,
+    bool lockParentWindow = false,
+  }) async {
+    capturedBytes = bytes;
+    suggestedName = fileName;
+    called.complete();
+    return result;
+  }
+}
 
 void main() {
+  for (final cancelled in [false, true]) {
+    testWidgets(
+      'desktop save exports a PNG and handles cancellation: $cancelled',
+      (tester) async {
+        tester.view.physicalSize = const Size(1440, 1000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final picker = _SaveImagePicker(
+          cancelled ? null : '/chosen/weekly.png',
+        );
+        FilePicker.platform = picker;
+        final item = MediaItem.fromJson({
+          'id': 'song',
+          'title': 'Weekly song',
+          'variants': [],
+        });
+        await tester.pumpWidget(
+          MaterialApp(
+            home: WeeklyCollagePage(
+              summaryLoader: () async => WeeklyCollageSummary(
+                start: DateTime(2026, 10, 5),
+                end: DateTime(2026, 10, 12),
+                entries: [WeeklyCollageEntry(item, false)..plays = 4],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Share…'), findsOneWidget);
+        final save = find.text('Save image…');
+        await tester.ensureVisible(save);
+        await tester.pumpAndSettle();
+        await tester.tap(save);
+        for (
+          var frame = 0;
+          frame < 100 && !picker.called.isCompleted;
+          frame++
+        ) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)),
+          );
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        expect(picker.called.isCompleted, isTrue);
+        await tester.pumpAndSettle();
+        expect(picker.capturedBytes!.take(8), [
+          137,
+          80,
+          78,
+          71,
+          13,
+          10,
+          26,
+          10,
+        ]);
+        expect(picker.suggestedName, 'listenfy-weekly-2026-10-05-1.png');
+        expect(
+          find.text('Image saved.'),
+          cancelled ? findsNothing : findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant({TargetPlatform.macOS}),
+    );
+  }
+  for (final size in [const Size(1440, 900), const Size(900, 700)]) {
+    testWidgets(
+      'desktop weekly panels fit $size and load current local artwork',
+      (tester) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final old = MediaItem.fromJson({
+          'id': 'song',
+          'title': 'Weekly song',
+          'thumbnailLocalPath': '/missing-android-cover.jpg',
+          'variants': [],
+        });
+        final current = old.copyWith(
+          thumbnailLocalPath: File('assets/ui/vinyl.png').absolute.path,
+        );
+        final summary = WeeklyCollageSummary(
+          start: DateTime(2026, 10, 5),
+          end: DateTime(2026, 10, 12),
+          entries: [
+            WeeklyCollageEntry(old, false, artworkItem: current)..plays = 8,
+          ],
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(1.3)),
+              child: child!,
+            ),
+            home: WeeklyCollagePage(summaryLoader: () async => summary),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('A WEEK\nALL YOUR OWN'), findsOneWidget);
+        final first = tester.getRect(
+          find.byKey(const ValueKey('weekly-desktop-panel-0')),
+        );
+        final second = tester.getRect(
+          find.byKey(const ValueKey('weekly-desktop-panel-1')),
+        );
+        final recap = tester.getRect(
+          find.byKey(const ValueKey('weekly-desktop-recap')),
+        );
+        expect(recap.width, lessThanOrEqualTo(1240));
+        expect(first.left, greaterThanOrEqualTo(recap.left));
+        expect(second.right, lessThanOrEqualTo(recap.right));
+        if (size.width >= 1200) {
+          expect(first.top, closeTo(second.top, 1));
+          expect(second.left, greaterThan(first.right));
+        } else {
+          expect(second.top, greaterThan(first.bottom));
+        }
+        final artwork = tester.widget<WrappedArtwork>(
+          find.byType(WrappedArtwork).first,
+        );
+        expect(artwork.item.thumbnailLocalPath, current.thumbnailLocalPath);
+        expect(
+          tester.widget<Image>(find.byType(Image).first).image,
+          isA<FileImage>(),
+        );
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant({TargetPlatform.macOS}),
+    );
+  }
   setUpAll(() {
     Localization.load(
       const Locale('en'),

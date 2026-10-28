@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
@@ -102,7 +103,8 @@ class _SourceThemeTopicPlaylistPageState
     return Obx(() {
       final playlist = _playlist;
       if (playlist == null) {
-        return Scaffold(
+        return AppNavigationScaffold(
+          navigationIndex: 5,
           body: Center(child: Text(tr('sources.collection_not_found'))),
         );
       }
@@ -112,7 +114,8 @@ class _SourceThemeTopicPlaylistPageState
         parentId: playlist.id,
       );
 
-      return Scaffold(
+      return AppNavigationScaffold(
+        navigationIndex: 5,
         backgroundColor: Colors.transparent,
         appBar: AppTopBar(
           leading: IconButton(

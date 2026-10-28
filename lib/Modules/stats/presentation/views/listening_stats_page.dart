@@ -1,3 +1,5 @@
+import '../../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
+import '../../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import 'dart:math';
 
 import 'package:easy_localization/easy_localization.dart'
@@ -44,7 +46,8 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    return Scaffold(
+    return AppNavigationScaffold(
+      navigationIndex: 4,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text(
@@ -59,11 +62,18 @@ class ListeningStatsPage extends GetView<ListeningStatsController> {
         foregroundColor: scheme.onSurface,
         leading: const BackButton(),
         actions: [
-          TextButton.icon(
-            label: Text(tr('weekly_collage.open')),
-            icon: const Icon(Icons.calendar_view_week_rounded),
-            onPressed: () => Get.to(() => const WeeklyCollagePage()),
-          ),
+          if (AppBottomNav.desktopSidebarEnabled)
+            IconButton(
+              tooltip: tr('weekly_collage.open'),
+              icon: const Icon(Icons.calendar_view_week_rounded),
+              onPressed: () => Get.to(() => const WeeklyCollagePage()),
+            )
+          else
+            TextButton.icon(
+              label: Text(tr('weekly_collage.open')),
+              icon: const Icon(Icons.calendar_view_week_rounded),
+              onPressed: () => Get.to(() => const WeeklyCollagePage()),
+            ),
         ],
       ),
       body: AppGradientBackground(

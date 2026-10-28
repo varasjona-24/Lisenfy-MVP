@@ -2232,6 +2232,10 @@
     }
   },
   "weekly_collage": {
+    "save_image": "Guardar imagen…",
+    "share_image": "Compartir…",
+    "image_saved": "Imagen guardada.",
+    "save_error": "No se pudo guardar la imagen. Intenta nuevamente.",
     "other_audio": "Otras canciones que marcaron tu semana",
     "video_highlights": "Tu semana en video",
     "watched_time": "de visualización activa",
