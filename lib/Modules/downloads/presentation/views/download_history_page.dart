@@ -76,7 +76,7 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                 Get.toNamed(
                   AppRoutes.homeSectionList,
                   arguments: {
-                    'title': tr('downloads.history'),
+                    'title': tr('history.title'),
                     'items': list,
                     'onItemTap': (MediaItem tapped, int index) =>
                         home.openMedia(
@@ -136,7 +136,7 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                           children: [
                             Expanded(
                               child: Text(
-                                tr('downloads.history'),
+                                tr('history.title'),
                                 style: theme.textTheme.headlineSmall?.copyWith(
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -156,6 +156,27 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: SegmentedButton<HistorySource>(
+                            segments: [
+                              ButtonSegment(
+                                value: HistorySource.imports,
+                                icon: const Icon(Icons.download_rounded),
+                                label: Text(tr('history.imports')),
+                              ),
+                              ButtonSegment(
+                                value: HistorySource.played,
+                                icon: const Icon(Icons.history_rounded),
+                                label: Text(tr('history.played')),
+                              ),
+                            ],
+                            selected: {controller.source.value},
+                            onSelectionChanged: (selection) =>
+                                controller.setSource(selection.single),
+                          ),
                         ),
                         const SizedBox(height: 16),
                         DownloadHistorySearchField(
@@ -214,7 +235,11 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  tr('downloads.history_empty_range'),
+                  tr(
+                    controller.source.value == HistorySource.played
+                        ? 'history.played_empty_range'
+                        : 'downloads.history_empty_range',
+                  ),
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),

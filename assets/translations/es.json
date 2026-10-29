@@ -2069,6 +2069,10 @@
     "hide_artist": "Ocultar artista"
   },
   "history": {
+    "imports": "Imports",
+    "played": "Reproducidos",
+    "shared_subtitle": "Consulta tus imports y tus últimas reproducciones.",
+    "played_empty_range": "No hay reproducciones en este rango.",
     "title": "Historial",
     "empty": "Aún no hay historial.",
     "today": "Hoy",

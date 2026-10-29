@@ -2069,6 +2069,10 @@
     "transfer_offline": "Transferir para o Listenfy (offline)"
   },
   "history": {
+    "imports": "Importações",
+    "played": "Reproduzidos",
+    "shared_subtitle": "Consulte suas importações e últimas reproduções.",
+    "played_empty_range": "Nenhuma reprodução neste período.",
     "title": "Histórico",
     "empty": "Ainda não há histórico.",
     "today": "Hoje",
