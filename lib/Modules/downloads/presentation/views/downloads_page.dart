@@ -55,7 +55,7 @@ class DownloadsPage extends GetView<DownloadsController> {
           title: ListenfyLogo(size: 28, color: scheme.primary),
           extraActions: [
             IconButton(
-              tooltip: tr('downloads.history'),
+              tooltip: tr('history.title'),
               icon: const Icon(Icons.history_rounded),
               onPressed: () => Get.toNamed(AppRoutes.downloadsHistory),
             ),

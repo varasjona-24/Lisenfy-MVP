@@ -155,11 +155,14 @@ class PlaylistsPage extends GetView<PlaylistsController> {
   }
 
   int _totalSongs(List<Playlist> playlists) {
-    var total = 0;
+    final songs = <String>{};
     for (final playlist in playlists) {
-      total += controller.resolvePlaylistItems(playlist).length;
+      for (final item in controller.resolvePlaylistItems(playlist)) {
+        final publicId = item.publicId.trim();
+        songs.add(publicId.isNotEmpty ? 'p:$publicId' : 'i:${item.id.trim()}');
+      }
     }
-    return total;
+    return songs.length;
   }
 
   Playlist? _featuredPlaylist(List<Playlist> playlists) {
@@ -739,6 +742,7 @@ class _PlaylistTile extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onOpen,
+            onLongPress: onMenu,
             borderRadius: BorderRadius.circular(18),
             child: Ink(
               padding: EdgeInsets.all(compact ? 8 : 10),
@@ -795,17 +799,6 @@ class _PlaylistTile extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: IconButton(
-                                padding: EdgeInsets.zero,
-                                iconSize: 20,
-                                icon: const Icon(Icons.more_vert_rounded),
-                                tooltip: tr('playlists.options'),
-                                onPressed: onMenu,
-                              ),
-                            ),
                           ],
                         ),
                       ],
@@ -838,11 +831,6 @@ class _PlaylistTile extends StatelessWidget {
                               ),
                             ],
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.more_vert_rounded),
-                          tooltip: tr('playlists.options'),
-                          onPressed: onMenu,
                         ),
                       ],
                     ),
@@ -880,6 +868,7 @@ class _FeaturedPlaylistCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onOpen,
+        onLongPress: onMenu,
         borderRadius: BorderRadius.circular(24),
         child: Ink(
           padding: const EdgeInsets.all(14),
@@ -940,12 +929,6 @@ class _FeaturedPlaylistCard extends StatelessWidget {
                           onPressed: items.isEmpty ? null : onPlay,
                           icon: const Icon(Icons.play_arrow_rounded),
                           label: Text(tr('playlists.play')),
-                        ),
-                        const SizedBox(width: 6),
-                        IconButton(
-                          onPressed: onMenu,
-                          icon: const Icon(Icons.more_horiz_rounded),
-                          tooltip: tr('playlists.options'),
                         ),
                       ],
                     ),

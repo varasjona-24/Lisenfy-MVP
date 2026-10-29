@@ -21,6 +21,7 @@ import '../../downloads/controller/downloads_controller.dart';
 import '../../sources/domain/source_origin.dart';
 import '../data/wifi_direct_transport.dart';
 import '../data/transfer_cover_attachment.dart';
+import '../data/lan_transfer_transport.dart';
 import '../domain/hybrid_transfer_protocol.dart';
 
 enum TransferPhase {
@@ -105,13 +106,20 @@ class NearbyTransferController extends GetxController {
   }) : _store = library ?? Get.find<LocalLibraryStore>(),
        _repository = repository ?? Get.find<PlaybackRepository>(),
        _nearby = nearby ?? Nearby(),
-       _direct = transport ?? MethodChannelWifiDirectTransport(),
+       _wifiDirect = transport ?? MethodChannelWifiDirectTransport(),
+       _listenWifi = transport != null || Platform.isAndroid,
+       lanMode = (Platform.isMacOS && transport == null).obs,
        _permissionCheck = permissionCheck;
 
   final LocalLibraryStore _store;
   final PlaybackRepository _repository;
   final Nearby _nearby;
-  final WifiDirectTransport _direct;
+  final WifiDirectTransport _wifiDirect;
+  final bool _listenWifi;
+  final _lan = LanTransferTransport();
+  final RxBool lanMode;
+  WifiDirectTransport get _direct => lanMode.value ? _lan : _wifiDirect;
+  bool get canCreateInvitation => !lanMode.value || Platform.isMacOS;
   final Future<bool> Function()? _permissionCheck;
   static const _schema = 'listenfy.nearby.transfer.v2';
   static const _serviceId = 'com.listenfy.transfer.pairing.v3';
@@ -154,6 +162,7 @@ class NearbyTransferController extends GetxController {
       .toList();
 
   StreamSubscription<Map<String, dynamic>>? _events;
+  StreamSubscription<Map<String, dynamic>>? _lanEvents;
   Timer? _deadline;
   String? _sessionId, _expectedSession, _endpoint, _approvedEndpoint;
   DateTime? _expiresAt;
@@ -173,10 +182,32 @@ class NearbyTransferController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _events = _direct.events.listen(
-      _onDirectEvent,
-      onError: (Object error) => unawaited(_fail('transport_unavailable')),
-    );
+    if (_listenWifi) {
+      _events = _wifiDirect.events.listen(
+        (event) {
+          if (!lanMode.value) _onDirectEvent(event);
+        },
+        onError: (Object error) {
+          if (!lanMode.value) unawaited(_fail('transport_unavailable'));
+        },
+      );
+    }
+    _lan.approve = _approveLan;
+    _lan.pairingStarted = () {
+      phase.value = TransferPhase.pairing;
+    };
+    _lanEvents = _lan.events.listen((event) {
+      if (!lanMode.value || event['sessionId'] != _sessionId) return;
+      if (event['type'] == 'rejected') {
+        phase.value = _host ? TransferPhase.advertising : TransferPhase.idle;
+        statusKey.value = 'nearby_session.rejected';
+        return;
+      }
+      if (event['peerName'] is String) {
+        peerName.value = event['peerName'] as String;
+      }
+      _onDirectEvent(event);
+    });
     _historyLoaded = _restoreHistory();
     acceptArguments(Get.arguments);
   }
@@ -190,6 +221,15 @@ class NearbyTransferController extends GetxController {
       }
     }
     if (!isConnected && args is Map && args['inviteUri'] is String) {
+      final uri = Uri.tryParse(args['inviteUri'] as String);
+      if (uri?.path == '/lan') {
+        unawaited(
+          receiveLanInvite(uri!).catchError((Object _) {
+            statusKey.value = 'nearby_session.invalid_invite';
+          }),
+        );
+        return;
+      }
       final invite = ListenfyDeepLink.parseNearbyInviteRaw(
         args['inviteUri'] as String,
       );
@@ -249,6 +289,25 @@ class NearbyTransferController extends GetxController {
   Future<void> prepareInvitation() async {
     if (isConnected || busy.value) return;
     await closeConnection();
+    if (lanMode.value) {
+      if (!Platform.isMacOS) return;
+      busy.value = true;
+      try {
+        _host = true;
+        final uri = await _lan.advertise(name: nickName);
+        _sessionId = uri.queryParameters['sid'];
+        inviteCode.value = HybridTransferProtocol.codeFromSession(_sessionId!);
+        inviteUri.value = uri;
+        _handoff = true;
+        phase.value = TransferPhase.advertising;
+        statusKey.value = 'nearby_session.waiting';
+      } catch (_) {
+        await _fail('lan_failed');
+      } finally {
+        busy.value = false;
+      }
+      return;
+    }
     if (!await _permissions()) return;
     _host = true;
     inviteCode.value = HybridTransferProtocol.newCode();
@@ -282,7 +341,71 @@ class NearbyTransferController extends GetxController {
     }
   }
 
-  Future<void> joinCode(String code) => _joinCode(code);
+  Future<void> joinCode(String code) async {
+    if (!lanMode.value) return _joinCode(code);
+    if (isConnected || busy.value) return;
+    busy.value = true;
+    phase.value = TransferPhase.discovering;
+    statusKey.value = 'nearby_session.searching';
+    try {
+      final uri = await _lan.discover(code.trim().toUpperCase());
+      await receiveLanInvite(uri);
+    } catch (_) {
+      await _fail('lan_failed');
+    } finally {
+      busy.value = false;
+    }
+  }
+
+  Future<void> setLanMode(bool value) async {
+    if (isConnected || busy.value || phase.value == TransferPhase.pairing) {
+      return;
+    }
+    await closeConnection();
+    lanMode.value = value;
+    statusKey.value = 'nearby_session.ready';
+  }
+
+  Future<void> receiveLanInvite(Uri uri) async {
+    if (isConnected || _disposed) return;
+    LanTransferTransport.validateInvite(uri);
+    await closeConnection();
+    lanMode.value = true;
+    _host = false;
+    _sessionId = uri.queryParameters['sid'];
+    _handoff = true;
+    phase.value = TransferPhase.pairing;
+    statusKey.value = 'nearby_session.lan_pairing';
+    try {
+      await _lan.connect(uri, name: nickName);
+    } catch (_) {
+      await _fail('lan_failed');
+    }
+  }
+
+  Future<bool> _approveLan(String peer, String verification) async {
+    final generation = _generation;
+    final accepted = await Get.dialog<bool>(
+      AlertDialog(
+        title: Text(tr('nearby.incoming_connection')),
+        content: Text(
+          tr('nearby_session.lan_verify', args: [peer, verification]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: Text(tr('nearby.reject')),
+          ),
+          FilledButton(
+            onPressed: () => Get.back(result: true),
+            child: Text(tr('nearby.accept')),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+    return accepted == true && generation == _generation && !_disposed;
+  }
 
   Future<void> _joinCode(String code, {String? expectedSession}) async {
     code = code.trim().toUpperCase();
@@ -771,6 +894,7 @@ class NearbyTransferController extends GetxController {
   }
 
   Future<void> _stopNearby() async {
+    if (!_listenWifi) return;
     try {
       await _nearby.stopAdvertising();
     } catch (_) {}
@@ -800,6 +924,7 @@ class NearbyTransferController extends GetxController {
     try {
       await _direct.close();
     } catch (_) {}
+    if (!lanMode.value) await _lan.close();
     for (final list in [sent, received]) {
       for (var i = 0; i < list.length; i++) {
         if (list[i].state != 'completed') {
@@ -831,6 +956,7 @@ class NearbyTransferController extends GetxController {
     _disposed = true;
     _deadline?.cancel();
     _events?.cancel();
+    _lanEvents?.cancel();
     unawaited(closeConnection());
     super.onClose();
   }

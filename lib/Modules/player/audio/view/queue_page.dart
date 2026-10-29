@@ -8,8 +8,25 @@ import 'package:get/get.dart';
 import '../../audio/controller/audio_player_controller.dart';
 import '../../../../app/models/media_item.dart';
 
-class QueuePage extends GetView<AudioPlayerController> {
+class QueuePage extends StatefulWidget {
   const QueuePage({super.key});
+  @override
+  State<QueuePage> createState() => _QueuePageState();
+}
+
+enum _QueueFilter { all, upcoming, previous }
+
+class _QueuePageState extends State<QueuePage> {
+  AudioPlayerController get controller => Get.find<AudioPlayerController>();
+  final _search = TextEditingController();
+  bool _searchOpen = false;
+  _QueueFilter _filter = _QueueFilter.all;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   static const List<String> _temporaryQueueCoverAssets = <String>[
     'assets/ui/ListasTemp/WhatsApp Image 2026-08-11 at 11.47.46 AM (1).jpeg',
@@ -32,6 +49,35 @@ class QueuePage extends GetView<AudioPlayerController> {
         title: Text(tr('player.queue_title')),
         centerTitle: true,
         actions: [
+          IconButton(
+            tooltip: tr('player.queue_controls.search'),
+            icon: Icon(
+              _searchOpen ? Icons.search_off_rounded : Icons.search_rounded,
+            ),
+            onPressed: () => setState(() {
+              _searchOpen = !_searchOpen;
+              if (!_searchOpen) _search.clear();
+            }),
+          ),
+          PopupMenuButton<_QueueFilter>(
+            tooltip: tr('player.queue_controls.filter'),
+            icon: Icon(
+              Icons.filter_alt_outlined,
+              color: _filter == _QueueFilter.all
+                  ? null
+                  : theme.colorScheme.primary,
+            ),
+            initialValue: _filter,
+            onSelected: (value) => setState(() => _filter = value),
+            itemBuilder: (_) => [
+              for (final filter in _QueueFilter.values)
+                CheckedPopupMenuItem(
+                  value: filter,
+                  checked: filter == _filter,
+                  child: Text(tr('player.queue_controls.${filter.name}')),
+                ),
+            ],
+          ),
           Obx(
             () => IconButton(
               tooltip: tr('player.queue_save_tooltip'),
@@ -46,6 +92,18 @@ class QueuePage extends GetView<AudioPlayerController> {
       body: Obx(() {
         final queue = controller.queue; // RxList
         final idx = controller.currentIndex.value;
+        final query = _search.text.trim().toLowerCase();
+        final indices = [
+          for (var i = 0; i < queue.length; i++)
+            if ((_filter == _QueueFilter.all ||
+                    (_filter == _QueueFilter.upcoming && i > idx) ||
+                    (_filter == _QueueFilter.previous && i < idx)) &&
+                (query.isEmpty ||
+                    queue[i].title.toLowerCase().contains(query) ||
+                    queue[i].displaySubtitle.toLowerCase().contains(query)))
+              i,
+        ];
+        final canReorder = query.isEmpty && _filter == _QueueFilter.all;
 
         if (queue.isEmpty) {
           return Center(child: Text(tr('player.queue_empty')));
@@ -58,67 +116,102 @@ class QueuePage extends GetView<AudioPlayerController> {
 
         return Column(
           children: [
+            if (_searchOpen)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: TextField(
+                  controller: _search,
+                  autofocus: true,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: tr('player.queue_controls.search'),
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.clear_rounded),
+                      onPressed: () => setState(() => _search.clear()),
+                    ),
+                  ),
+                ),
+              ),
             _header(
               theme: theme,
               count: queue.length,
               totalSeconds: totalSeconds,
             ),
             Expanded(
-              child: ReorderableListView.builder(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                itemCount: queue.length,
-                onReorderItem: (oldIndex, newIndex) async {
-                  await controller.reorderQueueItem(oldIndex, newIndex);
-                },
-                buildDefaultDragHandles: false,
-                itemBuilder: (context, i) {
-                  final it = queue[i];
-                  final selected = i == idx;
+              child: indices.isEmpty
+                  ? Center(child: Text(tr('player.queue_controls.no_results')))
+                  : ReorderableListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      itemCount: indices.length,
+                      onReorderItem: (oldIndex, newIndex) async {
+                        if (canReorder) {
+                          await controller.reorderQueueItem(oldIndex, newIndex);
+                        }
+                      },
+                      buildDefaultDragHandles: false,
+                      itemBuilder: (context, visibleIndex) {
+                        final i = indices[visibleIndex];
+                        final it = queue[i];
+                        final selected = i == idx;
 
-                  final durText = _fmtDurationShort(
-                    it.effectiveDurationSeconds,
-                  );
+                        final durText = _fmtDurationShort(
+                          it.effectiveDurationSeconds,
+                        );
 
-                  return ListTile(
-                    key: ValueKey(it.id),
-                    selected: selected,
-                    contentPadding: const EdgeInsets.only(left: 8, right: 4),
-                    leading: _thumb(theme: theme, item: it, selected: selected),
-                    title: Text(
-                      it.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: it.subtitle.isNotEmpty ? Text(it.subtitle) : null,
-                    onTap: () async {
-                      await controller.playAt(i);
-                      Get.back();
-                    },
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            if (durText.isNotEmpty)
-                              Text(durText, style: theme.textTheme.bodySmall),
-                            if (selected) Text(tr('player.now_playing')),
-                          ],
-                        ),
-                        const SizedBox(width: 4),
-                        ReorderableDragStartListener(
-                          index: i,
-                          child: Icon(
-                            Icons.drag_handle,
-                            color: theme.colorScheme.onSurfaceVariant,
+                        return ListTile(
+                          key: ValueKey('${it.id}:$i'),
+                          selected: selected,
+                          contentPadding: const EdgeInsets.only(
+                            left: 8,
+                            right: 4,
                           ),
-                        ),
-                      ],
+                          leading: _thumb(
+                            theme: theme,
+                            item: it,
+                            selected: selected,
+                          ),
+                          title: Text(
+                            it.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: it.subtitle.isNotEmpty
+                              ? Text(it.subtitle)
+                              : null,
+                          onTap: () async {
+                            await controller.playAt(i);
+                            Get.back();
+                          },
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  if (durText.isNotEmpty)
+                                    Text(
+                                      durText,
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                  if (selected) Text(tr('player.now_playing')),
+                                ],
+                              ),
+                              const SizedBox(width: 4),
+                              if (canReorder)
+                                ReorderableDragStartListener(
+                                  index: visibleIndex,
+                                  child: Icon(
+                                    Icons.drag_handle,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ],
         );
@@ -565,7 +658,7 @@ class _TemporaryQueueSetupDialogState
     _nameController = TextEditingController(
       text: tr('player.temporary_queue_name'),
     );
-    _selectedCover = QueuePage._temporaryQueueCoverAssets.first;
+    _selectedCover = _QueuePageState._temporaryQueueCoverAssets.first;
   }
 
   @override
@@ -614,10 +707,11 @@ class _TemporaryQueueSetupDialogState
               height: 124,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: QueuePage._temporaryQueueCoverAssets.length,
+                itemCount: _QueuePageState._temporaryQueueCoverAssets.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 10),
                 itemBuilder: (context, index) {
-                  final asset = QueuePage._temporaryQueueCoverAssets[index];
+                  final asset =
+                      _QueuePageState._temporaryQueueCoverAssets[index];
                   final selected = asset == _selectedCover;
                   return InkWell(
                     borderRadius: BorderRadius.circular(18),

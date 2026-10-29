@@ -2,6 +2,7 @@ enum ListenfyDeepLinkTarget {
   openLocalImport,
   nearbyTransfer,
   nearbyInvite,
+  lanInvite,
   unknown,
 }
 
@@ -87,6 +88,10 @@ class ListenfyDeepLink {
 
     final host = uri.host.toLowerCase();
     final target = (uri.queryParameters['target'] ?? '').trim().toLowerCase();
+
+    if (host == _hostTransfer && uri.path == '/lan' && target == 'lan-invite') {
+      return ListenfyDeepLinkTarget.lanInvite;
+    }
 
     if (host == _hostOpen &&
         (target == 'imports-local' ||

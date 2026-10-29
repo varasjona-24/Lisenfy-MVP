@@ -72,7 +72,14 @@
     "wifi_timeout": "Wi‑Fi Direct connection timed out. You can try again.",
     "wifi_unavailable": "Could not establish or maintain Wi‑Fi Direct. Files will not be sent over Bluetooth.",
     "pairing_lost": "Connection lost during pairing.",
-    "connection_lost": "Wi‑Fi Direct disconnected. The session ended; completed files are kept."
+    "connection_lost": "Wi‑Fi Direct disconnected. The session ended; completed files are kept.",
+    "lan_title": "Local network · Android and Mac",
+    "transport_title": "Connection type",
+    "lan_host_hint": "Connect the Mac and phone to the same Wi-Fi or hotspot. Show the QR here and scan it on Android, or enter the code there. Both devices can send files.",
+    "lan_client_hint": "On the Mac open Transfer files and show its QR and code. Connect both devices to the same Wi-Fi or hotspot. If the code cannot find the Mac, scan the QR.",
+    "lan_pairing": "Waiting for confirmation on both devices…",
+    "lan_verify": "Request from {}. Check that this verification matches exactly on both screens:\n\n{}\n\nOnly accept if it matches and you recognize the other device.",
+    "lan_failed": "Could not connect over the local network. Check Wi-Fi, local network permission and the Mac firewall. Try scanning the QR."
   },
   "video_progress": {
     "collection_complete": "Completed",
@@ -1281,6 +1288,14 @@
     }
   },
   "player": {
+    "queue_controls": {
+      "search": "Search queue",
+      "filter": "Filter queue",
+      "all": "Entire queue",
+      "upcoming": "Up next",
+      "previous": "Previous tracks",
+      "no_results": "No matching tracks."
+    },
     "video_jump_back": "Rewind by the selected interval",
     "video_jump_forward": "Advance by the selected interval",
     "video_controls": "Controls and gestures",
@@ -1983,6 +1998,10 @@
     "transfer_offline": "Transfer to Listenfy (offline)"
   },
   "history": {
+    "imports": "Imports",
+    "played": "Played",
+    "shared_subtitle": "Browse your imports and your latest playback.",
+    "played_empty_range": "No playback in this range.",
     "title": "History",
     "empty": "No history yet.",
     "today": "Today",
