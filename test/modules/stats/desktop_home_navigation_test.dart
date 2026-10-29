@@ -68,6 +68,10 @@ void main() {
             .whereType<String>()
             .toSet()
             .toList();
+        expect(
+          labels,
+          containsAll(['Captures', 'History', 'Statistics', 'Weekly Wrapped']),
+        );
         for (var index = 0; index < 6; index++) {
           final target = find.byTooltip(labels[index]).first;
           await tester.ensureVisible(target);
@@ -229,12 +233,13 @@ void main() {
             .whereType<String>()
             .toList();
         final labels = tooltips.toSet().toList();
-        expect(labels.length, 11);
+        expect(labels.length, 15);
+        expect(labels.where((label) => label == 'History'), hasLength(1));
         for (var index = 0; index < 6; index++) {
           await tester.tap(find.byTooltip(labels[index]).first);
           expect(destination, index);
         }
-        for (final label in labels.skip(6)) {
+        for (final label in [...labels.skip(6).take(3), ...labels.skip(13)]) {
           await tester.tap(find.byTooltip(label).first);
         }
         expect(actions, ['library', 'mode', 'edit', 'connect', 'settings']);

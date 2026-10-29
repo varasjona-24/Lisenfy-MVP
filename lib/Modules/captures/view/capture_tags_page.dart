@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart'
@@ -65,7 +66,8 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
               return _ascending ? comparison : -comparison;
             });
 
-      return Scaffold(
+      return AppNavigationScaffold(
+        navigationIndex: -1,
         backgroundColor: scheme.surface,
         appBar: AppBar(
           title: Row(

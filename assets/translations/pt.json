@@ -469,7 +469,7 @@
     "main_total": "{} arquivos importados",
     "metric_imported": "arquivos",
     "history": "Histórico de importações",
-    "wrapped": "Retrospectiva Listenfy",
+    "wrapped": "Estatísticas",
     "history_filters": {
       "by_day": "Por dia",
       "all": "Todas",
@@ -550,7 +550,7 @@
       "import_count": "{} importações",
       "completion_ratio": "{}% das sessões elegíveis atingiram 92% de cobertura de escuta"
     },
-    "title": "Retrospectiva Listenfy",
+    "title": "Estatísticas",
     "tabs": {
       "imports": "Importações",
       "audio": "Áudio",
@@ -2098,6 +2098,10 @@
     "transfer_offline": "Transferir para o Listenfy (offline)"
   },
   "history": {
+    "imports": "Importações",
+    "played": "Reproduzidos",
+    "shared_subtitle": "Consulte suas importações e últimas reproduções.",
+    "played_empty_range": "Nenhuma reprodução neste período.",
     "title": "Histórico",
     "empty": "Ainda não há histórico.",
     "today": "Hoje",

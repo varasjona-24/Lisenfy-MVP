@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../../app/routes/app_routes.dart';
+import '../../../../Modules/stats/presentation/views/weekly_collage_page.dart';
 
 enum AppMediaMode { audio, video }
 
@@ -104,6 +105,24 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
     );
+    final destinations = <(IconData, String, String)>[
+      (
+        Icons.photo_library_outlined,
+        tr('sources.captures'),
+        AppRoutes.captureGallery,
+      ),
+      (Icons.history_rounded, tr('history.title'), AppRoutes.downloadsHistory),
+      (
+        Icons.auto_graph_rounded,
+        tr('downloads.wrapped'),
+        AppRoutes.listeningStats,
+      ),
+      (
+        Icons.calendar_view_week_rounded,
+        tr('weekly_collage.open'),
+        '/WeeklyCollagePage',
+      ),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -132,14 +151,25 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
             onToggleMode,
           ),
         for (final extra in extraActions)
-          if (extra is IconButton)
+          if (extra is IconButton &&
+              extra.tooltip != tr('downloads.history') &&
+              !destinations.any((entry) => entry.$2 == extra.tooltip))
             action(
               extra.icon,
               extra.tooltip ?? tr('nav.quick_access'),
               extra.onPressed,
             )
-          else
+          else if (extra is! IconButton)
             extra,
+        for (final destination in destinations)
+          action(Icon(destination.$1), destination.$2, () {
+            if (Get.currentRoute == destination.$3) return;
+            if (destination.$3 == '/WeeklyCollagePage') {
+              Get.to(() => const WeeklyCollagePage());
+            } else {
+              Get.toNamed(destination.$3);
+            }
+          }),
         const SizedBox(height: 12),
         _TopBarOverflowMenu(
           showLocalConnectAction: showLocalConnectAction,

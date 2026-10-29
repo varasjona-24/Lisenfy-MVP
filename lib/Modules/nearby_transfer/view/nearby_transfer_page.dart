@@ -1,3 +1,6 @@
+import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
+import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
+import '../../../app/ui/widgets/layout/app_library_header.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -149,18 +152,36 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
 
   Future<void> _send() async {
     await _run(() async {
-      final items = await showModalBottomSheet<List<MediaItem>>(
-        context: Get.context!,
-        isScrollControlled: true,
-        backgroundColor: Get.theme.colorScheme.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        builder: (_) => TransferLibraryPicker(
-          items: controller.libraryItems(),
-          preselected: controller.outgoingItems,
-        ),
+      Widget picker(BuildContext context) => TransferLibraryPicker(
+        items: controller.libraryItems(),
+        preselected: controller.outgoingItems,
       );
+      final items = AppBottomNav.desktopSidebarEnabled
+          ? await showDialog<List<MediaItem>>(
+              context: Get.context!,
+              builder: (context) => Dialog(
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                insetPadding: const EdgeInsets.all(24),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: SizedBox(
+                  width: 860,
+                  height: MediaQuery.sizeOf(context).height * .82,
+                  child: picker(context),
+                ),
+              ),
+            )
+          : await showModalBottomSheet<List<MediaItem>>(
+              context: Get.context!,
+              isScrollControlled: true,
+              backgroundColor: Get.theme.colorScheme.surface,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              builder: picker,
+            );
       if (items == null ||
           items.isEmpty ||
           !controller.isConnected ||
@@ -226,7 +247,8 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => AppNavigationScaffold(
+    navigationIndex: 4,
     backgroundColor: Colors.transparent,
     appBar: AppBar(title: Text(_t('title'))),
     body: AppGradientBackground(
@@ -238,6 +260,7 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
           final status = controller.statusKey.value;
           final locked = _locked;
           final uri = controller.inviteUri.value;
+          if (AppBottomNav.desktopSidebarEnabled) return _desktopBody(context);
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -377,6 +400,294 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
       ),
     ),
   );
+
+  Widget _desktopBody(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final connected = controller.isConnected;
+    final locked = _locked;
+    final phase = controller.phase.value;
+    final status = controller.statusKey.value;
+    final uri = controller.inviteUri.value;
+    Widget panel(Widget child) => Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer.withValues(alpha: .9),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: .4)),
+      ),
+      child: child,
+    );
+    final connection = panel(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  connected ? Icons.swap_horiz_rounded : Icons.devices_rounded,
+                  color: scheme.primary,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  connected
+                      ? _t('connected_to', [controller.peerName.value])
+                      : _t('bridge_title'),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Semantics(
+            liveRegion: true,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  phase == TransferPhase.failed
+                      ? Icons.error_outline_rounded
+                      : connected
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.info_outline_rounded,
+                  size: 20,
+                  color: phase == TransferPhase.failed
+                      ? scheme.error
+                      : scheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    status.startsWith('nearby_session.')
+                        ? tr(status)
+                        : _t('ready'),
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (phase == TransferPhase.failed) ...[
+            const SizedBox(height: 8),
+            Text(_t('action_failed'), style: TextStyle(color: scheme.error)),
+          ],
+          if (controller.lanMode.value) ...[
+            const SizedBox(height: 14),
+            Text(
+              _t(Platform.isMacOS ? 'lan_host_hint' : 'lan_client_hint'),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.5,
+              ),
+            ),
+          ],
+          if (locked)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: LinearProgressIndicator(),
+            ),
+          const SizedBox(height: 24),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              if (connected) ...[
+                FilledButton.icon(
+                  key: const Key('transfer-send'),
+                  onPressed: locked ? null : _send,
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(_t('send')),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('transfer-close'),
+                  onPressed: _close,
+                  icon: const Icon(Icons.link_off),
+                  label: Text(_t('close')),
+                ),
+              ] else ...[
+                if (!controller.lanMode.value || !Platform.isMacOS)
+                  FilledButton.icon(
+                    key: const Key('transfer-scan-qr'),
+                    onPressed: locked ? null : _scan,
+                    icon: const Icon(Icons.qr_code_scanner),
+                    label: Text(_t('scan_qr')),
+                  ),
+                if (controller.canCreateInvitation)
+                  FilledButton.icon(
+                    key: const Key('transfer-show-qr'),
+                    onPressed: locked ? null : _showQr,
+                    icon: const Icon(Icons.qr_code),
+                    label: Text(_t('show_qr')),
+                  ),
+                OutlinedButton.icon(
+                  key: const Key('transfer-enter-code'),
+                  onPressed: locked ? null : _enterCode,
+                  icon: const Icon(Icons.keyboard),
+                  label: Text(_t('enter_code')),
+                ),
+                if (phase == TransferPhase.pairing ||
+                    phase == TransferPhase.preparingWifi)
+                  OutlinedButton.icon(
+                    key: const Key('transfer-close'),
+                    onPressed: () => _run(controller.closeConnection),
+                    icon: const Icon(Icons.link_off),
+                    label: Text(_t('cancel_connection')),
+                  ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+    final invitation = phase == TransferPhase.advertising && uri != null
+        ? _invitation(uri)
+        : panel(
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  connected ? Icons.link_rounded : Icons.qr_code_rounded,
+                  size: 72,
+                  color: scheme.primary.withValues(alpha: .7),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  connected
+                      ? _t('connected_to', [controller.peerName.value])
+                      : _t('show_qr'),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _t('scan_hint'),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          );
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(32),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1180),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppLibraryHeader(
+                title: _t('title'),
+                subtitle: _t('bridge_hint'),
+                metrics: [
+                  AppLibraryHeaderMetric(
+                    icon: Icons.computer_rounded,
+                    label: _t('identity', [controller.nickName]),
+                  ),
+                  AppLibraryHeaderMetric(
+                    icon: Icons.wifi_rounded,
+                    label: _t(
+                      controller.lanMode.value ? 'lan_title' : 'wifi_direct',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              if (connected)
+                connection
+              else
+                LayoutBuilder(
+                  builder: (context, constraints) => constraints.maxWidth >= 850
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(flex: 6, child: connection),
+                            const SizedBox(width: 24),
+                            Expanded(flex: 4, child: invitation),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            connection,
+                            const SizedBox(height: 20),
+                            invitation,
+                          ],
+                        ),
+                ),
+              if (connected ||
+                  controller.sent.isNotEmpty ||
+                  controller.received.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                LayoutBuilder(
+                  builder: (context, constraints) => constraints.maxWidth >= 850
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: panel(
+                                _entries(
+                                  context,
+                                  'sent',
+                                  controller.sent.toList(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 24),
+                            Expanded(
+                              child: panel(
+                                _entries(
+                                  context,
+                                  'received',
+                                  controller.received.toList(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            panel(
+                              _entries(
+                                context,
+                                'sent',
+                                controller.sent.toList(),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            panel(
+                              _entries(
+                                context,
+                                'received',
+                                controller.received.toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _entries(
     BuildContext context,

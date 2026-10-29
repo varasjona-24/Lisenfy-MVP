@@ -80,7 +80,8 @@ void main() {
         );
         await tester.pumpAndSettle();
         // The same song belongs to six playlists, but the total is unique.
-        expect(find.text('6 lists · 1 songs'), findsOneWidget);
+        expect(find.text('6 lists'), findsOneWidget);
+        expect(find.text('1 songs'), findsOneWidget);
         expect(tester.takeException(), isNull);
         final grid = tester.widget<SliverGrid>(find.byType(SliverGrid));
         final delegate =

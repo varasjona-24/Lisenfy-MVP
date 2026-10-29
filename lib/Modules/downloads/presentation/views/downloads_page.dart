@@ -23,6 +23,7 @@ class DownloadsPage extends GetView<DownloadsController> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final desktop = AppBottomNav.desktopSidebarEnabled;
 
     final home = Get.find<HomeController>();
     final argUrl = (Get.arguments is Map)
@@ -113,20 +114,31 @@ class DownloadsPage extends GetView<DownloadsController> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: EdgeInsets.only(
                           top: AppSpacing.md,
-                          bottom: kBottomNavigationBarHeight + 18,
-                          left: AppSpacing.md,
-                          right: AppSpacing.md,
+                          bottom: desktop
+                              ? 32
+                              : kBottomNavigationBarHeight + 18,
+                          left: desktop ? 32 : AppSpacing.md,
+                          right: desktop ? 32 : AppSpacing.md,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            DownloadsHeader(
-                              total: controller.state.value.items.length,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: desktop ? 1180 : double.infinity,
                             ),
-                            const SizedBox(height: AppSpacing.lg),
-                            const DownloadsPill(),
-                            const SizedBox(height: AppSpacing.lg),
-                          ],
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                DownloadsHeader(
+                                  desktop: desktop,
+                                  total: controller.state.value.items.length,
+                                ),
+                                const SizedBox(height: AppSpacing.lg),
+                                const DownloadsPill(),
+                                const SizedBox(height: AppSpacing.lg),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),

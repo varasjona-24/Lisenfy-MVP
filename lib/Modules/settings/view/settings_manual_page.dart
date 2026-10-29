@@ -4,7 +4,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../app/ui/widgets/layout/app_gradient_background.dart';
 
 class SettingsManualPage extends StatefulWidget {
-  const SettingsManualPage({super.key});
+  const SettingsManualPage({super.key, this.embedded = false});
+  final bool embedded;
   @override
   State<SettingsManualPage> createState() => _SettingsManualPageState();
 }
@@ -30,103 +31,100 @@ class _SettingsManualPageState extends State<SettingsManualPage> {
           ].any((text) => text.toLowerCase().contains(query)),
         )
         .toList();
-    return Scaffold(
-      appBar: AppBar(title: Text(tr('settings.guide.manual_title'))),
-      body: AppGradientBackground(
-        child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 4,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.auto_stories_rounded,
-                          size: 40,
-                          color: theme.colorScheme.primary,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          tr('settings.guide.manual_title'),
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          tr('settings.guide.manual_subtitle'),
-                          style: theme.textTheme.bodyLarge,
-                        ),
-                      ],
-                    ),
+    final content = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 760),
+      child: ListView(
+        shrinkWrap: widget.embedded,
+        physics: widget.embedded ? const NeverScrollableScrollPhysics() : null,
+        padding: const EdgeInsets.all(16),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.auto_stories_rounded,
+                  size: 40,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  tr('settings.guide.manual_title'),
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
-                  TextField(
-                    controller: _search,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      hintText: tr('settings.guide.search_hint'),
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      suffixIcon: _search.text.isEmpty
-                          ? null
-                          : IconButton(
-                              tooltip: tr('settings.guide.clear_search'),
-                              icon: const Icon(Icons.close_rounded),
-                              onPressed: () => setState(_search.clear),
-                            ),
-                      filled: true,
-                      fillColor: theme.colorScheme.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        borderSide: BorderSide.none,
-                      ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  tr('settings.guide.manual_subtitle'),
+                  style: theme.textTheme.bodyLarge,
+                ),
+              ],
+            ),
+          ),
+          TextField(
+            controller: _search,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: tr('settings.guide.search_hint'),
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _search.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: tr('settings.guide.clear_search'),
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => setState(_search.clear),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Text(
-                      tr(
-                        'settings.guide.topic_count',
-                        namedArgs: {'count': topics.length.toString()},
-                      ),
-                      style: theme.textTheme.labelLarge,
-                    ),
-                  ),
-                  if (topics.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        tr('settings.guide.no_results'),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  for (final topic in topics)
-                    Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      elevation: 0,
-                      color: theme.colorScheme.surface,
-                      clipBehavior: Clip.antiAlias,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: _GuideTopicTile(
-                        key: ValueKey('${topic.title}:$query'),
-                        topic: topic,
-                        expanded: query.isNotEmpty,
-                      ),
-                    ),
-                ],
+              filled: true,
+              fillColor: theme.colorScheme.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: BorderSide.none,
               ),
             ),
           ),
-        ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text(
+              tr(
+                'settings.guide.topic_count',
+                namedArgs: {'count': topics.length.toString()},
+              ),
+              style: theme.textTheme.labelLarge,
+            ),
+          ),
+          if (topics.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                tr('settings.guide.no_results'),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          for (final topic in topics)
+            Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              elevation: 0,
+              color: theme.colorScheme.surface,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: _GuideTopicTile(
+                key: ValueKey('${topic.title}:$query'),
+                topic: topic,
+                expanded: query.isNotEmpty,
+              ),
+            ),
+        ],
+      ),
+    );
+    if (widget.embedded) return content;
+    return Scaffold(
+      appBar: AppBar(title: Text(tr('settings.guide.manual_title'))),
+      body: AppGradientBackground(
+        child: SafeArea(child: Center(child: content)),
       ),
     );
   }

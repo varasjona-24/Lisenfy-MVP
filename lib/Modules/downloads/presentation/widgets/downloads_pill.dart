@@ -1,3 +1,5 @@
+import '../../../../app/ui/widgets/navigation/app_bottom_nav.dart';
+import 'desktop_imports_actions.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
@@ -22,6 +24,14 @@ class DownloadsPill extends GetView<DownloadsController> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+
+    if (AppBottomNav.desktopSidebarEnabled) {
+      return DesktopImportsActions(
+        onUrl: () => DownloadsPill.showImportUrlDialog(context, controller),
+        onLocal: () => _pickLocalFiles(context),
+        onQr: _scanListenfyQr,
+      );
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -101,32 +111,7 @@ class DownloadsPill extends GetView<DownloadsController> {
                         icon: Icons.public_rounded,
                         title: tr('downloads.web_search_title'),
                         subtitle: tr('downloads.web_search_subtitle'),
-                        onTap: () async {
-                          final size = MediaQuery.of(context).size;
-                          final scheme = Theme.of(context).colorScheme;
-                          await showDialog<void>(
-                            context: context,
-                            barrierDismissible: true,
-                            builder: (ctx) {
-                              return Dialog(
-                                insetPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 20,
-                                ),
-                                clipBehavior: Clip.antiAlias,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(22),
-                                ),
-                                backgroundColor: scheme.surface,
-                                child: SizedBox(
-                                  width: size.width * 0.9,
-                                  height: size.height * 0.54,
-                                  child: const ImportsWebViewPage(),
-                                ),
-                              );
-                            },
-                          );
-                        },
+                        onTap: () => _openWebSearch(context),
                       ),
                     ].map((child) {
                       if (child is SizedBox) return child;
@@ -140,6 +125,33 @@ class DownloadsPill extends GetView<DownloadsController> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _openWebSearch(BuildContext context) async {
+    final size = MediaQuery.of(context).size;
+    final scheme = Theme.of(context).colorScheme;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 20,
+          ),
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          backgroundColor: scheme.surface,
+          child: SizedBox(
+            width: size.width * 0.9,
+            height: size.height * 0.54,
+            child: const ImportsWebViewPage(),
+          ),
+        );
+      },
     );
   }
 

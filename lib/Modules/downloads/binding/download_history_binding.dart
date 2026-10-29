@@ -1,3 +1,5 @@
+import '../../history/domain/usecases/load_history_items_usecase.dart';
+import '../../history/data/repositories/history_repository_impl.dart';
 import 'package:get/get.dart';
 import 'package:listenfy/Modules/downloads/data/repositories/downloads_repository_impl.dart';
 import 'package:listenfy/Modules/downloads/domain/contracts/downloads_repository.dart';
@@ -34,6 +36,11 @@ class DownloadHistoryBinding extends Bindings {
       Get.put<DownloadHistoryController>(
         DownloadHistoryController(
           loadHistoryItemsUseCase: Get.find<LoadDownloadHistoryItemsUseCase>(),
+          loadPlayedItemsUseCase: LoadHistoryItemsUseCase(
+            repository: HistoryRepositoryImpl(
+              mediaRepository: Get.find<MediaRepository>(),
+            ),
+          ),
         ),
       );
     }

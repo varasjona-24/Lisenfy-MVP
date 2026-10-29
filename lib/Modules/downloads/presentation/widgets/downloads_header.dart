@@ -1,15 +1,30 @@
+import '../../../../app/ui/widgets/layout/app_library_header.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 class DownloadsHeader extends StatelessWidget {
-  const DownloadsHeader({super.key, required this.total});
+  const DownloadsHeader({super.key, required this.total, this.desktop = false});
 
   final int total;
+  final bool desktop;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+
+    if (desktop) {
+      return AppLibraryHeader(
+        title: tr('downloads.title'),
+        subtitle: tr('downloads.subtitle'),
+        metrics: [
+          AppLibraryHeaderMetric(
+            icon: Icons.file_download_done_rounded,
+            label: '$total ${tr('downloads.metric_imported')}',
+          ),
+        ],
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),

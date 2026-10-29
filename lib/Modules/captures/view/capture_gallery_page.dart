@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
@@ -226,7 +227,8 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
       final sorted = _controller.visibleCaptures;
       final query = _controller.query.value;
 
-      return Scaffold(
+      return AppNavigationScaffold(
+        navigationIndex: -1,
         backgroundColor: scheme.surface,
         appBar: AppBar(
           title: Text(

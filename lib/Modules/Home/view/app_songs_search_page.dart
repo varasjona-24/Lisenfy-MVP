@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart'
@@ -67,7 +68,8 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    return Scaffold(
+    return AppNavigationScaffold(
+      navigationIndex: -1,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: IconButton(

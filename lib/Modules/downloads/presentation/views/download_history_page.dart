@@ -1,4 +1,6 @@
 import '../../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
+import '../../../../app/ui/widgets/navigation/app_bottom_nav.dart';
+import '../../../../app/ui/widgets/layout/app_library_header.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
@@ -35,13 +37,15 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
     return AppNavigationScaffold(
       navigationIndex: 4,
       backgroundColor: scheme.surface,
-      appBar: AppBar(
-        title: ListenfyLogo(size: 28, color: scheme.primary),
-        backgroundColor: scheme.surface,
-        surfaceTintColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
-        elevation: 0,
-      ),
+      appBar: AppBottomNav.desktopSidebarEnabled
+          ? null
+          : AppBar(
+              title: ListenfyLogo(size: 28, color: scheme.primary),
+              backgroundColor: scheme.surface,
+              surfaceTintColor: scheme.surface,
+              foregroundColor: scheme.onSurface,
+              elevation: 0,
+            ),
       body: AppGradientBackground(
         child: Obx(() {
           final vm = controller.state.value;
@@ -114,6 +118,139 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                   },
                 );
               },
+            );
+          }
+
+          if (AppBottomNav.desktopSidebarEnabled) {
+            Widget panel(Widget child) => Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainer.withValues(alpha: .85),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: scheme.outlineVariant.withValues(alpha: .35),
+                ),
+              ),
+              child: child,
+            );
+            Widget calendar() =>
+                panel(_BankingCalendarSection(controller: controller));
+            Widget results({bool includeCalendar = false}) => RefreshIndicator(
+              onRefresh: controller.loadHistory,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  if (includeCalendar)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        child: calendar(),
+                      ),
+                    ),
+                  ..._calendarSlivers(
+                    context: context,
+                    items: selectedItems,
+                    isGrid: isGrid,
+                    onTap: (item) => openItem(item, selectedItems),
+                    onLongPress: (item) => showActions(item, selectedItems),
+                  ),
+                ],
+              ),
+            );
+            return Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppLibraryHeader(
+                    title: tr('history.title'),
+                    subtitle: tr('history.shared_subtitle'),
+                    metrics: const [],
+                    action: IconButton.filledTonal(
+                      tooltip: tr(
+                        isGrid ? 'sources.view_list' : 'sources.view_grid',
+                      ),
+                      onPressed: controller.toggleGridView,
+                      icon: Icon(
+                        isGrid
+                            ? Icons.view_list_rounded
+                            : Icons.grid_view_rounded,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: SegmentedButton<HistorySource>(
+                      segments: [
+                        ButtonSegment(
+                          value: HistorySource.imports,
+                          icon: const Icon(Icons.download_rounded),
+                          label: Text(tr('history.imports')),
+                        ),
+                        ButtonSegment(
+                          value: HistorySource.played,
+                          icon: const Icon(Icons.history_rounded),
+                          label: Text(tr('history.played')),
+                        ),
+                      ],
+                      selected: {controller.source.value},
+                      onSelectionChanged: (selection) =>
+                          controller.setSource(selection.single),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final search = DownloadHistorySearchField(
+                        onChanged: controller.setQuery,
+                        initialValue: vm.query,
+                      );
+                      final filters = DownloadHistoryFilterRow(
+                        selected: vm.filter,
+                        onSelect: controller.setFilter,
+                      );
+                      if (constraints.maxWidth < 850) {
+                        return Column(
+                          children: [
+                            search,
+                            const SizedBox(height: 12),
+                            filters,
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(child: search),
+                          const SizedBox(width: 20),
+                          SizedBox(width: 300, child: filters),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth < 950) {
+                          return results(includeCalendar: true);
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 340,
+                              child: SingleChildScrollView(child: calendar()),
+                            ),
+                            const SizedBox(width: 24),
+                            Expanded(child: results()),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             );
           }
 
@@ -216,7 +353,11 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  tr('downloads.history_empty_range'),
+                  tr(
+                    controller.source.value == HistorySource.played
+                        ? 'history.played_empty_range'
+                        : 'downloads.history_empty_range',
+                  ),
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -263,11 +404,14 @@ class DownloadHistoryPage extends GetView<DownloadHistoryController> {
         ),
       );
 
-      if (isGrid) {
+      if (isGrid || AppBottomNav.desktopSidebarEnabled) {
         slivers.add(
           AppMediaItemsSliver(
             items: dayItems,
-            gridView: true,
+            gridView: isGrid,
+            expandedDesktopRows: AppBottomNav.desktopSidebarEnabled,
+            desktopGridHorizontalInset: 0,
+            desktopListHorizontalInset: 0,
             padding: EdgeInsets.fromLTRB(
               AppSpacing.md,
               0,

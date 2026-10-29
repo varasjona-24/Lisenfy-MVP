@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/layout/app_library_header.dart';
 import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:io';
 
@@ -191,48 +192,23 @@ class PlaylistsPage extends GetView<PlaylistsController> {
     final scheme = theme.colorScheme;
 
     if (AppBottomNav.desktopSidebarEnabled) {
-      final title = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            tr('playlists.title'),
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
+      return AppLibraryHeader(
+        title: tr('playlists.title'),
+        subtitle: tr('playlists.library_subtitle'),
+        metrics: [
+          AppLibraryHeaderMetric(
+            icon: Icons.queue_music_rounded,
+            label: '$total ${tr('playlists.metric_lists')}',
           ),
-          const SizedBox(height: 6),
-          Text(
-            '$total ${tr('playlists.metric_lists')} · $totalSongs ${tr('playlists.metric_songs')}',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+          AppLibraryHeaderMetric(
+            icon: Icons.music_note_rounded,
+            label: '$totalSongs ${tr('playlists.metric_songs')}',
           ),
         ],
-      );
-      final create = FilledButton.icon(
-        onPressed: onAdd,
-        icon: const Icon(Icons.add_rounded),
-        label: Text(tr('playlists.new')),
-      );
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) => constraints.maxWidth >= 640
-              ? Row(
-                  children: [
-                    Expanded(child: title),
-                    const SizedBox(width: 24),
-                    create,
-                  ],
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [title, const SizedBox(height: 16), create],
-                ),
+        action: FilledButton.icon(
+          onPressed: onAdd,
+          icon: const Icon(Icons.add_rounded),
+          label: Text(tr('playlists.new')),
         ),
       );
     }

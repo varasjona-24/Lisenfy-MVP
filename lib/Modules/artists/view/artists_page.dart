@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/layout/app_library_header.dart';
 import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:io';
 
@@ -147,6 +148,31 @@ class ArtistsPage extends GetView<ArtistsController> {
         .where((country) => country.trim().isNotEmpty)
         .toSet()
         .length;
+
+    if (AppBottomNav.desktopSidebarEnabled) {
+      return AppLibraryHeader(
+        title: tr('artists.title'),
+        subtitle: tr('artists.header_subtitle'),
+        metrics: [
+          AppLibraryHeaderMetric(
+            icon: Icons.person_outline_rounded,
+            label: '${artists.length} ${tr('artists.metric_artists')}',
+          ),
+          AppLibraryHeaderMetric(
+            icon: Icons.music_note_rounded,
+            label: '$totalSongs ${tr('artists.metric_songs')}',
+          ),
+          AppLibraryHeaderMetric(
+            icon: Icons.groups_2_outlined,
+            label: '$bands ${tr('artists.metric_groups')}',
+          ),
+          AppLibraryHeaderMetric(
+            icon: Icons.public_rounded,
+            label: '$countries ${tr('artists.metric_countries')}',
+          ),
+        ],
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),

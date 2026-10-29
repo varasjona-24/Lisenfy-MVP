@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart'
@@ -387,7 +388,8 @@ class _SectionListPageState extends State<SectionListPage> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    return Scaffold(
+    return AppNavigationScaffold(
+      navigationIndex: -1,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: _selectionMode

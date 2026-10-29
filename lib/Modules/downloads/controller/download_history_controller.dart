@@ -11,6 +11,9 @@ import 'package:listenfy/app/core/presentation/getx_state_controller.dart';
 import 'package:listenfy/app/core/presentation/view_status.dart';
 
 import '../../../app/models/media_item.dart';
+import '../../history/domain/usecases/load_history_items_usecase.dart';
+
+enum HistorySource { imports, played }
 
 // ============================
 // 📅 BLOC: HISTORIAL DE IMPORTS
@@ -19,11 +22,34 @@ class DownloadHistoryController
     extends GetxStateController<DownloadHistoryState> {
   DownloadHistoryController({
     required LoadDownloadHistoryItemsUseCase loadHistoryItemsUseCase,
+    required LoadHistoryItemsUseCase loadPlayedItemsUseCase,
+    GetStorage? storage,
   }) : _loadHistoryItemsUseCase = loadHistoryItemsUseCase,
+       _loadPlayedItemsUseCase = loadPlayedItemsUseCase,
+       _storage = storage ?? GetStorage(),
        super(DownloadHistoryState.initial());
 
   final LoadDownloadHistoryItemsUseCase _loadHistoryItemsUseCase;
-  final GetStorage _storage = GetStorage();
+  final LoadHistoryItemsUseCase _loadPlayedItemsUseCase;
+  final source = HistorySource.imports.obs;
+  int _loadGeneration = 0;
+
+  Future<void> setSource(HistorySource next) async {
+    if (source.value == next) return;
+    source.value = next;
+    dayImportCounts.clear();
+    emit(
+      state.value.copyWith(
+        allItems: const [],
+        baseItems: const [],
+        filteredItems: const [],
+        groups: const [],
+      ),
+    );
+    await loadHistory();
+  }
+
+  final GetStorage _storage;
   final RxBool gridView = true.obs;
   final Rx<DateTime> selectedDate = Rx<DateTime>(DateTime.now());
   final Rx<DateTime> visibleMonth = Rx<DateTime>(
@@ -47,12 +73,15 @@ class DownloadHistoryController
   // 📥 LOAD
   // ============================
   Future<void> loadHistory() async {
+    final generation = ++_loadGeneration;
     emit(state.value.copyWith(status: ViewStatus.loading, clearError: true));
 
     try {
-      final downloaded = await _loadHistoryItemsUseCase();
-      // Al cargar de nuevo, el rango de fechas se reinicia a 'byDay',
-      // así que baseItems == allItems.
+      final downloaded = source.value == HistorySource.played
+          ? await _loadPlayedItemsUseCase()
+          : await _loadHistoryItemsUseCase();
+      if (generation != _loadGeneration) return;
+      // Reload the selected source, then reapply the active date range.
       final projected = _project(
         baseItems: downloaded,
         filter: state.value.filter,
@@ -71,7 +100,14 @@ class DownloadHistoryController
           clearError: true,
         ),
       );
+      final range = customDateRange.value;
+      if (dateFilterRange.value == 'custom' && range != null) {
+        setCustomDateRange(range.start, range.end);
+      } else {
+        filterByRange(dateFilterRange.value, force: true);
+      }
     } catch (error) {
+      if (generation != _loadGeneration) return;
       emit(
         state.value.copyWith(
           status: ViewStatus.failure,
@@ -194,7 +230,11 @@ class DownloadHistoryController
     required DownloadHistoryFilter filter,
     required String query,
   }) {
-    final filtered = _filterItems(baseItems, filter, query);
+    final filtered = _filterItems(baseItems, filter, query)
+      ..sort(
+        (a, b) =>
+            _latestVariantCreatedAt(b).compareTo(_latestVariantCreatedAt(a)),
+      );
     final groups = _groupHistory(filtered);
     return _HistoryProjection(filteredItems: filtered, groups: groups);
   }
@@ -207,7 +247,15 @@ class DownloadHistoryController
     final isAudio = filter == DownloadHistoryFilter.audio;
     final q = query.trim().toLowerCase();
     return list.where((item) {
-      final matchesKind = isAudio ? item.hasAudioLocal : item.hasVideoLocal;
+      final matchesKind = source.value == HistorySource.played
+          ? item.variants.any(
+              (variant) =>
+                  variant.kind ==
+                  (isAudio ? MediaVariantKind.audio : MediaVariantKind.video),
+            )
+          : isAudio
+          ? item.hasAudioLocal
+          : item.hasVideoLocal;
       if (!matchesKind) return false;
       if (q.isEmpty) return true;
       return item.title.toLowerCase().contains(q) ||
@@ -330,7 +378,9 @@ class DownloadHistoryController
   }
 
   int _latestVariantCreatedAt(MediaItem item) {
-    return item.originalImportAt;
+    return source.value == HistorySource.played
+        ? item.lastPlayedAt ?? 0
+        : item.originalImportAt;
   }
 
   void _ensureSelectedDate(List<MediaItem> items) {
@@ -452,8 +502,8 @@ class DownloadHistoryController
   // ============================
   /// Aplica el filtro de rango de fechas sobre `allItems`,
   /// actualiza `baseItems` y re-proyecta con el tipo y query actuales.
-  void filterByRange(String range) {
-    if (dateFilterRange.value == range) return;
+  void filterByRange(String range, {bool force = false}) {
+    if (!force && dateFilterRange.value == range) return;
 
     dateFilterRange.value = range;
     final now = DateTime.now();
