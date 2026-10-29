@@ -1,7 +1,7 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart' as dio;
+import 'package:flutter/foundation.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:get/get.dart';
@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../models/media_item.dart';
 import '../local/local_library_store.dart';
+import '../downloads/desktop_download_engine.dart';
 import '../network/backend_api_error.dart';
 import '../network/dio_client.dart';
 import 'package:listenfy/Modules/sources/domain/source_origin.dart';
@@ -111,6 +112,11 @@ class PlaylistPreview {
 }
 
 class MediaRepository {
+  MediaRepository({DesktopDownloadEngine? desktopEngine})
+    : _desktopEngine = desktopEngine;
+  final DesktopDownloadEngine? _desktopEngine;
+  Future<DesktopDownloadEngine> _localEngine() async =>
+      _desktopEngine ?? await DesktopDownloadEngine.discover();
   // ============================
   // 🔌 DEPENDENCIAS
   // ============================
@@ -179,7 +185,8 @@ class MediaRepository {
   // ============================
   // ⬇️ DESCARGA DESDE BACKEND + GUARDADO LOCAL
   // ============================
-  /// Flujo:
+  /// Escritorio: yt-dlp + FFmpeg locales; persiste con el mismo contrato.
+  /// Móvil conserva el flujo del backend:
   /// 1) POST /media/download (backend prepara)
   /// 2) GET  /media/file/:id/:kind/:format (app baja a disco)
   /// 3) (B) GET portada (thumbnail) y guardarla offline
@@ -192,13 +199,23 @@ class MediaRepository {
     String? quality, // 'low' | 'medium' | 'high'
     void Function(int received, int total)? onProgress,
   }) async {
+    if (DesktopDownloadEngine.supported) {
+      return _requestLocalDownload(
+        mediaId: mediaId,
+        url: url,
+        kind: kind,
+        format: format,
+        quality: quality,
+        onProgress: onProgress,
+      );
+    }
     try {
       // ----------------------------
       // ✅ VALIDACIÓN INPUT
       // ----------------------------
       if ((mediaId == null || mediaId.trim().isEmpty) &&
           (url == null || url.trim().isEmpty)) {
-        print('Download error: mediaId or url is required');
+        debugPrint('Download error: mediaId or url is required');
         return false;
       }
 
@@ -238,12 +255,12 @@ class MediaRepository {
       // asegurar que existe y no está vacío
       final f = File(destPath);
       if (!await f.exists()) {
-        print('Download error: file not found at $destPath');
+        debugPrint('Download error: file not found at $destPath');
         return false;
       }
       final fileSize = await f.length();
       if (fileSize <= 0) {
-        print('Download error: file is empty at $destPath');
+        debugPrint('Download error: file is empty at $destPath');
         return false;
       }
 
@@ -297,7 +314,7 @@ class MediaRepository {
     } on BackendApiException {
       rethrow;
     } catch (e) {
-      print('Download failed: $e');
+      debugPrint('Download failed: $e');
       return false;
     }
   }
@@ -312,6 +329,18 @@ class MediaRepository {
     void Function(int current, int total, String title)? onItemProgress,
     void Function(int received, int total)? onFileProgress,
   }) async {
+    if (DesktopDownloadEngine.supported) {
+      return _importLocalPlaylist(
+        url: url,
+        kind: kind,
+        format: format,
+        quality: quality,
+        maxItems: maxItems,
+        selectedUrls: selectedUrls,
+        onItemProgress: onItemProgress,
+        onFileProgress: onFileProgress,
+      );
+    }
     try {
       final normalizedUrl = url.trim();
       if (normalizedUrl.isEmpty) return null;
@@ -454,6 +483,12 @@ class MediaRepository {
     required String url,
     int maxItems = 100,
   }) async {
+    if (DesktopDownloadEngine.supported) {
+      final engine = await _localEngine();
+      return _localPlaylistPreview(
+        await engine.resolve(url, playlist: true, limit: maxItems),
+      );
+    }
     try {
       final normalizedUrl = url.trim();
       if (normalizedUrl.isEmpty) return null;
@@ -481,6 +516,208 @@ class MediaRepository {
       }
       return null;
     }
+  }
+
+  MediaItem _localInfo(Map<String, dynamic> info, String id, String url) =>
+      MediaItem(
+        id: id,
+        publicId: id,
+        title: (info['track'] ?? info['title'] ?? id).toString(),
+        subtitle: (info['artist'] ?? info['uploader'] ?? info['channel'] ?? '')
+            .toString(),
+        source: _detectSource(url),
+        origin: _detectOrigin(url),
+        thumbnail: info['thumbnail'] as String?,
+        durationSeconds: (info['duration'] as num?)?.round(),
+        variants: const [],
+      );
+
+  Future<bool> _requestLocalDownload({
+    String? mediaId,
+    String? url,
+    required String kind,
+    required String format,
+    String? quality,
+    void Function(int, int)? onProgress,
+    DesktopDownloadEngine? localEngine,
+    Map<String, dynamic>? resolvedInfo,
+  }) async {
+    if (url == null || url.trim().isEmpty) {
+      throw const DesktopDownloadException(
+        'La descarga local necesita la URL original.',
+      );
+    }
+    final engine = localEngine ?? await _localEngine();
+    final info = resolvedInfo ?? await engine.resolve(url);
+    final id = mediaId?.trim().isNotEmpty == true
+        ? mediaId!.trim()
+        : DesktopDownloadEngine.stableId(info, url);
+    final safeFileId = id.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final destination = await _buildDestPath(
+      resolvedId: '$safeFileId-$kind',
+      kind: kind,
+      format: format,
+    );
+    final existing = (await _store.readAll())
+        .where((item) => item.publicId == id || item.id == id)
+        .firstOrNull;
+    final cached = existing?.variants
+        .where(
+          (v) =>
+              v.format == format &&
+              !v.isInstrumental &&
+              !v.isSpatial8d &&
+              v.kind ==
+                  (kind == 'video'
+                      ? MediaVariantKind.video
+                      : MediaVariantKind.audio) &&
+              v.localPath != null,
+        )
+        .firstOrNull;
+    if (cached != null &&
+        await File(cached.localPath!).exists() &&
+        await File(cached.localPath!).length() > 0) {
+      return true;
+    }
+    await engine.download(
+      url,
+      destination,
+      kind: kind,
+      format: format,
+      quality: quality,
+      onProgress: onProgress,
+    );
+    final resolved = _localInfo(info, id, url);
+    final thumbnail = resolved.thumbnail;
+    final localCover = thumbnail == null
+        ? null
+        : await _downloadThumbnailToDisk(
+            resolvedId: safeFileId,
+            thumbnailUrl: thumbnail,
+          );
+    await _upsertItemWithVariant(
+      resolvedId: id,
+      url: url,
+      source: _detectSource(url),
+      resolved: resolved,
+      thumbnailLocalPath: localCover,
+      variant: MediaVariant(
+        kind: kind == 'video' ? MediaVariantKind.video : MediaVariantKind.audio,
+        format: format,
+        fileName: p.basename(destination),
+        localPath: destination,
+        durationSeconds: resolved.durationSeconds,
+        size: await File(destination).length(),
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+    return true;
+  }
+
+  PlaylistPreview _localPlaylistPreview(Map<String, dynamic> info) {
+    final entries = <PlaylistPreviewEntry>[];
+    for (final raw in (info['entries'] as List? ?? const [])) {
+      if (raw is! Map) continue;
+      final entry = Map<String, dynamic>.from(raw);
+      final id = entry['id']?.toString() ?? '';
+      final url = (entry['webpage_url'] ?? entry['url'] ?? '').toString();
+      final resolvedUrl = url.startsWith('http')
+          ? url
+          : id.isNotEmpty &&
+                '${info['extractor_key'] ?? info['extractor']}'
+                    .toLowerCase()
+                    .contains('youtube')
+          ? 'https://www.youtube.com/watch?v=$id'
+          : '';
+      entries.add(
+        PlaylistPreviewEntry(
+          url: resolvedUrl,
+          title: (entry['title'] ?? id).toString(),
+          index: entries.length,
+          isAvailable:
+              resolvedUrl.isNotEmpty &&
+              ![
+                'private',
+                'premium_only',
+                'subscriber_only',
+              ].contains(entry['availability']),
+          artist: (entry['artist'] ?? entry['uploader'] ?? entry['channel'])
+              ?.toString(),
+          durationMs:
+              ((entry['duration'] as num?)?.toDouble() ?? 0) * 1000 ~/ 1,
+          thumbnail: entry['thumbnail'] as String?,
+        ),
+      );
+    }
+    return PlaylistPreview(
+      name: (info['title'] ?? 'Playlist').toString(),
+      total: entries.length,
+      entries: entries,
+      thumbnail: info['thumbnail'] as String?,
+    );
+  }
+
+  Future<ImportedPlaylistResult> _importLocalPlaylist({
+    required String url,
+    required String kind,
+    required String format,
+    String? quality,
+    required int maxItems,
+    List<String>? selectedUrls,
+    void Function(int, int, String)? onItemProgress,
+    void Function(int, int)? onFileProgress,
+  }) async {
+    final preview = await resolvePlaylistFromUrl(url: url, maxItems: maxItems);
+    if (preview == null) {
+      throw const DesktopDownloadException('No se pudo resolver la playlist.');
+    }
+    final selected = selectedUrls?.toSet();
+    final entries = preview.entries
+        .where(
+          (entry) =>
+              entry.isAvailable &&
+              (selected == null ||
+                  selected.isEmpty ||
+                  selected.contains(entry.url)),
+        )
+        .take(maxItems)
+        .toList();
+    final ids = <String>{};
+    var failed = 0;
+    for (var i = 0; i < entries.length; i++) {
+      final entry = entries[i];
+      onItemProgress?.call(i + 1, entries.length, entry.title);
+      try {
+        final engine = await _localEngine();
+        final info = await engine.resolve(entry.url);
+        final id = DesktopDownloadEngine.stableId(info, entry.url);
+        if (await _requestLocalDownload(
+          mediaId: id,
+          url: entry.url,
+          kind: kind,
+          format: format,
+          quality: quality,
+          onProgress: onFileProgress,
+          localEngine: engine,
+          resolvedInfo: info,
+        )) {
+          ids.add(id);
+        } else {
+          failed++;
+        }
+      } on DesktopDownloadException {
+        failed++;
+      }
+    }
+    return ImportedPlaylistResult(
+      playlistId: 'local_${DesktopDownloadEngine.stableId({'id': url}, url)}',
+      name: preview.name,
+      itemIds: ids.toList(),
+      total: entries.length,
+      imported: ids.length,
+      failed: failed,
+      coverUrl: preview.thumbnail,
+    );
   }
 
   // ============================
@@ -534,17 +771,17 @@ class MediaRepository {
       return resolvedId;
     } catch (e) {
       if (e is dio.DioException) {
-        print('DIO ERROR: ${e.type}');
-        print('URL: ${e.requestOptions.uri}');
-        print('STATUS: ${e.response?.statusCode}');
-        print('DATA: ${e.response?.data}');
+        debugPrint('DIO ERROR: ${e.type}');
+        debugPrint('URL: ${e.requestOptions.uri}');
+        debugPrint('STATUS: ${e.response?.statusCode}');
+        debugPrint('DATA: ${e.response?.data}');
         final msg = e.response?.data is Map
             ? (e.response?.data['error']?.toString() ?? '')
             : (e.response?.data?.toString() ?? '');
         _maybeNotifyCookiesIssue(msg);
         _maybeNotifyDrmIssue(msg);
       } else {
-        print('Error: $e');
+        debugPrint('Error: $e');
       }
       if (e is dio.DioException) {
         throw BackendApiException.fromDio(
@@ -583,6 +820,11 @@ class MediaRepository {
   }
 
   Future<MediaItem?> _fetchResolvedInfo(String url) async {
+    if (DesktopDownloadEngine.supported) {
+      final engine = await _localEngine();
+      final info = await engine.resolve(url);
+      return _localInfo(info, DesktopDownloadEngine.stableId(info, url), url);
+    }
     try {
       final resp = await _client.get(
         '/media/resolve-info',
@@ -598,7 +840,7 @@ class MediaRepository {
 
       return null;
     } catch (e) {
-      print('resolve-info failed: $e');
+      debugPrint('resolve-info failed: $e');
       return null;
     }
   }
@@ -641,12 +883,14 @@ class MediaRepository {
         attempts++;
         if (attempts >= maxAttempts) {
           if (e is dio.DioException) {
-            print('Download failed after $maxAttempts attempts: ${e.type}');
-            print('URL: ${e.requestOptions.uri}');
-            print('STATUS: ${e.response?.statusCode}');
-            print('DATA: ${e.response?.data}');
+            debugPrint(
+              'Download failed after $maxAttempts attempts: ${e.type}',
+            );
+            debugPrint('URL: ${e.requestOptions.uri}');
+            debugPrint('STATUS: ${e.response?.statusCode}');
+            debugPrint('DATA: ${e.response?.data}');
           } else {
-            print('Download failed after $maxAttempts attempts: $e');
+            debugPrint('Download failed after $maxAttempts attempts: $e');
           }
           if (e is dio.DioException) {
             throw BackendApiException.fromDio(
@@ -659,7 +903,7 @@ class MediaRepository {
 
         // backoff: 1s, 2s, 4s, 8s
         final delay = initialDelay * (1 << (attempts - 1));
-        print(
+        debugPrint(
           'Download attempt $attempts failed, retrying in ${delay.inSeconds}s',
         );
         await Future.delayed(delay);
@@ -735,7 +979,7 @@ class MediaRepository {
       if (_isExpectedThumbnailConnectionMiss(e)) {
         return null;
       }
-      print('thumbnail download failed: $e');
+      debugPrint('thumbnail download failed: $e');
       return null;
     }
   }

@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 import '../../../app/data/repo/media_repository.dart';
+import '../../../app/data/downloads/desktop_download_engine.dart';
 import '../../../app/data/network/backend_api_error.dart';
 import '../../../app/services/notification_service.dart';
 import '../../playlists/controller/playlists_controller.dart';
@@ -114,23 +115,27 @@ class DownloadTaskService extends GetxService {
         );
       }
 
-      final ok = await _repo
-          .requestAndFetchMedia(
-            mediaId: mediaId?.trim().isEmpty == true ? null : mediaId,
-            url: normalizedUrl,
-            kind: kind,
-            format: format,
-            quality: resolvedQuality,
-            onProgress: (received, total) {
-              if (total > 0) {
-                downloadProgress.value = received / total;
-              } else {
-                downloadProgress.value = -1;
-              }
-              downloadStatus.value = tr('downloads.status_downloading');
-            },
-          )
-          .timeout(const Duration(minutes: 5), onTimeout: () => false);
+      final download = _repo.requestAndFetchMedia(
+        mediaId: mediaId?.trim().isEmpty == true ? null : mediaId,
+        url: normalizedUrl,
+        kind: kind,
+        format: format,
+        quality: resolvedQuality,
+        onProgress: (received, total) {
+          if (total > 0) {
+            downloadProgress.value = received / total;
+          } else {
+            downloadProgress.value = -1;
+          }
+          downloadStatus.value = tr('downloads.status_downloading');
+        },
+      );
+      final ok = Platform.isMacOS || Platform.isWindows || Platform.isLinux
+          ? await download
+          : await download.timeout(
+              const Duration(minutes: 5),
+              onTimeout: () => false,
+            );
 
       if (ok) {
         downloadStatus.value = tr('downloads.status_saving');
@@ -157,7 +162,13 @@ class DownloadTaskService extends GetxService {
         }
       }
       return ok;
-    } catch (e) {
+    } catch (e, stack) {
+      if (e is DesktopDownloadException) {
+        if (e.diagnostic != null) {
+          debugPrint('[Local download] ${e.diagnostic}');
+        }
+        debugPrintStack(label: '[Local download] failure', stackTrace: stack);
+      }
       String msg = 'Error inesperado';
       var title = 'Imports';
       Color color = Colors.red;
@@ -237,27 +248,28 @@ class DownloadTaskService extends GetxService {
     required String quality,
     List<String>? selectedUrls,
   }) async {
-    final result = await _repo
-        .importPlaylistFromUrl(
-          url: url,
-          kind: kind,
-          format: format,
-          quality: quality,
-          maxItems: selectedUrls?.isNotEmpty == true ? 100 : 50,
-          selectedUrls: selectedUrls,
-          onItemProgress: (current, total, title) {
-            downloadProgress.value = total > 0 ? current / total : -1;
-            downloadStatus.value = tr(
-              'downloads.status_importing_playlist_item',
-              args: [current.toString(), total.toString()],
-            );
-          },
-          onFileProgress: (received, total) {
-            if (total <= 0) return;
-            downloadStatus.value = tr('downloads.status_downloading');
-          },
-        )
-        .timeout(const Duration(minutes: 50));
+    final importTask = _repo.importPlaylistFromUrl(
+      url: url,
+      kind: kind,
+      format: format,
+      quality: quality,
+      maxItems: selectedUrls?.isNotEmpty == true ? 100 : 50,
+      selectedUrls: selectedUrls,
+      onItemProgress: (current, total, title) {
+        downloadProgress.value = total > 0 ? current / total : -1;
+        downloadStatus.value = tr(
+          'downloads.status_importing_playlist_item',
+          args: [current.toString(), total.toString()],
+        );
+      },
+      onFileProgress: (received, total) {
+        if (total <= 0) return;
+        downloadStatus.value = tr('downloads.status_downloading');
+      },
+    );
+    final result = Platform.isMacOS || Platform.isWindows || Platform.isLinux
+        ? await importTask
+        : await importTask.timeout(const Duration(minutes: 50));
 
     if (result == null || result.itemIds.isEmpty) {
       Get.snackbar(

@@ -52,3 +52,8 @@ key.properties
 # Local media/source dumps that must not be uploaded
 www.youtube.com_cookies*.txt
 /android/openal-soft/
+
+# Local native download tools and archives (prepared per architecture)
+/.desktop-tools/
+
+/tool/macos/__pycache__/
