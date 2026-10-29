@@ -1,3 +1,5 @@
+import '../navigation/app_bottom_nav.dart';
+import 'player_desktop_dialog.dart';
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart'
@@ -11,6 +13,13 @@ import '../../../services/audio_service.dart';
 
 void openPlayerLyricsSheet(MediaItem item, {double heightFactor = 0.62}) {
   if (Get.isBottomSheetOpen ?? false) return;
+  if (AppBottomNav.desktopSidebarEnabled) {
+    if (Get.isDialogOpen ?? false) return;
+    Get.dialog<void>(
+      PlayerDesktopDialog(reading: true, child: PlayerLyricsSheet(item: item)),
+    );
+    return;
+  }
 
   Get.bottomSheet<void>(
     FractionallySizedBox(
@@ -322,7 +331,11 @@ class _PlayerLyricsSheetState extends State<PlayerLyricsSheet> {
                     : SingleChildScrollView(
                         child: SelectableText(
                           lyrics,
-                          style: theme.textTheme.bodyMedium,
+                          style: AppBottomNav.desktopSidebarEnabled
+                              ? theme.textTheme.titleMedium?.copyWith(
+                                  height: 1.7,
+                                )
+                              : theme.textTheme.bodyMedium,
                         ),
                       ),
               ),

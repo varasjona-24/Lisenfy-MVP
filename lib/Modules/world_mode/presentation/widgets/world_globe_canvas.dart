@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
@@ -160,6 +161,27 @@ class _WorldGlobeCanvasState extends State<WorldGlobeCanvas>
     });
   }
 
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (!widget.interactive ||
+        event is! PointerScrollEvent ||
+        event.scrollDelta.dy == 0) {
+      return;
+    }
+    GestureBinding.instance.pointerSignalResolver.register(event, (resolved) {
+      final scroll = resolved as PointerScrollEvent;
+      setState(() {
+        _isFocusing = false;
+        _velocityX = 0;
+        _velocityY = 0;
+        _zoom = (_zoom * math.exp(-scroll.scrollDelta.dy / 400)).clamp(
+          widget.minZoom,
+          widget.maxZoom,
+        );
+        _zoomAtGestureStart = _zoom;
+      });
+    });
+  }
+
   void _onScaleStart(ScaleStartDetails details) {
     if (!widget.interactive) return;
     _dragging = true;
@@ -230,52 +252,57 @@ class _WorldGlobeCanvasState extends State<WorldGlobeCanvas>
           );
           final projected = _projectedCountries(size);
 
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onScaleStart: _onScaleStart,
-            onScaleUpdate: _onScaleUpdate,
-            onScaleEnd: _onScaleEnd,
-            onTapUp: (details) => _onTapUp(details, size),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: WorldGlobePainter(
-                      landShapes: _landShapes,
-                      projectedCountries: projected,
-                      selectedCountryCode: widget.selectedCountryCode,
-                      rotationX: _rotationX,
-                      rotationY: _rotationY,
-                      zoom: _zoom,
-                      colorScheme: scheme,
-                    ),
-                  ),
-                ),
-                if (widget.showHint)
-                  Positioned(
-                    right: 14,
-                    top: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: scheme.surface.withValues(alpha: 0.72),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: scheme.outlineVariant.withValues(alpha: 0.45),
-                        ),
-                      ),
-                      child: Text(
-                        tr('world_mode.globe_hint'),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+          return Listener(
+            onPointerSignal: _onPointerSignal,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onScaleStart: _onScaleStart,
+              onScaleUpdate: _onScaleUpdate,
+              onScaleEnd: _onScaleEnd,
+              onTapUp: (details) => _onTapUp(details, size),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: WorldGlobePainter(
+                        landShapes: _landShapes,
+                        projectedCountries: projected,
+                        selectedCountryCode: widget.selectedCountryCode,
+                        rotationX: _rotationX,
+                        rotationY: _rotationY,
+                        zoom: _zoom,
+                        colorScheme: scheme,
                       ),
                     ),
                   ),
-              ],
+                  if (widget.showHint)
+                    Positioned(
+                      right: 14,
+                      top: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: scheme.surface.withValues(alpha: 0.72),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: scheme.outlineVariant.withValues(
+                              alpha: 0.45,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          tr('world_mode.globe_hint'),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           );
         },

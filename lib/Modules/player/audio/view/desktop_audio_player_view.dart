@@ -14,6 +14,7 @@ import '../../../../app/models/media_item.dart';
 import '../../../../app/routes/app_routes.dart';
 import '../../../../app/ui/widgets/player/player_instrumental_sheet.dart';
 import '../../../../app/ui/widgets/player/player_lyrics_sheet.dart';
+import '../../../../app/ui/widgets/player/player_desktop_dialog.dart';
 import '../../../playlists/controller/playlists_controller.dart';
 import '../../../playlists/data/playlist_store.dart';
 import '../../../playlists/domain/playlist.dart';
@@ -70,53 +71,56 @@ class DesktopAudioPlayerView extends StatelessWidget {
     }
   }
 
+  bool _playlistContainsTrack(Playlist playlist) {
+    final keys = {item.id.trim(), item.publicId.trim()}..remove('');
+    return playlist.itemIds.any((id) => keys.contains(id.trim()));
+  }
+
   Future<void> _pickPlaylist(BuildContext context) async {
     final store = Get.find<PlaylistStore>();
     final playlists = (await store.readAll())
         .where((list) => !list.isTemporary)
         .toList();
     if (!context.mounted) return;
-    final selected = await showModalBottomSheet<Playlist>(
+    final selected = await showDialog<Playlist>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                tr('player.desktop.add_playlist'),
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              Flexible(
-                child: playlists.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(tr('playlists.empty')),
-                      )
-                    : ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: playlists.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) => ListTile(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+      builder: (context) => PlayerDesktopDialog(
+        reading: true,
+        maxWidth: 620,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tr('player.desktop.add_playlist'),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: playlists.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(tr('playlists.empty')),
+                        )
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: playlists.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) => _PlaylistPickerCard(
+                            playlist: playlists[index],
+                            alreadyAdded: _playlistContainsTrack(
+                              playlists[index],
+                            ),
+                            onTap: () =>
+                                Navigator.of(context).pop(playlists[index]),
                           ),
-                          tileColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          leading: const Icon(Icons.queue_music_rounded),
-                          title: Text(playlists[index].name),
-                          onTap: () =>
-                              Navigator.of(context).pop(playlists[index]),
                         ),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -130,7 +134,15 @@ class DesktopAudioPlayerView extends StatelessWidget {
     final key = item.publicId.trim().isNotEmpty
         ? item.publicId.trim()
         : item.id;
-    if (!current.itemIds.contains(key) && !current.itemIds.contains(item.id)) {
+    if (_playlistContainsTrack(current)) {
+      Get.snackbar(
+        tr('player.desktop.add_playlist'),
+        tr('player.desktop.playlist_already_contains'),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+    {
       final now = DateTime.now().millisecondsSinceEpoch;
       await store.upsert(
         current.copyWith(
@@ -588,4 +600,113 @@ class _DesktopOption extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _PlaylistPickerCard extends StatelessWidget {
+  const _PlaylistPickerCard({
+    required this.playlist,
+    required this.onTap,
+    this.alreadyAdded = false,
+  });
+  final Playlist playlist;
+  final VoidCallback onTap;
+  final bool alreadyAdded;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final local = playlist.coverLocalPath?.trim() ?? '';
+    final remote = playlist.coverUrl?.trim() ?? '';
+    final source = playlist.coverCleared
+        ? ''
+        : local.isNotEmpty
+        ? local
+        : remote;
+    final ImageProvider? provider = source.isEmpty
+        ? null
+        : source.startsWith('assets/')
+        ? AssetImage(source)
+        : source.startsWith('http')
+        ? NetworkImage(source)
+        : FileImage(File(source));
+    final fallback = ColoredBox(
+      color: scheme.surfaceContainerHighest,
+      child: Icon(Icons.queue_music_rounded, color: scheme.primary, size: 30),
+    );
+    final count = playlist.itemIds.toSet().length;
+    return Material(
+      color: scheme.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: alreadyAdded ? null : onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox.square(
+                  dimension: 64,
+                  child: provider == null
+                      ? fallback
+                      : Image(
+                          image: provider,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => fallback,
+                        ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      playlist.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (alreadyAdded) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        tr('player.desktop.playlist_already_contains'),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.primary,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(
+                      tr(
+                        count == 1 ? 'common.songs.one' : 'common.songs.other',
+                        args: ['$count'],
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(
+                alreadyAdded
+                    ? Icons.check_circle_rounded
+                    : Icons.playlist_add_rounded,
+                color: scheme.primary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

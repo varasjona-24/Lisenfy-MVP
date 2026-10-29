@@ -1451,6 +1451,7 @@
     },
     "desktop": {
       "add_playlist": "Añadir a una playlist",
+      "playlist_already_contains": "Ya está en esta playlist",
       "playlist_added": "Canción guardada en la playlist.",
       "favorite": "Favorito",
       "more": "Más opciones",

@@ -1,3 +1,5 @@
+import '../navigation/app_bottom_nav.dart';
+import 'player_desktop_dialog.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
@@ -14,6 +16,16 @@ enum _AudioModeSheetKind { instrumental, spatial8d }
 
 void openPlayerInstrumentalSheet(MediaItem item) {
   if (Get.isBottomSheetOpen ?? false) return;
+  if (AppBottomNav.desktopSidebarEnabled) {
+    if (Get.isDialogOpen ?? false) return;
+    Get.dialog<void>(
+      PlayerDesktopDialog(
+        reading: false,
+        child: PlayerInstrumentalSheet(item: item),
+      ),
+    );
+    return;
+  }
 
   Get.bottomSheet<void>(
     PlayerInstrumentalSheet(item: item),
@@ -338,7 +350,9 @@ class _PlayerInstrumentalSheetState extends State<PlayerInstrumentalSheet> {
 
     return Material(
       color: theme.scaffoldBackgroundColor,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      borderRadius: AppBottomNav.desktopSidebarEnabled
+          ? BorderRadius.zero
+          : const BorderRadius.vertical(top: Radius.circular(22)),
       child: Obx(() {
         final activeInstrumental =
             _sheetKind == _AudioModeSheetKind.instrumental;

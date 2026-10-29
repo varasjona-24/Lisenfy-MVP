@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 
 import '../../domain/entities/country_entity.dart';
@@ -260,17 +261,24 @@ class _WorldMapCanvasState extends State<WorldMapCanvas>
             );
 
             if (!widget.interactive) return mapLayer;
-            return InteractiveViewer(
-              transformationController: _transformController,
-              boundaryMargin: EdgeInsets.zero,
-              clipBehavior: Clip.hardEdge,
-              minScale: widget.minScale,
-              maxScale: widget.maxScale,
-              constrained: false,
-              panEnabled: _panEnabled,
-              onInteractionUpdate: (_) => _syncPanState(),
-              onInteractionEnd: (_) => _syncPanState(),
-              child: mapLayer,
+            return Listener(
+              onPointerSignal: (event) {
+                if (event is PointerScrollEvent) _focusController.stop();
+              },
+              child: InteractiveViewer(
+                scaleFactor: 400,
+                onInteractionStart: (_) => _focusController.stop(),
+                transformationController: _transformController,
+                boundaryMargin: EdgeInsets.zero,
+                clipBehavior: Clip.hardEdge,
+                minScale: widget.minScale,
+                maxScale: widget.maxScale,
+                constrained: false,
+                panEnabled: _panEnabled,
+                onInteractionUpdate: (_) => _syncPanState(),
+                onInteractionEnd: (_) => _syncPanState(),
+                child: mapLayer,
+              ),
             );
           },
         ),

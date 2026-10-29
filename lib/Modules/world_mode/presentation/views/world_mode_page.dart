@@ -43,9 +43,11 @@ class _ImmersiveAtlasViewState extends State<_ImmersiveAtlasView> {
   static const double _collapsedSheetExtent = 0.0;
   static const double _stationsSheetExtent = 0.40;
 
+  final ScrollController _desktopStationsScroll = ScrollController();
   final DraggableScrollableController _sheetCtrl =
       DraggableScrollableController();
   double _sheetExtent = _collapsedSheetExtent;
+  bool _desktopStationsExpanded = true;
   bool _restoreMiniPlayerWhenStationsClose = false;
 
   @override
@@ -103,12 +105,14 @@ class _ImmersiveAtlasViewState extends State<_ImmersiveAtlasView> {
     _restoreMiniPlayerAfterStations();
     _sheetCtrl.removeListener(_syncSheetExtent);
     _sheetCtrl.dispose();
+    _desktopStationsScroll.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final ctrl = widget.ctrl;
+    final desktop = AppBottomNav.desktopSidebarEnabled;
     return AppNavigationScaffold(
       navigationIndex: 3,
       backgroundColor: Colors.transparent,
@@ -180,42 +184,117 @@ class _ImmersiveAtlasViewState extends State<_ImmersiveAtlasView> {
 
               // La carga de estaciones no modifica el panel: el usuario decide
               // cuándo abrir la lista después de enfocar una región.
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: (constraints.maxHeight * _sheetExtent) + 16,
-                child: Obx(() {
-                  final country = ctrl.selectedCountry.value;
-                  final hasStations = ctrl.stations.isNotEmpty;
-                  final isSheetOpen = _sheetExtent >= 0.20;
-                  if (country == null || !hasStations || isSheetOpen) {
-                    return const SizedBox.shrink();
-                  }
-                  return FilledButton.icon(
-                    onPressed: _showAvailableStations,
-                    icon: const Icon(Icons.radio_rounded),
-                    label: Text(tr('world_mode.view_available_stations')),
-                  );
-                }),
-              ),
+              if (!desktop)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: (constraints.maxHeight * _sheetExtent) + 16,
+                  child: Obx(() {
+                    final country = ctrl.selectedCountry.value;
+                    final hasStations = ctrl.stations.isNotEmpty;
+                    final isSheetOpen = _sheetExtent >= 0.20;
+                    if (country == null || !hasStations || isSheetOpen) {
+                      return const SizedBox.shrink();
+                    }
+                    return FilledButton.icon(
+                      onPressed: _showAvailableStations,
+                      icon: const Icon(Icons.radio_rounded),
+                      label: Text(tr('world_mode.view_available_stations')),
+                    );
+                  }),
+                ),
 
               // ── Panel inferior de estaciones (draggable) ──
-              DraggableScrollableSheet(
-                controller: _sheetCtrl,
-                initialChildSize: _collapsedSheetExtent,
-                minChildSize: _collapsedSheetExtent,
-                maxChildSize: 0.84,
-                snap: true,
-                // El mínimo y el máximo ya son puntos de snap implícitos.
-                // Solo añadimos la altura de lectura de las estaciones.
-                snapSizes: const [_stationsSheetExtent],
-                builder: (ctx, scrollCtrl) {
-                  return _StationsSheet(
-                    ctrl: ctrl,
-                    scrollController: scrollCtrl,
-                  );
-                },
-              ),
+              if (desktop)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeInOutCubic,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: _desktopStationsExpanded
+                      ? constraints.maxHeight / 3
+                      : 48,
+                  child: Material(
+                    color: Theme.of(context).colorScheme.surface,
+                    elevation: 8,
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onVerticalDragEnd: (details) {
+                            final velocity = details.primaryVelocity ?? 0;
+                            if (velocity == 0) return;
+                            setState(
+                              () => _desktopStationsExpanded = velocity < 0,
+                            );
+                          },
+                          child: SizedBox(
+                            height: 48,
+                            width: double.infinity,
+                            child: Tooltip(
+                              message: tr(
+                                _desktopStationsExpanded
+                                    ? 'artists.minimize'
+                                    : 'world_mode.view_available_stations',
+                              ),
+                              child: InkWell(
+                                onTap: () => setState(
+                                  () => _desktopStationsExpanded =
+                                      !_desktopStationsExpanded,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.radio_rounded, size: 18),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      tr('world_mode.view_available_stations'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    AnimatedRotation(
+                                      turns: _desktopStationsExpanded ? .5 : 0,
+                                      duration: const Duration(
+                                        milliseconds: 280,
+                                      ),
+                                      child: const Icon(
+                                        Icons.keyboard_arrow_up_rounded,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: _StationsSheet(
+                            ctrl: ctrl,
+                            scrollController: _desktopStationsScroll,
+                            desktop: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                DraggableScrollableSheet(
+                  controller: _sheetCtrl,
+                  initialChildSize: _collapsedSheetExtent,
+                  minChildSize: _collapsedSheetExtent,
+                  maxChildSize: 0.84,
+                  snap: true,
+                  // El mínimo y el máximo ya son puntos de snap implícitos.
+                  // Solo añadimos la altura de lectura de las estaciones.
+                  snapSizes: const [_stationsSheetExtent],
+                  builder: (ctx, scrollCtrl) {
+                    return _StationsSheet(
+                      ctrl: ctrl,
+                      scrollController: scrollCtrl,
+                    );
+                  },
+                ),
             ],
           ),
         ),
@@ -333,7 +412,13 @@ class _ViewModeButton extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StationsSheet extends StatelessWidget {
-  const _StationsSheet({required this.ctrl, required this.scrollController});
+  const _StationsSheet({
+    required this.ctrl,
+    required this.scrollController,
+    this.desktop = false,
+  });
+
+  final bool desktop;
 
   final WorldModeController ctrl;
   final ScrollController scrollController;
@@ -346,14 +431,21 @@ class _StationsSheet extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.32),
-            blurRadius: 24,
-            offset: const Offset(0, -3),
-          ),
-        ],
+        borderRadius: desktop
+            ? BorderRadius.zero
+            : const BorderRadius.vertical(top: Radius.circular(26)),
+        border: desktop
+            ? Border(top: BorderSide(color: scheme.outlineVariant))
+            : null,
+        boxShadow: desktop
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.32),
+                  blurRadius: 24,
+                  offset: const Offset(0, -3),
+                ),
+              ],
       ),
       child: CustomScrollView(
         controller: scrollController,
@@ -363,18 +455,20 @@ class _StationsSheet extends StatelessWidget {
           SliverToBoxAdapter(
             child: Column(
               children: [
-                const SizedBox(height: 10),
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: scheme.outlineVariant.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(999),
+                if (!desktop) ...[
+                  const SizedBox(height: 10),
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: scheme.outlineVariant.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 14),
+                ],
+                SizedBox(height: desktop ? 24 : 14),
 
                 // ── Cabecera: país + shuffle ──
                 Obx(() {
@@ -531,6 +625,7 @@ class _StationsSheet extends StatelessWidget {
                   final station = stations[i ~/ 2];
                   return CountryStationCard(
                     station: station,
+                    desktop: desktop,
                     onPlay: () => ctrl.playStation(station),
                     onContinue: () => ctrl.continueStation(station),
                     onTrackTap: (track) => ctrl.playTrack(station, track),
