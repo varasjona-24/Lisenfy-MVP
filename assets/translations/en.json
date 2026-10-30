@@ -2300,5 +2300,27 @@
       "canceled": "Process canceled.",
       "unknown": "Processing..."
     }
+  },
+  "paired_import": {
+    "title": "Import through my computer",
+    "client_hint": "The paired computer downloads the link and sends the file to your library. It must remain connected and approve the request.",
+    "host_hint": "This computer can download a single item supported by yt-dlp for the paired phone. Every request requires your approval.",
+    "approve_title": "Allow this download request?",
+    "approve_body": "{} requests a download:\n{}\nFormat: {}\nThe file will be sent to the paired device.",
+    "allow": "Allow",
+    "url": "Content link (HTTPS)",
+    "invalid_url": "Enter an HTTPS link to a public website. Local addresses are not supported.",
+    "format": "Format",
+    "request": "Request from computer",
+    "states": {
+      "ready": "Ready for requests",
+      "waiting": "Waiting for approval on the computer",
+      "downloading": "Downloading on the computer",
+      "transferring": "Sending and importing the file",
+      "completed": "File received and imported",
+      "rejected": "The computer rejected the request",
+      "failed": "Import could not finish. Check the computer tools and connection.",
+      "busy": "The computer is handling another request"
+    }
   }
 }

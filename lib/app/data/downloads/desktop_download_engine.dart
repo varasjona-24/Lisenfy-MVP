@@ -29,7 +29,11 @@ class DesktopDownloadEngine {
     this.runtimeName = 'deno',
     this.cookies,
     DownloadCommand? command,
-  }) : _command = command ?? runCommand;
+    bool Function()? cancelled,
+  }) : _command =
+           command ??
+           ((executable, arguments, onLine) =>
+               runCommand(executable, arguments, onLine, cancelled: cancelled));
 
   final String ytDlp, ffmpeg, runtime, runtimeName;
   final String? cookies;
@@ -41,6 +45,7 @@ class DesktopDownloadEngine {
   static Future<DesktopDownloadEngine> discover({
     String? applicationExecutable,
     Map<String, String>? environment,
+    bool Function()? cancelled,
   }) async {
     final env = environment ?? Platform.environment;
     final executablePath = applicationExecutable ?? Platform.resolvedExecutable;
@@ -100,6 +105,7 @@ class DesktopDownloadEngine {
       );
     }
     return DesktopDownloadEngine(
+      cancelled: cancelled,
       ytDlp: yt,
       ffmpeg: ff,
       runtime: deno ?? node!,
@@ -191,6 +197,7 @@ class DesktopDownloadEngine {
     required String kind,
     required String format,
     String? quality,
+    int? maxBytes,
   }) {
     if (!['audio', 'video'].contains(kind) ||
         (kind == 'audio'
@@ -210,6 +217,7 @@ class DesktopDownloadEngine {
       '--ffmpeg-location',
       ffmpeg,
       '--no-playlist',
+      if (maxBytes != null) ...['--max-filesize', '$maxBytes'],
       '--newline',
       '--progress',
       '--progress-template',
@@ -243,6 +251,7 @@ class DesktopDownloadEngine {
     required String kind,
     required String format,
     String? quality,
+    int? maxBytes,
     void Function(int, int)? onProgress,
   }) async {
     final staging = await Directory(
@@ -258,6 +267,7 @@ class DesktopDownloadEngine {
           kind: kind,
           format: format,
           quality: quality,
+          maxBytes: maxBytes,
         ),
         (line) {
           final match = RegExp(
@@ -283,8 +293,12 @@ class DesktopDownloadEngine {
   static Future<String> runCommand(
     String executable,
     List<String> arguments,
-    void Function(String)? onLine,
-  ) async {
+    void Function(String)? onLine, {
+    bool Function()? cancelled,
+  }) async {
+    if (cancelled?.call() == true) {
+      throw const DesktopDownloadException('Descarga cancelada.');
+    }
     final Process process;
     try {
       final macBundle =
@@ -308,6 +322,11 @@ class DesktopDownloadEngine {
             'Process.start: executable=$executable, code=${error.errorCode}, message=${error.message}',
       );
     }
+    final cancellation = cancelled == null
+        ? null
+        : Timer.periodic(const Duration(milliseconds: 250), (_) {
+            if (cancelled()) process.kill();
+          });
     final stdout = StringBuffer();
     final errors = <String>[];
     final out = process.stdout
@@ -348,6 +367,7 @@ class DesktopDownloadEngine {
       }
       return stdout.toString();
     } finally {
+      cancellation?.cancel();
       process.kill();
     }
   }

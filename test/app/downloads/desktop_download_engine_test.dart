@@ -11,6 +11,22 @@ DesktopDownloadEngine engine(DownloadCommand command) => DesktopDownloadEngine(
 );
 
 void main() {
+  test('session cancellation stops an active native tool', () async {
+    var cancelled = false;
+    final run = DesktopDownloadEngine.runCommand(
+      '/bin/sleep',
+      ['20'],
+      null,
+      cancelled: () => cancelled,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    cancelled = true;
+    await expectLater(
+      run.timeout(const Duration(seconds: 3)),
+      throwsA(isA<DesktopDownloadException>()),
+    );
+  });
+
   test('validates URLs and keeps URL as a single argument after separator', () {
     final service = engine((_, _, _) async => '');
     expect(
@@ -38,6 +54,17 @@ void main() {
       kind: 'audio',
       format: 'mp3',
       quality: 'medium',
+    );
+    expect(args, isNot(contains('--max-filesize')));
+    expect(
+      service.downloadArguments(
+        url,
+        'out.mp3',
+        kind: 'audio',
+        format: 'mp3',
+        maxBytes: 512 * 1024 * 1024,
+      ),
+      containsAllInOrder(['--max-filesize', '536870912']),
     );
     expect(args.last, url);
     expect(args[args.length - 2], '--');

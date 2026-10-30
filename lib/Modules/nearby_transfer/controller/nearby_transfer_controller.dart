@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -23,6 +24,9 @@ import '../data/wifi_direct_transport.dart';
 import '../data/transfer_cover_attachment.dart';
 import '../data/lan_transfer_transport.dart';
 import '../domain/hybrid_transfer_protocol.dart';
+import '../domain/paired_import_request.dart';
+import '../domain/paired_import_session.dart';
+import '../../../app/data/downloads/desktop_download_engine.dart';
 
 enum TransferPhase {
   idle,
@@ -117,6 +121,171 @@ class NearbyTransferController extends GetxController {
   final WifiDirectTransport _wifiDirect;
   final bool _listenWifi;
   final _lan = LanTransferTransport();
+  PairedImportSession? _pairedImport;
+  final pairedImportAvailable = false.obs;
+  final pairedImportBusy = false.obs;
+  final pairedImportState = 'ready'.obs;
+  final pairedImportProgress = 0.0.obs;
+  bool get isImportComputer => Platform.isMacOS;
+
+  Future<void> requestComputerImport(
+    String url,
+    PairedImportFormat format,
+  ) async {
+    final session = _pairedImport;
+    if (session == null || !isConnected || !lanMode.value) {
+      throw StateError('unavailable');
+    }
+    await session.request(
+      PairedImportRequest(
+        id: List.generate(
+          16,
+          (_) => Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'),
+        ).join(),
+        url: PairedImportRequest.validateUrl(url),
+        format: format,
+      ),
+    );
+  }
+
+  void _startPairedImport() {
+    _pairedImport?.close();
+    pairedImportAvailable.value = false;
+    final session = PairedImportSession(
+      host: Platform.isMacOS && _host,
+      send: _lan.sendControl,
+      changed: (state, progress) {
+        pairedImportState.value = state;
+        pairedImportProgress.value = progress;
+        pairedImportBusy.value = [
+          'waiting',
+          'downloading',
+          'transferring',
+        ].contains(state);
+        pairedImportAvailable.value = _pairedImport?.available ?? false;
+      },
+      approve: (request) async =>
+          await Get.dialog<bool>(
+            AlertDialog(
+              title: Text(tr('paired_import.approve_title')),
+              content: Text(
+                tr(
+                  'paired_import.approve_body',
+                  args: [
+                    peerName.value,
+                    request.url,
+                    request.format.name.toUpperCase(),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Get.back(result: false),
+                  child: Text(tr('nearby_session.cancel')),
+                ),
+                FilledButton(
+                  onPressed: () => Get.back(result: true),
+                  child: Text(tr('paired_import.allow')),
+                ),
+              ],
+            ),
+          ) ==
+          true,
+      execute: _executePairedImport,
+    );
+    _pairedImport = session;
+    unawaited(session.announce().catchError((Object _) {}));
+  }
+
+  Future<void> _executePairedImport(
+    PairedImportRequest request,
+    void Function(double) progress,
+    bool Function() active,
+  ) async {
+    if (!Platform.isMacOS || busy.value || !active()) {
+      throw StateError('unavailable');
+    }
+    await request.validateDestination();
+    if (!active()) return;
+    final engine = await DesktopDownloadEngine.discover(
+      cancelled: () => !active(),
+    );
+    if (!active()) return;
+    final directory = await Directory.systemTemp.createTemp(
+      'listenfy-paired-import-',
+    );
+    try {
+      final info = await engine.resolve(request.url);
+      if (!active()) return;
+      if (info['_type'] == 'playlist' ||
+          info['_type'] == 'multi_video' ||
+          info['entries'] != null) {
+        throw StateError('single_item_required');
+      }
+      final duration = info['duration'];
+      if (info['is_live'] == true ||
+          (duration is num && (duration <= 0 || duration > 3600))) {
+        throw StateError('unsupported_duration');
+      }
+      final path = p.join(directory.path, 'media.${request.format.name}');
+      await engine.download(
+        request.url,
+        path,
+        kind: request.kind,
+        format: request.format.name,
+        maxBytes: 512 * 1024 * 1024,
+        onProgress: (bytes, total) {
+          if (total > 0) progress((bytes / total).clamp(0, 1));
+        },
+      );
+      if (!active()) return;
+      final item = MediaItem.fromJson({
+        'id': DesktopDownloadEngine.stableId(info, request.url),
+        'title': info['title'] is String
+            ? info['title']
+            : Uri.parse(request.url).host,
+        'subtitle': info['artist'] is String
+            ? info['artist']
+            : info['uploader'] is String
+            ? info['uploader']
+            : '',
+        'source': 'youtube',
+        'variants': [
+          {
+            'kind': request.kind,
+            'format': request.format.name,
+            'fileName': 'media.${request.format.name}',
+            'localPath': path,
+            'createdAt': DateTime.now().millisecondsSinceEpoch,
+            'duration': info['duration'] is num
+                ? (info['duration'] as num).toInt()
+                : 0,
+          },
+        ],
+      });
+      await _pairedImport?.transferring();
+      final existing = sent.map((entry) => entry.id).toSet();
+      await sendItems([item]);
+      if (!active()) return;
+      final entries = sent
+          .where((entry) => !existing.contains(entry.id))
+          .toList();
+      if (entries.length != 1) throw StateError('send');
+      final id = entries.single.id;
+      final deadline = DateTime.now().add(const Duration(minutes: 5));
+      while (active()) {
+        final entry = sent.firstWhere((entry) => entry.id == id);
+        if (entry.state == 'completed') return;
+        if (entry.state == 'failed' || DateTime.now().isAfter(deadline)) {
+          throw StateError('send');
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+    } finally {
+      if (await directory.exists()) await directory.delete(recursive: true);
+    }
+  }
+
   final RxBool lanMode;
   WifiDirectTransport get _direct => lanMode.value ? _lan : _wifiDirect;
   bool get canCreateInvitation => !lanMode.value || Platform.isMacOS;
@@ -669,6 +838,7 @@ class NearbyTransferController extends GetxController {
       phase.value = TransferPhase.connected;
       statusKey.value = 'nearby_session.connected';
       inviteUri.value = null;
+      if (lanMode.value) _startPairedImport();
       return;
     }
     if (type == 'closed' || type == 'error') {
@@ -680,6 +850,16 @@ class NearbyTransferController extends GetxController {
       return;
     }
     if (!isConnected) return;
+    if (type == 'control' && lanMode.value) {
+      final message = event['message'];
+      if (message is Map<String, dynamic>) {
+        unawaited(
+          _pairedImport?.receive(message).catchError((Object _) {}) ??
+              Future<void>.value(),
+        );
+      }
+      return;
+    }
     if (type == 'progress') {
       final id = (event['payloadId'] as num?)?.toInt();
       if (id == null) return;
@@ -907,6 +1087,10 @@ class NearbyTransferController extends GetxController {
   }
 
   Future<void> closeConnection() async {
+    _pairedImport?.close();
+    _pairedImport = null;
+    pairedImportAvailable.value = false;
+    pairedImportBusy.value = false;
     _generation++;
     _handoff = false;
     _deadline?.cancel();

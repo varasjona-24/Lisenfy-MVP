@@ -158,3 +158,7 @@ Se verificó la ejecución JavaScript (`console.log(42)`) y la descarga de video
 `SANDBOX_PROBE SUCCESS`. El archivo se eliminó al terminar. El requisito para
 probar la app normal después de este cambio es detener la sesión anterior y
 recompilar; hot reload no incorpora los helpers ni sus firmas.
+
+## Importaciones solicitadas por un teléfono
+
+La sesión LAN admite descargas autorizadas desde Play Store. Consulta [paired_desktop_import.md](paired_desktop_import.md). El límite de tamaño de esas solicitudes no modifica las descargas normales del escritorio.
