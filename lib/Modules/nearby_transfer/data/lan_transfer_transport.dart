@@ -16,7 +16,7 @@ typedef LanApproval = Future<bool> Function(String peer, String verification);
 /// pin it and both users compare a transcript-bound verification before files.
 class LanTransferTransport implements WifiDirectTransport {
   static const discoveryPort = 39474;
-  static const protocol = 'listenfy.lan.v1';
+  static const protocol = 'listenfy.lan.v2';
   final _events = StreamController<Map<String, dynamic>>.broadcast();
   final _temporary = <File>{};
   final _pending = <int>{};
@@ -436,6 +436,19 @@ class LanTransferTransport implements WifiDirectTransport {
     unawaited(_pump(wire, epoch));
   }
 
+  Future<void> sendControl(Map<String, dynamic> message) {
+    if (utf8.encode(jsonEncode(message)).length > 8192) {
+      throw const FormatException('control_size');
+    }
+    return _queue(
+      () => _wire!.write({
+        'type': 'control',
+        'sessionId': _session,
+        'message': message,
+      }),
+    );
+  }
+
   _LanWire? _wire;
   Future<void> _queue(Future<void> Function() action) {
     final epoch = _epoch;
@@ -585,6 +598,13 @@ class LanTransferTransport implements WifiDirectTransport {
           throw const FormatException('session');
         }
         switch (header['type']) {
+          case 'control':
+            final message = header['message'];
+            if (message is! Map<String, dynamic> ||
+                utf8.encode(jsonEncode(message)).length > 8192) {
+              throw const FormatException('control');
+            }
+            _emit('control', {'message': message});
           case 'ping':
             // Never stop the reader waiting for our writer: both peers may
             // be sending large files concurrently with TCP backpressure.

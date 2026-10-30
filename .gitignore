@@ -52,3 +52,6 @@ key.properties
 # Local media/source dumps that must not be uploaded
 www.youtube.com_cookies*.txt
 /android/openal-soft/
+
+# Desktop companion tools are prepared locally.
+.desktop-tools/

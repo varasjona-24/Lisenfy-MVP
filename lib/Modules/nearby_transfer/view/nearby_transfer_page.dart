@@ -1,3 +1,4 @@
+import '../domain/paired_import_request.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -205,6 +206,127 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
     });
   }
 
+  Future<void> _requestComputerImport() async {
+    var url = '';
+    var format = PairedImportFormat.mp3;
+    final form = GlobalKey<FormState>();
+    final confirmed = await showDialog<bool>(
+      context: Get.context!,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          title: Text(tr('paired_import.title')),
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Form(
+                key: form,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(tr('paired_import.client_hint')),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      onChanged: (value) => url = value,
+                      keyboardType: TextInputType.url,
+                      decoration: InputDecoration(
+                        labelText: tr('paired_import.url'),
+                      ),
+                      validator: (value) {
+                        try {
+                          PairedImportRequest.validateUrl(value ?? '');
+                          return null;
+                        } catch (_) {
+                          return tr('paired_import.invalid_url');
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<PairedImportFormat>(
+                      initialValue: format,
+                      items: [
+                        for (final value in PairedImportFormat.values)
+                          DropdownMenuItem(
+                            value: value,
+                            child: Text(value.name.toUpperCase()),
+                          ),
+                      ],
+                      onChanged: (value) => update(() => format = value!),
+                      decoration: InputDecoration(
+                        labelText: tr('paired_import.format'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(_t('cancel')),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (form.currentState!.validate()) Navigator.pop(context, true);
+              },
+              child: Text(tr('paired_import.request')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed == true) {
+      await _run(() => controller.requestComputerImport(url, format));
+    }
+  }
+
+  Widget _computerImportCard(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            tr('paired_import.title'),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            tr(
+              controller.isImportComputer
+                  ? 'paired_import.host_hint'
+                  : 'paired_import.client_hint',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            tr('paired_import.states.${controller.pairedImportState.value}'),
+          ),
+          if (controller.pairedImportBusy.value)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: LinearProgressIndicator(
+                value:
+                    controller.pairedImportState.value == 'downloading' &&
+                        controller.pairedImportProgress.value > 0
+                    ? controller.pairedImportProgress.value
+                    : null,
+              ),
+            ),
+          if (!controller.isImportComputer)
+            FilledButton.icon(
+              onPressed:
+                  controller.pairedImportBusy.value || controller.busy.value
+                  ? null
+                  : _requestComputerImport,
+              icon: const Icon(Icons.computer_rounded),
+              label: Text(tr('paired_import.request')),
+            ),
+        ],
+      ),
+    ),
+  );
+
   Future<void> _close() async {
     final confirmed = await Get.dialog<bool>(
       AlertDialog(
@@ -317,7 +439,9 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                       if (connected) ...[
                         FilledButton.icon(
                           key: const Key('transfer-send'),
-                          onPressed: locked ? null : _send,
+                          onPressed: locked || controller.pairedImportBusy.value
+                              ? null
+                              : _send,
                           icon: const Icon(Icons.add_rounded),
                           label: Text(_t('send')),
                         ),
@@ -327,6 +451,10 @@ class NearbyTransferPage extends GetView<NearbyTransferController> {
                           icon: const Icon(Icons.link_off),
                           label: Text(_t('close')),
                         ),
+                        if (controller.lanMode.value &&
+                            (controller.isImportComputer ||
+                                controller.pairedImportAvailable.value))
+                          _computerImportCard(context),
                       ] else ...[
                         Text(_t('bridge_hint')),
                         const SizedBox(height: 12),

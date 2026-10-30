@@ -2196,5 +2196,27 @@
       "canceled": "Proceso cancelado.",
       "unknown": "Procesando..."
     }
+  },
+  "paired_import": {
+    "title": "Importar mediante mi ordenador",
+    "client_hint": "El ordenador emparejado descarga el enlace y envía el archivo a tu biblioteca. Debe permanecer conectado y autorizar la solicitud.",
+    "host_hint": "Este ordenador puede descargar un enlace individual compatible con yt-dlp para el teléfono emparejado. Cada solicitud requiere tu autorización.",
+    "approve_title": "¿Permitir la descarga solicitada?",
+    "approve_body": "{} solicita descargar:\n{}\nFormato: {}\nEl archivo se enviará al dispositivo emparejado.",
+    "allow": "Autorizar",
+    "url": "Enlace del contenido (HTTPS)",
+    "invalid_url": "Introduce un enlace HTTPS de un sitio público. No se admiten direcciones locales.",
+    "format": "Formato",
+    "request": "Solicitar al ordenador",
+    "states": {
+      "ready": "Listo para recibir solicitudes",
+      "waiting": "Esperando autorización en el ordenador",
+      "downloading": "Descargando en el ordenador",
+      "transferring": "Enviando e importando el archivo",
+      "completed": "Archivo recibido e importado",
+      "rejected": "El ordenador rechazó la solicitud",
+      "failed": "No se pudo completar la importación. Revisa las herramientas del ordenador y la conexión.",
+      "busy": "El ordenador está atendiendo otra solicitud"
+    }
   }
 }

@@ -109,6 +109,19 @@ void main() {
         ]).timeout(const Duration(seconds: 5));
         expect(verifications, hasLength(2));
         expect(verifications.first, verifications.last);
+        final command = host.events.firstWhere(
+          (event) => event['type'] == 'control',
+        );
+        await client.sendControl({'op': 'request', 'id': 'test'});
+        expect((await command.timeout(const Duration(seconds: 5)))['message'], {
+          'op': 'request',
+          'id': 'test',
+        });
+        expect(
+          () => client.sendControl({'data': 'x' * 9000}),
+          throwsFormatException,
+        );
+
         final bytes = Uint8List.fromList(
           List.generate(512 * 1024, (i) => i % 256),
         );
