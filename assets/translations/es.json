@@ -1260,6 +1260,9 @@
   },
   "captures": {
     "gallery": {
+      "desktop_subtitle": "Explora tus capturas y organízalas con etiquetas.",
+      "selected_count": "{} de 20 capturas seleccionadas",
+      "no_results": "Sin resultados para «{}»",
       "title": "Capturas",
       "empty_state": "Sin capturas aún",
       "empty_body": "Las capturas tomadas desde el reproductor aparecerán aquí.",
@@ -1272,6 +1275,7 @@
       "search_name_tag": "Buscar por nombre o etiqueta…"
     },
     "tags": {
+      "desktop_subtitle": "Organiza y explora las capturas de cada etiqueta.",
       "title": "Etiquetas",
       "create": "Crear etiqueta",
       "edit": "Editar etiqueta",

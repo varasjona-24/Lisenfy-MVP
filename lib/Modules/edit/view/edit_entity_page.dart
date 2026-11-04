@@ -1,3 +1,4 @@
+import '../../captures/ui/capture_image_preview.dart';
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart'
@@ -2293,11 +2294,19 @@ class _EditEntityPageState extends State<EditEntityPage> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                width: _usesWideCover ? 126 : 88,
-                height: _usesWideCover ? 71 : 88,
-                child: _buildThumbnail(context),
-              ),
+              child: _isCapture
+                  ? SizedBox(
+                      width: 126,
+                      child: CaptureImagePreview(
+                        path: _capture!.path,
+                        maxHeight: 126,
+                      ),
+                    )
+                  : SizedBox(
+                      width: _usesWideCover ? 126 : 88,
+                      height: _usesWideCover ? 71 : 88,
+                      child: _buildThumbnail(context),
+                    ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -2869,10 +2878,15 @@ class _EditEntityPageState extends State<EditEntityPage> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: AspectRatio(
-                aspectRatio: _usesWideCover ? 16 / 9 : 1,
-                child: _buildThumbnail(context),
-              ),
+              child: _isCapture
+                  ? CaptureImagePreview(
+                      key: const ValueKey('capture-editor-preview'),
+                      path: _capture!.path,
+                    )
+                  : AspectRatio(
+                      aspectRatio: _usesWideCover ? 16 / 9 : 1,
+                      child: _buildThumbnail(context),
+                    ),
             ),
             const SizedBox(height: 16),
             Text(

@@ -1,3 +1,4 @@
+import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart'
@@ -26,6 +27,7 @@ class CaptureActionSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final desktop = AppBottomNav.desktopSidebarEnabled;
     return SafeArea(
       child: SingleChildScrollView(
         child: Padding(
@@ -40,11 +42,11 @@ class CaptureActionSheet extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(16),
                       child: SizedBox(
-                        width: 64,
-                        height: 64,
+                        width: desktop ? 128 : 64,
+                        height: desktop ? 88 : 64,
                         child: Image.file(
                           File(capture.path),
-                          fit: BoxFit.cover,
+                          fit: desktop ? BoxFit.contain : BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>
                               ColoredBox(
                                 color: scheme.surfaceContainerHighest,
@@ -60,11 +62,11 @@ class CaptureActionSheet extends StatelessWidget {
                         children: [
                           Text(
                             capture.name,
-                            maxLines: 1,
+                            maxLines: desktop ? 2 : 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w900,
-                              fontSize: 18,
+                              fontSize: desktop ? 22 : 18,
                             ),
                           ),
                           const SizedBox(height: 4),

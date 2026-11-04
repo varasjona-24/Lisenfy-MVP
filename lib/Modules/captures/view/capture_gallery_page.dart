@@ -1,3 +1,6 @@
+import '../ui/capture_panel.dart';
+import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
+import '../../../app/ui/widgets/layout/app_library_header.dart';
 import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
@@ -81,10 +84,10 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
 
     CaptureCoverTarget? target;
     try {
-      target = await showModalBottomSheet<CaptureCoverTarget>(
+      target = await showCapturePanel<CaptureCoverTarget>(
         context: context,
-        showDragHandle: true,
         isScrollControlled: true,
+        width: 820,
         builder: (context) {
           return CaptureCoverTargetSheet(
             targets: _controller.loadCoverTargets(),
@@ -128,14 +131,8 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
   }
 
   void _showOptionsSheet(CaptureItem capture) {
-    final scheme = Theme.of(context).colorScheme;
-    showModalBottomSheet<void>(
+    showCapturePanel<void>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: scheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
       builder: (ctx) {
         return CaptureActionSheet(
           capture: capture,
@@ -161,14 +158,8 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
   }
 
   void _showSortSheet() {
-    final scheme = Theme.of(context).colorScheme;
-    showModalBottomSheet<void>(
+    showCapturePanel<void>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: scheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, modalSetState) {
@@ -221,6 +212,7 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final desktop = AppBottomNav.desktopSidebarEnabled;
 
     return Obx(() {
       final captures = _controller.captures;
@@ -230,58 +222,60 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
       return AppNavigationScaffold(
         navigationIndex: -1,
         backgroundColor: scheme.surface,
-        appBar: AppBar(
-          title: Text(
-            _controller.hasSelection
-                ? '${_controller.selectedCount}/20 seleccionadas'
-                : 'Capturas',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          centerTitle: true,
-          forceMaterialTransparency: true,
-          actions: [
-            if (_controller.hasSelection) ...[
-              IconButton(
-                tooltip: tr('common.share'),
-                icon: const Icon(Icons.bluetooth_searching_rounded),
-                onPressed: _controller.shareSelected,
-              ),
-              IconButton(
-                tooltip: tr('home.section.cancel_selection'),
-                icon: const Icon(Icons.close_rounded),
-                onPressed: _controller.clearSelection,
-              ),
-            ] else
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (query.isEmpty)
-                    IconButton(
-                      tooltip: tr('captures.tags.title'),
-                      icon: const Icon(Icons.folder_special_rounded),
-                      onPressed: _openTagFolders,
-                    ),
-                  IconButton(
-                    tooltip: tr('captures.sort.title'),
-                    icon: const Icon(Icons.sort_rounded),
-                    onPressed: _showSortSheet,
+        appBar: desktop
+            ? null
+            : AppBar(
+                title: Text(
+                  _controller.hasSelection
+                      ? '${_controller.selectedCount}/20 seleccionadas'
+                      : tr('captures.gallery.title'),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
+                ),
+                centerTitle: true,
+                forceMaterialTransparency: true,
+                actions: [
+                  if (_controller.hasSelection) ...[
+                    IconButton(
+                      tooltip: tr('common.share'),
+                      icon: const Icon(Icons.bluetooth_searching_rounded),
+                      onPressed: _controller.shareSelected,
+                    ),
+                    IconButton(
+                      tooltip: tr('home.section.cancel_selection'),
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: _controller.clearSelection,
+                    ),
+                  ] else
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (query.isEmpty)
+                          IconButton(
+                            tooltip: tr('captures.tags.title'),
+                            icon: const Icon(Icons.folder_special_rounded),
+                            onPressed: _openTagFolders,
+                          ),
+                        IconButton(
+                          tooltip: tr('captures.sort.title'),
+                          icon: const Icon(Icons.sort_rounded),
+                          onPressed: _showSortSheet,
+                        ),
+                      ],
+                    ),
                 ],
               ),
-          ],
-        ),
         body: AppGradientBackground(
           child: Builder(
             builder: (context) {
               if (_controller.isLoading.value) {
                 return const Center(child: CircularProgressIndicator());
               }
+              if (desktop) return _desktopGallery(context, sorted);
               if (captures.isEmpty) {
                 return const CaptureEmptyState();
               }
-
               return Column(
                 children: [
                   Padding(
@@ -342,5 +336,118 @@ class _CaptureGalleryPageState extends State<CaptureGalleryPage> {
         ),
       );
     });
+  }
+
+  Widget _desktopGallery(BuildContext context, List<CaptureItem> captures) {
+    final selected = _controller.hasSelection;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 32, 32, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppLibraryHeader(
+            title: tr('captures.gallery.title'),
+            subtitle: selected
+                ? tr(
+                    'captures.gallery.selected_count',
+                    args: ['${_controller.selectedCount}'],
+                  )
+                : tr('captures.gallery.desktop_subtitle'),
+            metrics: [
+              AppLibraryHeaderMetric(
+                icon: Icons.photo_library_outlined,
+                label: tr(
+                  'captures.tags.count_label',
+                  args: ['${_controller.captures.length}'],
+                ),
+              ),
+            ],
+            action: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: selected
+                  ? [
+                      FilledButton.icon(
+                        onPressed: _controller.shareSelected,
+                        icon: const Icon(Icons.ios_share_rounded),
+                        label: Text(tr('common.share')),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _controller.clearSelection,
+                        icon: const Icon(Icons.close_rounded),
+                        label: Text(tr('home.section.cancel_selection')),
+                      ),
+                    ]
+                  : [
+                      OutlinedButton.icon(
+                        onPressed: _openTagFolders,
+                        icon: const Icon(Icons.folder_special_rounded),
+                        label: Text(tr('captures.tags.title')),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _showSortSheet,
+                        icon: const Icon(Icons.sort_rounded),
+                        label: Text(tr('captures.sort.title')),
+                      ),
+                    ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          SourceFilterToolbar(
+            controller: _searchCtrl,
+            query: _controller.query.value,
+            hintText: tr('captures.gallery.search_name_tag'),
+            onQueryChanged: _controller.setQuery,
+            onClearQuery: () {
+              _searchCtrl.clear();
+              _controller.setQuery('');
+            },
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: _controller.captures.isEmpty
+                ? const CaptureEmptyState()
+                : captures.isEmpty
+                ? Center(
+                    child: Text(
+                      tr(
+                        'captures.gallery.no_results',
+                        args: [_controller.query.value],
+                      ),
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _controller.reload,
+                    child: GridView.builder(
+                      padding: const EdgeInsets.only(bottom: 32),
+                      itemCount: captures.length,
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 340,
+                            mainAxisExtent: 228,
+                            crossAxisSpacing: 20,
+                            mainAxisSpacing: 20,
+                          ),
+                      itemBuilder: (context, index) {
+                        final capture = captures[index];
+                        return CaptureTile(
+                          capture: capture,
+                          selected: _controller.selectedPaths.contains(
+                            capture.path,
+                          ),
+                          onTap: () => _controller.hasSelection
+                              ? _toggleSelection(capture)
+                              : _openPreview(capture),
+                          onLongPress: () => _toggleSelection(capture),
+                          onOptions: () => _showOptionsSheet(capture),
+                          tagColorBuilder: _controller.colorForTag,
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 }

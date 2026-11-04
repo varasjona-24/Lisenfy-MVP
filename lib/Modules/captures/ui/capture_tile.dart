@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -26,14 +28,17 @@ class CaptureTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final desktop = AppBottomNav.desktopSidebarEnabled;
 
     return InkWell(
-      borderRadius: BorderRadius.zero,
+      borderRadius: desktop ? BorderRadius.circular(14) : BorderRadius.zero,
+      onSecondaryTap: desktop ? onOptions : null,
       onTap: selected ? onLongPress : onTap,
       onLongPress: onLongPress,
       child: Ink(
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHigh.withValues(alpha: .62),
+          borderRadius: desktop ? BorderRadius.circular(14) : null,
           border: Border.all(
             color: selected
                 ? scheme.primary
@@ -48,13 +53,18 @@ class CaptureTile extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.file(
-                    File(capture.path),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => ColoredBox(
-                      color: scheme.surfaceContainerHighest,
-                      child: const Center(
-                        child: Icon(Icons.broken_image_rounded, size: 32),
+                  ClipRRect(
+                    borderRadius: desktop
+                        ? const BorderRadius.vertical(top: Radius.circular(14))
+                        : BorderRadius.zero,
+                    child: Image.file(
+                      File(capture.path),
+                      fit: desktop ? BoxFit.contain : BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => ColoredBox(
+                        color: scheme.surfaceContainerHighest,
+                        child: const Center(
+                          child: Icon(Icons.broken_image_rounded, size: 32),
+                        ),
                       ),
                     ),
                   ),
@@ -98,17 +108,26 @@ class CaptureTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                  GestureDetector(
-                    onTap: onOptions,
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.more_horiz_rounded,
-                        size: 20,
-                        color: scheme.onSurfaceVariant,
+                  if (desktop)
+                    Tooltip(
+                      message: tr('common.select'),
+                      child: Checkbox(
+                        value: selected,
+                        onChanged: (_) => onLongPress(),
+                      ),
+                    )
+                  else
+                    GestureDetector(
+                      onTap: onOptions,
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.more_horiz_rounded,
+                          size: 20,
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

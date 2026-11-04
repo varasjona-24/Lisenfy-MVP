@@ -1260,6 +1260,9 @@
   },
   "captures": {
     "gallery": {
+      "desktop_subtitle": "Browse your captures and organize them with tags.",
+      "selected_count": "{} of 20 captures selected",
+      "no_results": "No results for “{}”",
       "title": "Captures",
       "empty_state": "No captures yet",
       "empty_body": "Captures taken from the player will appear here.",
@@ -1272,6 +1275,7 @@
       "search_name_tag": "Search by name or tag…"
     },
     "tags": {
+      "desktop_subtitle": "Organize and browse the captures in each tag.",
       "title": "Tags",
       "create": "Create tag",
       "edit": "Edit tag",

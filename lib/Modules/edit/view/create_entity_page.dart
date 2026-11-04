@@ -215,21 +215,25 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
       child: Icon(
         _isCaptureTag ? Icons.folder_rounded : Icons.queue_music_rounded,
         size: 44,
-        color: theme.colorScheme.onSurfaceVariant,
+        color: _isCaptureTag && _colorValue != null
+            ? Color(_colorValue!)
+            : theme.colorScheme.onSurfaceVariant,
       ),
     );
   }
 
-  Widget _desktopPlaylistPage(BuildContext context) {
+  Widget _desktopCreatePage(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final artwork = SizedBox(
-      key: const ValueKey('playlist-create-cover'),
+      key: ValueKey(
+        _isCaptureTag ? 'capture-tag-create-cover' : 'playlist-create-cover',
+      ),
       width: 260,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: AspectRatio(
-          aspectRatio: 1,
+          aspectRatio: _isCaptureTag ? 16 / 9 : 1,
           child: ColoredBox(
             color: scheme.surfaceContainerHigh,
             child: _buildThumbnail(context),
@@ -251,43 +255,54 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
           controller: _nameCtrl,
           decoration: InputDecoration(
             labelText: tr('edit.name'),
-            prefixIcon: const Icon(Icons.queue_music_rounded),
-          ),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          tr('edit.cover'),
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.tonalIcon(
-                onPressed: _pickLocalThumbnail,
-                icon: const Icon(Icons.photo_library_rounded),
-                label: Text(tr('edit.choose_image')),
-              ),
+            prefixIcon: Icon(
+              _isCaptureTag ? Icons.folder_rounded : Icons.queue_music_rounded,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton.tonalIcon(
-                onPressed: _searchWebThumbnail,
-                icon: const Icon(Icons.public_rounded),
-                label: Text(tr('edit.search_web')),
+          ),
+        ),
+        if (_isCaptureTag) ...[
+          const SizedBox(height: 24),
+          SourceColorPickerField(
+            color: _colorValue != null ? Color(_colorValue!) : scheme.primary,
+            onChanged: (color) =>
+                setState(() => _colorValue = color.toARGB32()),
+          ),
+        ] else ...[
+          const SizedBox(height: 24),
+          Text(
+            tr('edit.cover'),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: _pickLocalThumbnail,
+                  icon: const Icon(Icons.photo_library_rounded),
+                  label: Text(tr('edit.choose_image')),
+                ),
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: _searchWebThumbnail,
+                  icon: const Icon(Icons.public_rounded),
+                  label: Text(tr('edit.search_web')),
+                ),
+              ),
+            ],
+          ),
+          if ((_localThumbPath ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _clearThumbnail,
+              icon: const Icon(Icons.hide_image_rounded),
+              label: Text(tr('edit.remove_cover')),
             ),
           ],
-        ),
-        if ((_localThumbPath ?? '').trim().isNotEmpty) ...[
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _clearThumbnail,
-            icon: const Icon(Icons.hide_image_rounded),
-            label: Text(tr('edit.remove_cover')),
-          ),
         ],
       ],
     );
@@ -315,7 +330,11 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 900),
               child: Card(
-                key: const ValueKey('playlist-create-panel'),
+                key: ValueKey(
+                  _isCaptureTag
+                      ? 'capture-tag-create-panel'
+                      : 'playlist-create-panel',
+                ),
                 margin: EdgeInsets.zero,
                 color: scheme.surfaceContainer,
                 child: Padding(
@@ -354,8 +373,8 @@ class _CreateEntityPageState extends State<CreateEntityPage> {
     final theme = Theme.of(context);
 
     if (AppBottomNav.desktopSidebarEnabled &&
-        _args.type == CreateEntityType.playlist) {
-      return _desktopPlaylistPage(context);
+        (_args.type == CreateEntityType.playlist || _isCaptureTag)) {
+      return _desktopCreatePage(context);
     }
 
     return Scaffold(

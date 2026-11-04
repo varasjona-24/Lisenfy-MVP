@@ -1,3 +1,6 @@
+import '../ui/capture_panel.dart';
+import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
+import '../../../app/ui/widgets/layout/app_library_header.dart';
 import '../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
 import 'dart:io';
 
@@ -40,6 +43,7 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final desktop = AppBottomNav.desktopSidebarEnabled;
 
     return Obx(() {
       final folders = controller.tagFolders;
@@ -69,49 +73,84 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
       return AppNavigationScaffold(
         navigationIndex: -1,
         backgroundColor: scheme.surface,
-        appBar: AppBar(
-          title: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                tr('captures.tags.title'),
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
+        appBar: desktop
+            ? null
+            : AppBar(
+                title: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      tr('captures.tags.title'),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest.withValues(
+                          alpha: .72,
+                        ),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '${folders.length}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: .72),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  '${folders.length}',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                centerTitle: true,
+                forceMaterialTransparency: true,
+                actions: [
+                  IconButton(
+                    tooltip: tr('captures.tags.create'),
+                    icon: const Icon(Icons.add_rounded),
+                    onPressed: () => _createTag(context),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-          centerTitle: true,
-          forceMaterialTransparency: true,
-          actions: [
-            IconButton(
-              tooltip: tr('captures.tags.create'),
-              icon: const Icon(Icons.add_rounded),
-              onPressed: () => _createTag(context),
-            ),
-          ],
-        ),
         body: AppGradientBackground(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (desktop)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(32, 32, 32, 20),
+                  child: AppLibraryHeader(
+                    title: tr('captures.tags.title'),
+                    subtitle: tr('captures.tags.desktop_subtitle'),
+                    metrics: [
+                      AppLibraryHeaderMetric(
+                        icon: Icons.folder_special_rounded,
+                        label: '${folders.length} ${tr('captures.tags.title')}',
+                      ),
+                    ],
+                    action: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (Navigator.of(context).canPop()) BackButton(),
+                        FilledButton.icon(
+                          onPressed: () => _createTag(context),
+                          icon: const Icon(Icons.add_rounded),
+                          label: Text(tr('captures.tags.create')),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                padding: desktop
+                    ? const EdgeInsets.fromLTRB(32, 0, 32, 20)
+                    : const EdgeInsets.fromLTRB(16, 4, 16, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -173,15 +212,23 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
                         ),
                       )
                     : GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        padding: desktop
+                            ? const EdgeInsets.fromLTRB(32, 0, 32, 32)
+                            : const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         itemCount: visibleFolders.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 1.08,
-                            ),
+                        gridDelegate: desktop
+                            ? const SliverGridDelegateWithMaxCrossAxisExtent(
+                                maxCrossAxisExtent: 280,
+                                mainAxisExtent: 240,
+                                crossAxisSpacing: 20,
+                                mainAxisSpacing: 20,
+                              )
+                            : const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: 1.08,
+                              ),
                         itemBuilder: (context, index) {
                           final folder = visibleFolders[index];
                           return _TagFolderTile(
@@ -236,11 +283,8 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
   }
 
   Future<void> _showSortSheet() async {
-    final scheme = Theme.of(context).colorScheme;
-    await showModalBottomSheet<void>(
+    await showCapturePanel<void>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: scheme.surface,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) {
           void pick(_CaptureTagSort next) {
@@ -330,14 +374,45 @@ class _CaptureTagsPageState extends State<CaptureTagsPage> {
     CaptureTagFolder folder,
   ) async {
     final scheme = Theme.of(context).colorScheme;
-    await showModalBottomSheet<void>(
+    await showCapturePanel<void>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: scheme.surface,
       builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (AppBottomNav.desktopSidebarEnabled)
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.folder_rounded,
+                      size: 56,
+                      color: Color(folder.colorValue),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            folder.tag,
+                            style: Theme.of(context).textTheme.titleLarge,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            tr(
+                              'captures.tags.count_label',
+                              args: ['${folder.count}'],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ListTile(
               leading: const Icon(Icons.edit_rounded),
               title: Text(tr('common.edit')),
@@ -444,6 +519,7 @@ class _TagFolderTile extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
+      onSecondaryTap: AppBottomNav.desktopSidebarEnabled ? onOptions : null,
       child: Ink(
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHigh.withValues(alpha: .72),
@@ -463,7 +539,7 @@ class _TagFolderTile extends StatelessWidget {
                     Positioned.fill(
                       child: Icon(
                         Icons.folder_rounded,
-                        size: 98,
+                        size: AppBottomNav.desktopSidebarEnabled ? 164 : 98,
                         color: color.withValues(alpha: .26),
                       ),
                     ),
@@ -474,8 +550,12 @@ class _TagFolderTile extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                           child: Image.file(
                             File(previewPath),
-                            width: 76,
-                            height: 48,
+                            width: AppBottomNav.desktopSidebarEnabled
+                                ? 112
+                                : 76,
+                            height: AppBottomNav.desktopSidebarEnabled
+                                ? 72
+                                : 48,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) =>
                                 const SizedBox(
@@ -488,20 +568,21 @@ class _TagFolderTile extends StatelessWidget {
                           ),
                         ),
                       ),
-                    Positioned(
-                      left: 2,
-                      top: 2,
-                      child: IconButton.filledTonal(
-                        style: IconButton.styleFrom(
-                          minimumSize: const Size(32, 32),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    if (!AppBottomNav.desktopSidebarEnabled)
+                      Positioned(
+                        left: 2,
+                        top: 2,
+                        child: IconButton.filledTonal(
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(32, 32),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: onOptions,
+                          iconSize: 16,
+                          icon: const Icon(Icons.more_horiz_rounded),
+                          tooltip: tr('captures.tags.edit'),
                         ),
-                        onPressed: onOptions,
-                        iconSize: 16,
-                        icon: const Icon(Icons.more_horiz_rounded),
-                        tooltip: tr('captures.tags.edit'),
                       ),
-                    ),
                   ],
                 ),
               ),

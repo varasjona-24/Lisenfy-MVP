@@ -1,3 +1,6 @@
+import 'package:listenfy/Modules/captures/domain/capture_item.dart';
+import 'package:listenfy/Modules/captures/ui/capture_image_preview.dart';
+import 'package:listenfy/Modules/sources/ui/source_color_picker_field.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:easy_localization/src/localization.dart';
@@ -16,6 +19,14 @@ import 'package:listenfy/Modules/playlists/domain/playlist.dart';
 
 class _Editor extends GetxController implements EditEntityController {
   String? createdName;
+  int? createdTagColor;
+  @override
+  Future<bool> createCaptureTag({required String name, int? colorValue}) async {
+    createdName = name;
+    createdTagColor = colorValue;
+    return true;
+  }
+
   @override
   Future<bool> createPlaylist({
     required String name,
@@ -45,6 +56,137 @@ void main() {
     ),
   );
   tearDown(() => Get.reset());
+  for (final size in [const Size(1440, 900), const Size(600, 800)]) {
+    testWidgets(
+      'create capture folder uses desktop form and preserves name and color at $size',
+      (tester) async {
+        Get.testMode = true;
+        final editor = _Editor();
+        Get.put<EditEntityController>(editor);
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          GetMaterialApp(
+            home: Scaffold(
+              body: TextButton(
+                onPressed: () => Get.to(
+                  () => const CreateEntityPage(),
+                  arguments: const CreateEntityArgs.captureTag(
+                    storageId: 'tag',
+                    initialColorValue: 0xff123456,
+                  ),
+                ),
+                child: const Text('Open folder'),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open folder'));
+        await tester.pumpAndSettle();
+        final panel = tester.getRect(
+          find.byKey(const ValueKey('capture-tag-create-panel')),
+        );
+        expect(panel.width, lessThanOrEqualTo(900));
+        expect(panel.center.dx, closeTo(size.width / 2, 1));
+        expect(find.byType(SourceColorPickerField), findsOneWidget);
+        await tester.enterText(find.byType(TextField), ' My captures ');
+        tester
+            .widget<SourceColorPickerField>(find.byType(SourceColorPickerField))
+            .onChanged(const Color(0xff654321));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.check_rounded));
+        await tester.pumpAndSettle();
+        expect(editor.createdName, 'My captures');
+        expect(editor.createdTagColor, 0xff654321);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant({TargetPlatform.macOS}),
+    );
+  }
+  for (final dimensions in [
+    const Size(90, 160),
+    const Size(100, 100),
+    const Size(210, 90),
+  ]) {
+    testWidgets(
+      'capture editor preserves original image proportion $dimensions',
+      (tester) async {
+        Get.testMode = true;
+        Get.put<EditEntityController>(_Editor());
+        Get.put<ArtistsController>(_Artists());
+        tester.view.physicalSize = const Size(1440, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        late Directory directory;
+        late File file;
+        const fixtures = <int, String>{
+          90: 'iVBORw0KGgoAAAANSUhEUgAAAFoAAACgCAIAAAADw+wqAAAA6ElEQVR4nO3QMQ0AIADAMDSgBS34l8KHBMbRZAKWjrm2biM/+CocOHDgwIEDBw4cOPpw4MCBAwcOHDhw4OjDgQMHDhw4cODAgaMPBw4cOHDgwIEDB44+HDhw4MCBAwcOHDj6cODAgQMHDhw4cODow4EDBw4cOHDgwIGjDwcOHDhw4MCBAweOPhw4cODAgQMHDhw4+nDgwIEDBw4cOHDg6MOBAwcOHDhw4MCBow8HDhw4cODAgQMHjj4cOHDgwIEDBw4cOPpw4MCBAwcOHDhw4OjDgQMHDhw4cODAgaMPBw4cOHDgwIHjVQeoaEj/bpVxigAAAABJRU5ErkJggg==',
+          100:
+              'iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAD/gAIDAAAAtklEQVR4nO3QQQkAIADAQDOYxSz2j2IFPzKEgwUYN+baumzkBx8FCxasPFiwYOXBggUrDxYsWHmwYMHKgwULVh4sWLDyYMGClQcLFqw8WLBg5cGCBSsPFixYebBgwcqDBQtWHixYsPJgwYKVBwsWrDxYsGDlwYIFKw8WLFh5sGDByoMFC1YeLFiw8mDBgpUHCxasPFiwYOXBggUrDxYsWHmwYMHKgwULVh4sWLDyYMGClQcL1psO8ffPGtDBpDgAAAAASUVORK5CYII=',
+          210:
+              'iVBORw0KGgoAAAANSUhEUgAAANIAAABaCAIAAABCGJ+gAAABAklEQVR4nO3SQQ0AIBDAsNOAFrTgXwou2IMmFbDHZu0Dj01ewIdsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYEbEfAdgRsR8B2BGxHwHYELr/u/8XpYSMgAAAAAElFTkSuQmCC',
+        };
+        directory = Directory.systemTemp.createTempSync(
+          'capture-preview-test-',
+        );
+        file = File('${directory.path}/capture.png')
+          ..writeAsBytesSync(base64Decode(fixtures[dimensions.width.toInt()]!));
+
+        addTearDown(() async {
+          await directory.delete(recursive: true);
+        });
+        final capture = CaptureItem(
+          path: file.path,
+          name: 'Capture',
+          modifiedAt: DateTime(2026),
+          size: 100,
+        );
+        await tester.pumpWidget(
+          GetMaterialApp(
+            home: Scaffold(
+              body: TextButton(
+                onPressed: () => Get.to(
+                  () => const EditEntityPage(),
+                  arguments: EditEntityArgs.capture(capture),
+                ),
+                child: const Text('Edit capture'),
+              ),
+            ),
+          ),
+        );
+        await tester.runAsync(
+          () => precacheImage(
+            FileImage(file),
+            tester.element(find.byType(Scaffold)),
+          ).timeout(const Duration(seconds: 5)),
+        );
+        await tester.tap(find.text('Edit capture'));
+        await tester.pumpAndSettle();
+        final preview = find.byType(CaptureImagePreview);
+        await tester.pumpAndSettle();
+        final ratio = tester.widget<AspectRatio>(
+          find.descendant(of: preview, matching: find.byType(AspectRatio)),
+        );
+        expect(
+          ratio.aspectRatio,
+          closeTo(dimensions.width / dimensions.height, .001),
+        );
+        final imageRect = tester.getRect(
+          find.descendant(of: preview, matching: find.byType(AspectRatio)),
+        );
+        expect(
+          imageRect.width / imageRect.height,
+          closeTo(dimensions.width / dimensions.height, .001),
+        );
+        expect(imageRect.height, lessThanOrEqualTo(420));
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant({TargetPlatform.macOS}),
+    );
+  }
   for (final size in [const Size(1440, 900), const Size(600, 800)]) {
     testWidgets(
       'create playlist matches compact editor at $size and preserves creation',
