@@ -599,9 +599,10 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
     }).toList();
 
     nav?.setOverlayOpen(true);
-    final selected = await showModalBottomSheet<List<MediaItem>>(
+    final selected = await showAdaptiveSortMenu<List<MediaItem>>(
       context: context,
       isScrollControlled: true,
+      maxWidth: 820,
       showDragHandle: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(

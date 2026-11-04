@@ -1,3 +1,4 @@
+import '../../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -172,27 +173,12 @@ class _QueuePageState extends State<QueuePage> {
               onPressed: _search.text.trim().isEmpty ? _chooseFilter : null,
             ),
             Obx(
-              () => PopupMenuButton<_QueueSaveAction>(
-                tooltip: tr('player.desktop.more'),
-                enabled: controller.queue.isNotEmpty,
-                icon: const Icon(Icons.more_horiz_rounded),
-                onSelected: (action) {
-                  if (action == _QueueSaveAction.temporary) {
-                    _saveTemporaryQueue(context);
-                  } else {
-                    _savePermanentQueue(context);
-                  }
-                },
-                itemBuilder: (_) => [
-                  PopupMenuItem(
-                    value: _QueueSaveAction.permanent,
-                    child: Text(tr('player.queue_save_permanent')),
-                  ),
-                  PopupMenuItem(
-                    value: _QueueSaveAction.temporary,
-                    child: Text(tr('player.queue_save_temporary')),
-                  ),
-                ],
+              () => IconButton(
+                tooltip: tr('player.queue_save_tooltip'),
+                icon: const Icon(Icons.save_alt_rounded),
+                onPressed: controller.queue.isEmpty
+                    ? null
+                    : () => _showSaveQueueOptions(context),
               ),
             ),
             const SizedBox(width: 16),
@@ -322,12 +308,12 @@ class _QueuePageState extends State<QueuePage> {
   }
 
   Future<void> _chooseFilter() async {
-    final selected = await showModalBottomSheet<_QueueFilter>(
+    final selected = await showAdaptiveSortMenu<_QueueFilter>(
       context: context,
       showDragHandle: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (ctx) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -751,9 +737,13 @@ class _QueuePageState extends State<QueuePage> {
   // ===========================================================================
 
   Future<void> _showSaveQueueOptions(BuildContext context) async {
-    final action = await showModalBottomSheet<_QueueSaveAction>(
+    final action = await showAdaptiveSortMenu<_QueueSaveAction>(
       context: context,
-      backgroundColor: Colors.transparent,
+      maxWidth: 640,
+      showDragHandle: false,
+      backgroundColor: AppBottomNav.desktopSidebarEnabled
+          ? Theme.of(context).colorScheme.surface
+          : Colors.transparent,
       builder: (ctx) => const _QueueSaveOptionsSheet(),
     );
     if (action == null) return;
@@ -970,71 +960,79 @@ class _QueueSaveOptionsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final desktop = AppBottomNav.desktopSidebarEnabled;
 
     return SafeArea(
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: 0.55),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 42,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(
-                    color: scheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(99),
+      child: SingleChildScrollView(
+        child: Container(
+          margin: desktop
+              ? EdgeInsets.zero
+              : const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          decoration: desktop
+              ? null
+              : BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.55),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!desktop)
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: scheme.outlineVariant,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                Text(
+                  tr('player.queue_save_title'),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-              ),
-              Text(
-                tr('player.queue_save_title'),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
+                const SizedBox(height: 4),
+                Text(
+                  tr('player.queue_save_sheet_subtitle'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                tr('player.queue_save_sheet_subtitle'),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
+                const SizedBox(height: 14),
+                _QueueSaveOptionTile(
+                  action: _QueueSaveAction.temporary,
+                  icon: Icons.schedule_rounded,
+                  title: tr('player.queue_save_temporary'),
+                  badge: tr('player.queue_save_badge_temporary'),
+                  subtitle: tr('player.queue_save_temporary_hint'),
                 ),
-              ),
-              const SizedBox(height: 14),
-              _QueueSaveOptionTile(
-                action: _QueueSaveAction.temporary,
-                icon: Icons.schedule_rounded,
-                title: tr('player.queue_save_temporary'),
-                badge: tr('player.queue_save_badge_temporary'),
-                subtitle: tr('player.queue_save_temporary_hint'),
-              ),
-              const SizedBox(height: 10),
-              _QueueSaveOptionTile(
-                action: _QueueSaveAction.permanent,
-                icon: Icons.playlist_add_check_rounded,
-                title: tr('player.queue_save_permanent'),
-                badge: tr('player.queue_save_badge_permanent'),
-                subtitle: tr('player.queue_save_permanent_hint'),
-              ),
-            ],
+                const SizedBox(height: 10),
+                _QueueSaveOptionTile(
+                  action: _QueueSaveAction.permanent,
+                  icon: Icons.playlist_add_check_rounded,
+                  title: tr('player.queue_save_permanent'),
+                  badge: tr('player.queue_save_badge_permanent'),
+                  subtitle: tr('player.queue_save_permanent_hint'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

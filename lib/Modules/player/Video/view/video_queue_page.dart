@@ -1,3 +1,5 @@
+import '../../../../app/ui/widgets/navigation/app_bottom_nav.dart';
+import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -45,6 +47,7 @@ class _VideoQueuePageState extends State<VideoQueuePage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final desktop = AppBottomNav.desktopSidebarEnabled;
 
     return Scaffold(
       appBar: AppBar(title: Text(tr('player.queue_title')), centerTitle: true),
@@ -61,6 +64,7 @@ class _VideoQueuePageState extends State<VideoQueuePage>
           (sum, item) => sum + (item.effectiveDurationSeconds ?? 0),
         );
 
+        if (desktop) return AppGradientBackground(child: _desktopQueue(theme));
         return Column(
           children: [
             _header(
@@ -73,9 +77,8 @@ class _VideoQueuePageState extends State<VideoQueuePage>
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 itemCount: queue.length,
                 buildDefaultDragHandles: false,
-                onReorder: (oldIndex, newIndex) async {
-                  await controller.reorderQueue(oldIndex, newIndex);
-                },
+                onReorderItem: _reorder,
+
                 itemBuilder: (context, i) {
                   final it = queue[i];
                   final selected = i == idx;
@@ -130,6 +133,257 @@ class _VideoQueuePageState extends State<VideoQueuePage>
     );
   }
 
+  Future<void> _reorder(int from, int to) =>
+      controller.reorderQueue(from, to > from ? to + 1 : to);
+
+  Widget _desktopQueue(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    final queue = controller.queue;
+    final current = controller.currentIndex.value;
+    final playing = current >= 0 && current < queue.length
+        ? queue[current]
+        : null;
+    final occurrences = <String, int>{};
+    final keys = [
+      for (final item in queue)
+        ValueKey(
+          'video-queue-${item.id}-${occurrences.update(item.id, (count) => count + 1, ifAbsent: () => 0)}',
+        ),
+    ];
+    Widget overview({bool compact = false}) {
+      final details = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            tr('player.now_playing'),
+            style: theme.textTheme.labelLarge?.copyWith(color: scheme.primary),
+          ),
+          const SizedBox(height: 12),
+          if (playing != null) ...[
+            Text(
+              playing.title,
+              maxLines: compact ? 2 : 3,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (playing.subtitle.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                playing.subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 16),
+          ],
+          Text(
+            tr(
+              'player.queue_video_summary',
+              args: [
+                '${queue.length}',
+                _fmtDurationTotal(
+                  queue.fold<int>(
+                    0,
+                    (sum, item) => sum + (item.effectiveDurationSeconds ?? 0),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            tr('player.queue_drag_hint'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+      return Container(
+        key: const ValueKey('desktop-video-queue-overview'),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainer.withValues(alpha: .85),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: scheme.outlineVariant.withValues(alpha: .35),
+          ),
+        ),
+        child: compact
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (playing != null) ...[
+                    _thumb(
+                      theme: theme,
+                      item: playing,
+                      selected: false,
+                      width: 144,
+                    ),
+                    const SizedBox(width: 20),
+                  ],
+                  Expanded(child: details),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (playing != null) ...[
+                    LayoutBuilder(
+                      builder: (context, box) => _thumb(
+                        theme: theme,
+                        item: playing,
+                        selected: false,
+                        width: box.maxWidth,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                  details,
+                ],
+              ),
+      );
+    }
+
+    Widget rows() => ReorderableListView.builder(
+      key: const ValueKey('desktop-video-queue-list'),
+      padding: EdgeInsets.zero,
+      buildDefaultDragHandles: false,
+      itemCount: queue.length,
+      onReorderItem: _reorder,
+      itemBuilder: (context, index) {
+        final item = queue[index];
+        final selected = index == current;
+        return Padding(
+          key: keys[index],
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Material(
+            color: selected
+                ? scheme.primaryContainer.withValues(alpha: .35)
+                : scheme.surfaceContainer.withValues(alpha: .75),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(
+                color: selected
+                    ? scheme.primary.withValues(alpha: .55)
+                    : scheme.outlineVariant.withValues(alpha: .25),
+              ),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => controller.playAt(index),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      child: Text(
+                        '${index + 1}',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelMedium,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    _thumb(
+                      theme: theme,
+                      item: item,
+                      selected: selected,
+                      width: 104,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (item.subtitle.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              item.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      _fmtDurationShort(item.effectiveDurationSeconds),
+                      style: theme.textTheme.labelLarge,
+                    ),
+                    const SizedBox(width: 16),
+                    MouseRegion(
+                      cursor: SystemMouseCursors.grab,
+                      child: ReorderableDragStartListener(
+                        index: index,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Icon(
+                            Icons.drag_indicator_rounded,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: LayoutBuilder(
+        builder: (context, box) {
+          if (box.maxWidth >= 1000) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 300,
+                  child: SingleChildScrollView(child: overview()),
+                ),
+                const SizedBox(width: 24),
+                Expanded(child: rows()),
+              ],
+            );
+          }
+          return Column(
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: box.maxHeight * .4),
+                child: SingleChildScrollView(
+                  child: overview(compact: box.maxWidth >= 500),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Expanded(child: rows()),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Widget _header({
     required ThemeData theme,
     required int count,
@@ -163,6 +417,7 @@ class _VideoQueuePageState extends State<VideoQueuePage>
     required ThemeData theme,
     required MediaItem item,
     required bool selected,
+    double width = 64,
   }) {
     final thumb = item.effectiveThumbnail?.trim();
 
@@ -173,27 +428,29 @@ class _VideoQueuePageState extends State<VideoQueuePage>
       if (looksLikeUrl) {
         image = Image.network(
           thumb,
-          width: 64,
-          height: 36,
+          width: width,
+          height: width * 9 / 16,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _thumbFallback(theme),
+          errorBuilder: (context, error, stackTrace) =>
+              _thumbFallback(theme, width: width),
         );
       } else {
         image = Image.file(
           File(thumb),
-          width: 64,
-          height: 36,
+          width: width,
+          height: width * 9 / 16,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _thumbFallback(theme),
+          errorBuilder: (context, error, stackTrace) =>
+              _thumbFallback(theme, width: width),
         );
       }
     } else {
-      image = _thumbFallback(theme);
+      image = _thumbFallback(theme, width: width);
     }
 
     return SizedBox(
-      width: 64,
-      height: 42,
+      width: width,
+      height: width * 9 / 16 + 6,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -224,10 +481,10 @@ class _VideoQueuePageState extends State<VideoQueuePage>
     );
   }
 
-  Widget _thumbFallback(ThemeData theme) {
+  Widget _thumbFallback(ThemeData theme, {double width = 64}) {
     return Container(
-      width: 64,
-      height: 36,
+      width: width,
+      height: width * 9 / 16,
       color: theme.colorScheme.surfaceContainerHighest,
       alignment: Alignment.center,
       child: Icon(Icons.videocam, color: theme.colorScheme.onSurfaceVariant),

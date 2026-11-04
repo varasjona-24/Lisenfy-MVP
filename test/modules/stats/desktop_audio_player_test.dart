@@ -495,12 +495,40 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.tap(find.byTooltip('Filter queue'));
       await tester.pumpAndSettle();
+      final filterRect = tester.getRect(find.byType(Dialog));
+      expect(filterRect.center, const Offset(720, 450));
       await tester.tap(find.text('Up next'));
       await tester.pumpAndSettle();
       expect(find.text('Track 2'), findsNothing);
       expect(find.text('Track 3'), findsOneWidget);
       expect(find.byType(ReorderableDragStartListener), findsNothing);
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: TargetPlatformVariant({TargetPlatform.macOS}),
+  );
+  testWidgets(
+    'save queue uses a centered desktop panel and opens the existing name dialog',
+    (tester) async {
+      await mount(
+        tester,
+        const Size(1440, 900),
+        Brightness.dark,
+        1.3,
+        queueScreen: true,
+      );
+      await tester.tap(find.byTooltip('Save current queue'));
+      await tester.pumpAndSettle();
+      final bounds = tester.getRect(find.byType(Dialog));
+      expect(bounds.center, const Offset(720, 450));
+      expect(find.text('Save temporarily'), findsOneWidget);
+      expect(find.text('Save as playlist'), findsOneWidget);
+      await tester.tap(find.text('Save as playlist'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox.shrink());
     },
     variant: TargetPlatformVariant({TargetPlatform.macOS}),

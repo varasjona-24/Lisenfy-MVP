@@ -10,12 +10,15 @@ Future<T?> showAdaptiveSortMenu<T>({
   bool showDragHandle = true,
   Color? backgroundColor,
   ShapeBorder? shape,
+  double maxWidth = 560,
+  bool isScrollControlled = false,
 }) {
   if (!AppBottomNav.desktopSidebarEnabled) {
     return showModalBottomSheet<T>(
       context: context,
       builder: builder,
       showDragHandle: showDragHandle,
+      isScrollControlled: isScrollControlled,
       backgroundColor: backgroundColor,
       shape: shape,
     );
@@ -29,7 +32,7 @@ Future<T?> showAdaptiveSortMenu<T>({
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 560,
+          maxWidth: maxWidth,
           maxHeight: MediaQuery.sizeOf(context).height - 64,
         ),
         child: Padding(
