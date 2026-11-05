@@ -15,16 +15,15 @@ import java.nio.charset.StandardCharsets
 import android.util.Base64
 
 /**
- * Shares only Listenfy's persisted cover files with Android Auto and AAOS.
+ * Shares Listenfy's persisted covers and capture artwork with media clients.
  *
  * Media clients run outside this app process, so they cannot read the private
  * `file://` paths used by the Flutter UI. The canonical-path check keeps this
- * provider constrained to the cover cache even though it is externally read.
+ * provider constrained to known image directories even though it is externally read.
  */
 class AndroidAutoArtworkProvider : ContentProvider() {
     companion object {
         private const val tag = "ListenfyAutoArtwork"
-        private const val coversDirectorySegment = "/downloads/covers/"
     }
 
     override fun onCreate(): Boolean = true
@@ -103,19 +102,18 @@ class AndroidAutoArtworkProvider : ContentProvider() {
         val requestedFile = File(requestedPath).canonicalFile
         val appDataDirectory = File(appContext.applicationInfo.dataDir).canonicalFile
         val externalFilesDirectory = appContext.getExternalFilesDir(null)?.canonicalFile
-        val insideAppData = isInside(requestedFile, appDataDirectory)
-        val insideExternalFiles = externalFilesDirectory != null &&
-            isInside(requestedFile, externalFilesDirectory)
-        val isCover = requestedFile.path.contains(coversDirectorySegment)
-
-        if ((!insideAppData && !insideExternalFiles) || !isCover || !requestedFile.isFile) {
+        val roots = arrayOf(
+            appDataDirectory,
+            File(appDataDirectory, "app_flutter"),
+            appContext.filesDir,
+            externalFilesDirectory,
+            externalFilesDirectory?.let { File(it, "Documents") },
+        )
+        if (!ArtworkPathPolicy.isAllowed(requestedFile, roots)) {
             throw FileNotFoundException("Artwork file is unavailable")
         }
 
         return requestedFile
     }
 
-    private fun isInside(file: File, root: File): Boolean {
-        return file.path.startsWith(root.path + File.separator)
-    }
 }

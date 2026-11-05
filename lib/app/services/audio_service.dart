@@ -18,6 +18,7 @@ import 'playback_history_recorder.dart';
 import 'engine_history_recorder.dart';
 import 'audio_history_position_clock.dart';
 import 'audio_effect_load_guard.dart';
+import 'playback_artwork.dart';
 import '../data/playback/playback_boundary_command.dart';
 import '../data/playback/playback_state_storage.dart';
 import '../data/playback/playback_repository.dart';
@@ -624,29 +625,11 @@ class AudioService extends GetxService with WidgetsBindingObserver {
     );
   }
 
-  Uri? _resolveArtUri(MediaItem item) {
-    final local = item.thumbnailLocalPath?.trim();
-    if (local != null && local.isNotEmpty) {
-      // Android Auto and AAOS run outside Listenfy's process. They cannot
-      // resolve a private file:// URI, so expose persisted covers through the
-      // tightly scoped AndroidAutoArtworkProvider instead.
-      return Uri(
-        scheme: 'content',
-        host: _androidAutoArtworkAuthority,
-        pathSegments: [
-          'cover',
-          base64Url.encode(utf8.encode(local)).replaceAll('=', ''),
-        ],
-      );
-    }
-
-    final remote = item.thumbnail?.trim();
-    if (remote != null && remote.isNotEmpty) {
-      return Uri.tryParse(remote);
-    }
-
-    return null;
-  }
+  Uri? _resolveArtUri(MediaItem item) => resolvePlaybackArtwork(
+    item,
+    android: Platform.isAndroid,
+    androidAuthority: _androidAutoArtworkAuthority,
+  );
 
   bool isSameTrack(MediaItem item, MediaVariant variant) {
     return currentItem.value?.id == item.id &&
