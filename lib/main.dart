@@ -247,6 +247,7 @@ Future<void> main() async {
       androidNotificationIcon: 'drawable/ic_listenfy_notification',
       preloadArtwork: true,
       androidBrowsableRootExtras: {
+        'android.media.browse.SEARCH_SUPPORTED': true,
         aud.AndroidContentStyle.supportedKey: true,
         aud.AndroidContentStyle.browsableHintKey:
             aud.AndroidContentStyle.gridItemHintValue,

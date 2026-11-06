@@ -634,13 +634,23 @@ class AudioService extends GetxService with WidgetsBindingObserver {
       );
 
   Uri androidAutoIconUri(String name) => Uri(
-    scheme: 'android.resource',
-    host: _androidAutoArtworkAuthority.replaceFirst(
-      '.android_auto_artwork',
-      '',
-    ),
-    pathSegments: ['drawable', name],
+    scheme: 'content',
+    host: _androidAutoArtworkAuthority,
+    pathSegments: ['icon', name],
+    queryParameters: const {'v': '1'},
   );
+
+  Uri androidAutoLetterUri(String letter) {
+    if (!RegExp(r'^[A-Z#]$').hasMatch(letter)) {
+      throw ArgumentError.value(letter, 'letter', 'Expected A-Z or #');
+    }
+    return Uri(
+      scheme: 'content',
+      host: _androidAutoArtworkAuthority,
+      pathSegments: ['letter', letter],
+      queryParameters: const {'v': '1'},
+    );
+  }
 
   Uri? _resolveArtUri(MediaItem item) => buildArtworkUri(
     localPath: item.thumbnailLocalPath,

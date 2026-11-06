@@ -167,7 +167,24 @@ void main() {
     ]);
     expect(roots.every((item) => item.playable == false), isTrue);
     expect(
-      roots.every((item) => item.artUri?.scheme == 'android.resource'),
+      roots.every(
+        (item) =>
+            item.artUri?.scheme == 'content' &&
+            item.artUri?.pathSegments.first == 'icon',
+      ),
+      isTrue,
+    );
+    expect(roots.map((item) => item.artUri?.pathSegments.last), [
+      'ic_auto_home',
+      'ic_auto_playlists',
+      'ic_auto_artists',
+      'ic_auto_songs',
+    ]);
+    expect(
+      roots.every(
+        (item) =>
+            item.artUri?.host == 'com.jv24dev.listenfy.android_auto_artwork',
+      ),
       isTrue,
     );
     expect(roots[1].extras?[car.AndroidContentStyle.browsableHintKey], 2);
@@ -214,7 +231,7 @@ void main() {
       list['coverCleared'] = true;
       expect(
         (await handler.getChildren('${prefix}playlists')).single.artUri?.scheme,
-        'android.resource',
+        'content',
       );
     },
   );
@@ -292,10 +309,12 @@ void main() {
         }),
         isEmpty,
       );
-      expect((await handler.search('Alpha')).map((item) => item.title), [
-        'one',
-        'three',
-      ]);
+      expect(
+        (await handler.search(
+          'Alpha',
+        )).where((item) => item.playable == true).map((item) => item.title),
+        ['one', 'three'],
+      );
       await handler.playFromMediaId('${prefix}playlist:mix');
       expect(audio.played.map((item) => item.id), ['two', 'one']);
       audio.savedQueue.add(MediaItem.fromJson(song('one', 'Alpha')));
@@ -324,6 +343,66 @@ void main() {
       final recent = await handler.getChildren(car.AudioService.recentRootId);
       expect(loads, 1);
       expect(recent.map((item) => item.title), ['one', 'two']);
+    },
+  );
+
+  test(
+    'alphabet index keeps late letters reachable in a large library',
+    () async {
+      memory.values['local_library_items'] = [
+        for (var i = 0; i < 125; i++) song('song$i', 'Artist $i'),
+        song('z-song', 'Zebra'),
+        song('accent', 'Álvaro'),
+        song('other', '東京'),
+        song('digits', '123 Band'),
+      ];
+      final artists = await handler.getChildren('${prefix}artists');
+      expect(artists.first.id, '${prefix}artist-index');
+      final letters = await handler.getChildren(artists.first.id);
+      expect(letters.map((item) => item.title), ['#', 'A', 'Z']);
+      for (final item in letters) {
+        expect(item.artUri?.scheme, 'content');
+        expect(item.artUri?.pathSegments, ['letter', item.title]);
+        expect(item.artUri?.fragment, isEmpty);
+      }
+      expect(() => audio.androidAutoLetterUri('../cover'), throwsArgumentError);
+
+      final z = await handler.getChildren(letters.last.id);
+      expect(z.single.title, 'Zebra');
+      expect((await handler.getMediaItem(letters.last.id))?.title, 'Z');
+      final a = await handler.getChildren('${prefix}artist-letter:A', {
+        'android.media.browse.extra.PAGE': 1,
+        'android.media.browse.extra.PAGE_SIZE': 120,
+      });
+      expect(a.map((item) => item.title), contains('Álvaro'));
+      final others = await handler.getChildren('${prefix}artist-letter:#');
+      expect(others.map((item) => item.title), containsAll(['123 Band', '東京']));
+      expect(
+        await handler.getChildren('${prefix}artist-letter:INVALID'),
+        isEmpty,
+      );
+      final tracks = await handler.getChildren(z.single.id);
+      await handler.playMediaItem(tracks.single);
+      expect(audio.played.single.id, 'z-song');
+    },
+  );
+
+  test(
+    'search exposes browsable artists and accepts names without accents',
+    () async {
+      memory.values['local_library_items'] = [song('accent-song', 'Måneskin')];
+      final results = await handler.search('Maneskin');
+      expect(
+        results.where((item) => item.playable == false).single.title,
+        'Måneskin',
+      );
+      final artist = results.first;
+      expect(
+        (await handler.getChildren(artist.id)).single.title,
+        'accent-song',
+      );
+      await handler.playFromSearch('Maneskin');
+      expect(audio.played.single.id, 'accent-song');
     },
   );
 

@@ -20,6 +20,8 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   static const _artistsRootId = 'listenfy:auto:artists';
   static const _recentRootId = 'listenfy:auto:recent';
   static const _resumeId = 'listenfy:auto:resume';
+  static const _artistIndexId = 'listenfy:auto:artist-index';
+  static const _artistLetterPrefix = 'listenfy:auto:artist-letter:';
   static const _artistPrefix = 'listenfy:auto:artist:';
   static const _entryPrefix = 'listenfy:auto:entry:';
   static const _singleStyle =
@@ -239,7 +241,14 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
         children = _playlists().map(_playlistItem).toList(growable: false);
         break;
       case _artistsRootId:
-        children = _artists().map(_artistItem).toList(growable: false);
+        final artists = _artists();
+        children = [
+          if (artists.length > 24) _artistIndexItem(),
+          ...artists.map(_artistItem),
+        ];
+        break;
+      case _artistIndexId:
+        children = _artistLetters();
         break;
       case _queueRootId:
         children = _audio.queueItems
@@ -252,7 +261,11 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
             .toList();
         break;
       default:
-        children = _songsForParent(parentMediaId);
+        children = parentMediaId.startsWith(_artistLetterPrefix)
+            ? _artistsForLetter(
+                parentMediaId.substring(_artistLetterPrefix.length),
+              ).map(_artistItem).toList()
+            : _songsForParent(parentMediaId);
     }
     return _applyChildrenOptions(children, options);
   }
@@ -262,6 +275,10 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     final root = _rootFolder(mediaId);
     if (root != null) return root;
     if (mediaId == _resumeId) return _resumeItem();
+    if (mediaId == _artistIndexId) return _artistIndexItem();
+    if (mediaId.startsWith(_artistLetterPrefix)) {
+      return _artistLetters().firstWhereOrNull((item) => item.id == mediaId);
+    }
     final entry = _entryFromId(mediaId);
     if (entry != null) {
       final song = _itemsForParent(
@@ -302,18 +319,40 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     Map<String, dynamic>? extras,
   ]) async {
     await _refreshLibraryMetrics();
-    final q = query.trim().toLowerCase();
+    final q = _foldArtistText(query.trim());
     if (q.isEmpty) {
       return _audioItems().take(25).map(_songItem).toList(growable: false);
     }
-    return _audioItems()
-        .where((item) {
-          return item.title.toLowerCase().contains(q) ||
-              item.displaySubtitle.toLowerCase().contains(q);
-        })
-        .take(25)
-        .map(_songItem)
-        .toList(growable: false);
+    final artists = _artists().where(
+      (a) => _foldArtistText(a.name).contains(q),
+    );
+    final songs = _audioItems().where(
+      (item) =>
+          _foldArtistText(item.title).contains(q) ||
+          _foldArtistText(item.displaySubtitle).contains(q),
+    );
+    return [
+      ...artists
+          .take(15)
+          .map(
+            (a) => _artistItem(a).copyWith(
+              extras: {
+                ...?_artistItem(a).extras,
+                _groupTitle: tr('android_auto.artists'),
+              },
+            ),
+          ),
+      ...songs
+          .take(25)
+          .map(
+            (song) => _songItem(song).copyWith(
+              extras: {
+                ...?_songItem(song).extras,
+                _groupTitle: tr('android_auto.songs'),
+              },
+            ),
+          ),
+    ];
   }
 
   List<MediaItem> _applyChildrenOptions(
@@ -491,6 +530,73 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     } on ArgumentError {
       return null;
     }
+  }
+
+  MediaItem _artistIndexItem() => MediaItem(
+    id: _artistIndexId,
+    title: tr('android_auto.artists_by_letter'),
+    playable: false,
+    artUri: _audio.androidAutoIconUri('ic_auto_artists'),
+    extras: const {_singleStyle: 1, AndroidContentStyle.browsableHintKey: 2},
+  );
+
+  String _foldArtistText(String value) {
+    var result = value.toLowerCase();
+    const groups = {
+      'a': 'áàâäãå',
+      'e': 'éèêë',
+      'i': 'íìîï',
+      'o': 'óòôöõ',
+      'u': 'úùûü',
+      'n': 'ñ',
+      'c': 'ç',
+    };
+    for (final entry in groups.entries) {
+      for (final rune in entry.value.runes) {
+        result = result.replaceAll(String.fromCharCode(rune), entry.key);
+      }
+    }
+    return result;
+  }
+
+  String _artistLetter(String name) {
+    final normalized = _foldArtistText(
+      name,
+    ).trim().replaceFirst(RegExp(r'^[^a-z0-9\u0080-\uffff]+'), '');
+    if (normalized.isEmpty) return '#';
+    final first = String.fromCharCode(normalized.runes.first).toUpperCase();
+    return RegExp(r'^[A-Z]$').hasMatch(first) ? first : '#';
+  }
+
+  List<_AutoArtist> _artistsForLetter(String letter) => _artists()
+      .where((artist) => _artistLetter(artist.name) == letter)
+      .toList();
+
+  List<MediaItem> _artistLetters() {
+    final counts = <String, int>{};
+    for (final artist in _artists()) {
+      final letter = _artistLetter(artist.name);
+      counts[letter] = (counts[letter] ?? 0) + 1;
+    }
+    final letters = counts.keys.toList()..sort();
+    return letters
+        .map(
+          (letter) => MediaItem(
+            id: '$_artistLetterPrefix$letter',
+            title: letter,
+            artUri: _audio.androidAutoLetterUri(letter),
+            displaySubtitle: tr(
+              'android_auto.artist_count',
+              args: ['${counts[letter]}'],
+            ),
+            playable: false,
+            extras: const {
+              _singleStyle: 2,
+              AndroidContentStyle.browsableHintKey: 2,
+            },
+          ),
+        )
+        .toList();
   }
 
   List<_AutoArtist> _artists() {

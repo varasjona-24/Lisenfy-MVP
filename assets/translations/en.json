@@ -114,6 +114,8 @@
     "name": "Listenfy"
   },
   "android_auto": {
+    "artists_by_letter": "Browse by letter",
+    "artist_count": "{} artists",
     "home": "Home",
     "home_subtitle": "Resume your music and explore your favorites",
     "artists": "Artists",

@@ -1,7 +1,10 @@
 package com.example.listenfy
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
@@ -13,6 +16,76 @@ import java.security.MessageDigest
 internal object PlaybackArtworkCache {
     private const val maxSide = 512
     private const val maxEntries = 64
+
+    @Synchronized
+    fun letterCover(context: Context, letter: String): File {
+        // Bounded alphabet and safe filenames, including the non-Latin group.
+        require(letter == "#" || Regex("[A-Z]").matches(letter))
+        val directory = File(context.cacheDir, "playback-letters-v1")
+        if (!directory.isDirectory && !directory.mkdirs()) {
+            throw IOException("Cannot create artist initial cache")
+        }
+        val target = File(directory, "${if (letter == "#") "other" else letter}.png")
+        if (target.isFile && target.length() > 0) return target
+        val bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = Canvas(bitmap)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+            paint.color = Color.rgb(42, 49, 56)
+            canvas.drawRoundRect(0f, 0f, 256f, 256f, 28f, 28f, paint)
+            paint.color = Color.WHITE
+            paint.textSize = 144f
+            paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            paint.textAlign = Paint.Align.CENTER
+            val metrics = paint.fontMetrics
+            canvas.drawText(letter, 128f, 128f - (metrics.ascent + metrics.descent) / 2f, paint)
+            val temporary = File.createTempFile("letter-", ".tmp", directory)
+            try {
+                temporary.outputStream().use {
+                    if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) {
+                        throw IOException("Cannot encode artist initial")
+                    }
+                }
+                if (!temporary.renameTo(target)) throw IOException("Cannot persist artist initial")
+            } finally {
+                temporary.delete()
+            }
+        } finally {
+            bitmap.recycle()
+        }
+        return target
+    }
+
+    @Synchronized
+    fun iconCover(context: Context, name: String, resource: Int): File {
+        val directory = File(context.cacheDir, "playback-icons-v1")
+        if (!directory.isDirectory && !directory.mkdirs()) {
+            throw IOException("Cannot create media icon cache")
+        }
+        val target = File(directory, "$name.png")
+        if (target.isFile && target.length() > 0) return target
+        val drawable = context.getDrawable(resource)
+            ?: throw IOException("Cannot load media icon")
+        val bitmap = Bitmap.createBitmap(128, 128, Bitmap.Config.ARGB_8888)
+        try {
+            drawable.setBounds(16, 16, 112, 112)
+            drawable.draw(Canvas(bitmap))
+            val temporary = File.createTempFile("icon-", ".tmp", directory)
+            try {
+                temporary.outputStream().use {
+                    if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) {
+                        throw IOException("Cannot encode media icon")
+                    }
+                }
+                if (!temporary.renameTo(target)) throw IOException("Cannot persist media icon")
+            } finally {
+                temporary.delete()
+            }
+        } finally {
+            bitmap.recycle()
+        }
+        return target
+    }
 
     @Synchronized
     fun squareCover(source: File, cacheRoot: File): File {

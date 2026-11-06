@@ -80,6 +80,38 @@ class AndroidAutoArtworkProvider : ContentProvider() {
     ): Int = 0
 
     private fun resolvePlaybackCover(uri: Uri): File {
+        val segments = uri.pathSegments
+        if (segments.size == 2 && segments[0] == "letter") {
+            val letter = segments[1]
+            if (letter != "#" && !Regex("[A-Z]").matches(letter)) {
+                throw FileNotFoundException("Unknown artist initial")
+            }
+            val appContext = context ?: throw FileNotFoundException("Provider is unavailable")
+            try {
+                return PlaybackArtworkCache.letterCover(appContext, letter)
+            } catch (error: java.io.IOException) {
+                throw FileNotFoundException("Artist initial is unavailable").apply { initCause(error) }
+            }
+        }
+        if (segments.size == 2 && segments[0] == "icon") {
+            // Explicit resources only: never allow arbitrary drawable or file access.
+            val resource = when (segments[1]) {
+                "ic_auto_home" -> R.drawable.ic_auto_home
+                "ic_auto_playlists" -> R.drawable.ic_auto_playlists
+                "ic_auto_artists" -> R.drawable.ic_auto_artists
+                "ic_auto_songs" -> R.drawable.ic_auto_songs
+                "ic_auto_favorites" -> R.drawable.ic_auto_favorites
+                "ic_auto_recent" -> R.drawable.ic_auto_recent
+                "ic_auto_queue" -> R.drawable.ic_auto_queue
+                else -> throw FileNotFoundException("Unknown media icon")
+            }
+            val appContext = context ?: throw FileNotFoundException("Provider is unavailable")
+            try {
+                return PlaybackArtworkCache.iconCover(appContext, segments[1], resource)
+            } catch (error: java.io.IOException) {
+                throw FileNotFoundException("Media icon is unavailable").apply { initCause(error) }
+            }
+        }
         val original = resolveCover(uri)
         val appContext = context ?: throw FileNotFoundException("Provider is unavailable")
         return try {
