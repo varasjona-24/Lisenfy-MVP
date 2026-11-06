@@ -1331,6 +1331,11 @@
   "player": {
     "video_jump_back": "Retroceder pelo intervalo selecionado",
     "video_jump_forward": "Avançar pelo intervalo selecionado",
+    "video_previous": "Vídeo anterior",
+    "video_next": "Próximo vídeo",
+    "video_fullscreen": "Tela cheia",
+    "video_desktop_keyboard": "Espaço: pausar ou continuar. Setas esquerda/direita: avançar ou recuar o intervalo selecionado. F: alternar tela cheia. Escape: sair da tela cheia.",
+    "video_desktop_mouse": "Mova o mouse para mostrar os controles. Clique na barra de progresso para buscar; clique duas vezes no vídeo para alternar tela cheia.",
     "video_controls": "Controles e gestos",
     "video_seek_interval": "Intervalo de avanço e retrocesso com toque duplo",
     "video_seek_seconds": "{} s",

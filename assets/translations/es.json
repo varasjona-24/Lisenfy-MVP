@@ -1331,6 +1331,11 @@
   "player": {
     "video_jump_back": "Retroceder el intervalo elegido",
     "video_jump_forward": "Avanzar el intervalo elegido",
+    "video_previous": "Video anterior",
+    "video_next": "Siguiente video",
+    "video_fullscreen": "Pantalla completa",
+    "video_desktop_keyboard": "Espacio: pausar o continuar. Flechas izquierda/derecha: saltar el intervalo seleccionado. F: alternar pantalla completa. Escape: salir de pantalla completa.",
+    "video_desktop_mouse": "Mueve el ratón para mostrar los controles. Haz clic en la barra de progreso para buscar; doble clic en el video para alternar pantalla completa.",
     "video_controls": "Controles y gestos",
     "video_seek_interval": "Salto por doble toque",
     "video_seek_seconds": "{} s",

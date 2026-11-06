@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../settings/controller/playback_settings_controller.dart';
 import '../../../../app/ui/widgets/forms/app_option_selector.dart';
+import '../../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 
 class VideoControlsHelpDialog extends StatelessWidget {
   const VideoControlsHelpDialog({super.key, required this.settings});
@@ -72,12 +73,17 @@ class VideoControlsHelpDialog extends StatelessWidget {
                 },
               ),
             ),
-            hint(Icons.touch_app_rounded, 'player.video_gesture_tap'),
-            hint(Icons.fast_forward_rounded, 'player.video_gesture_seek'),
-            hint(Icons.volume_up_rounded, 'player.video_gesture_volume'),
-            hint(Icons.speed_rounded, 'player.video_gesture_speed'),
-            hint(Icons.play_arrow_rounded, 'player.video_gesture_play'),
-            hint(Icons.lock_outline_rounded, 'player.video_gesture_lock'),
+            if (AppBottomNav.desktopSidebarEnabled) ...[
+              hint(Icons.keyboard_rounded, 'player.video_desktop_keyboard'),
+              hint(Icons.mouse_rounded, 'player.video_desktop_mouse'),
+            ] else ...[
+              hint(Icons.touch_app_rounded, 'player.video_gesture_tap'),
+              hint(Icons.fast_forward_rounded, 'player.video_gesture_seek'),
+              hint(Icons.volume_up_rounded, 'player.video_gesture_volume'),
+              hint(Icons.speed_rounded, 'player.video_gesture_speed'),
+              hint(Icons.play_arrow_rounded, 'player.video_gesture_play'),
+              hint(Icons.lock_outline_rounded, 'player.video_gesture_lock'),
+            ],
           ],
         ),
       ),

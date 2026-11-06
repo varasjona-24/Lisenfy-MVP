@@ -16,6 +16,8 @@ import '../../../../app/routes/app_routes.dart';
 import '../../../../app/ui/widgets/motion/app_motion.dart';
 import '../../../settings/controller/playback_settings_controller.dart';
 import 'video_controls_help_dialog.dart';
+import '../../../../app/ui/widgets/navigation/app_bottom_nav.dart';
+import '../../../../app/ui/widgets/dialogs/sort_options_sheet.dart';
 
 class VideoPlayerPage extends StatefulWidget {
   const VideoPlayerPage({super.key});
@@ -26,6 +28,8 @@ class VideoPlayerPage extends StatefulWidget {
 
 class _VideoPlayerPageState extends State<VideoPlayerPage> {
   late final VideoPlayerController controller;
+  bool get _desktop => AppBottomNav.desktopSidebarEnabled;
+  bool _pointerOverControls = false;
   bool _showControls = true;
   bool _isFullscreen = false;
   bool _controlsLocked = false;
@@ -159,87 +163,123 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
         await controller.videoService.pause();
         if (context.mounted) Get.back();
       },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Obx(() {
-            final queue = controller.queue;
-            final idx = controller.currentIndex.value;
+      child: Focus(
+        autofocus: true,
+        onKeyEvent: _handleDesktopKey,
+        child: MouseRegion(
+          onHover: _desktop ? (_) => _showControlsTemp() : null,
+          child: Scaffold(
+            backgroundColor: Colors.black,
+            body: SafeArea(
+              child: Obx(() {
+                final queue = controller.queue;
+                final idx = controller.currentIndex.value;
 
-            final item = (queue.isNotEmpty && idx >= 0 && idx < queue.length)
-                ? queue[idx]
-                : null;
+                final item =
+                    (queue.isNotEmpty && idx >= 0 && idx < queue.length)
+                    ? queue[idx]
+                    : null;
 
-            if (item == null) {
-              return Center(child: Text(tr('player.video_empty')));
-            }
+                if (item == null) {
+                  return Center(child: Text(tr('player.video_empty')));
+                }
 
-            return Stack(
-              children: [
-                Positioned.fill(child: _buildVideoArea(theme)),
-                Positioned.fill(
-                  child: IgnorePointer(
-                    ignoring:
-                        !_showControls ||
-                        _controlsLocked ||
-                        controller.error.value != null,
-                    child: ExcludeSemantics(
-                      excluding:
-                          !_showControls ||
-                          _controlsLocked ||
-                          controller.error.value != null,
-                      child: AppMotionSwap(
-                        child:
-                            _showControls &&
-                                !_controlsLocked &&
-                                controller.error.value == null
-                            ? KeyedSubtree(
-                                key: const ValueKey('controls'),
-                                child: _buildControls(theme, item),
-                              )
-                            : const SizedBox.shrink(key: ValueKey('hidden')),
-                      ),
-                    ),
-                  ),
-                ),
-                if (_controlsLocked)
-                  Positioned(
-                    right: 16,
-                    top: 16,
-                    child: IconButton.filled(
-                      tooltip: tr('player.video_unlock'),
-                      onPressed: () => _setControlsLocked(false),
-                      icon: const Icon(Icons.lock_open_rounded),
-                    ),
-                  ),
-                if (_toastMessage != null)
-                  Center(
-                    child: AppMotionEntrance(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          _toastMessage!,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                return Stack(
+                  children: [
+                    Positioned.fill(child: _buildVideoArea(theme)),
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        ignoring:
+                            !_showControls ||
+                            _controlsLocked ||
+                            controller.error.value != null,
+                        child: ExcludeSemantics(
+                          excluding:
+                              !_showControls ||
+                              _controlsLocked ||
+                              controller.error.value != null,
+                          child: AppMotionSwap(
+                            child:
+                                _showControls &&
+                                    !_controlsLocked &&
+                                    controller.error.value == null
+                                ? KeyedSubtree(
+                                    key: const ValueKey('controls'),
+                                    child: _buildControls(theme, item),
+                                  )
+                                : const SizedBox.shrink(
+                                    key: ValueKey('hidden'),
+                                  ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            );
-          }),
+                    if (_controlsLocked)
+                      Positioned(
+                        right: 16,
+                        top: 16,
+                        child: IconButton.filled(
+                          tooltip: tr('player.video_unlock'),
+                          onPressed: () => _setControlsLocked(false),
+                          icon: const Icon(Icons.lock_open_rounded),
+                        ),
+                      ),
+                    if (_toastMessage != null)
+                      Center(
+                        child: AppMotionEntrance(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.65),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              _toastMessage!,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              }),
+            ),
+          ),
         ),
       ),
     );
+  }
+
+  KeyEventResult _handleDesktopKey(FocusNode node, KeyEvent event) {
+    if (!_desktop ||
+        event is KeyUpEvent ||
+        _controlsLocked ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.space) {
+      controller.togglePlay();
+    } else if (key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowRight) {
+      final seconds =
+          Get.find<PlaybackSettingsController>().videoSeekSeconds.value;
+      _seekBy(key == LogicalKeyboardKey.arrowLeft ? -seconds : seconds);
+    } else if (key == LogicalKeyboardKey.keyF && event is KeyDownEvent) {
+      _toggleFullscreen();
+    } else if (key == LogicalKeyboardKey.escape && _isFullscreen) {
+      _toggleFullscreen();
+    } else {
+      return KeyEventResult.ignored;
+    }
+    _showControlsTemp();
+    return KeyEventResult.handled;
   }
 
   Widget _buildVideoArea(ThemeData theme) {
@@ -293,7 +333,9 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
             : (details) {
                 _lastDoubleTapDownPosition = details.localPosition;
               },
-        onDoubleTap: _controlsLocked ? null : _scheduleDoubleTapSeek,
+        onDoubleTap: _controlsLocked
+            ? null
+            : (_desktop ? _toggleFullscreen : _scheduleDoubleTapSeek),
         onVerticalDragStart: (_) {
           if (_controlsLocked) return;
           _isVerticalDragActive = true;
@@ -382,6 +424,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   }
 
   Widget _buildControls(ThemeData theme, dynamic item) {
+    if (_desktop) return _buildDesktopControls(theme, item);
     return IconTheme(
       data: const IconThemeData(color: Colors.white),
       child: Column(
@@ -572,6 +615,264 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     );
   }
 
+  Widget _buildDesktopControls(ThemeData theme, MediaItem item) {
+    Widget button(IconData icon, String tooltip, VoidCallback? onPressed) =>
+        IconButton(tooltip: tooltip, onPressed: onPressed, icon: Icon(icon));
+    final seekSeconds =
+        Get.find<PlaybackSettingsController>().videoSeekSeconds.value;
+    return IconTheme(
+      data: const IconThemeData(color: Colors.white, size: 26),
+      child: DefaultTextStyle.merge(
+        style: const TextStyle(color: Colors.white),
+        child: Column(
+          key: const ValueKey('desktop-video-controls'),
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black87, Colors.transparent],
+                ),
+              ),
+              child: Row(
+                children: [
+                  BackButton(
+                    color: Colors.white,
+                    onPressed: () async {
+                      await controller.videoService.pause();
+                      Get.back();
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (item.subtitle.isNotEmpty)
+                          Text(
+                            item.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                      ],
+                    ),
+                  ),
+                  button(
+                    Icons.playlist_play,
+                    tr('player.view_queue'),
+                    () => Get.toNamed(AppRoutes.videoQueue),
+                  ),
+                ],
+              ),
+            ),
+            const Spacer(),
+            MouseRegion(
+              onEnter: (_) {
+                _pointerOverControls = true;
+                _hideTimer?.cancel();
+              },
+              onExit: (_) {
+                _pointerOverControls = false;
+                _scheduleHide();
+              },
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black87],
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Theme(
+                      data: theme.copyWith(
+                        textTheme: theme.textTheme.apply(
+                          bodyColor: Colors.white,
+                        ),
+                      ),
+                      child: _buildProgress(
+                        theme.copyWith(
+                          textTheme: theme.textTheme.apply(
+                            bodyColor: Colors.white,
+                          ),
+                        ),
+                        item,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final transport = Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            button(
+                              Icons.skip_previous,
+                              tr('player.video_previous'),
+                              controller.previous,
+                            ),
+                            button(
+                              Icons.fast_rewind_rounded,
+                              tr('player.video_jump_back'),
+                              () => _seekBy(-seekSeconds),
+                            ),
+                            const SizedBox(width: 8),
+                            Obx(
+                              () => IconButton.filled(
+                                key: const ValueKey('desktop-video-play'),
+                                onPressed: controller.togglePlay,
+                                iconSize: 34,
+                                style: IconButton.styleFrom(
+                                  backgroundColor: theme.colorScheme.primary,
+                                  foregroundColor: theme.colorScheme.onPrimary,
+                                ),
+                                icon: Icon(
+                                  controller.isPlaying.value
+                                      ? Icons.pause
+                                      : Icons.play_arrow,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            button(
+                              Icons.fast_forward_rounded,
+                              tr('player.video_jump_forward'),
+                              () => _seekBy(seekSeconds),
+                            ),
+                            button(
+                              Icons.skip_next,
+                              tr('player.video_next'),
+                              controller.next,
+                            ),
+                          ],
+                        );
+                        final tools = Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          alignment: WrapAlignment.center,
+                          spacing: 4,
+                          runSpacing: 8,
+                          children: [
+                            SizedBox(
+                              width: 150,
+                              child: Obx(
+                                () => Row(
+                                  children: [
+                                    Icon(
+                                      controller.videoService.volume.value == 0
+                                          ? Icons.volume_off
+                                          : Icons.volume_up,
+                                    ),
+                                    Expanded(
+                                      child: Slider(
+                                        key: const ValueKey(
+                                          'desktop-video-volume',
+                                        ),
+                                        value: controller
+                                            .videoService
+                                            .volume
+                                            .value,
+                                        onChanged:
+                                            controller.videoService.setVolume,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            button(
+                              Icons.tune_rounded,
+                              tr('player.video_controls'),
+                              () async {
+                                _hideTimer?.cancel();
+                                await showDialog<void>(
+                                  context: context,
+                                  builder: (_) => VideoControlsHelpDialog(
+                                    settings:
+                                        Get.find<PlaybackSettingsController>(),
+                                  ),
+                                );
+                                if (mounted) _showControlsTemp();
+                              },
+                            ),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: _openSpeedPicker,
+                              icon: const Icon(Icons.speed),
+                              label: Obx(
+                                () => Text(
+                                  '${controller.videoService.speed.value}x',
+                                ),
+                              ),
+                            ),
+                            button(
+                              _fillVideo
+                                  ? Icons.fit_screen_rounded
+                                  : Icons.crop_rounded,
+                              tr(
+                                _fillVideo
+                                    ? 'player.video_fit'
+                                    : 'player.video_fill',
+                              ),
+                              () => setState(() => _fillVideo = !_fillVideo),
+                            ),
+                            button(
+                              Icons.photo_camera_outlined,
+                              tr('player.capture'),
+                              _captureSaving ? null : () => _captureFrame(item),
+                            ),
+                            button(
+                              _isFullscreen
+                                  ? Icons.fullscreen_exit_rounded
+                                  : Icons.fullscreen_rounded,
+                              tr('player.video_fullscreen'),
+                              _toggleFullscreen,
+                            ),
+                          ],
+                        );
+                        if (constraints.maxWidth < 980) {
+                          return Column(
+                            children: [
+                              transport,
+                              const SizedBox(height: 8),
+                              tools,
+                            ],
+                          );
+                        }
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            transport,
+                            Flexible(child: tools),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildProgress(ThemeData theme, dynamic item) {
     return Obx(() {
       final dur = controller.duration.value;
@@ -595,7 +896,9 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
               Expanded(
                 child: Slider(
                   key: const ValueKey('video-progress-slider'),
-                  allowedInteraction: SliderInteraction.slideThumb,
+                  allowedInteraction: _desktop
+                      ? SliderInteraction.tapAndSlide
+                      : SliderInteraction.slideThumb,
                   value: posSeconds,
                   min: 0.0,
                   max: maxSeconds,
@@ -613,8 +916,9 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
                     _showControlsTemp();
                   },
                   onChangeEnd: (v) {
-                    if (_dragOriginValue != null &&
-                        (v - _dragOriginValue!).abs() > 0.001) {
+                    if (_desktop ||
+                        (_dragOriginValue != null &&
+                            (v - _dragOriginValue!).abs() > 0.001)) {
                       controller.seek(
                         Duration(milliseconds: (v * 1000).round()),
                       );
@@ -736,7 +1040,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
 
   void _scheduleHide() {
     _hideTimer?.cancel();
-    if (_dragValue != null) return;
+    if (_dragValue != null || (_desktop && _pointerOverControls)) return;
     _hideTimer = Timer(const Duration(seconds: 3), () {
       if (mounted) setState(() => _showControls = false);
     });
@@ -901,11 +1205,12 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     }
   }
 
-  void _openSpeedPicker() {
+  Future<void> _openSpeedPicker() async {
+    _hideTimer?.cancel();
     final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
     final scheme = Theme.of(context).colorScheme;
     final currentSpeed = controller.videoService.speed.value;
-    showModalBottomSheet<void>(
+    await showAdaptiveSortMenu<void>(
       context: context,
       showDragHandle: true,
       backgroundColor: scheme.surface,
@@ -914,7 +1219,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
       ),
       builder: (ctx) {
         return SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -955,6 +1260,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
         );
       },
     );
+    if (mounted) _showControlsTemp();
   }
 
   Future<void> _captureFrame(dynamic item) async {

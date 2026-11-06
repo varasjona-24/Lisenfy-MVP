@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:easy_localization/src/localization.dart';
 import 'package:easy_localization/src/translations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_player/video_player.dart' as vp;
@@ -68,6 +69,77 @@ void main() {
     );
   });
   tearDown(() => Get.reset());
+  for (final width in [540.0, 1280.0]) {
+    testWidgets(
+      'desktop video controls support mouse seeking and centered speed at $width',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        tester.view.physicalSize = Size(width, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        Get.put<PlaybackSettingsController>(_Settings());
+        final video = _Video();
+        final player = vp.VideoPlayerController.asset('fixture.mp4');
+        player.value = const vp.VideoPlayerValue(
+          duration: Duration(minutes: 5),
+          isInitialized: true,
+          size: Size(1920, 1080),
+        );
+        video.fixture = player;
+        video.duration.value = const Duration(minutes: 5);
+        addTearDown(player.dispose);
+        Get.put<VideoPlayerController>(
+          _Controller(
+            video,
+            MediaItem.fromJson({
+              'id': 'video',
+              'title': 'Episode',
+              'variants': [],
+            }),
+          ),
+        );
+        await tester.pumpWidget(MaterialApp(home: const VideoPlayerPage()));
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('desktop-video-controls')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+        final progress = find.byKey(const ValueKey('video-progress-slider'));
+        final rect = tester.getRect(progress);
+        await tester.tapAt(Offset(rect.center.dx, rect.center.dy));
+        await tester.pump();
+        expect(video.seeks, 1);
+        expect(video.lastSeek, greaterThan(const Duration(minutes: 1)));
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pump();
+        expect(video.seeks, 2);
+        await tester.tap(find.text('1.0x'));
+        await tester.pumpAndSettle();
+        expect(find.byType(Dialog), findsOneWidget);
+        final dialogRect = tester.getRect(find.byType(Dialog));
+        expect(dialogRect.center.dx, closeTo(width / 2, 1));
+        expect(dialogRect.center.dy, closeTo(360, 1));
+        await tester.tap(find.text('1.50x'));
+        await tester.pumpAndSettle();
+        expect(find.byType(Dialog), findsNothing);
+        expect(video.speed.value, 1.5);
+        final volume = find.byKey(const ValueKey('desktop-video-volume'));
+        await tester.tapAt(tester.getRect(volume).center);
+        await tester.pump();
+        expect(video.volumeChanges, greaterThan(0));
+        await tester.tap(find.byTooltip('Controls and gestures'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Space: pause'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(milliseconds: 400));
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
+  }
   for (final brightness in Brightness.values) {
     testWidgets('fit and lock controls work on a narrow $brightness screen', (
       tester,

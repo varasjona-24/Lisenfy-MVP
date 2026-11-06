@@ -1331,6 +1331,11 @@
   "player": {
     "video_jump_back": "Rewind by the selected interval",
     "video_jump_forward": "Advance by the selected interval",
+    "video_previous": "Previous video",
+    "video_next": "Next video",
+    "video_fullscreen": "Fullscreen",
+    "video_desktop_keyboard": "Space: pause or resume. Left/right arrows: seek by the selected interval. F: toggle fullscreen. Escape: exit fullscreen.",
+    "video_desktop_mouse": "Move the mouse to show controls. Click the progress bar to seek; double-click the video to toggle fullscreen.",
     "video_controls": "Controls and gestures",
     "video_seek_interval": "Double-tap seek interval",
     "video_seek_seconds": "{} s",
