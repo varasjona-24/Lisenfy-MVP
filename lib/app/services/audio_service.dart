@@ -625,10 +625,26 @@ class AudioService extends GetxService with WidgetsBindingObserver {
     );
   }
 
-  Uri? _resolveArtUri(MediaItem item) => resolvePlaybackArtwork(
-    item,
-    android: Platform.isAndroid,
-    androidAuthority: _androidAutoArtworkAuthority,
+  Uri? buildArtworkUri({String? localPath, String? remoteUrl}) =>
+      resolvePlaybackArtworkSource(
+        localPath: localPath,
+        remoteUrl: remoteUrl,
+        android: Platform.isAndroid,
+        androidAuthority: _androidAutoArtworkAuthority,
+      );
+
+  Uri androidAutoIconUri(String name) => Uri(
+    scheme: 'android.resource',
+    host: _androidAutoArtworkAuthority.replaceFirst(
+      '.android_auto_artwork',
+      '',
+    ),
+    pathSegments: ['drawable', name],
+  );
+
+  Uri? _resolveArtUri(MediaItem item) => buildArtworkUri(
+    localPath: item.thumbnailLocalPath,
+    remoteUrl: item.thumbnail,
   );
 
   bool isSameTrack(MediaItem item, MediaVariant variant) {

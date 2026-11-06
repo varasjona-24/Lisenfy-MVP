@@ -3,6 +3,10 @@ import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:get/get.dart';
 
+import '../../Modules/artists/data/artist_store.dart';
+import '../../Modules/artists/domain/artist_profile.dart';
+import '../../Modules/artists/domain/artist_relationship_resolver.dart';
+import '../utils/artist_credit_parser.dart';
 import '../../Modules/playlists/data/playlist_store.dart';
 import '../../Modules/playlists/domain/playlist.dart';
 import '../data/local/local_library_store.dart';
@@ -12,6 +16,16 @@ import 'audio_service.dart' as app;
 class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final app.AudioService _audio;
   static const _maxChildrenPageSize = 120;
+  static const _homeRootId = 'listenfy:auto:home';
+  static const _artistsRootId = 'listenfy:auto:artists';
+  static const _recentRootId = 'listenfy:auto:recent';
+  static const _resumeId = 'listenfy:auto:resume';
+  static const _artistPrefix = 'listenfy:auto:artist:';
+  static const _entryPrefix = 'listenfy:auto:entry:';
+  static const _singleStyle =
+      'android.media.browse.CONTENT_STYLE_SINGLE_ITEM_HINT';
+  static const _groupTitle =
+      'android.media.browse.CONTENT_STYLE_GROUP_TITLE_HINT';
   static const _songsRootId = 'listenfy:auto:songs';
   static const _favoritesRootId = 'listenfy:auto:favorites';
   static const _playlistsRootId = 'listenfy:auto:playlists';
@@ -146,6 +160,19 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     String mediaId, [
     Map<String, dynamic>? extras,
   ]) async {
+    if (mediaId == _resumeId) {
+      await play();
+      return;
+    }
+    final entry = _entryFromId(mediaId);
+    if (entry != null) {
+      final items = _itemsForParent(entry.$1);
+      final index = items.indexWhere((item) => _sameItemId(item, entry.$2));
+      if (index >= 0) {
+        await _audio.playQueueFromExternalRequest(items: items, index: index);
+      }
+      return;
+    }
     final playlistId = _playlistIdFromMediaId(mediaId);
     if (playlistId != null) {
       final playlist = _playlistById(playlistId);
@@ -190,44 +217,29 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     String parentMediaId, [
     Map<String, dynamic>? options,
   ]) async {
+    await _refreshLibraryMetrics();
     List<MediaItem> children;
     switch (parentMediaId) {
       case AudioService.browsableRootId:
-      case AudioService.recentRootId:
-        children = <MediaItem>[
-          _folder(
-            _songsRootId,
-            tr('android_auto.songs'),
-            tr('android_auto.songs_subtitle'),
-          ),
-          _folder(
-            _favoritesRootId,
-            tr('android_auto.favorites'),
-            tr('android_auto.favorites_subtitle'),
-          ),
-          _folder(
-            _playlistsRootId,
-            tr('android_auto.playlists'),
-            tr('android_auto.playlists_subtitle'),
-          ),
-          _folder(
-            _queueRootId,
-            tr('android_auto.current_queue'),
-            tr('android_auto.current_queue_subtitle'),
-          ),
+        children = [
+          _rootFolder(_homeRootId)!,
+          _rootFolder(_playlistsRootId)!,
+          _rootFolder(_artistsRootId)!,
+          _rootFolder(_songsRootId)!,
         ];
         break;
-      case _songsRootId:
-        children = _audioItems().map(_songItem).toList(growable: false);
+      case AudioService.recentRootId:
+        // The system's recent-items endpoint expects playable recommendations.
+        children = _songsForParent(_recentRootId).take(10).toList();
         break;
-      case _favoritesRootId:
-        children = _audioItems()
-            .where((item) => item.isFavorite)
-            .map(_songItem)
-            .toList(growable: false);
+      case _homeRootId:
+        children = _homeChildren();
         break;
       case _playlistsRootId:
         children = _playlists().map(_playlistItem).toList(growable: false);
+        break;
+      case _artistsRootId:
+        children = _artists().map(_artistItem).toList(growable: false);
         break;
       case _queueRootId:
         children = _audio.queueItems
@@ -237,49 +249,32 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
               (entry) =>
                   _songItem(entry.value, mediaId: '$_queuePrefix${entry.key}'),
             )
-            .toList(growable: false);
+            .toList();
         break;
       default:
-        final playlistId = _playlistIdFromMediaId(parentMediaId);
-        if (playlistId == null) return const <MediaItem>[];
-        final playlist = _playlistById(playlistId);
-        if (playlist == null) return const <MediaItem>[];
-        children = _itemsForPlaylist(playlist).map(_songItem).toList();
+        children = _songsForParent(parentMediaId);
     }
     return _applyChildrenOptions(children, options);
   }
 
   @override
   Future<MediaItem?> getMediaItem(String mediaId) async {
-    if (mediaId == _songsRootId) {
-      return _folder(
-        _songsRootId,
-        tr('android_auto.songs'),
-        tr('android_auto.songs_subtitle'),
-      );
+    final root = _rootFolder(mediaId);
+    if (root != null) return root;
+    if (mediaId == _resumeId) return _resumeItem();
+    final entry = _entryFromId(mediaId);
+    if (entry != null) {
+      final song = _itemsForParent(
+        entry.$1,
+      ).firstWhereOrNull((item) => _sameItemId(item, entry.$2));
+      return song == null ? null : _songItem(song, mediaId: mediaId);
     }
-    if (mediaId == _favoritesRootId) {
-      return _folder(
-        _favoritesRootId,
-        tr('android_auto.favorites'),
-        tr('android_auto.favorites_subtitle'),
+    if (mediaId.startsWith(_artistPrefix)) {
+      final artist = _artists().firstWhereOrNull(
+        (a) => a.key == mediaId.substring(_artistPrefix.length),
       );
+      return artist == null ? null : _artistItem(artist);
     }
-    if (mediaId == _playlistsRootId) {
-      return _folder(
-        _playlistsRootId,
-        tr('android_auto.playlists'),
-        tr('android_auto.playlists_subtitle'),
-      );
-    }
-    if (mediaId == _queueRootId) {
-      return _folder(
-        _queueRootId,
-        tr('android_auto.current_queue'),
-        tr('android_auto.current_queue_subtitle'),
-      );
-    }
-
     final playlistId = _playlistIdFromMediaId(mediaId);
     if (playlistId != null) {
       final playlist = _playlistById(playlistId);
@@ -306,6 +301,7 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     String query, [
     Map<String, dynamic>? extras,
   ]) async {
+    await _refreshLibraryMetrics();
     final q = query.trim().toLowerCase();
     if (q.isEmpty) {
       return _audioItems().take(25).map(_songItem).toList(growable: false);
@@ -358,32 +354,193 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     return fallback;
   }
 
-  MediaItem _folder(String id, String title, String subtitle) {
+  MediaItem? _rootFolder(String id) {
+    final spec = switch (id) {
+      _homeRootId => ('home', 'home_subtitle', 'ic_auto_home', 1),
+      _playlistsRootId => (
+        'playlists',
+        'playlists_subtitle',
+        'ic_auto_playlists',
+        2,
+      ),
+      _artistsRootId => ('artists', 'artists_subtitle', 'ic_auto_artists', 2),
+      _songsRootId => ('songs', 'songs_subtitle', 'ic_auto_songs', 1),
+      _favoritesRootId => (
+        'favorites',
+        'favorites_subtitle',
+        'ic_auto_favorites',
+        1,
+      ),
+      _recentRootId => ('recent', 'recent_subtitle', 'ic_auto_recent', 1),
+      _queueRootId => (
+        'current_queue',
+        'current_queue_subtitle',
+        'ic_auto_queue',
+        1,
+      ),
+      _ => null,
+    };
+    if (spec == null) return null;
     return MediaItem(
       id: id,
-      title: title,
+      title: tr('android_auto.${spec.$1}'),
       playable: false,
-      displayTitle: title,
-      displaySubtitle: subtitle,
-      extras: const <String, dynamic>{
-        'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1,
+      displaySubtitle: tr('android_auto.${spec.$2}'),
+      artUri: _audio.androidAutoIconUri(spec.$3),
+      extras: {
+        AndroidContentStyle.browsableHintKey: spec.$4,
+        AndroidContentStyle.playableHintKey: 1,
+        _singleStyle: 1,
       },
     );
   }
 
+  List<MediaItem> _homeChildren() {
+    MediaItem group(MediaItem item, String key) => item.copyWith(
+      extras: {...?item.extras, _groupTitle: tr('android_auto.$key')},
+    );
+    final resume = _resumeItem();
+    return [
+      for (final id in [_recentRootId, _favoritesRootId, _queueRootId])
+        group(_rootFolder(id)!, 'shortcuts'),
+      if (resume != null) group(resume, 'continue_listening'),
+      ..._songsForParent(
+        _recentRootId,
+      ).take(8).map((item) => group(item, 'recent')),
+      ..._songsForParent(
+        _favoritesRootId,
+      ).take(6).map((item) => group(item, 'favorites')),
+    ];
+  }
+
+  MediaItem? _resumeItem() {
+    final item = _audio.currentItem.value;
+    if (item == null || item.localAudioVariant == null) return null;
+    return _songItem(item, mediaId: _resumeId);
+  }
+
   MediaItem _playlistItem(Playlist playlist) {
-    final count = playlist.itemIds.length;
+    final items = _itemsForPlaylist(playlist);
+    var artwork = _audio.buildArtworkUri(
+      localPath: playlist.coverLocalPath,
+      remoteUrl: playlist.coverUrl,
+    );
+    if (artwork == null && !playlist.coverCleared) {
+      for (final item in items) {
+        artwork = _audio.buildBackgroundItem(item).artUri;
+        if (artwork != null) break;
+      }
+    }
     return MediaItem(
       id: '$_playlistPrefix${playlist.id}',
       title: playlist.name,
-      playable: true,
+      playable: false,
       displayTitle: playlist.name,
-      displaySubtitle: count == 1
-          ? tr('android_auto.track_count_one')
-          : tr('android_auto.track_count_many', args: ['$count']),
-      extras: const <String, dynamic>{
-        'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1,
-      },
+      displaySubtitle: _trackCount(items.length),
+      artUri: artwork ?? _audio.androidAutoIconUri('ic_auto_playlists'),
+      extras: const {_singleStyle: 2, AndroidContentStyle.playableHintKey: 1},
+    );
+  }
+
+  String _trackCount(int count) => count == 1
+      ? tr('android_auto.track_count_one')
+      : tr('android_auto.track_count_many', args: ['$count']);
+
+  List<local.MediaItem> _itemsForParent(String parent) {
+    if (parent == _songsRootId) return _audioItems();
+    if (parent == _favoritesRootId) {
+      return _audioItems().where((i) => i.isFavorite).toList();
+    }
+    if (parent == _recentRootId) {
+      final items =
+          _audioItems().where((i) => (i.lastPlayedAt ?? 0) > 0).toList()
+            ..sort((a, b) => b.lastPlayedAt!.compareTo(a.lastPlayedAt!));
+      return items;
+    }
+    if (parent.startsWith(_artistPrefix)) {
+      return _artists()
+              .firstWhereOrNull(
+                (a) => a.key == parent.substring(_artistPrefix.length),
+              )
+              ?.items ??
+          [];
+    }
+    final playlistId = _playlistIdFromMediaId(parent);
+    final playlist = playlistId == null ? null : _playlistById(playlistId);
+    return playlist == null ? [] : _itemsForPlaylist(playlist);
+  }
+
+  List<MediaItem> _songsForParent(String parent) => _itemsForParent(parent)
+      .map(
+        (item) => _songItem(
+          item,
+          mediaId:
+              '$_entryPrefix${Uri.encodeComponent(parent)}:${Uri.encodeComponent(item.id)}',
+        ),
+      )
+      .toList();
+
+  (String, String)? _entryFromId(String id) {
+    if (!id.startsWith(_entryPrefix)) return null;
+    final parts = id.substring(_entryPrefix.length).split(':');
+    if (parts.length != 2) return null;
+    try {
+      return (Uri.decodeComponent(parts[0]), Uri.decodeComponent(parts[1]));
+    } on FormatException {
+      return null;
+    } on ArgumentError {
+      return null;
+    }
+  }
+
+  List<_AutoArtist> _artists() {
+    final profiles = Get.isRegistered<ArtistStore>()
+        ? Get.find<ArtistStore>().readAllSync()
+        : <ArtistProfile>[];
+    final byKey = {for (final profile in profiles) profile.key: profile};
+    final grouped = <String, _AutoArtist>{};
+    for (final item in _audioItems()) {
+      final credits = resolveArtistCredits(item);
+      final names = credits.allArtists;
+      for (var i = 0; i < names.length; i++) {
+        final key =
+            credits.artistKeys?[i] ?? ArtistCreditParser.normalizeKey(names[i]);
+        if (key.isEmpty || key == 'unknown') continue;
+        final artist = grouped.putIfAbsent(
+          key,
+          () => _AutoArtist(
+            key,
+            byKey[key]?.displayName.trim().isNotEmpty == true
+                ? byKey[key]!.displayName
+                : names[i],
+            byKey[key],
+          ),
+        );
+        if (!artist.items.any((existing) => existing.id == item.id)) {
+          artist.items.add(item);
+        }
+      }
+    }
+    return grouped.values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  }
+
+  MediaItem _artistItem(_AutoArtist artist) {
+    final profile = artist.profile;
+    final artwork =
+        _audio.buildArtworkUri(
+          localPath: profile?.thumbnailLocalPath,
+          remoteUrl: profile?.thumbnail,
+        ) ??
+        _audio.buildBackgroundItem(artist.items.first).artUri ??
+        _audio.androidAutoIconUri('ic_auto_artists');
+    return MediaItem(
+      id: '$_artistPrefix${artist.key}',
+      title: artist.name,
+      playable: false,
+      artUri: artwork,
+      displaySubtitle: _trackCount(artist.items.length),
+      extras: const {_singleStyle: 2, AndroidContentStyle.playableHintKey: 1},
     );
   }
 
@@ -396,9 +553,18 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
           displayTitle: item.title,
           displaySubtitle: item.displaySubtitle,
           extras: const <String, dynamic>{
-            'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1,
+            AndroidContentStyle.playableHintKey: 1,
+            _singleStyle: 1,
           },
         );
+  }
+
+  Future<void> _refreshLibraryMetrics() async {
+    if (Get.isRegistered<LocalLibraryStore>()) {
+      // The SQL-backed store hydrates lastPlayedAt asynchronously. Do not rely
+      // on a phone screen having loaded the library before the car connects.
+      await Get.find<LocalLibraryStore>().readAll();
+    }
   }
 
   List<local.MediaItem> _audioItems() {
@@ -471,4 +637,12 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     final publicId = item.publicId.trim();
     return publicId.isNotEmpty && publicId == id;
   }
+}
+
+class _AutoArtist {
+  _AutoArtist(this.key, this.name, this.profile);
+  final String key;
+  final String name;
+  final ArtistProfile? profile;
+  final items = <local.MediaItem>[];
 }

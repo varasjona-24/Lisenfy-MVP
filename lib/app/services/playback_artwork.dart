@@ -9,6 +9,23 @@ Uri? resolvePlaybackArtwork(
   required String androidAuthority,
   bool Function(String path)? fileExists,
 }) {
+  return resolvePlaybackArtworkSource(
+    localPath: item.thumbnailLocalPath,
+    remoteUrl: item.thumbnail,
+    android: android,
+    androidAuthority: androidAuthority,
+    fileExists: fileExists,
+  );
+}
+
+/// Shared resolver for track, playlist and artist artwork.
+Uri? resolvePlaybackArtworkSource({
+  String? localPath,
+  String? remoteUrl,
+  required bool android,
+  required String androidAuthority,
+  bool Function(String path)? fileExists,
+}) {
   bool exists(String path) {
     try {
       return (fileExists ?? (path) => File(path).existsSync())(path);
@@ -41,9 +58,9 @@ Uri? resolvePlaybackArtwork(
     );
   }
 
-  final local = localArtwork(item.thumbnailLocalPath);
+  final local = localArtwork(localPath);
   if (local != null) return local;
-  final remote = item.thumbnail?.trim();
+  final remote = remoteUrl?.trim();
   if (remote == null || remote.isEmpty) return null;
   final uri = Uri.tryParse(remote);
   if (uri != null &&

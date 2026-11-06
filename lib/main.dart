@@ -246,6 +246,13 @@ Future<void> main() async {
       androidNotificationOngoing: true,
       androidNotificationIcon: 'drawable/ic_listenfy_notification',
       preloadArtwork: true,
+      androidBrowsableRootExtras: {
+        aud.AndroidContentStyle.supportedKey: true,
+        aud.AndroidContentStyle.browsableHintKey:
+            aud.AndroidContentStyle.gridItemHintValue,
+        aud.AndroidContentStyle.playableHintKey:
+            aud.AndroidContentStyle.listItemHintValue,
+      },
     ),
   );
   appAudio.attachHandler(handler);

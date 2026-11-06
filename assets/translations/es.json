@@ -114,6 +114,14 @@
     "name": "Listenfy"
   },
   "android_auto": {
+    "home": "Inicio",
+    "home_subtitle": "Retoma tu música y explora tus favoritos",
+    "artists": "Artistas",
+    "artists_subtitle": "Explora tus canciones por artista",
+    "recent": "Recientes",
+    "recent_subtitle": "Tus últimas canciones reproducidas",
+    "shortcuts": "Accesos",
+    "continue_listening": "Continuar escuchando",
     "songs": "Canciones",
     "songs_subtitle": "Tu biblioteca de audio",
     "favorites": "Favoritos",
