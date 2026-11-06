@@ -34,7 +34,7 @@ class AndroidAutoArtworkProvider : ContentProvider() {
         }
 
         return try {
-            val file = resolveCover(uri)
+            val file = resolvePlaybackCover(uri)
             ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
         } catch (error: FileNotFoundException) {
             Log.w(tag, "Android Auto requested unavailable artwork", error)
@@ -43,7 +43,7 @@ class AndroidAutoArtworkProvider : ContentProvider() {
     }
 
     override fun getType(uri: Uri): String {
-        val extension = resolveCover(uri).extension.lowercase()
+        val extension = resolvePlaybackCover(uri).extension.lowercase()
         return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
             ?: "image/*"
     }
@@ -55,7 +55,7 @@ class AndroidAutoArtworkProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
         sortOrder: String?,
     ): Cursor {
-        val file = resolveCover(uri)
+        val file = resolvePlaybackCover(uri)
         val columns = projection ?: arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)
         return MatrixCursor(columns).apply {
             addRow(columns.map { column ->
@@ -78,6 +78,18 @@ class AndroidAutoArtworkProvider : ContentProvider() {
         selection: String?,
         selectionArgs: Array<out String>?,
     ): Int = 0
+
+    private fun resolvePlaybackCover(uri: Uri): File {
+        val original = resolveCover(uri)
+        val appContext = context ?: throw FileNotFoundException("Provider is unavailable")
+        return try {
+            PlaybackArtworkCache.squareCover(original, appContext.cacheDir)
+        } catch (error: java.io.IOException) {
+            // Keep an existing cover available if decoding or cache storage fails.
+            Log.w(tag, "Cannot prepare square playback artwork", error)
+            original
+        }
+    }
 
     private fun resolveCover(uri: Uri): File {
         val pathSegments = uri.pathSegments

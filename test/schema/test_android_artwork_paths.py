@@ -17,6 +17,16 @@ import java.io.File;
 import java.nio.file.Files;
 public final class ArtworkPolicyTest {
   public static void main(String[] args) throws Exception {
+    int[][] sizes = {{1280,720}, {720,1280}, {640,640}, {1281,720}, {1,1}};
+    int[][] expected = {{280,0,1000,720}, {0,280,720,1000}, {0,0,640,640}, {280,0,1000,720}, {0,0,1,1}};
+    for (int i = 0; i < sizes.length; i++) {
+      int[] crop = ArtworkCropBounds.centeredSquare(sizes[i][0],sizes[i][1]);
+      if (!java.util.Arrays.equals(crop, expected[i])) throw new AssertionError("crop " + i);
+    }
+    try {
+      ArtworkCropBounds.centeredSquare(0,720);
+      throw new AssertionError("invalid size accepted");
+    } catch (IllegalArgumentException expectedError) {}
     File root = new File(args[0], "app"); root.mkdirs();
     File external = new File(args[0], "external"); external.mkdirs();
     File[] roots = {root, external, null};
@@ -41,7 +51,7 @@ public final class ArtworkPolicyTest {
     if (ArtworkPathPolicy.isAllowed(new File(linkedRoot,"ListenfyCaptures/outside.jpg"),new File[]{linkedRoot})) throw new AssertionError("directory symlink escape");
   }
 }''')
-            subprocess.run(["javac", "-d", str(work), str(source), str(harness)], check=True)
+            subprocess.run(["javac", "-d", str(work), str(source), str(source.with_name("ArtworkCropBounds.java")), str(harness)], check=True)
             subprocess.run(["java", "-cp", str(work), "com.example.listenfy.ArtworkPolicyTest", str(work)], check=True)
 
 if __name__ == "__main__":
