@@ -32,6 +32,8 @@ Uri? resolvePlaybackArtwork(
     return Uri(
       scheme: 'content',
       host: androidAuthority,
+      // Invalidate media-client caches that retained the uncropped cover.
+      queryParameters: const {'v': '2'},
       pathSegments: [
         'cover',
         base64Url.encode(utf8.encode(path)).replaceAll('=', ''),

@@ -32,6 +32,7 @@ void main() {
       ]) {
         final uri = resolve(item(local: path), files: {path})!;
         expect(uri.scheme, 'content');
+        expect(uri.queryParameters['v'], '2');
         expect(uri.host, 'test.listenfy.android_auto_artwork');
         expect(
           utf8.decode(
