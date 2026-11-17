@@ -31,6 +31,7 @@ import 'app/data/network/dio_client.dart';
 import 'app/data/repo/media_repository.dart';
 import 'app/data/local/local_library_store.dart';
 import 'app/services/audio_service.dart';
+import 'app/services/desktop_playback_backend.dart';
 import 'app/services/sqlite_engine_history_factory.dart';
 import 'app/data/playback/playback_repository.dart';
 import 'app/data/playback/playback_debug_bootstrap.dart';
@@ -72,6 +73,7 @@ import 'Modules/stats/application/weekly_listening_summary.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  initializeDesktopPlaybackBackend();
   await EasyLocalization.ensureInitialized();
   await GetStorage.init();
 

@@ -4,7 +4,10 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
+  audio_service_win
   flutter_timezone
+  media_kit_libs_windows_video
+  media_kit_video
   permission_handler_windows
   share_plus
   url_launcher_windows

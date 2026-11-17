@@ -682,9 +682,10 @@ class _SourceThemeTopicPlaylistPageState
     if (!mounted) return;
     final sheetColor = Theme.of(context).colorScheme.surface;
 
-    await showModalBottomSheet<void>(
+    await showAdaptiveSortMenu<void>(
       context: context,
       isScrollControlled: true,
+      maxWidth: 820,
       showDragHandle: true,
       backgroundColor: sheetColor,
       shape: const RoundedRectangleBorder(
@@ -746,7 +747,7 @@ class _SourceThemeTopicPlaylistPageState
         ? Get.find<NavigationController>()
         : null;
     nav?.setOverlayOpen(true);
-    await showModalBottomSheet<void>(
+    await showAdaptiveSortMenu<void>(
       context: context,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(

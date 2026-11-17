@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -51,7 +53,9 @@ class _SourceAddItemsSheetState extends State<SourceAddItemsSheet> {
 
     return SafeArea(
       child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.82,
+        height: AppBottomNav.desktopSidebarEnabled
+            ? math.min(640.0, MediaQuery.sizeOf(context).height - 128)
+            : MediaQuery.sizeOf(context).height * 0.82,
         child: Column(
           children: [
             Padding(

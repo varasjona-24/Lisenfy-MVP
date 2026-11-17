@@ -1,4 +1,6 @@
 import 'package:flutter/services.dart';
+
+import 'desktop_media_tools.dart';
 import 'package:get/get.dart';
 
 class LocalAudioMetadata {
@@ -27,10 +29,11 @@ class LocalMediaMetadataService extends GetxService {
   }
 
   Future<LocalAudioMetadata?> readMediaMetadata(String path) async {
-    final clean = path.replaceFirst('file://', '').trim();
+    final clean = DesktopMediaTools.localPath(path);
     if (clean.isEmpty) return null;
 
     try {
+      if (DesktopMediaTools.supported) return await _readDesktop(clean);
       final result = await _channel.invokeMethod<Map<dynamic, dynamic>>(
         'extractAudioMetadata',
         {'path': clean},
@@ -55,6 +58,50 @@ class LocalMediaMetadataService extends GetxService {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<LocalAudioMetadata> _readDesktop(String path) async {
+    const tools = DesktopMediaTools();
+    final data = await tools.probe(path);
+    final format = data['format'] as Map<String, dynamic>? ?? {};
+    final streams = (data['streams'] as List? ?? [])
+        .cast<Map<String, dynamic>>();
+    final tags = <String, dynamic>{};
+    // Container tags take precedence over individual stream tags.
+    for (final source in [
+      ...streams.map((stream) => stream['tags']),
+      format['tags'],
+    ]) {
+      if (source is Map) {
+        for (final entry in source.entries) {
+          tags[entry.key.toString().toLowerCase()] = entry.value;
+        }
+      }
+    }
+    Uint8List? picture;
+    final covers = streams.where(
+      (stream) => (stream['disposition'] as Map?)?['attached_pic'] == 1,
+    );
+    if (covers.isNotEmpty) {
+      try {
+        picture = await tools.picture(
+          path,
+          streamIndex: covers.first['index'] as int,
+        );
+      } catch (_) {
+        // A damaged cover must not discard valid text metadata.
+      }
+    }
+    final duration = double.tryParse('${format['duration']}');
+    return LocalAudioMetadata(
+      title: _asCleanString(tags['title']),
+      artist: _asCleanString(tags['artist'] ?? tags['album_artist']),
+      album: _asCleanString(tags['album']),
+      durationSeconds: duration != null && duration.isFinite && duration > 0
+          ? duration.floor()
+          : null,
+      pictureBytes: picture,
+    );
   }
 
   String? _asCleanString(dynamic raw) {

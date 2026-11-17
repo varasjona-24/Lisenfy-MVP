@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../app/controllers/navigation_controller.dart';
+import '../../../app/ui/widgets/dialogs/sort_options_sheet.dart';
+import '../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 
 class SourceCollectionCard extends StatefulWidget {
   const SourceCollectionCard({
@@ -57,6 +59,9 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOutCubic,
       child: GestureDetector(
+        onSecondaryTap: AppBottomNav.desktopSidebarEnabled
+            ? _openActionsSheet
+            : null,
         onTapDown: (_) => setState(() => _isPressed = true),
         onTapUp: (_) {
           setState(() => _isPressed = false);
@@ -393,7 +398,7 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
   Future<void> _openActionsSheet() async {
     _setOverlayOpen(true);
     final scheme = Theme.of(context).colorScheme;
-    await showModalBottomSheet<void>(
+    await showAdaptiveSortMenu<void>(
       context: context,
       showDragHandle: true,
       backgroundColor: scheme.surface,
@@ -405,6 +410,28 @@ class _SourceCollectionCardState extends State<SourceCollectionCard> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (AppBottomNav.desktopSidebarEnabled)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.folder_copy_rounded,
+                        size: 40,
+                        color: scheme.primary,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          widget.name,
+                          style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ListTile(
                 leading: const Icon(Icons.edit_rounded),
                 title: Text(tr('sources.edit')),

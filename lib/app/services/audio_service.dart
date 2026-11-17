@@ -627,17 +627,23 @@ class AudioService extends GetxService with WidgetsBindingObserver {
   Uri? _resolveArtUri(MediaItem item) {
     final local = item.thumbnailLocalPath?.trim();
     if (local != null && local.isNotEmpty) {
-      // Android Auto and AAOS run outside Listenfy's process. They cannot
-      // resolve a private file:// URI, so expose persisted covers through the
-      // tightly scoped AndroidAutoArtworkProvider instead.
-      return Uri(
-        scheme: 'content',
-        host: _androidAutoArtworkAuthority,
-        pathSegments: [
-          'cover',
-          base64Url.encode(utf8.encode(local)).replaceAll('=', ''),
-        ],
-      );
+      if (!Platform.isAndroid) {
+        final uri = Uri.tryParse(local);
+        final path = uri?.scheme == 'file' ? uri!.toFilePath() : local;
+        if (File(path).existsSync()) return Uri.file(path);
+      } else {
+        // Android Auto and AAOS run outside Listenfy's process. They cannot
+        // resolve a private file:// URI, so expose persisted covers through the
+        // tightly scoped AndroidAutoArtworkProvider instead.
+        return Uri(
+          scheme: 'content',
+          host: _androidAutoArtworkAuthority,
+          pathSegments: [
+            'cover',
+            base64Url.encode(utf8.encode(local)).replaceAll('=', ''),
+          ],
+        );
+      }
     }
 
     final remote = item.thumbnail?.trim();

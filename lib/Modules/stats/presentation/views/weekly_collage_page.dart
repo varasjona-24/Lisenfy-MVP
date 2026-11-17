@@ -1,3 +1,4 @@
+import '../../../../app/ui/widgets/dialogs/sort_options_sheet.dart';
 import '../../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 import '../widgets/wrapped_artwork.dart';
 import '../../../../app/ui/widgets/navigation/app_navigation_scaffold.dart';
@@ -132,7 +133,7 @@ class _WeeklyCollagePageState extends State<WeeklyCollagePage> {
     DateTime weekOf(DateTime day) =>
         DateTime(day.year, day.month, day.day - day.weekday + 1);
     final available = weeks.map(weekOf).toSet();
-    final picked = await showModalBottomSheet<DateTime>(
+    final picked = await showAdaptiveSortMenu<DateTime>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,

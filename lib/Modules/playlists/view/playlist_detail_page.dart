@@ -426,7 +426,7 @@ class PlaylistDetailPage extends GetView<PlaylistsController> {
         ? Get.find<NavigationController>()
         : null;
     nav?.setOverlayOpen(true);
-    final action = await showModalBottomSheet<_TrackAction>(
+    final action = await showAdaptiveSortMenu<_TrackAction>(
       context: context,
       showDragHandle: true,
       builder: (ctx) {

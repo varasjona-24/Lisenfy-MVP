@@ -12,6 +12,7 @@ import 'package:video_player/video_player.dart' as vp;
 import 'package:listenfy/Modules/captures/data/capture_gallery_store.dart';
 import 'package:listenfy/Modules/player/Video/controller/video_player_controller.dart';
 import '../../../../app/models/media_item.dart';
+import '../../../../app/services/desktop_media_tools.dart';
 import '../../../../app/routes/app_routes.dart';
 import '../../../../app/ui/widgets/motion/app_motion.dart';
 import '../../../settings/controller/playback_settings_controller.dart';
@@ -1287,14 +1288,11 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     setState(() => _captureSaving = true);
 
     try {
-      final bytes = await _previewChannel.invokeMethod<Uint8List>(
-        'extractFrame',
-        {
-          'source': source,
-          'positionMs': positionMs,
-          'maxWidth': 1920,
-          'quality': 92,
-        },
+      final bytes = await _extractFrame(
+        source: source,
+        positionMs: positionMs,
+        maxWidth: 1920,
+        quality: 92,
       );
       if (bytes == null || bytes.isEmpty) {
         throw Exception('No se pudo generar la captura.');
@@ -1397,18 +1395,39 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     });
   }
 
+  Future<Uint8List?> _extractFrame({
+    required String source,
+    required int positionMs,
+    required int maxWidth,
+    required int quality,
+  }) {
+    if (DesktopMediaTools.supported) {
+      return const DesktopMediaTools().frame(
+        source: source,
+        positionMs: positionMs,
+        maxWidth: maxWidth,
+        quality: quality,
+      );
+    }
+    return _previewChannel.invokeMethod<Uint8List>('extractFrame', {
+      'source': source,
+      'positionMs': positionMs,
+      'maxWidth': maxWidth,
+      'quality': quality,
+    });
+  }
+
   Future<void> _loadPreviewFrame(String source, Duration position) async {
     final requestId = ++_previewRequestId;
     final key = _previewCacheKey(source, position);
 
     try {
-      final bytes = await _previewChannel
-          .invokeMethod<Uint8List>('extractFrame', {
-            'source': source,
-            'positionMs': position.inMilliseconds,
-            'maxWidth': 240,
-            'quality': 64,
-          });
+      final bytes = await _extractFrame(
+        source: source,
+        positionMs: position.inMilliseconds,
+        maxWidth: 240,
+        quality: 64,
+      );
       if (!mounted || requestId != _previewRequestId) return;
 
       if (bytes != null && bytes.isNotEmpty) {

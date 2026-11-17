@@ -20,7 +20,7 @@ class AppOptionSelector<T> extends StatelessWidget {
 
   Future<void> _openOptions(BuildContext context) async {
     final theme = Theme.of(context);
-    final selected = await showModalBottomSheet<T>(
+    final selected = await showAdaptiveSortMenu<T>(
       context: context,
       showDragHandle: true,
       backgroundColor: theme.colorScheme.surface,

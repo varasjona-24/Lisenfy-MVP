@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/material.dart';
 import '../ui/widgets/navigation/app_bottom_nav.dart';
+import '../ui/widgets/dialogs/sort_options_sheet.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
@@ -791,8 +792,12 @@ class MediaActionsController extends GetxController {
     }
     if (index < 0 || index >= sourceItems.length) index = 0;
 
-    final mode = await Get.bottomSheet<_QueueActionKind>(
-      _QueueModeSheet(
+    final context = Get.context;
+    if (context == null || !context.mounted) return null;
+    final mode = await showAdaptiveSortMenu<_QueueActionKind>(
+      context: context,
+      showDragHandle: false,
+      builder: (_) => _QueueModeSheet(
         options: [
           _QueueModeOptionData(
             kind: _QueueActionKind.append,
@@ -809,7 +814,9 @@ class MediaActionsController extends GetxController {
         ],
       ),
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppBottomNav.desktopSidebarEnabled
+          ? Get.theme.colorScheme.surface
+          : Colors.transparent,
     );
     if (mode == null) return null;
     if (mode == _QueueActionKind.append) return _QueueAction.append();
@@ -903,8 +910,13 @@ class MediaActionsController extends GetxController {
       );
     }
 
-    return await Get.bottomSheet<List<MediaItem>>(
-      PlaylistSongPickerSheet(
+    final context = Get.context;
+    if (context == null || !context.mounted) return null;
+    return await showAdaptiveSortMenu<List<MediaItem>>(
+      context: context,
+      maxWidth: 820,
+      showDragHandle: false,
+      builder: (_) => PlaylistSongPickerSheet(
         title: title,
         allItems: allItems,
         initialSelectedKeys: initialSelectedKeys,
@@ -978,59 +990,67 @@ class _QueueModeSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
+    final desktop = AppBottomNav.desktopSidebarEnabled;
     return SafeArea(
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: 0.55),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 42,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(
-                    color: scheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(99),
+      child: SingleChildScrollView(
+        child: Container(
+          margin: desktop
+              ? EdgeInsets.zero
+              : const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          decoration: desktop
+              ? null
+              : BoxDecoration(
+                  color: scheme.surface,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.55),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!desktop)
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: scheme.outlineVariant,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                Text(
+                  tr('media_actions.queue_mode_title'),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-              ),
-              Text(
-                tr('media_actions.queue_mode_title'),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
+                const SizedBox(height: 4),
+                Text(
+                  tr('media_actions.queue_mode_sheet_subtitle'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                tr('media_actions.queue_mode_sheet_subtitle'),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 14),
-              for (var i = 0; i < options.length; i++) ...[
-                _QueueModeOption(data: options[i]),
-                if (i != options.length - 1) const SizedBox(height: 10),
+                const SizedBox(height: 14),
+                for (var i = 0; i < options.length; i++) ...[
+                  _QueueModeOption(data: options[i]),
+                  if (i != options.length - 1) const SizedBox(height: 10),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

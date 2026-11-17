@@ -270,7 +270,7 @@ class _AppSongsSearchPageState extends State<AppSongsSearchPage> {
         ? Get.find<NavigationController>()
         : null;
     nav?.setOverlayOpen(true);
-    await showModalBottomSheet<void>(
+    await showAdaptiveSortMenu<void>(
       context: context,
       showDragHandle: true,
       backgroundColor: scheme.surface,

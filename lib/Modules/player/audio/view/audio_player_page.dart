@@ -17,6 +17,8 @@ import '../../../../app/ui/widgets/layout/app_gradient_background.dart';
 import '../../../../app/ui/widgets/player/player_instrumental_sheet.dart';
 import '../../../../app/ui/widgets/player/player_lyrics_sheet.dart';
 import '../../../../app/services/spatial_audio_service.dart';
+import '../../../../app/ui/widgets/dialogs/sort_options_sheet.dart';
+import '../../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 
 void openPlayerVisualStyleSheet({
   required CoverStyle currentStyle,
@@ -24,6 +26,20 @@ void openPlayerVisualStyleSheet({
   required ValueChanged<CoverStyle> onSelected,
 }) {
   if (Get.isBottomSheetOpen ?? false) return;
+  if (AppBottomNav.desktopSidebarEnabled) {
+    final context = Get.context;
+    if (context == null || (Get.isDialogOpen ?? false)) return;
+    showAdaptiveSortMenu<void>(
+      context: context,
+      maxWidth: 620,
+      builder: (_) => _PlayerVisualStyleSheet(
+        currentStyle: currentStyle,
+        options: options,
+        onSelected: onSelected,
+      ),
+    );
+    return;
+  }
 
   Get.bottomSheet<void>(
     _PlayerVisualStyleSheet(
@@ -741,6 +757,79 @@ class _PlayerVisualStyleSheet extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final screenSize = MediaQuery.sizeOf(context);
+    if (AppBottomNav.desktopSidebarEnabled) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    tr('player.visualizer.title'),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: tr('common.close'),
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              tr('player.visualizer.subtitle'),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 20),
+            for (final style in options) ...[
+              Card(
+                margin: EdgeInsets.zero,
+                color: style == currentStyle
+                    ? scheme.primaryContainer
+                    : scheme.surfaceContainerHighest,
+                elevation: 0,
+                child: ListTile(
+                  key: ValueKey('desktop-cover-style-${style.name}'),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  leading: Icon(
+                    _iconFor(style),
+                    size: 34,
+                    color: scheme.primary,
+                  ),
+                  title: Text(
+                    _labelFor(style),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(_descriptionFor(style)),
+                  ),
+                  trailing: style == currentStyle
+                      ? Icon(Icons.check_circle_rounded, color: scheme.primary)
+                      : null,
+                  onTap: () {
+                    onSelected(style);
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
+        ),
+      );
+    }
 
     return Material(
       color: theme.scaffoldBackgroundColor,
