@@ -38,6 +38,7 @@ class NotificationSettingsController extends GetxController {
       final granted = await _notifications.requestPermission();
       if (!granted) {
         notificationsEnabled.value = false;
+        await _storage.write(NotificationService.masterEnabledKey, false);
         Get.snackbar(
           'Notificaciones desactivadas',
           'Puedes habilitarlas más tarde desde los ajustes del sistema.',

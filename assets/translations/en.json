@@ -1329,6 +1329,7 @@
     }
   },
   "player": {
+    "fullscreen_error": "Could not change fullscreen mode.",
     "video_jump_back": "Rewind by the selected interval",
     "video_jump_forward": "Advance by the selected interval",
     "video_previous": "Previous video",
@@ -1618,6 +1619,11 @@
     }
   },
   "edit": {
+    "audio_cleanup_replace_original": "Replace original audio",
+    "audio_cleanup_replace_description": "The original will be deleted after the cleaned M4A is validated and saved.",
+    "audio_cleanup_keep_both": "Keep both files. This uses more storage.",
+    "audio_cleanup_replace_action": "Replace audio",
+    "audio_cleanup_original_retained": "Cleaned version saved. The original was kept because it is in use, shared, or could not be deleted.",
     "saving_changes": "Saving changes…",
     "save_changes_error": "Saving could not be completed. Review your changes and try again.",
     "metadata_suggestions_title": "Metadata suggestions",

@@ -19,6 +19,7 @@ import '../../../app/data/repo/media_repository.dart';
 import '../../../app/models/audio_cleanup.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/services/audio_cleanup_service.dart';
+import '../../../app/services/cleaned_audio_commit.dart';
 import '../../../app/services/audio_service.dart';
 import '../../../app/services/musicbrainz_metadata_service.dart';
 import '../../../app/services/metadata_search_query_resolver_service.dart';
@@ -392,12 +393,16 @@ class EditEntityController extends GetxController {
     );
   }
 
+  bool cleanupOriginalRetained = false;
+
   Future<MediaItem?> applyMediaSilenceCleanup({
     required MediaItem item,
     required String sourcePath,
     required List<AudioSilenceSegment> removeSegments,
     int fadeMs = 20,
+    bool replaceOriginal = false,
   }) async {
+    cleanupOriginalRetained = false;
     if (removeSegments.isEmpty) return null;
 
     final latest = await resolveLatestMedia(item);
@@ -434,20 +439,29 @@ class EditEntityController extends GetxController {
       durationSeconds: cleanedDurationSeconds,
     );
 
-    final existing = latest.variants.where((v) {
-      final path = v.localPath?.trim();
-      if (path == null || path.isEmpty) return true;
-      return path != outputPath;
-    });
-
-    final updated = latest.copyWith(
-      variants: [cleanedVariant, ...existing],
-      durationSeconds: latest.durationSeconds,
-    );
-
-    await _store.upsert(updated);
+    final committed =
+        await CleanedAudioCommit(
+          _store,
+          isInUse: (path) {
+            final audioPath = Get.isRegistered<AudioService>()
+                ? Get.find<AudioService>().currentVariant.value?.localPath
+                : null;
+            final videoPath = Get.isRegistered<VideoService>()
+                ? Get.find<VideoService>().currentVariant.value?.localPath
+                : null;
+            return CleanedAudioCommit.samePath(audioPath, path) ||
+                CleanedAudioCommit.samePath(videoPath, path);
+          },
+        ).save(
+          media: latest,
+          cleaned: cleanedVariant,
+          sourcePath: sourcePath,
+          replaceOriginal: replaceOriginal,
+        );
+    cleanupOriginalRetained = replaceOriginal && committed.originalRetained;
+    _refreshLivePlaybackItem(committed.item);
     await _refreshDependentControllers();
-    return updated;
+    return committed.item;
   }
 
   Future<void> _refreshDependentControllers() async {

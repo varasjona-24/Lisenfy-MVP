@@ -1329,6 +1329,7 @@
     }
   },
   "player": {
+    "fullscreen_error": "Não foi possível alterar o modo de tela cheia.",
     "video_jump_back": "Retroceder pelo intervalo selecionado",
     "video_jump_forward": "Avançar pelo intervalo selecionado",
     "video_previous": "Vídeo anterior",
@@ -1618,6 +1619,11 @@
     }
   },
   "edit": {
+    "audio_cleanup_replace_original": "Substituir o áudio original",
+    "audio_cleanup_replace_description": "O original será apagado após validar e salvar o M4A limpo.",
+    "audio_cleanup_keep_both": "Manter os dois arquivos. Isso usa mais espaço.",
+    "audio_cleanup_replace_action": "Substituir áudio",
+    "audio_cleanup_original_retained": "Versão limpa salva. O original foi mantido porque está em uso, compartilhado ou não pôde ser apagado.",
     "saving_changes": "Salvando alterações…",
     "save_changes_error": "Não foi possível concluir o salvamento. Revise suas alterações e tente novamente.",
     "metadata_suggestions_title": "Sugestões de metadados",

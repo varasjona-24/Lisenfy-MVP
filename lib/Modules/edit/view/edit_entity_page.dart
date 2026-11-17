@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../app/models/audio_cleanup.dart';
+import '../../../app/services/desktop_media_tools.dart';
 import '../../../app/models/media_item.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../app/services/musicbrainz_metadata_service.dart';
@@ -30,6 +31,11 @@ import '../../sources/ui/source_color_picker_field.dart';
 import '../controller/edit_entity_controller.dart';
 import 'edit_save_button.dart';
 import '../../../app/ui/widgets/dialogs/image_search_dialog.dart';
+
+typedef _AudioCleanupSelection = ({
+  List<AudioSilenceSegment> segments,
+  bool replaceOriginal,
+});
 
 class EditEntityPage extends StatefulWidget {
   const EditEntityPage({super.key});
@@ -526,7 +532,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
     return '${two(value.day)}/${two(value.month)}/${value.year} ${two(value.hour)}:${two(value.minute)}';
   }
 
-  Future<List<AudioSilenceSegment>?> _showAudioCleanupSheet(
+  Future<_AudioCleanupSelection?> _showAudioCleanupSheet(
     AudioSilenceAnalysis analysis,
   ) async {
     final segments = analysis.segments;
@@ -534,7 +540,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
     final selected = List<bool>.filled(segments.length, true);
 
-    return _showEditorSheet<List<AudioSilenceSegment>>(
+    var replaceOriginal = DesktopMediaTools.supported;
+    return _showEditorSheet<_AudioCleanupSelection>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -746,6 +753,21 @@ class _EditEntityPageState extends State<EditEntityPage> {
                         },
                       ),
                     ),
+                    if (DesktopMediaTools.supported)
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(tr('edit.audio_cleanup_replace_original')),
+                        subtitle: Text(
+                          tr(
+                            replaceOriginal
+                                ? 'edit.audio_cleanup_replace_description'
+                                : 'edit.audio_cleanup_keep_both',
+                          ),
+                        ),
+                        value: replaceOriginal,
+                        onChanged: (value) =>
+                            setModalState(() => replaceOriginal = value),
+                      ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -765,10 +787,19 @@ class _EditEntityPageState extends State<EditEntityPage> {
                                     for (int i = 0; i < segments.length; i++) {
                                       if (selected[i]) picked.add(segments[i]);
                                     }
-                                    Navigator.of(context).pop(picked);
+                                    Navigator.of(context).pop((
+                                      segments: picked,
+                                      replaceOriginal: replaceOriginal,
+                                    ));
                                   },
                             icon: const Icon(Icons.content_cut_rounded),
-                            label: Text(tr('edit.create_clean_version')),
+                            label: Text(
+                              tr(
+                                replaceOriginal
+                                    ? 'edit.audio_cleanup_replace_action'
+                                    : 'edit.create_clean_version',
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -817,7 +848,7 @@ class _EditEntityPageState extends State<EditEntityPage> {
       final picked = await _showAudioCleanupSheet(analysisBundle.analysis);
       if (!mounted || picked == null) return;
 
-      if (picked.isEmpty) {
+      if (picked.segments.isEmpty) {
         Get.snackbar(
           tr('edit.clean_sound_title'),
           tr('edit.audio_cleanup_none_selected'),
@@ -829,7 +860,8 @@ class _EditEntityPageState extends State<EditEntityPage> {
       final updated = await _controller.applyMediaSilenceCleanup(
         item: analysisBundle.media,
         sourcePath: analysisBundle.sourcePath,
-        removeSegments: picked,
+        removeSegments: picked.segments,
+        replaceOriginal: picked.replaceOriginal,
       );
       if (!mounted) return;
 
@@ -849,7 +881,11 @@ class _EditEntityPageState extends State<EditEntityPage> {
 
       Get.snackbar(
         tr('edit.clean_sound_title'),
-        tr('edit.audio_cleanup_saved'),
+        tr(
+          _controller.cleanupOriginalRetained
+              ? 'edit.audio_cleanup_original_retained'
+              : 'edit.audio_cleanup_saved',
+        ),
         snackPosition: SnackPosition.BOTTOM,
       );
     } catch (e) {

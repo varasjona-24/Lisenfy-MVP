@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:easy_localization/easy_localization.dart'
     hide StringTranslateExtension;
 import 'package:flutter/foundation.dart';
@@ -7,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../Modules/stats/application/weekly_listening_summary.dart';
 import '../routes/app_routes.dart';
@@ -14,8 +13,13 @@ import '../routes/app_routes.dart';
 enum GeneratedAudioVariantKind { instrumental, spatial8d }
 
 class NotificationService extends GetxService {
-  NotificationService({FlutterLocalNotificationsPlugin? plugin})
-    : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+  NotificationService({
+    FlutterLocalNotificationsPlugin? plugin,
+    GetStorage? storage,
+    TargetPlatform? platform,
+  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+       _storage = storage ?? GetStorage(),
+       _platform = platform ?? defaultTargetPlatform;
 
   static const masterEnabledKey = 'notificationsEnabled';
   static const importsEnabledKey = 'notificationsImportsEnabled';
@@ -38,13 +42,24 @@ class NotificationService extends GetxService {
   static const _timerNotificationId = 4203;
 
   final FlutterLocalNotificationsPlugin _plugin;
-  final GetStorage _storage = GetStorage();
+  final GetStorage _storage;
+  final TargetPlatform _platform;
 
   bool _initialized = false;
   String? _pendingPayload;
   WeeklyListeningSummaryLoader? _weeklySummaryLoader;
 
-  bool get isSupported => Platform.isAndroid || Platform.isIOS;
+  bool get isSupported =>
+      !kIsWeb &&
+      {
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+        TargetPlatform.macOS,
+        TargetPlatform.windows,
+      }.contains(_platform);
+
+  bool get _desktop =>
+      _platform == TargetPlatform.macOS || _platform == TargetPlatform.windows;
 
   bool get isMasterEnabled => _storage.read<bool>(masterEnabledKey) ?? false;
 
@@ -57,7 +72,7 @@ class NotificationService extends GetxService {
   }
 
   Future<NotificationService> init() async {
-    if (!isSupported) return this;
+    if (!isSupported || _initialized) return this;
 
     const android = AndroidInitializationSettings('ic_listenfy_notification');
     const iOS = DarwinInitializationSettings(
@@ -65,42 +80,84 @@ class NotificationService extends GetxService {
       requestBadgePermission: false,
       requestSoundPermission: false,
     );
-    const settings = InitializationSettings(android: android, iOS: iOS);
-
-    await _plugin.initialize(
-      settings: settings,
-      onDidReceiveNotificationResponse: (response) {
-        _handlePayload(response.payload);
-      },
+    const settings = InitializationSettings(
+      android: android,
+      iOS: iOS,
+      macOS: DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      ),
+      windows: WindowsInitializationSettings(
+        appName: 'Listenfy',
+        appUserModelId: 'com.jv24dev.listenfy',
+        guid: '0109fdb9-5f2e-52d2-a5a4-e5e14ab33b8f',
+      ),
     );
 
-    final launchDetails = await _plugin.getNotificationAppLaunchDetails();
-    if (launchDetails?.didNotificationLaunchApp == true) {
-      _pendingPayload = launchDetails?.notificationResponse?.payload;
+    try {
+      final initialized = await _plugin.initialize(
+        settings: settings,
+        onDidReceiveNotificationResponse: (response) {
+          _handlePayload(response.payload);
+        },
+      );
+      // Darwin returns false when permission requests are deferred. Windows
+      // returns false for an actual registration failure.
+      if (_platform == TargetPlatform.windows && initialized != true) {
+        _debugLog('Windows notification registration failed');
+        return this;
+      }
+      _initialized = true;
+      try {
+        final launchDetails = await _plugin.getNotificationAppLaunchDetails();
+        if (launchDetails?.didNotificationLaunchApp == true) {
+          _pendingPayload = launchDetails?.notificationResponse?.payload;
+        }
+      } catch (error) {
+        _debugLog('could not read notification launch details: $error');
+      }
+    } catch (error) {
+      // Notifications must not prevent playback or app startup.
+      _debugLog('notification initialization failed: $error');
     }
-
-    _initialized = true;
     return this;
   }
 
   Future<bool> requestPermission() async {
     if (!isSupported || !_initialized) return false;
 
-    if (Platform.isAndroid) {
+    try {
+      if (_platform == TargetPlatform.windows) {
+        // Windows has no runtime permission dialog. OS settings still apply.
+        return true;
+      }
+      if (_platform == TargetPlatform.macOS) {
+        return await _plugin
+                .resolvePlatformSpecificImplementation<
+                  MacOSFlutterLocalNotificationsPlugin
+                >()
+                ?.requestPermissions(alert: true, badge: true, sound: true) ??
+            false;
+      }
+      if (_platform == TargetPlatform.android) {
+        return await _plugin
+                .resolvePlatformSpecificImplementation<
+                  AndroidFlutterLocalNotificationsPlugin
+                >()
+                ?.requestNotificationsPermission() ??
+            false;
+      }
       return await _plugin
               .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin
+                IOSFlutterLocalNotificationsPlugin
               >()
-              ?.requestNotificationsPermission() ??
+              ?.requestPermissions(alert: true, badge: true, sound: true) ??
           false;
+    } catch (error) {
+      _debugLog('notification permission request failed: $error');
+      return false;
     }
-
-    return await _plugin
-            .resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin
-            >()
-            ?.requestPermissions(alert: true, badge: true, sound: true) ??
-        false;
   }
 
   Future<void> syncScheduledNotifications() async {
@@ -199,10 +256,12 @@ class NotificationService extends GetxService {
 
   String _generatedVariantLabel(GeneratedAudioVariantKind variant) {
     return switch (variant) {
-      GeneratedAudioVariantKind.instrumental =>
-        tr('notifications.imports.variant_instrumental'),
-      GeneratedAudioVariantKind.spatial8d =>
-        tr('notifications.imports.variant_spatial8d'),
+      GeneratedAudioVariantKind.instrumental => tr(
+        'notifications.imports.variant_instrumental',
+      ),
+      GeneratedAudioVariantKind.spatial8d => tr(
+        'notifications.imports.variant_spatial8d',
+      ),
     };
   }
 
@@ -345,7 +404,21 @@ class NotificationService extends GetxService {
   }
 
   Future<bool> _canPostNotification(NotificationDetails details) async {
-    if (!Platform.isAndroid) return true;
+    if (_platform == TargetPlatform.macOS) {
+      try {
+        final permissions = await _plugin
+            .resolvePlatformSpecificImplementation<
+              MacOSFlutterLocalNotificationsPlugin
+            >()
+            ?.checkPermissions();
+        return permissions?.isEnabled == true ||
+            permissions?.isProvisionalEnabled == true;
+      } catch (error) {
+        _debugLog('could not inspect macOS notification permission: $error');
+        return false;
+      }
+    }
+    if (_platform != TargetPlatform.android) return true;
 
     try {
       final android = _plugin
@@ -492,10 +565,20 @@ class NotificationService extends GetxService {
   }
 
   void _navigate(String route) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (_desktop) {
+        try {
+          await windowManager.show();
+          await windowManager.focus();
+        } catch (error) {
+          _debugLog('could not focus notification window: $error');
+        }
+      }
       if (Get.currentRoute == route) return;
       Get.toNamed(route);
     });
+    // A native click may arrive while Flutter has no frame scheduled.
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   static NotificationDetails get _importsDetails => NotificationDetails(
@@ -507,6 +590,12 @@ class NotificationService extends GetxService {
       priority: Priority.high,
     ),
     iOS: const DarwinNotificationDetails(),
+    macOS: const DarwinNotificationDetails(
+      presentAlert: true,
+      presentBanner: true,
+      presentList: true,
+    ),
+    windows: const WindowsNotificationDetails(),
   );
 
   static NotificationDetails get _connectDetails => NotificationDetails(
@@ -518,6 +607,12 @@ class NotificationService extends GetxService {
       priority: Priority.high,
     ),
     iOS: const DarwinNotificationDetails(),
+    macOS: const DarwinNotificationDetails(
+      presentAlert: true,
+      presentBanner: true,
+      presentList: true,
+    ),
+    windows: const WindowsNotificationDetails(),
   );
 
   static NotificationDetails get _timersDetails => NotificationDetails(
@@ -529,6 +624,12 @@ class NotificationService extends GetxService {
       priority: Priority.defaultPriority,
     ),
     iOS: const DarwinNotificationDetails(),
+    macOS: const DarwinNotificationDetails(
+      presentAlert: true,
+      presentBanner: true,
+      presentList: true,
+    ),
+    windows: const WindowsNotificationDetails(),
   );
 
   static NotificationDetails get _weeklyDetails => NotificationDetails(
@@ -538,6 +639,12 @@ class NotificationService extends GetxService {
       channelDescription: tr('notifications.weekly.channel_description'),
     ),
     iOS: const DarwinNotificationDetails(),
+    macOS: const DarwinNotificationDetails(
+      presentAlert: true,
+      presentBanner: true,
+      presentList: true,
+    ),
+    windows: const WindowsNotificationDetails(),
   );
 
   static NotificationDetails get _recommendationsDetails => NotificationDetails(
@@ -549,5 +656,11 @@ class NotificationService extends GetxService {
       ),
     ),
     iOS: const DarwinNotificationDetails(),
+    macOS: const DarwinNotificationDetails(
+      presentAlert: true,
+      presentBanner: true,
+      presentList: true,
+    ),
+    windows: const WindowsNotificationDetails(),
   );
 }

@@ -1329,6 +1329,7 @@
     }
   },
   "player": {
+    "fullscreen_error": "No se pudo cambiar la pantalla completa.",
     "video_jump_back": "Retroceder el intervalo elegido",
     "video_jump_forward": "Avanzar el intervalo elegido",
     "video_previous": "Video anterior",
@@ -1618,6 +1619,11 @@
     }
   },
   "edit": {
+    "audio_cleanup_replace_original": "Reemplazar el audio original",
+    "audio_cleanup_replace_description": "Se borrará el original después de validar y guardar el M4A limpio.",
+    "audio_cleanup_keep_both": "Conservar ambos archivos. Se usará más espacio.",
+    "audio_cleanup_replace_action": "Reemplazar audio",
+    "audio_cleanup_original_retained": "Versión limpia guardada. Se conservó el original porque está en uso, compartido o no se pudo borrar.",
     "saving_changes": "Guardando cambios…",
     "save_changes_error": "No se pudo completar el guardado. Revisa los cambios e inténtalo de nuevo.",
     "metadata_suggestions_title": "Sugerencias de metadatos",

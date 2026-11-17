@@ -13,6 +13,7 @@ import 'package:listenfy/Modules/captures/data/capture_gallery_store.dart';
 import 'package:listenfy/Modules/player/Video/controller/video_player_controller.dart';
 import '../../../../app/models/media_item.dart';
 import '../../../../app/services/desktop_media_tools.dart';
+import '../../../../app/services/desktop_video_fullscreen.dart';
 import '../../../../app/routes/app_routes.dart';
 import '../../../../app/ui/widgets/motion/app_motion.dart';
 import '../../../settings/controller/playback_settings_controller.dart';
@@ -33,6 +34,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   bool _pointerOverControls = false;
   bool _showControls = true;
   bool _isFullscreen = false;
+  DesktopVideoFullscreen? _windowFullscreen;
   bool _controlsLocked = false;
   bool _fillVideo = false;
   Timer? _hideTimer;
@@ -80,10 +82,28 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     ]);
     _scheduleHide();
     _bindPip();
+    if (DesktopVideoFullscreen.supported) {
+      _windowFullscreen = DesktopVideoFullscreen()
+        ..addListener(_syncWindowFullscreen);
+      unawaited(
+        _windowFullscreen!.initialize().catchError((Object error) {
+          debugPrint('Fullscreen initialization failed: $error');
+        }),
+      );
+    }
   }
 
   @override
   void dispose() {
+    final fullscreen = _windowFullscreen;
+    if (fullscreen != null) {
+      fullscreen.removeListener(_syncWindowFullscreen);
+      unawaited(
+        fullscreen.close().catchError((Object error) {
+          debugPrint('Fullscreen restoration failed: $error');
+        }),
+      );
+    }
     _hideTimer?.cancel();
     _speedTimer?.cancel();
     _singleDoubleTapTimer?.cancel();
@@ -1188,7 +1208,21 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     });
   }
 
-  void _toggleFullscreen() {
+  void _syncWindowFullscreen() {
+    if (mounted) setState(() => _isFullscreen = _windowFullscreen!.value);
+  }
+
+  Future<void> _toggleFullscreen() async {
+    final fullscreen = _windowFullscreen;
+    if (fullscreen != null) {
+      try {
+        await fullscreen.toggle();
+      } catch (error) {
+        debugPrint('Fullscreen request failed: $error');
+        if (mounted) _showToast(tr('player.fullscreen_error'));
+      }
+      return;
+    }
     setState(() => _isFullscreen = !_isFullscreen);
     if (_isFullscreen) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);

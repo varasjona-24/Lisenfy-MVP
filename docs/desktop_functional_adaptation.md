@@ -7,9 +7,9 @@ con integración nativa y validación específica en cada sistema.
 1. Metadatos locales y portada incrustada: integrado con FFprobe/FFmpeg; pendiente validación física Windows.
 2. Capturas y miniaturas de video: integrado con FFmpeg preservando proporción; pendiente prueba UI y Windows.
 3. Portadas en controles multimedia del sistema: corregidas URI locales para escritorio; content:// queda solo en Android. Pendiente prueba real del panel multimedia.
-4. Pantalla completa nativa: pendiente implementación de ventana en ambos sistemas.
-5. Notificaciones: pendiente inicialización, permisos y registro Windows/macOS.
-6. Limpieza de silencios: pendiente análisis/render con FFmpeg.
+4. Pantalla completa nativa: integrada con window_manager para macOS/Windows; botón, doble clic y atajos usan la ventana real. Sincroniza eventos nativos y restaura el modo inicial al salir del video. Pendiente prueba manual Windows.
+5. Notificaciones: integrados registro Windows, permiso macOS solicitado desde Ajustes, presentación de avisos y navegación con foco de ventana. Pendiente validación manual en ambos sistemas.
+6. Limpieza de silencios: integrado PCM mediante FFmpeg, análisis RMS en isolate y salida M4A/AAC con reemplazo opcional del original. Conserva selección de intervalos y fades en las uniones. Pendiente prueba manual Windows.
 7. Salidas de audio: pendiente detección nativa y actualización al conectar dispositivos.
 8. Ecualizador y efectos en vivo: pendiente motor compatible; no confundir con variantes preprocesadas.
 9. Importación emparejada: pendiente portadas y lotes de playlists; habilitar ordenador anfitrión Windows y adaptar certificados.
@@ -61,3 +61,48 @@ lista navegable de la cola del sistema ni una implementación completa de su tim
 La cola dentro de Listenfy sigue siendo la existente.
 Validar también cambio audio/video y liberación de los reproductores al cerrar.
 No se ha ejecutado compilación Windows desde esta Mac.
+
+## Notificaciones de escritorio
+
+Activar el interruptor general en Ajustes y las categorías deseadas.
+macOS solicita permisos en ese momento, no al iniciar. Los permisos revocados
+impiden publicar y no consumen el ciclo de recomendaciones.
+Windows registra Listenfy con identidad y GUID estables; no tiene diálogo de
+permiso en la app. Ajustes del sistema y No molestar pueden ocultar los avisos.
+Las notificaciones usan los mismos eventos y preferencias de móvil; no se han
+creado alarmas nuevas ni tareas que ejecuten Listenfy estando cerrado.
+Los resúmenes semanales se comprueban al iniciar/reanudar, dentro del periodo
+ya definido; no son una alarma garantizada con el programa cerrado.
+
+Probar importación correcta/fallida, instrumental/8D, Connect y temporizadores;
+comprobar clic con ventana minimizada y arranque desde una notificación.
+La recuperación de avisos antiguos y cancelación en Windows requiere identidad
+de paquete (MSIX); fuera de MSIX la biblioteca no cancela avisos ya mostrados.
+La app sigue impidiendo nuevas publicaciones cuando se desactiva la categoría.
+
+## Limpieza de silencios
+
+El editor conserva su selección de intervalos. En escritorio, FFmpeg decodifica
+la pista de audio a PCM temporal. El cálculo RMS por ventanas y la copia de los
+fragmentos se ejecutan en un isolate, por bloques, sin cargar todo el audio en RAM.
+La duración mínima predeterminada sigue siendo 4 segundos y el umbral -35 dB.
+Los parámetros y niveles medios son compatibles con el análisis de Android.
+
+Solo se quitan intervalos seleccionados; los solapados se unen y los límites se
+ajustan a la duración real. Se impide borrar todo el audio. Las uniones aplican
+fades de 20 ms por defecto (máximo 80 ms) sin cambiar la duración conservada.
+Se crea una variante M4A/AAC a 256 kbps en Documents/downloads/cleaned_audio
+(del contenedor de la aplicación cuando hay sandbox). Se comprueban el códec,
+la duración, los canales, la frecuencia y la decodificación completa antes de
+registrarla. El panel permite reemplazar el audio original o conservar ambos.
+El reemplazo guarda primero la biblioteca y solo después borra el archivo viejo.
+Si está en uso o compartido, conserva ambos y muestra un aviso. Los PCM temporales se eliminan al terminar o al fallar.
+Se necesita espacio temporal para la decodificación sin comprimir.
+
+Validación local con FFmpeg y FFprobe:
+
+```
+flutter test --dart-define=RUN_DESKTOP_MEDIA_TOOLS=true test/app/downloads/desktop_audio_cleanup_test.dart
+```
+
+Pendiente validar manualmente el flujo del editor y ejecutarlo en Windows.

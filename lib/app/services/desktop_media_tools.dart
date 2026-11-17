@@ -55,7 +55,11 @@ class DesktopMediaTools {
     throw StateError('No se encontró $tool en las herramientas de escritorio.');
   }
 
-  Future<ProcessResult> run(String tool, List<String> arguments) async {
+  Future<ProcessResult> run(
+    String tool,
+    List<String> arguments, {
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
     final process = await Process.start(await find(tool), arguments);
     final output = process.stdout.fold<List<int>>(
       [],
@@ -63,7 +67,7 @@ class DesktopMediaTools {
     );
     final errors = process.stderr.transform(utf8.decoder).join();
     try {
-      final code = await process.exitCode.timeout(const Duration(seconds: 30));
+      final code = await process.exitCode.timeout(timeout);
       final result = ProcessResult(
         process.pid,
         code,
@@ -74,6 +78,11 @@ class DesktopMediaTools {
       return result;
     } finally {
       process.kill();
+      // Release native file handles before callers remove temporary files,
+      // including on timeout (Windows does not allow deleting open files).
+      await process.exitCode;
+      await output;
+      await errors;
     }
   }
 

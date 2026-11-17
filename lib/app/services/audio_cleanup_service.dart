@@ -2,8 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../models/audio_cleanup.dart';
+import 'desktop_audio_cleanup.dart';
+import 'desktop_media_tools.dart';
 
 class AudioCleanupService {
+  AudioCleanupService({DesktopAudioCleanup? desktop})
+    : _desktop = desktop ?? DesktopAudioCleanup();
+
+  final DesktopAudioCleanup _desktop;
   static const MethodChannel _channel = MethodChannel('listenfy/audio_cleanup');
 
   Future<AudioSilenceAnalysis?> analyzeSilences({
@@ -16,6 +22,14 @@ class AudioCleanupService {
     if (path.isEmpty) return null;
 
     try {
+      if (DesktopMediaTools.supported) {
+        return await _desktop.analyze(
+          path: path,
+          minSilenceMs: minSilenceMs,
+          windowMs: windowMs,
+          thresholdDb: thresholdDb,
+        );
+      }
       final raw = await _channel
           .invokeMethod<Map<dynamic, dynamic>>('analyzeSilences', {
             'path': path,
@@ -44,6 +58,13 @@ class AudioCleanupService {
     if (path.isEmpty || removeSegments.isEmpty) return null;
 
     try {
+      if (DesktopMediaTools.supported) {
+        return await _desktop.render(
+          path: path,
+          segments: removeSegments,
+          fadeMs: fadeMs,
+        );
+      }
       final raw = await _channel
           .invokeMethod<Map<dynamic, dynamic>>('renderCleanedAudio', {
             'path': path,

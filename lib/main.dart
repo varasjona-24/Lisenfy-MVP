@@ -4,6 +4,7 @@ import 'dart:io';
 import 'app/utils/app_locales.dart';
 
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 import 'app/ui/widgets/navigation/app_bottom_nav.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'app/data/local/catalog_storage.dart';
@@ -74,6 +75,9 @@ import 'Modules/stats/application/weekly_listening_summary.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   initializeDesktopPlaybackBackend();
+  if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+    await windowManager.ensureInitialized();
+  }
   await EasyLocalization.ensureInitialized();
   await GetStorage.init();
 
