@@ -10,8 +10,8 @@ con integración nativa y validación específica en cada sistema.
 4. Pantalla completa nativa: integrada con window_manager para macOS/Windows; botón, doble clic y atajos usan la ventana real. Sincroniza eventos nativos y restaura el modo inicial al salir del video. Pendiente prueba manual Windows.
 5. Notificaciones: integrados registro Windows, permiso macOS solicitado desde Ajustes, presentación de avisos y navegación con foco de ventana. Pendiente validación manual en ambos sistemas.
 6. Limpieza de silencios: integrado PCM mediante FFmpeg, análisis RMS en isolate y salida M4A/AAC con reemplazo opcional del original. Conserva selección de intervalos y fades en las uniones. Pendiente prueba manual Windows.
-7. Salidas de audio: pendiente detección nativa y actualización al conectar dispositivos.
-8. Ecualizador y efectos en vivo: pendiente motor compatible; no confundir con variantes preprocesadas.
+7. Salidas de audio: integradas enumeración nativa macOS/Windows, salida predeterminada y actualización cada 2 segundos mientras el panel está activo. Acceso a los ajustes de sonido. Pendiente prueba real Windows.
+8. Ecualizador y efectos en vivo: se mantienen exclusivos de Android por decisión de producto. Controles ocultos en escritorio; sin migración de motores. Instrumental y variantes 8D generadas siguen disponibles.
 9. Importación emparejada: pendiente portadas y lotes de playlists; habilitar ordenador anfitrión Windows y adaptar certificados.
 10. Integración con sistema: pendiente enlaces listenfy://, abrir con y arrastre externo.
 11. Distribución: pendiente empaquetado Windows, firma/notarización macOS, pruebas Intel/ARM y equipos limpios.
@@ -106,3 +106,17 @@ flutter test --dart-define=RUN_DESKTOP_MEDIA_TOOLS=true test/app/downloads/deskt
 ```
 
 Pendiente validar manualmente el flujo del editor y ejecutarlo en Windows.
+
+## Salidas de audio
+
+macOS consulta Core Audio y Windows enumera endpoints de reproducción activos
+con IMMDeviceEnumerator. La etiqueta predeterminada corresponde a la salida
+multimedia del sistema, no a una medición de la ruta de cada proceso.
+El panel se actualiza cada dos segundos, deja de consultar al pausar la app y
+cancela el temporizador al desmontarse. El botón abre los ajustes de sonido.
+No cambia automáticamente la salida ni modifica los dispositivos emparejados.
+No se inventan niveles de batería: solo aparecen cuando el sistema los proporciona.
+En Windows el tipo USB/Bluetooth depende de la información del adaptador; si no
+está disponible, se muestra el tipo físico o un tipo genérico.
+Probar conectar/desconectar auriculares, USB/HDMI y cambiar el dispositivo
+predeterminado desde el sistema. La enumeración Windows requiere prueba nativa.

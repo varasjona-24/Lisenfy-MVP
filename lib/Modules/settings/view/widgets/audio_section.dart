@@ -9,11 +9,13 @@ import '../../controller/playback_settings_controller.dart';
 import '../../controller/sleep_timer_controller.dart';
 import '../../controller/equalizer_controller.dart';
 import '../../../../app/services/bluetooth_audio_service.dart';
+import '../../../../app/ui/widgets/navigation/app_bottom_nav.dart';
 
 import '../widgets/section_block.dart';
 import '../widgets/value_pill.dart';
 import '../widgets/info_tile.dart';
 import '../widgets/device_tile.dart';
+import 'desktop_audio_outputs.dart';
 
 class AudioSection extends StatelessWidget {
   const AudioSection({super.key});
@@ -23,7 +25,9 @@ class AudioSection extends StatelessWidget {
     final theme = Theme.of(context);
     final playback = Get.find<PlaybackSettingsController>();
     final sleepTimer = Get.find<SleepTimerController>();
-    final equalizer = Get.find<EqualizerController>();
+    final equalizer = AppBottomNav.desktopSidebarEnabled
+        ? null
+        : Get.find<EqualizerController>();
     final settings = Get.find<SettingsController>();
 
     String formatRemaining(Duration d) {
@@ -188,217 +192,223 @@ class AudioSection extends StatelessWidget {
                   );
                 }),
 
-                const SizedBox(height: 8),
-                Divider(color: theme.dividerColor.withValues(alpha: .12)),
-                const SizedBox(height: 8),
+                if (equalizer != null) ...[
+                  const SizedBox(height: 8),
+                  Divider(color: theme.dividerColor.withValues(alpha: .12)),
+                  const SizedBox(height: 8),
 
-                // Equalizer
-                Obx(() {
-                  if (!equalizer.eqAvailable.value) {
-                    return InfoTile(
-                      icon: Icons.graphic_eq_rounded,
-                      title: tr('settings.audio.equalizer'),
-                      subtitle: equalizer.eqUnavailableMessage.value.isNotEmpty
-                          ? tr(equalizer.eqUnavailableMessage.value)
-                          : tr('settings.audio.android_only'),
-                    );
-                  }
+                  // Equalizer
+                  Obx(() {
+                    if (!equalizer.eqAvailable.value) {
+                      return InfoTile(
+                        icon: Icons.graphic_eq_rounded,
+                        title: tr('settings.audio.equalizer'),
+                        subtitle:
+                            equalizer.eqUnavailableMessage.value.isNotEmpty
+                            ? tr(equalizer.eqUnavailableMessage.value)
+                            : tr('settings.audio.android_only'),
+                      );
+                    }
 
-                  if (equalizer.eqFrequencies.isEmpty ||
-                      equalizer.eqGains.isEmpty) {
-                    return InfoTile(
-                      icon: Icons.graphic_eq_rounded,
-                      title: tr('settings.audio.equalizer'),
-                      subtitle: tr('settings.audio.loading_params'),
-                      trailing: const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                    if (equalizer.eqFrequencies.isEmpty ||
+                        equalizer.eqGains.isEmpty) {
+                      return InfoTile(
+                        icon: Icons.graphic_eq_rounded,
+                        title: tr('settings.audio.equalizer'),
+                        subtitle: tr('settings.audio.loading_params'),
+                        trailing: const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      );
+                    }
+
+                    final presets = <String, String>{
+                      'normal': 'Normal',
+                      'custom': tr('settings.audio.preset_custom'),
+                      'bass': 'Bass',
+                      'treble': tr('settings.audio.preset_treble'),
+                      'vocal': 'Vocal',
+                      'podcast': 'Podcast',
+                      'movie': tr('settings.audio.preset_movie'),
+                      'gaming': 'Gaming',
+                      'pop': 'Pop',
+                      'rock': 'Rock',
+                      'jazz': 'Jazz',
+                      'classical': tr('settings.audio.preset_classical'),
+                      'acoustic': tr('settings.audio.preset_acoustic'),
+                      'hiphop': 'Hip-Hop',
+                      'rnb': 'R&B',
+                      'dance': 'Dance',
+                      'edm': 'EDM',
+                      'latin': tr('settings.audio.preset_latin'),
+                      'metal': 'Metal',
+                      'piano': 'Piano',
+                      'blues': 'Blues',
+                      'country': 'Country',
+                      'reggae': 'Reggae',
+                      'electronic': 'Electronic',
+                      'night': tr('settings.audio.preset_night'),
+                      'loudness': 'Loudness',
+                    };
+
+                    final presetGroups = [
+                      _EqPresetGroupSpec(
+                        id: 'basicos',
+                        title: tr('settings.audio.group_basic'),
+                        subtitle: tr('settings.audio.group_basic_subtitle'),
+                        icon: Icons.tune_rounded,
+                        keys: const [
+                          'normal',
+                          'custom',
+                          'bass',
+                          'treble',
+                          'vocal',
+                        ],
                       ),
-                    );
-                  }
+                      _EqPresetGroupSpec(
+                        id: 'musica_1',
+                        title: tr('settings.audio.group_music'),
+                        subtitle: tr('settings.audio.group_music_subtitle'),
+                        icon: Icons.library_music_rounded,
+                        keys: const [
+                          'pop',
+                          'rock',
+                          'jazz',
+                          'classical',
+                          'acoustic',
+                          'piano',
+                        ],
+                      ),
+                      _EqPresetGroupSpec(
+                        id: 'musica_2',
+                        title: tr('settings.audio.group_genres'),
+                        subtitle: tr('settings.audio.group_genres_subtitle'),
+                        icon: Icons.graphic_eq_rounded,
+                        keys: const [
+                          'hiphop',
+                          'rnb',
+                          'dance',
+                          'edm',
+                          'latin',
+                          'metal',
+                        ],
+                      ),
+                      _EqPresetGroupSpec(
+                        id: 'voz_escena',
+                        title: tr('settings.audio.group_voice_scene'),
+                        subtitle: tr(
+                          'settings.audio.group_voice_scene_subtitle',
+                        ),
+                        icon: Icons.record_voice_over_rounded,
+                        keys: const ['podcast', 'movie', 'gaming'],
+                      ),
+                      _EqPresetGroupSpec(
+                        id: 'extras',
+                        title: tr('settings.audio.group_extras'),
+                        subtitle: tr('settings.audio.group_extras_subtitle'),
+                        icon: Icons.auto_awesome_rounded,
+                        keys: const [
+                          'blues',
+                          'country',
+                          'reggae',
+                          'electronic',
+                          'night',
+                          'loudness',
+                        ],
+                      ),
+                    ];
 
-                  final presets = <String, String>{
-                    'normal': 'Normal',
-                    'custom': tr('settings.audio.preset_custom'),
-                    'bass': 'Bass',
-                    'treble': tr('settings.audio.preset_treble'),
-                    'vocal': 'Vocal',
-                    'podcast': 'Podcast',
-                    'movie': tr('settings.audio.preset_movie'),
-                    'gaming': 'Gaming',
-                    'pop': 'Pop',
-                    'rock': 'Rock',
-                    'jazz': 'Jazz',
-                    'classical': tr('settings.audio.preset_classical'),
-                    'acoustic': tr('settings.audio.preset_acoustic'),
-                    'hiphop': 'Hip-Hop',
-                    'rnb': 'R&B',
-                    'dance': 'Dance',
-                    'edm': 'EDM',
-                    'latin': tr('settings.audio.preset_latin'),
-                    'metal': 'Metal',
-                    'piano': 'Piano',
-                    'blues': 'Blues',
-                    'country': 'Country',
-                    'reggae': 'Reggae',
-                    'electronic': 'Electronic',
-                    'night': tr('settings.audio.preset_night'),
-                    'loudness': 'Loudness',
-                  };
+                    return Column(
+                      children: [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          title: Text(
+                            'Ecualizador',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Text(
+                            tr('settings.audio.eq_subtitle'),
+                            style: theme.textTheme.bodySmall,
+                          ),
+                          value: equalizer.eqEnabled.value,
+                          onChanged: equalizer.setEqEnabled,
+                        ),
+                        const SizedBox(height: 8),
 
-                  final presetGroups = [
-                    _EqPresetGroupSpec(
-                      id: 'basicos',
-                      title: tr('settings.audio.group_basic'),
-                      subtitle: tr('settings.audio.group_basic_subtitle'),
-                      icon: Icons.tune_rounded,
-                      keys: const [
-                        'normal',
-                        'custom',
-                        'bass',
-                        'treble',
-                        'vocal',
-                      ],
-                    ),
-                    _EqPresetGroupSpec(
-                      id: 'musica_1',
-                      title: tr('settings.audio.group_music'),
-                      subtitle: tr('settings.audio.group_music_subtitle'),
-                      icon: Icons.library_music_rounded,
-                      keys: const [
-                        'pop',
-                        'rock',
-                        'jazz',
-                        'classical',
-                        'acoustic',
-                        'piano',
-                      ],
-                    ),
-                    _EqPresetGroupSpec(
-                      id: 'musica_2',
-                      title: tr('settings.audio.group_genres'),
-                      subtitle: tr('settings.audio.group_genres_subtitle'),
-                      icon: Icons.graphic_eq_rounded,
-                      keys: const [
-                        'hiphop',
-                        'rnb',
-                        'dance',
-                        'edm',
-                        'latin',
-                        'metal',
-                      ],
-                    ),
-                    _EqPresetGroupSpec(
-                      id: 'voz_escena',
-                      title: tr('settings.audio.group_voice_scene'),
-                      subtitle: tr('settings.audio.group_voice_scene_subtitle'),
-                      icon: Icons.record_voice_over_rounded,
-                      keys: const ['podcast', 'movie', 'gaming'],
-                    ),
-                    _EqPresetGroupSpec(
-                      id: 'extras',
-                      title: tr('settings.audio.group_extras'),
-                      subtitle: tr('settings.audio.group_extras_subtitle'),
-                      icon: Icons.auto_awesome_rounded,
-                      keys: const [
-                        'blues',
-                        'country',
-                        'reggae',
-                        'electronic',
-                        'night',
-                        'loudness',
-                      ],
-                    ),
-                  ];
+                        SectionBlock(
+                          title: tr('settings.audio.presets'),
+                          subtitle: tr('settings.audio.presets_subtitle'),
+                          trailing: ValuePill(
+                            text:
+                                presets[equalizer.eqPreset.value] ??
+                                equalizer.eqPreset.value,
+                          ),
+                          child: Column(
+                            children: presetGroups.map((group) {
+                              final entries = group.keys
+                                  .where(presets.containsKey)
+                                  .map((key) => MapEntry(key, presets[key]!))
+                                  .toList(growable: false);
 
-                  return Column(
-                    children: [
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        title: Text(
-                          'Ecualizador',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: _EqPresetGroupTile(
+                                  group: group,
+                                  presets: entries,
+                                  selectedKey: equalizer.eqPreset.value,
+                                  onSelected: (key) =>
+                                      equalizer.setEqPreset(key),
+                                ),
+                              );
+                            }).toList(),
                           ),
                         ),
-                        subtitle: Text(
-                          tr('settings.audio.eq_subtitle'),
-                          style: theme.textTheme.bodySmall,
-                        ),
-                        value: equalizer.eqEnabled.value,
-                        onChanged: equalizer.setEqEnabled,
-                      ),
-                      const SizedBox(height: 8),
 
-                      SectionBlock(
-                        title: tr('settings.audio.presets'),
-                        subtitle: tr('settings.audio.presets_subtitle'),
-                        trailing: ValuePill(
-                          text:
-                              presets[equalizer.eqPreset.value] ??
-                              equalizer.eqPreset.value,
-                        ),
-                        child: Column(
-                          children: presetGroups.map((group) {
-                            final entries = group.keys
-                                .where(presets.containsKey)
-                                .map((key) => MapEntry(key, presets[key]!))
-                                .toList(growable: false);
+                        const SizedBox(height: 12),
 
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: _EqPresetGroupTile(
-                                group: group,
-                                presets: entries,
-                                selectedKey: equalizer.eqPreset.value,
-                                onSelected: (key) => equalizer.setEqPreset(key),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      ...List.generate(equalizer.eqGains.length, (i) {
-                        final freq = equalizer.eqFrequencies[i];
-                        final value = equalizer.eqGains[i];
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '$freq Hz',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                trackHeight: 3,
-                                thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 9,
+                        ...List.generate(equalizer.eqGains.length, (i) {
+                          final freq = equalizer.eqFrequencies[i];
+                          final value = equalizer.eqGains[i];
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '$freq Hz',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              child: Slider(
-                                value: value,
-                                min: equalizer.eqMinDb.value,
-                                max: equalizer.eqMaxDb.value,
-                                divisions: 20,
-                                label: '${value.toStringAsFixed(1)} dB',
-                                onChanged: equalizer.eqEnabled.value
-                                    ? (v) => equalizer.setEqGain(i, v)
-                                    : null,
+                              SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 3,
+                                  thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 9,
+                                  ),
+                                ),
+                                child: Slider(
+                                  value: value,
+                                  min: equalizer.eqMinDb.value,
+                                  max: equalizer.eqMaxDb.value,
+                                  divisions: 20,
+                                  label: '${value.toStringAsFixed(1)} dB',
+                                  onChanged: equalizer.eqEnabled.value
+                                      ? (v) => equalizer.setEqGain(i, v)
+                                      : null,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                          ],
-                        );
-                      }),
-                    ],
-                  );
-                }),
+                              const SizedBox(height: 6),
+                            ],
+                          );
+                        }),
+                      ],
+                    );
+                  }),
+                ],
 
                 const SizedBox(height: 8),
                 Divider(color: theme.dividerColor.withValues(alpha: .12)),
@@ -584,120 +594,126 @@ class AudioSection extends StatelessWidget {
                 Divider(color: theme.dividerColor.withValues(alpha: .12)),
                 const SizedBox(height: 8),
 
-                // Output / Bluetooth
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  leading: const Icon(Icons.bluetooth_audio_rounded),
-                  title: Text(
-                    tr('settings.audio.audio_output'),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                if (BluetoothAudioService.isDesktop)
+                  const DesktopAudioOutputs()
+                else ...[
+                  // Output / Bluetooth
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    leading: const Icon(Icons.bluetooth_audio_rounded),
+                    title: Text(
+                      tr('settings.audio.audio_output'),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      tr('settings.audio.audio_output_subtitle'),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    trailing: OutlinedButton.icon(
+                      onPressed: () => AppSettings.openAppSettings(
+                        type: AppSettingsType.bluetooth,
+                      ),
+                      icon: const Icon(Icons.settings_rounded, size: 18),
+                      label: Text(tr('settings.audio.settings_button')),
                     ),
                   ),
-                  subtitle: Text(
-                    tr('settings.audio.audio_output_subtitle'),
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  trailing: OutlinedButton.icon(
-                    onPressed: () => AppSettings.openAppSettings(
-                      type: AppSettingsType.bluetooth,
-                    ),
-                    icon: const Icon(Icons.settings_rounded, size: 18),
-                    label: Text(tr('settings.audio.settings_button')),
-                  ),
-                ),
 
-                const SizedBox(height: 8),
+                  const SizedBox(height: 8),
 
-                // Devices snapshot
-                Obx(() {
-                  settings.bluetoothTick.value; // keep refresh behavior
-                  return FutureBuilder<BluetoothAudioSnapshot>(
-                    future: settings.getBluetoothSnapshot(),
-                    builder: (context, snap) {
-                      final loading =
-                          snap.connectionState != ConnectionState.done;
+                  // Devices snapshot
+                  Obx(() {
+                    settings.bluetoothTick.value; // keep refresh behavior
+                    return FutureBuilder<BluetoothAudioSnapshot>(
+                      future: settings.getBluetoothSnapshot(),
+                      builder: (context, snap) {
+                        final loading =
+                            snap.connectionState != ConnectionState.done;
 
-                      if (loading) {
-                        return InfoTile(
-                          icon: Icons.sync_rounded,
-                          title: tr('settings.audio.searching_devices'),
-                          subtitle: tr('settings.audio.checking_bluetooth'),
-                          trailing: const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        );
-                      }
-
-                      final data = snap.data;
-                      final devices =
-                          data?.devices ?? const <BluetoothAudioDevice>[];
-                      final bluetoothOn = data?.bluetoothOn ?? false;
-
-                      if (!bluetoothOn) {
-                        return InfoTile(
-                          icon: Icons.bluetooth_disabled_rounded,
-                          title: tr('settings.audio.bluetooth_off'),
-                          subtitle: tr('settings.audio.bluetooth_off_subtitle'),
-                          trailing: IconButton(
-                            tooltip: tr('settings.audio.open_settings'),
-                            onPressed: () => AppSettings.openAppSettings(
-                              type: AppSettingsType.bluetooth,
+                        if (loading) {
+                          return InfoTile(
+                            icon: Icons.sync_rounded,
+                            title: tr('settings.audio.searching_devices'),
+                            subtitle: tr('settings.audio.checking_bluetooth'),
+                            trailing: const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
-                            icon: const Icon(Icons.settings_rounded),
-                          ),
-                        );
-                      }
+                          );
+                        }
 
-                      if (devices.isEmpty) {
-                        return InfoTile(
-                          icon: Icons.headphones_rounded,
-                          title: tr('settings.audio.no_devices'),
-                          subtitle: tr('settings.audio.no_devices_subtitle'),
-                          trailing: IconButton(
-                            tooltip: tr('settings.audio.refresh'),
-                            onPressed: settings.refreshBluetoothDevices,
-                            icon: const Icon(Icons.refresh_rounded),
-                          ),
-                        );
-                      }
+                        final data = snap.data;
+                        final devices =
+                            data?.devices ?? const <BluetoothAudioDevice>[];
+                        final bluetoothOn = data?.bluetoothOn ?? false;
 
-                      return Column(
-                        children: [
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: Text(
-                                tr('settings.audio.detected_devices'),
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
+                        if (!bluetoothOn) {
+                          return InfoTile(
+                            icon: Icons.bluetooth_disabled_rounded,
+                            title: tr('settings.audio.bluetooth_off'),
+                            subtitle: tr(
+                              'settings.audio.bluetooth_off_subtitle',
+                            ),
+                            trailing: IconButton(
+                              tooltip: tr('settings.audio.open_settings'),
+                              onPressed: () => AppSettings.openAppSettings(
+                                type: AppSettingsType.bluetooth,
+                              ),
+                              icon: const Icon(Icons.settings_rounded),
+                            ),
+                          );
+                        }
+
+                        if (devices.isEmpty) {
+                          return InfoTile(
+                            icon: Icons.headphones_rounded,
+                            title: tr('settings.audio.no_devices'),
+                            subtitle: tr('settings.audio.no_devices_subtitle'),
+                            trailing: IconButton(
+                              tooltip: tr('settings.audio.refresh'),
+                              onPressed: settings.refreshBluetoothDevices,
+                              icon: const Icon(Icons.refresh_rounded),
+                            ),
+                          );
+                        }
+
+                        return Column(
+                          children: [
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: Text(
+                                  tr('settings.audio.detected_devices'),
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
 
-                          ...devices.map(
-                            (device) => DeviceTile(device: device),
-                          ),
-
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton.icon(
-                              onPressed: settings.refreshBluetoothDevices,
-                              icon: const Icon(Icons.refresh_rounded),
-                              label: Text(tr('settings.audio.refresh')),
+                            ...devices.map(
+                              (device) => DeviceTile(device: device),
                             ),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                }),
+
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                onPressed: settings.refreshBluetoothDevices,
+                                icon: const Icon(Icons.refresh_rounded),
+                                label: Text(tr('settings.audio.refresh')),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  }),
+                ],
               ],
             ),
           ),
